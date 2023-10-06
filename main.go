@@ -1,5 +1,5 @@
 package yo
 
-func Main() {
-	println("Hola Yo!")
+func Init() {
+	apisInit()
 }
