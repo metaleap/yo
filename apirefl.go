@@ -15,7 +15,7 @@ type apiReflectMethod struct {
 	Out  string
 }
 
-func apiHandleRefl(it *Ctx, _ *Void, ret *apiReflect) error {
+func apiHandleRefl(_ *Ctx, _ *Void, ret *apiReflect) error {
 	ret.Types = map[string]map[string]string{}
 	for methodPath, f := range API {
 		m := apiReflectMethod{Path: methodPath}
