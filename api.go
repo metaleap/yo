@@ -53,7 +53,7 @@ func (me apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
 }
 
 func apiInit() {
-	API["__/refl"] = InOut[T0, apiReflect](apiHandleRefl)
+	API["__/refl"] = InOut[Void, apiReflect](apiHandleRefl)
 }
 
 func ListenAndServe() {
@@ -96,7 +96,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	resp_data, err := json.Marshal(result)
+	resp_data, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		http.Error(rw, err.Error(), 500)
 		return

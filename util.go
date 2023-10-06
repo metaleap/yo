@@ -2,6 +2,7 @@ package yo
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -28,4 +29,15 @@ func If[T any](b bool, t T, f T) T {
 		return t
 	}
 	return f
+}
+
+func reflHasMethod(ty reflect.Type, name string) bool {
+	for ty.Kind() == reflect.Pointer {
+		ty = ty.Elem()
+	}
+	_, ok := ty.MethodByName(name)
+	if !ok {
+		_, ok = reflect.PointerTo(ty).MethodByName(name)
+	}
+	return ok
 }
