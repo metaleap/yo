@@ -1,15 +1,13 @@
 package yo
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"log"
 	"net/http"
 	"reflect"
-	"strconv"
 )
-
-type Void struct{}
 
 type APIMethods = map[string]APIMethod
 
@@ -20,6 +18,7 @@ type apiHandleFunc = func(*Ctx, any) (any, error)
 type APIMethod interface {
 	handle() apiHandleFunc
 	loadPayload(data []byte) (any, error)
+	reflTypes() (reflect.Type, reflect.Type)
 }
 
 func InOut[TIn any, TOut any](f func(*Ctx, *TIn, *TOut) error) APIMethod {
@@ -28,20 +27,33 @@ func InOut[TIn any, TOut any](f func(*Ctx, *TIn, *TOut) error) APIMethod {
 	if reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct {
 		panic(strFmt("in/out types must be structs, got in:%T, out:%T", tmp_in, tmp_out))
 	}
-	return apiMethod[TIn](func(ctx *Ctx, in any) (any, error) {
-		var out TOut
-		err := f(ctx, in.(*TIn), &out)
-		return &out, err
+	return apiMethod[TIn, TOut](func(ctx *Ctx, in any) (any, error) {
+		var output TOut
+		input, _ := in.(*TIn)
+		err := f(ctx, input, &output)
+		return &output, err
 	})
 }
 
-type apiMethod[T any] apiHandleFunc
+type apiMethod[TIn any, TOut any] apiHandleFunc
 
-func (me apiMethod[T]) handle() apiHandleFunc { return me }
-func (me apiMethod[T]) loadPayload(data []byte) (any, error) {
-	var it T
+func (me apiMethod[TIn, TOut]) handle() apiHandleFunc { return me }
+func (me apiMethod[TIn, TOut]) loadPayload(data []byte) (any, error) {
+	if len(data) == 0 || bytes.Equal(data, jsonNullTok) {
+		return nil, nil
+	}
+	var it TIn
 	err := json.Unmarshal(data, &it)
 	return &it, err
+}
+func (me apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
+	var tmp_in TIn
+	var tmp_out TOut
+	return reflect.ValueOf(tmp_in).Type(), reflect.ValueOf(tmp_out).Type()
+}
+
+func apiInit() {
+	API["__/refl"] = InOut[T0, apiReflect](apiHandleRefl)
 }
 
 func ListenAndServe() {
@@ -49,6 +61,13 @@ func ListenAndServe() {
 }
 
 func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
+	if !IsDebugMode { // want stack traces in local dev
+		defer func() {
+			if crashed := recover(); crashed != nil {
+				http.Error(rw, strFmt("%v", crashed), 500)
+			}
+		}()
+	}
 	ctx := ctxNew(req)
 	defer ctx.dispose()
 
@@ -84,32 +103,6 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	rw.Header().Set("Content-Type", "application/json")
-	rw.Header().Set("Content-Length", strconv.Itoa(len(resp_data)))
+	rw.Header().Set("Content-Length", iToA(len(resp_data)))
 	_, _ = rw.Write(resp_data)
-}
-
-func apiInit() {
-	API["__/refl"] = InOut[Void, apiReflect](apiHandleRefl)
-}
-
-type apiReflect struct {
-	Types   map[string]map[string]string
-	Methods []apiReflectMethod
-}
-
-type apiReflectMethod struct {
-	Path string
-	In   string
-	Out  string
-}
-
-func apiHandleRefl(it *Ctx, in *Void, out *apiReflect) error {
-	for methodPath := range API {
-		out.Methods = append(out.Methods, apiReflectMethod{Path: methodPath})
-	}
-	return nil
-}
-
-func apiRefl(ctx *apiReflect) {
-
 }
