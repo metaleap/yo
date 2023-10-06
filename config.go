@@ -4,6 +4,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -14,14 +15,35 @@ type config struct {
 	YO_API_IMPL_TIMEOUT time.Duration
 }
 
-func cfgLoad(prefix string) {
-	cfg := reflect.ValueOf(cfg)
-	config := cfg.Type()
-	for i := 0; i < config.NumField(); i++ {
-		env_name := config.Field(i).Name
+func cfgLoad() {
+	// Setenv from .env file if any
+	env_file_data, err := os.ReadFile(".env")
+	if err == os.ErrNotExist {
+		err = nil
+	} else if err != nil {
+		panic(err)
+	}
+	if len(env_file_data) > 0 {
+		for i, lines := 0, strings.Split(string(env_file_data), "\n"); i < len(lines); i++ {
+			if name, val, ok := strings.Cut(lines[i], "="); !ok {
+				panic(lines[i])
+			} else if err := os.Setenv(name, val); err != nil {
+				panic(err)
+			}
+		}
+	}
+
+	// fill fields in cfg
+	ptr := reflect.ValueOf(&cfg)
+	struc := ptr.Elem()
+	tstruc := ptr.Type().Elem()
+	for i := 0; i < tstruc.NumField(); i++ {
+		env_name := tstruc.Field(i).Name
 		env_val := os.Getenv(env_name)
 		var new_val any
-		switch t := cfg.Field(i).Interface().(type) {
+		switch t := struc.Field(i).Interface().(type) {
+		case string:
+			new_val = env_val
 		case int:
 			v, err := strconv.ParseInt(env_val, 0, 64)
 			if err != nil {
@@ -37,6 +59,6 @@ func cfgLoad(prefix string) {
 		default:
 			panic(t)
 		}
-		cfg.Field(i).Set(reflect.ValueOf(new_val))
+		struc.Field(i).Set(reflect.ValueOf(new_val))
 	}
 }
