@@ -1,13 +1,13 @@
-type YoType_i8 = number
-type YoType_i16 = number
-type YoType_i32 = number
-type YoType_i64 = number
-type YoType_u8 = number
-type YoType_u16 = number
-type YoType_u32 = number
-type YoType_u64 = number
-type YoType_f32 = number
-type YoType_f64 = number
+type Yo_i8 = number
+type Yo_i16 = number
+type Yo_i32 = number
+type Yo_i64 = number
+type Yo_u8 = number
+type Yo_u16 = number
+type Yo_u32 = number
+type Yo_u64 = number
+type Yo_f32 = number
+type Yo_f64 = number
 
 var yoReq_timeoutMilliSec = 1234
 

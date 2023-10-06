@@ -50,11 +50,11 @@ func apiGenSdkTypeName(typeRef string) string {
 		case "bool":
 			return "boolean"
 		case "int8", "int16", "int32", "int64":
-			return "YoType_i" + t[len("int"):]
+			return "Yo_i" + t[len("int"):]
 		case "uint8", "uint16", "uint32", "uint64":
-			return "YoType_u" + t[len("uint"):]
+			return "Yo_u" + t[len("uint"):]
 		case "float32", "float64":
-			return "YoType_f" + t[len("float"):]
+			return "Yo_f" + t[len("float"):]
 		default:
 			panic(t)
 		}
@@ -69,13 +69,12 @@ func apiGenSdkTypeName(typeRef string) string {
 		}
 		return strFmt("{ [_:%s]: %s }", apiGenSdkTypeName(key_part), apiGenSdkTypeName(val_part))
 	}
-	println(typeRef)
-	return "YoStruct_" + toIdent(typeRef)
+	return "Yo_" + toIdent(typeRef[strIdx(typeRef, '.')+1:])
 }
 
 func apiGenSdkMethod(buf *strings.Builder, api *apiReflect, method *apiReflectMethod) {
 	_, _ = buf.WriteString(strFmt(`
-function yoReq_%s(payload: YoStruct_%s, onSuccess: (_:YoStruct_%s) => void): void {
+function yoReq_%s(payload: Yo_%s, onSuccess: (_:Yo_%s) => void): void {
 	yoReq(%s, payload, onSuccess)
 }`, toIdent(method.Path), toIdent(method.In), toIdent(method.Out), strQ(method.Path)))
 }
