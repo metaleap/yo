@@ -23,14 +23,15 @@ function yoReq(methodPath: string, payload: any, onSuccess?: (_?: any) => void) 
         cache: 'no-cache', mode: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(yoReq_timeoutMilliSec)
     })
         .catch(yoReq_OnFailed)
-        .then((resp: Response) => {
+        .then((resp: Response | void) => {
             if ((!resp) || (!resp.body) || (resp.status !== 200))
                 return yoReq_OnFailed({ 'status_code': resp?.status, 'status_text': resp?.statusText })
             else
                 resp.json()
                     .catch(yoReq_OnFailed)
                     .then((resp_json) => {
-                        onSuccess(resp_json)
+                        if (onSuccess)
+                            onSuccess(resp_json)
                     }, yoReq_OnFailed)
         }, yoReq_OnFailed)
     return false

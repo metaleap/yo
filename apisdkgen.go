@@ -1,20 +1,20 @@
 package yo
 
 import (
-	_ "embed"
 	"os"
 	"strings"
 )
-
-//go:embed sdkgen.ts
-var sdkgen_ts string
 
 func apiGenSdk(tsDstFilePath string) {
 	buf, api := strings.Builder{}, apiReflect{}
 	if err := apiHandleRefl(nil, nil, &api); err != nil {
 		panic(err)
 	}
-	_, _ = buf.WriteString(sdkgen_ts)
+	b, err := staticFrontendDir.ReadFile(".frontend/sdkgen.ts")
+	if err != nil {
+		panic(err)
+	}
+	_, _ = buf.Write(b)
 	for type_name, type_fields := range api.Types {
 		apiGenSdkType(&buf, &api, type_name, type_fields)
 	}
