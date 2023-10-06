@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"reflect"
 	"strconv"
 )
 
@@ -22,6 +23,11 @@ type APIMethod interface {
 }
 
 func InOut[TIn any, TOut any](f func(*Ctx, *TIn, *TOut) error) APIMethod {
+	var tmp_in TIn
+	var tmp_out TOut
+	if reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct {
+		panic(strFmt("in/out types must be structs, got in:%T, out:%T", tmp_in, tmp_out))
+	}
 	return apiMethod[TIn](func(ctx *Ctx, in any) (any, error) {
 		var out TOut
 		err := f(ctx, in.(*TIn), &out)
@@ -80,4 +86,30 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	rw.Header().Set("Content-Length", strconv.Itoa(len(resp_data)))
 	_, _ = rw.Write(resp_data)
+}
+
+func apiInit() {
+	API["__/refl"] = InOut[Void, apiReflect](apiHandleRefl)
+}
+
+type apiReflect struct {
+	Types   map[string]map[string]string
+	Methods []apiReflectMethod
+}
+
+type apiReflectMethod struct {
+	Path string
+	In   string
+	Out  string
+}
+
+func apiHandleRefl(it *Ctx, in *Void, out *apiReflect) error {
+	for methodPath := range API {
+		out.Methods = append(out.Methods, apiReflectMethod{Path: methodPath})
+	}
+	return nil
+}
+
+func apiRefl(ctx *apiReflect) {
+
 }

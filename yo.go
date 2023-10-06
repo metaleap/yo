@@ -9,5 +9,6 @@ var IsDebugMode = strHas(os.Args[0], "__debug_bin") || strHas(os.Args[0], "/go-b
 
 func Init() {
 	cfgLoad()
+	apiInit()
 	ListenAndServe()
 }
