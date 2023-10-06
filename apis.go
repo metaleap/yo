@@ -8,7 +8,11 @@ import (
 	"strconv"
 )
 
-var API = map[string]APIMethod{}
+type Void struct{}
+
+type APIMethods = map[string]APIMethod
+
+var API = APIMethods{}
 
 type apiHandleFunc = func(*Ctx, any) (any, error)
 
@@ -17,9 +21,11 @@ type APIMethod interface {
 	loadPayload(data []byte) (any, error)
 }
 
-func Method[TIn any, TOut any](f func(*Ctx, TIn) (TOut, error)) APIMethod {
+func InOut[TIn any, TOut any](f func(*Ctx, *TIn, *TOut) error) APIMethod {
 	return apiMethod[TIn](func(ctx *Ctx, in any) (any, error) {
-		return f(ctx, in.(TIn))
+		var out TOut
+		err := f(ctx, in.(*TIn), &out)
+		return &out, err
 	})
 }
 

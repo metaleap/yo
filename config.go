@@ -1,6 +1,7 @@
 package yo
 
 import (
+	"bytes"
 	"os"
 	"reflect"
 	"strconv"
@@ -23,7 +24,7 @@ func cfgLoad() {
 	} else if err != nil {
 		panic(err)
 	}
-	if len(env_file_data) > 0 {
+	if env_file_data = bytes.TrimSpace(env_file_data); len(env_file_data) > 0 {
 		for i, lines := 0, strings.Split(string(env_file_data), "\n"); i < len(lines); i++ {
 			if name, val, ok := strings.Cut(lines[i], "="); !ok {
 				panic(lines[i])
