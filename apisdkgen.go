@@ -2,15 +2,18 @@ package yo
 
 import (
 	"os"
+	"os/exec"
 	"strings"
 )
 
-func apiGenSdk(tsDstFilePath string) {
+const ApiSdkGenDstTsFilePath = staticFileDirPath + "/yo-sdk.ts"
+
+func apiGenSdk() {
 	buf, api := strings.Builder{}, apiReflect{}
 	if err := apiHandleRefl(nil, nil, &api); err != nil {
 		panic(err)
 	}
-	b, err := staticFrontendDir.ReadFile(".frontend/sdkgen.ts")
+	b, err := staticFileDir.ReadFile(staticFileDirPath + "/sdkgen.ts")
 	if err != nil {
 		panic(err)
 	}
@@ -21,8 +24,18 @@ func apiGenSdk(tsDstFilePath string) {
 	for _, method := range api.Methods {
 		apiGenSdkMethod(&buf, &api, &method)
 	}
-	if err := os.WriteFile(tsDstFilePath, []byte(buf.String()), os.ModePerm); err != nil {
+	if err := os.WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`), os.ModePerm); err != nil {
 		panic(err)
+	}
+	if err := os.WriteFile(ApiSdkGenDstTsFilePath, []byte(buf.String()), os.ModePerm); err != nil {
+		panic(err)
+	}
+	for _, dir_path := range []string{"", "../yo"} {
+		tsc := exec.Command("tsc")
+		tsc.Dir = dir_path
+		if output, err := tsc.CombinedOutput(); err != nil {
+			panic(err.Error() + "\n" + string(output))
+		}
 	}
 }
 
@@ -74,7 +87,7 @@ func apiGenSdkTypeName(typeRef string) string {
 
 func apiGenSdkMethod(buf *strings.Builder, api *apiReflect, method *apiReflectMethod) {
 	_, _ = buf.WriteString(strFmt(`
-function yoReq_%s(payload: Yo_%s, onSuccess: (_:Yo_%s) => void): void {
+function yoReq_%s(payload: %s, onSuccess: (_:%s) => void): void {
 	yoReq(%s, payload, onSuccess)
-}`, toIdent(method.Path), toIdent(method.In), toIdent(method.Out), strQ(method.Path)))
+}`, toIdent(method.Path), apiGenSdkTypeName(method.In), apiGenSdkTypeName(method.Out), strQ(method.Path)))
 }

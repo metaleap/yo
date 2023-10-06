@@ -1,0 +1,7 @@
+{
+    "compilerOptions": {
+        "noUnusedLocals": true,
+        "target": "ES6",
+        "noErrorTruncation": true
+    }
+}

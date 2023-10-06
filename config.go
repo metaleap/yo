@@ -19,12 +19,12 @@ type config struct {
 func cfgLoad() {
 	// Setenv from .env file if any
 	env_file_data, err := os.ReadFile(".env")
-	if err == os.ErrNotExist {
-		err = nil
-	} else if err != nil {
+	if err != nil {
 		panic(err)
 	}
-	if env_file_data = bytes.TrimSpace(env_file_data); len(env_file_data) > 0 {
+	if env_file_data = bytes.TrimSpace(env_file_data); len(env_file_data) == 0 {
+		panic(".env")
+	} else {
 		for i, lines := 0, strings.Split(string(env_file_data), "\n"); i < len(lines); i++ {
 			if name, val, ok := strings.Cut(lines[i], "="); !ok {
 				panic(lines[i])

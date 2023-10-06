@@ -23,7 +23,7 @@ function yoReq(methodPath: string, payload: any, onSuccess?: (_?: any) => void) 
         cache: 'no-cache', mode: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(yoReq_timeoutMilliSec)
     })
         .catch(yoReq_OnFailed)
-        .then((resp: Response | void) => {
+        .then((resp: Response) => {
             if ((!resp) || (!resp.body) || (resp.status !== 200))
                 return yoReq_OnFailed({ 'status_code': resp?.status, 'status_text': resp?.statusText })
             else
