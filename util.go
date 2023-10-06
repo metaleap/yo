@@ -22,6 +22,7 @@ var (
 	i64ToStr   = strconv.FormatInt
 	i64FromStr = strconv.ParseInt
 	strFmt     = fmt.Sprintf
+	strQ       = strconv.Quote
 )
 
 func If[T any](b bool, t T, f T) T {

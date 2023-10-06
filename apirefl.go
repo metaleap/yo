@@ -31,10 +31,10 @@ func apiReflType(ctx *apiReflect, ty reflect.Type, fldName string, parent string
 		return apiReflType(ctx, ty.Elem(), fldName, parent)
 	}
 	if ty.Kind() == reflect.Slice || ty.Kind() == reflect.Array {
-		return "[]" + apiReflType(ctx, ty.Elem(), fldName, parent)
+		return "[" + apiReflType(ctx, ty.Elem(), fldName, parent) + "]"
 	}
 	if ty.Kind() == reflect.Map {
-		return "[" + apiReflType(ctx, ty.Key(), fldName, parent) + "]" + apiReflType(ctx, ty.Elem(), fldName, parent)
+		return "{" + apiReflType(ctx, ty.Key(), fldName, parent) + ":" + apiReflType(ctx, ty.Elem(), fldName, parent) + "}"
 	}
 	type_ident := ty.PkgPath() + "." + ty.Name()
 	if type_ident == "." && ty.Kind() == reflect.Struct && parent != "" && fldName != "" {

@@ -1,26 +1,37 @@
-var __yo_apiCall__timeoutMilliSec__ = 1234
+type YoType_i8 = number
+type YoType_i16 = number
+type YoType_i32 = number
+type YoType_i64 = number
+type YoType_u8 = number
+type YoType_u16 = number
+type YoType_u32 = number
+type YoType_u64 = number
+type YoType_f32 = number
+type YoType_f64 = number
 
-var __yo_apiCall__onFailed__ = (err: any) => {
+var yoReq_timeoutMilliSec = 1234
+
+var yoReq_OnFailed = (err: any) => {
     console.error(err)
 }
 
-function _yo_apiCall__(methodPath: string, payload: any, onSuccess?: (_?: any) => void) {
+function yoReq(methodPath: string, payload: any, onSuccess?: (_?: any) => void) {
     const uri = "/" + methodPath
     console.log("callAPI:", uri, payload)
     fetch(uri, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-        cache: 'no-cache', mode: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(__yo_apiCall__timeoutMilliSec__)
+        cache: 'no-cache', mode: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(yoReq_timeoutMilliSec)
     })
-        .catch(__yo_apiCall__onFailed__)
+        .catch(yoReq_OnFailed)
         .then((resp: Response) => {
             if ((!resp) || (!resp.body) || (resp.status !== 200))
-                return __yo_apiCall__onFailed__({ 'status_code': resp?.status, 'status_text': resp?.statusText })
+                return yoReq_OnFailed({ 'status_code': resp?.status, 'status_text': resp?.statusText })
             else
                 resp.json()
-                    .catch(__yo_apiCall__onFailed__)
+                    .catch(yoReq_OnFailed)
                     .then((resp_json) => {
                         onSuccess(resp_json)
-                    }, __yo_apiCall__onFailed__)
-        }, __yo_apiCall__onFailed__)
+                    }, yoReq_OnFailed)
+        }, yoReq_OnFailed)
     return false
 }
