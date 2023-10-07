@@ -95,20 +95,22 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
         if (obj && type_struc)
             for (const field_name in type_struc) {
                 const field_type_name = type_struc[field_name]
+                const value = obj[field_name]
                 let value_elem: HTMLElement
-                if (field_type_name === 'time.Time')
-                    value_elem = html.input({ 'type': 'datetime-local', 'readOnly': !isForPayload, 'value': obj[field_name] })
-                else if (['.int8', '.int16', '.int32', '.int64', '.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === field_type_name)))
-                    value_elem = html.input({ 'type': 'number', 'readOnly': !isForPayload, 'value': obj[field_name] })
-                else if (['.float32', '.float64'].some((_) => (_ === field_type_name)))
-                    value_elem = html.input({ 'type': 'number', 'readOnly': !isForPayload, 'value': obj[field_name], 'step': '0.01' })
-                else if (field_type_name === '.string')
-                    value_elem = html.input({ 'type': 'text', 'readOnly': !isForPayload, 'value': obj[field_name] })
-                else if (field_type_name === '.bool')
-                    value_elem = html.input({ 'type': 'checkbox', 'readOnly': !isForPayload, 'checked': obj[field_name] })
+                if ((field_type_name === 'time.Time') && !Number.isNaN(Date.parse(value)))
+                    value_elem = html.input({ 'type': 'datetime-local', 'readOnly': !isForPayload, 'value': value })
+                else if (['.int8', '.int16', '.int32', '.int64', '.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === field_type_name))
+                    && !Number.isNaN(parseInt(value)))
+                    value_elem = html.input({ 'type': 'number', 'readOnly': !isForPayload, 'value': value })
+                else if (['.float32', '.float64'].some((_) => (_ === field_type_name)) && !Number.isNaN(parseFloat(value)))
+                    value_elem = html.input({ 'type': 'number', 'readOnly': !isForPayload, 'step': '0.01', 'value': value })
+                else if ((field_type_name === '.string') && (typeof value === 'string'))
+                    value_elem = html.input({ 'type': 'text', 'readOnly': !isForPayload, 'value': value })
+                else if ((field_type_name === '.bool') && ((value === true) || (value === false)))
+                    value_elem = html.input({ 'type': 'checkbox', 'readOnly': !isForPayload, 'checked': value })
                 else {
                     value_elem = html.ul({})
-                    refreshTreeNode(field_type_name, obj[field_name], value_elem as HTMLUListElement, isForPayload)
+                    refreshTreeNode(field_type_name, value, value_elem as HTMLUListElement, isForPayload)
                 }
                 van.add(ulTree, html.li({}, field_name + ":", value_elem))
             }
@@ -332,25 +334,40 @@ function validate(apiRefl: YoReflApis, type_name: string, value: any, path: stri
         return util.strTrimL(p.substring(p.indexOf('.') + 1) + (k ? ("/" + k.substring(k.indexOf(".") + 1)) : ""), "/")
     }
     if (value === undefined)
-        return [`${display_path(path)}: use null instead of undefined`, undefined]
-    if ((value === null) || (value === ''))
+        return [`${display_path(path)}: new bug, 'value' being 'undefined'`, undefined]
+
+    if (type_name === 'time.Time') {
+        if (!((is_str && value !== '') || (value === null)))
+            return [`${display_path(path)}: must be non-empty string or null`, undefined]
+        else if (is_str && value && Number.isNaN(Date.parse(value.toString())))
+            return [`${display_path(path)}: must be 'Date.parse'able`, undefined]
+        else
+            return ["", value]
+    }
+
+    if (type_name.startsWith('.')) {
+        if (['.float32', '.float64'].some((_) => (_ === type_name)) && Number.isNaN(parseFloat(value)))
+            return [`${display_path(path)}: must be float, not ${value}`, undefined]
+        if (['.bool'].some((_) => (_ === type_name)) && (value !== true) && (value !== false))
+            return [`${display_path(path)}: must be true or false, not ${value}`, undefined]
+        const value_i = parseInt(value)
+        if (['.uint8', '.uint16', '.uint32', '.uint64', '.int8', '.int16', '.int32', '.int64'].some((_) => (_ === type_name)) && Number.isNaN(value_i))
+            return [`${display_path(path)}: must be integer, not ${value}`, undefined]
+        if (['.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === type_name)) && (value_i < 0))
+            return [`${display_path(path)}: must be greater than 0, not ${value}`, undefined]
         return ["", value]
+    }
 
-    for (const special_case_str_type_name of ['time.Time'])
-        if (type_name === special_case_str_type_name)
-            return ((is_str && value !== '') || (value === null)) ? ["", value]
-                : [`${display_path(path)}: must be non-empty string or null`, undefined]
-    if (type_name === 'time.Time' && is_str && Number.isNaN(Date.parse(value.toString())))
-        return [`${display_path(path)}: must be 'Date.parse'able`, undefined]
-
-    if (is_str && !stringIsNoJson)
+    if (is_str && value && !stringIsNoJson)
         try {
             value = JSON.parse(value.toString())
         } catch (err) {
             return [`${err}`, undefined]
         }
 
-    if (type_name.startsWith('[') && type_name.endsWith(']')) {
+    if (type_name.startsWith('[') && type_name.endsWith(']') && value) {
+        if (!Array.isArray(value))
+            return [`${display_path(path)}: must be null or ${type_name}, not ${value}`, undefined]
         for (const i in (value as [])) {
             const item = (value as [])[i]
             const [err_msg, _] = validate(apiRefl, type_name.substring(1, type_name.length - 1), item, path + '[' + i + ']', true)
@@ -359,21 +376,24 @@ function validate(apiRefl: YoReflApis, type_name: string, value: any, path: stri
         }
     }
 
-    if (type_name.startsWith('{') && type_name.endsWith('}')) {
+    if (value && (typeof value !== 'object'))
+        return [`${display_path(path)}: must be null or ${type_name}, not ${value}`, undefined]
+
+    if (type_name.startsWith('{') && type_name.endsWith('}') && value) {
         const splits = type_name.substring(1, type_name.length - 1).split(':')
         for (const key in (value as object)) {
-            const [err_msg_key, _] = validate(apiRefl, splits[0], key, path + '[' + key + ']', true)
+            const [err_msg_key, _] = validate(apiRefl, splits[0], key, path + '["' + key + '"]', true)
             if (err_msg_key && err_msg_key !== "")
                 return [err_msg_key, undefined]
             const val = value[key]
-            const [err_msg_val, __] = validate(apiRefl, splits.slice(1).join(':'), val, path + '[' + key + ']', true)
+            const [err_msg_val, __] = validate(apiRefl, splits.slice(1).join(':'), val, path + '["' + key + '"]', true)
             if (err_msg_val && err_msg_val !== "")
                 return [err_msg_val, undefined]
         }
     }
 
     const type_struc = apiRefl.Types[type_name]
-    if (value && type_struc) {
+    if (type_struc && value) {
         const type_struc_field_names = []
         for (const type_field_name in type_struc)
             type_struc_field_names.push(type_field_name)
