@@ -74,7 +74,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	}
 	payload, err := api.loadPayload(payload_data)
 	if err != nil {
-		http.Error(rw, err.Error(), 400)
+		http.Error(rw, err.Error()+If(IsDebugMode, "\n"+string(payload_data), ""), 400)
 		return
 	}
 
