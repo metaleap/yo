@@ -115,7 +115,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                     if (value_elem.innerHTML !== '')
                         value_elem.style.borderStyle = 'solid'
                 }
-                van.add(ulTree, html.li({}, field_name + ":", value_elem))
+                van.add(ulTree, html.li({}, html.label({ 'title': field_name }, field_name + ":"), value_elem))
             }
     }
 
@@ -176,10 +176,11 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                 ...[html.option({ 'value': '' }, '')].concat(apiRefl.Methods.map((_) => {
                     return html.option({ 'value': _.Path }, '/' + _.Path)
                 }))),
-            select_history = html.select({ 'style': 'max-width:80%', 'onchange': onSelectHistoryItem }, html.option({ 'value': '' }, '')),
+            select_history = html.select({ 'style': 'max-width:80%;float:right', 'onchange': onSelectHistoryItem }, html.option({ 'value': '' }, '')),
         ),
         html.div({}, table = html.table({ 'width': '99%', 'style': 'visibility:hidden' },
             html.tr({}, html.td({ 'colspan': '2', 'style': 'text-align:center', 'align': 'center' },
+                html.hr(),
                 html.label("URL query-string obj:"),
                 input_querystring = html.input({ 'type': 'text', 'value': '', 'placeholder': '{"name":"val", ...}' }),
                 html.label("Login:"),
