@@ -345,16 +345,19 @@ function validate(apiRefl: YoReflApis, type_name: string, value: any, path: stri
             return ["", value]
     }
 
-    if (type_name.startsWith('.')) {
-        if (['.float32', '.float64'].some((_) => (_ === type_name)) && Number.isNaN(parseFloat(value)))
-            return [`${display_path(path)}: must be float, not ${value}`, undefined]
-        if (['.bool'].some((_) => (_ === type_name)) && (value !== true) && (value !== false))
-            return [`${display_path(path)}: must be true or false, not ${value}`, undefined]
-        const value_i = parseInt(value)
-        if (['.uint8', '.uint16', '.uint32', '.uint64', '.int8', '.int16', '.int32', '.int64'].some((_) => (_ === type_name)) && Number.isNaN(value_i))
-            return [`${display_path(path)}: must be integer, not ${value}`, undefined]
+    if (type_name.startsWith('.') && (value !== null)) {
+        if (['.float32', '.float64'].some((_) => (_ === type_name)) && (typeof value !== 'number'))
+            return [`${display_path(path)}: must be float, not ${JSON.stringify(value)}`, undefined]
+        if (('.bool' === type_name) && (typeof value !== 'boolean'))
+            return [`${display_path(path)}: must be true or false, not ${JSON.stringify(value)}`, undefined]
+        if (('.string' === type_name) && (typeof value !== 'string'))
+            return [`${display_path(path)}: must be string, not ${JSON.stringify(value)}`, undefined]
+        const value_i = ((typeof value === 'number') && (value.toString().includes('.') || value.toString().includes('e')))
+            ? Number.NaN : parseInt(value)
+        if (['.uint8', '.uint16', '.uint32', '.uint64', '.int8', '.int16', '.int32', '.int64'].some((_) => (_ === type_name)) && ((typeof value !== 'number') || Number.isNaN(value_i)))
+            return [`${display_path(path)}: must be integer, not ${JSON.stringify(value)}`, undefined]
         if (['.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === type_name)) && (value_i < 0))
-            return [`${display_path(path)}: must be greater than 0, not ${value}`, undefined]
+            return [`${display_path(path)}: must be greater than 0, not ${JSON.stringify(value)}`, undefined]
         return ["", value]
     }
 
