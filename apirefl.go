@@ -1,7 +1,9 @@
 package yo
 
 import (
+	"cmp"
 	"reflect"
+	"slices"
 )
 
 type apiReflect struct {
@@ -23,6 +25,9 @@ func apiHandleRefl(_ *Ctx, _ *Void, ret *apiReflect) error {
 		m.In, m.Out = apiReflType(ret, ty_in, "", ""), apiReflType(ret, ty_out, "", "")
 		ret.Methods = append(ret.Methods, m)
 	}
+	slices.SortFunc(ret.Methods, func(a apiReflectMethod, b apiReflectMethod) int {
+		return cmp.Compare(a.Path, b.Path)
+	})
 	return nil
 }
 
