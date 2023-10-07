@@ -32,8 +32,10 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
     }
 
     const onSelectHistoryItem = () => {
-        if ((select_history.selectedIndex <= 0) || (select_method.selectedIndex <= 0))
-            buildApiMethodGui(true)
+        if ((select_history.selectedIndex <= 0) || (select_method.selectedIndex <= 0)) {
+            input_querystring.value = ""
+            return buildApiMethodGui(true)
+        }
         const date_time = parseInt(select_history.selectedOptions[0].value)
         const entries = historyOf(select_method.selectedOptions[0].value)
         for (const entry of entries)
@@ -119,7 +121,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                 ...[html.option({ 'value': '' }, "")].concat(apiRefl.Methods.map((_) => {
                     return html.option({ 'value': _.Path }, '/' + _.Path)
                 }))),
-            select_history = html.select({ 'onchange': onSelectHistoryItem }, html.option({ 'value': '' }, '')),
+            select_history = html.select({ 'style': 'max-width:80%', 'onchange': onSelectHistoryItem }, html.option({ 'value': '' }, '')),
         ),
         html.div({}, table = html.table({ 'width': '99%', 'style': 'visibility:hidden' },
             html.tr({},
@@ -138,10 +140,8 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
     )
     refreshHistory(false, false)
     const entry = historyLatest()
-    console.log(entry)
     if (entry)
         for (let i = 0; i < select_method.options.length; i++) {
-            console.log(i, select_method.options[i].value, "===", entry.methodPath, (select_method.options[i].value === entry.methodPath))
             if (select_method.options[i].value === entry.methodPath) {
                 select_method.selectedIndex = i
                 buildApiMethodGui()
