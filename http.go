@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
 )
 
 const staticFileDirPath = "__yostatic"
@@ -16,7 +17,11 @@ var staticFileDir embed.FS
 var StaticFileServes = map[string]fs.FS{}
 
 func ListenAndServe() {
-	StaticFileServes[staticFileDirPath] = &staticFileDir
+	if IsDebugMode {
+		StaticFileServes[staticFileDirPath] = os.DirFS("../yo")
+	} else {
+		StaticFileServes[staticFileDirPath] = &staticFileDir
+	}
 	log.Fatal(http.ListenAndServe(":"+iToA(cfg.YO_API_HTTP_PORT), http.HandlerFunc(handleHTTPRequest)))
 }
 
@@ -32,25 +37,25 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	ctx := ctxNew(req)
 	defer ctx.dispose()
 
-	urlPath := strTrimR(strTrimL(req.URL.Path, "/"), "/")
+	url_path := strTrimR(strTrimL(req.URL.Path, "/"), "/")
 
-	if urlPath == ApiSdkGenDstTsFilePath {
+	if url_path == ApiSdkGenDstTsFilePath {
 		if IsDebugMode {
 			http.ServeFile(rw, req, ApiSdkGenDstTsFilePath)
 		} else {
-			http.FileServer(http.FS(StaticFileServes[urlPath])).ServeHTTP(rw, req)
+			http.FileServer(http.FS(StaticFileServes[url_path])).ServeHTTP(rw, req)
 		}
 		return
 	}
 	for static_prefix, static_serve := range StaticFileServes {
-		if static_prefix = static_prefix + "/"; strBegins(urlPath, static_prefix) && urlPath != static_prefix {
-			req.URL.Path = strTrimL(urlPath, "__/")
+		if static_prefix = static_prefix + "/"; strBegins(url_path, static_prefix) && url_path != static_prefix {
+			req.URL.Path = strTrimL(url_path, "__/")
 			http.FileServer(http.FS(static_serve)).ServeHTTP(rw, req)
 			return
 		}
 	}
 
-	api := API[urlPath]
+	api := API[url_path]
 	if api == nil {
 		http.Error(rw, "Not Found", 404)
 		return
