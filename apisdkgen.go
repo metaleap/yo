@@ -1,6 +1,7 @@
 package yo
 
 import (
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -10,9 +11,11 @@ const ApiSdkGenDstTsFilePath = staticFileDirPath + "/yo-sdk.ts"
 
 func apiGenSdk() {
 	buf, api := strings.Builder{}, apiReflect{}
+	log.Println("\treflect...")
 	if err := apiHandleRefl(nil, nil, &api); err != nil {
 		panic(err)
 	}
+	log.Println("\tgenerate...")
 	b, err := staticFileDir.ReadFile(staticFileDirPath + "/sdkgen.ts")
 	if err != nil {
 		panic(err)
@@ -24,6 +27,7 @@ func apiGenSdk() {
 	for _, method := range api.Methods {
 		apiGenSdkMethod(&buf, &api, &method)
 	}
+	log.Println("\twriting files...")
 	if err := os.WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`), os.ModePerm); err != nil {
 		panic(err)
 	}
@@ -31,6 +35,7 @@ func apiGenSdk() {
 		panic(err)
 	}
 	for _, dir_path := range []string{"", "../yo"} {
+		log.Println("\ttsc...")
 		tsc := exec.Command("tsc")
 		tsc.Dir = dir_path
 		if output, err := tsc.CombinedOutput(); err != nil {

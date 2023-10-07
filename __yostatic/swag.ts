@@ -84,7 +84,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                 td_input = html.td({ 'width': '50%' }),
                 td_output = html.td({ 'width': '50%' }),
             ),
-            html.tr({}, html.td({ 'colspan': '2' },
+            html.tr({}, html.td({ 'colspan': '2', 'style': 'text-align:center', 'align': 'center' },
                 html.label("URL query-string obj:"),
                 input_querystring = html.input({ 'type': 'text', 'value': '', 'placeholder': '{"name":"val", ...}' }),
                 html.button({ 'style': 'font-weight:bold', 'onclick': sendRequest }, 'Go!'),
