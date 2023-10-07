@@ -1,4 +1,5 @@
 import van from './vanjs/van-1.2.1.debug.js'
+import * as util from './util.js'
 
 const html = van.tags
 
@@ -47,7 +48,10 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
     }
 
     const buildApiTypeGui = (td: HTMLTableCellElement, isForPayload: boolean, type_name: string) => {
-        const textarea = html.textarea({ 'class': 'src-json', 'readOnly': !isForPayload }, '')
+        const textarea = html.textarea({
+            'class': 'src-json', 'readOnly': !isForPayload, 'onkeyup': () =>
+                document.title = validate(apiRefl, type_name, textarea_payload.value, '') || ("/" + select_method.selectedOptions[0].value)
+        }, '')
         if (isForPayload)
             textarea_payload = textarea
         else
@@ -230,15 +234,28 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
         payload: payload,
         queryString: queryString
     }
-    console.log(`storing '${methodPath}' history entry:`, entry)
 
-    {   // since we're anyway writing to localStorage, a good moment to clean out histories of no-longer-existing `methodPath`s
+    console.log("localStorage history house-keeping...")
+    {   // since we're anyway writing to localStorage, a good moment to clean out no longer needed history entries
         const keys_to_remove: string[] = []
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i)
             const method_path = key.substring("yo:".length)
-            if (!apiRefl.Methods.some((_) => (_.Path === method_path)))
+            if (!apiRefl.Methods.some((_) => (_.Path === method_path))) // methodPath no longer part of API
                 keys_to_remove.push(key)
+            else {
+                let mut = false, entries: HistoryEntry[] = JSON.parse(localStorage.getItem(key))
+                for (let i = 0; i < entries.length; i++) {
+                    // check for equality with current payload/queryString: anything the same can go
+                    const entry = entries[i], method = apiRefl.Methods.find((_) => (_.Path === method_path))
+                    const remove = ("" !== validate(apiRefl, method.In, entry.payload, method.In)) ||
+                        (util.deepEq(entry.payload, payload) && util.deepEq(entry.queryString, queryString))
+                    if (remove)
+                        [mut, i, entries] = [true, i - 1, entries.filter((_) => (_ != entry))]
+                }
+                if (mut)
+                    localStorage.setItem(key, JSON.stringify(entries))
+            }
         }
         for (const key_to_remove of keys_to_remove) {
             console.log(`removing '${key_to_remove}' history entry due to that method no longer existing'`)
@@ -246,6 +263,7 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
         }
     }
 
+    console.log(`storing '${methodPath}' history entry:`, entry)
     let json_entries = localStorage.getItem("yo:" + methodPath)
     if (!(json_entries && json_entries.length))
         json_entries = '[]'
@@ -264,4 +282,29 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
             }
             entries = entries.slice(1)
         }
+}
+
+function validate(apiRefl: YoReflApis, type_name: string, obj: string | object, path: string, stringIsNoJson?: boolean): string {
+    if ((!obj) || (obj === ""))
+        return ""
+    if ((typeof obj === 'string') && !stringIsNoJson)
+        try {
+            obj = JSON.parse(obj)
+        } catch (err) {
+            return `${err}`
+        }
+    const type_struc = apiRefl.Types[type_name]
+    if (obj && type_struc)
+        for (const k in (obj as object)) {
+            const field_type_name = type_struc[k]
+            if (!field_type_name)
+                return `${path}/${k}: type '${type_name}' has no such field`
+            const field_type_struc = apiRefl.Types[field_type_name]
+            if (field_type_struc) {
+                const err_msg = validate(apiRefl, field_type_name, (obj as object)[k], path + '/' + k, true)
+                if (err_msg !== "")
+                    return err_msg
+            }
+        }
+    return ""
 }
