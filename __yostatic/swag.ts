@@ -287,13 +287,12 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
 function validate(apiRefl: YoReflApis, type_name: string, obj: string | object, path: string, stringIsNoJson?: boolean): string {
     if ((!obj) || (obj === ''))
         return ''
-    const is_str = (typeof obj === 'string')
-    for (const special_case_str_type_name of ['time.Duration', 'time.Time']) {
-        if (type_name === special_case_str_type_name)
-            console.log(is_str, obj !== '', obj === null)
-        if ((type_name === special_case_str_type_name) && !((is_str && obj !== '') || obj === null))
-            return `'${type_name}' field needs a non-empty string value or null`
+    const is_str = (typeof obj === 'string'), display_path = (p: string, k?: string) => {
+        return util.strTrimL(p.substring(p.indexOf('.') + 1) + (k ? ("/" + k.substring(k.indexOf(".") + 1)) : ""), "/")
     }
+    for (const special_case_str_type_name of ['time.Duration', 'time.Time'])
+        if (type_name === special_case_str_type_name)
+            return ((is_str && obj !== '') || obj === null) ? "" : `${display_path(path)}:'${type_name}' field needs a non-empty string value or null`
     if (is_str && !stringIsNoJson)
         try {
             obj = JSON.parse(obj.toString())
@@ -303,12 +302,9 @@ function validate(apiRefl: YoReflApis, type_name: string, obj: string | object, 
     const type_struc = apiRefl.Types[type_name]
     if (obj && type_struc)
         for (const k in (obj as object)) {
-            let display_path = path.substring(path.indexOf('.') + 1) + '/' + k.substring(k.indexOf('.') + 1)
-            while (display_path.startsWith('/'))
-                display_path = display_path.substring(1)
             const field_type_name = type_struc[k]
             if (!field_type_name)
-                return `${display_path}: '${type_name}' has no '${k}'`
+                return `${display_path(path, k)}: '${type_name}' has no '${k}'`
             const field_type_struc = apiRefl.Types[field_type_name]
             if (field_type_struc) {
                 const err_msg = validate(apiRefl, field_type_name, (obj as object)[k], path + '/' + k, true)

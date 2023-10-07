@@ -5,6 +5,12 @@ export function fEq(a: number, b: number): boolean {
         : ((a === b) || Math.abs(a - b) < (((a > 1) || (b > 1)) ? (Math.max(a, b) * Number.EPSILON) : Number.EPSILON))
 }
 
+export function strTrimL(s: string, prefix: string): string {
+    while (s.startsWith(prefix))
+        s = s.substring(prefix.length)
+    return s
+}
+
 export function deepEq(val1: any, val2: any, ignoreArrayOrder?: boolean): boolean {
     // deepEq only covers the JSON subset of the JS/TS type-scape
     if (val1 === val2 || (val1 === null && val2 === undefined) || (val1 === undefined && val2 === null))
