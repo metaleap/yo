@@ -42,13 +42,13 @@ func apiGenSdk() {
 func apiGenSdkType(buf *strings.Builder, api *apiReflect, typeName string, typeFields map[string]string) {
 	switch typeName {
 	case "time.Time":
-		_, _ = buf.WriteString(strFmt("\ntype %s = %s", apiGenSdkTypeName(typeName), apiGenSdkTypeName(".string")))
+		_, _ = buf.WriteString(strFmt("\nexport type %s = %s", apiGenSdkTypeName(typeName), apiGenSdkTypeName(".string")))
 		return
 	case "time.Duration":
-		_, _ = buf.WriteString(strFmt("\ntype %s = %s", apiGenSdkTypeName(typeName), apiGenSdkTypeName(".int64")))
+		_, _ = buf.WriteString(strFmt("\nexport type %s = %s", apiGenSdkTypeName(typeName), apiGenSdkTypeName(".int64")))
 		return
 	}
-	_, _ = buf.WriteString(strFmt("\ntype %s = {", apiGenSdkTypeName(typeName)))
+	_, _ = buf.WriteString(strFmt("\nexport type %s = {", apiGenSdkTypeName(typeName)))
 	for field_name, field_type := range typeFields {
 		_, _ = buf.WriteString(strFmt("\n\t%s: %s", toIdent(field_name), apiGenSdkTypeName(field_type)))
 	}
@@ -87,7 +87,7 @@ func apiGenSdkTypeName(typeRef string) string {
 
 func apiGenSdkMethod(buf *strings.Builder, api *apiReflect, method *apiReflectMethod) {
 	_, _ = buf.WriteString(strFmt(`
-function yoReq_%s(payload: %s, onSuccess: (_:%s) => void): void {
+export function yoReq_%s(payload: %s, onSuccess: (_:%s) => void): void {
 	yoReq(%s, payload, onSuccess)
 }`, toIdent(method.Path), apiGenSdkTypeName(method.In), apiGenSdkTypeName(method.Out), strQ(method.Path)))
 }

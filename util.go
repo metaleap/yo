@@ -8,9 +8,9 @@ import (
 )
 
 type Dict map[string]any
+type kv map[string]string
 
 var (
-	strRepl    = strings.NewReplacer
 	strHas     = strings.Contains
 	strBegins  = strings.HasPrefix
 	strEnds    = strings.HasSuffix
@@ -42,6 +42,14 @@ func reflHasMethod(ty reflect.Type, name string) bool {
 		_, ok = reflect.PointerTo(ty).MethodByName(name)
 	}
 	return ok
+}
+
+func strReplace(s string, repl map[string]string) string {
+	repl_old_new := make([]string, 0, len(repl)*2)
+	for k, v := range repl {
+		repl_old_new = append(repl_old_new, k, v)
+	}
+	return strings.NewReplacer(repl_old_new...).Replace(s)
 }
 
 func toIdent(s string) string {

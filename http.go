@@ -39,9 +39,9 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 
 	url_path := strTrimR(strTrimL(req.URL.Path, "/"), "/")
 
-	if url_path == ApiSdkGenDstTsFilePath {
+	if url_path == strReplace(ApiSdkGenDstTsFilePath, kv{".ts": ".js"}) {
 		if IsDebugMode {
-			http.ServeFile(rw, req, ApiSdkGenDstTsFilePath)
+			http.ServeFile(rw, req, url_path)
 		} else {
 			http.FileServer(http.FS(StaticFileServes[url_path])).ServeHTTP(rw, req)
 		}
