@@ -15,8 +15,10 @@ var yoReq_OnFailed = (err: any) => {
     console.error(err)
 }
 
-function yoReq(methodPath: string, payload: any, onSuccess?: (_?: any) => void) {
-    const uri = "/" + methodPath
+function yoReq(methodPath: string, payload: any, onSuccess?: (_?: any) => void, query?: { [_: string]: string }) {
+    let uri = "/" + methodPath
+    if (query)
+        uri += '?' + new URLSearchParams(query).toString()
     console.log("callAPI:", uri, payload)
     fetch(uri, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),

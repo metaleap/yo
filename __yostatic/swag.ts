@@ -16,28 +16,58 @@ type YoReflMethod = {
 }
 
 export function onInit(apiRefl: YoReflApis) {
-    let td_input: HTMLTableCellElement, td_output: HTMLTableCellElement
+    let select_method: HTMLSelectElement, td_input: HTMLTableCellElement, td_output: HTMLTableCellElement,
+        table: HTMLTableElement, input_querystring: HTMLInputElement, textarea_payload: HTMLTextAreaElement
 
     const buildApiTypeGui = (td: HTMLTableCellElement, readOnly: boolean, type_name: string) => {
-        const dummy_val = buildVal(apiRefl, type_name, [])
+        const textarea = html.textarea({ 'class': 'src-json', 'readOnly': readOnly }, '')
+        if (!readOnly)
+            textarea_payload = textarea
         td.innerHTML = ''
-        van.add(td, html.textarea({ 'class': 'src-json', 'readOnly': readOnly }, JSON.stringify(dummy_val, null, 2)))
+        if (type_name && type_name !== '') {
+            const dummy_val = buildVal(apiRefl, type_name, [])
+            textarea.value = JSON.stringify(dummy_val, null, 2)
+            van.add(td, textarea)
+        }
     }
-    const buildApiMethodGui = (sel: HTMLSelectElement) => {
-        const method = apiRefl.Methods.find((_) => (_.Path === sel.selectedOptions[0].value))
-        buildApiTypeGui(td_input, false, method.In)
-        buildApiTypeGui(td_output, true, method.Out)
+    const buildApiMethodGui = () => {
+        document.title = "/" + select_method.selectedOptions[0].value
+        const method = apiRefl.Methods.find((_) => (_.Path === select_method.selectedOptions[0].value))
+        table.style.visibility = (method ? 'visible' : 'hidden')
+        buildApiTypeGui(td_input, false, method?.In)
+        buildApiTypeGui(td_output, true, method?.Out)
+    }
+    const sendRequest = () => {
+        let query_string: { [_: string]: string }, payload: object
+        if (input_querystring.value && input_querystring.value.length) {
+            try { query_string = JSON.parse(input_querystring.value) } catch (err) {
+                alert(`Not valid JSON: '${input_querystring.value}'\n\n(${err})`)
+                return
+            }
+        }
+        try { payload = JSON.parse(textarea_payload.value) } catch (err) {
+            alert(`Not valid JSON: '${textarea_payload.value}'\n\n(${err})`)
+            return
+        }
+        yoReq(select_method.selectedOptions[0].value, payload, () => { }, query_string)
     }
 
     van.add(document.body,
-        html.div({}, html.select({ 'autofocus': true, 'onchange': (evt: UIEvent) => buildApiMethodGui(evt.target as HTMLSelectElement) },
-            ...apiRefl.Methods.map((_) => {
+        html.div({}, select_method = html.select({ 'autofocus': true, 'onchange': (evt: UIEvent) => buildApiMethodGui() },
+            ...[html.option({ 'value': '' }, "")].concat(apiRefl.Methods.map((_) => {
                 return html.option({ 'value': _.Path }, _.Path)
-            }))),
-        html.div({}, html.table({ 'width': '99%' }, html.tr({},
-            td_input = html.td({ 'width': '50%' }),
-            td_output = html.td({ 'width': '50%' }),
-        ))),
+            })))),
+        html.div({}, table = html.table({ 'width': '99%', 'style': 'visibility:hidden' },
+            html.tr({},
+                td_input = html.td({ 'width': '50%' }),
+                td_output = html.td({ 'width': '50%' }),
+            ),
+            html.tr({}, html.td({ 'colspan': '2' },
+                html.label("URL query-string obj:"),
+                input_querystring = html.input({ 'type': 'text', 'value': '', 'placeholder': '{"name":"val", ...}' }),
+                html.button({ 'style': 'font-weight:bold', 'onclick': sendRequest }, 'Go!'),
+            )),
+        )),
     )
 }
 
@@ -60,9 +90,9 @@ function buildVal(refl: YoReflApis, type_name: string, recurse_protection: strin
     }
     if (type_name.startsWith('[') && type_name.endsWith(']'))
         return [buildVal(refl, type_name.substring(1, type_name.length - 1), recurse_protection)]
-    if (type_name.startsWith('{') && type_name.endsWith('}')) {
-        const ret = {}, [tkey, tval] = type_name.substring(1, type_name.length - 1).split(':')
-        ret[buildVal(refl, tkey, recurse_protection)] = buildVal(refl, tval, recurse_protection)
+    if (type_name.startsWith('{') && type_name.endsWith('}') && type_name.includes(':')) {
+        const ret = {}, splits = type_name.substring(1, type_name.length - 1).split(':')
+        ret[buildVal(refl, splits[0], recurse_protection)] = buildVal(refl, splits.slice(1).join(':'), recurse_protection)
         return ret
     }
     switch (type_name) {
