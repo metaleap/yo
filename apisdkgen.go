@@ -50,7 +50,7 @@ func apiGenSdkType(buf *strings.Builder, api *apiReflect, typeName string, typeF
 		_, _ = buf.WriteString(strFmt("\nexport type %s = %s", apiGenSdkTypeName(typeName), apiGenSdkTypeName(".string")))
 		return
 	case "time.Duration":
-		_, _ = buf.WriteString(strFmt("\nexport type %s = %s", apiGenSdkTypeName(typeName), apiGenSdkTypeName(".int64")))
+		_, _ = buf.WriteString(strFmt("\nexport type %s = %s", apiGenSdkTypeName(typeName), apiGenSdkTypeName(".string")))
 		return
 	}
 	_, _ = buf.WriteString(strFmt("\nexport type %s = {", apiGenSdkTypeName(typeName)))

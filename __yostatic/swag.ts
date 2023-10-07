@@ -34,7 +34,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
 
     const onSelectHistoryItem = () => {
         if ((select_history.selectedIndex <= 0) || (select_method.selectedIndex <= 0)) {
-            input_querystring.value = ""
+            input_querystring.value = ''
             return buildApiMethodGui(true)
         }
         const date_time = parseInt(select_history.selectedOptions[0].value)
@@ -50,7 +50,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
     const buildApiTypeGui = (td: HTMLTableCellElement, isForPayload: boolean, type_name: string) => {
         const textarea = html.textarea({
             'class': 'src-json', 'readOnly': !isForPayload, 'onkeyup': () =>
-                document.title = validate(apiRefl, type_name, textarea_payload.value, '') || ("/" + select_method.selectedOptions[0].value)
+                document.title = validate(apiRefl, type_name, textarea_payload.value, type_name) || ("/" + select_method.selectedOptions[0].value)
         }, '')
         if (isForPayload)
             textarea_payload = textarea
@@ -90,9 +90,9 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
         try { payload = JSON.parse(textarea_payload.value) } catch (err) {
             const err_msg = `${err}`
             alert(err_msg)
-            const idx = err_msg.indexOf("osition ")
+            const idx = err_msg.indexOf('osition ')
             if (idx) {
-                const pos_parsed = parseInt(err_msg.substring(idx + "osition ".length) + "bla")
+                const pos_parsed = parseInt(err_msg.substring(idx + 'osition '.length))
                 if (Number.isInteger(pos_parsed) && pos_parsed >= 0) {
                     textarea_payload.setSelectionRange(pos_parsed - 2, pos_parsed + 2)
                     textarea_payload.focus()
@@ -122,7 +122,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
     van.add(document.body,
         html.div({},
             select_method = html.select({ 'autofocus': true, 'onchange': (evt: UIEvent) => buildApiMethodGui() },
-                ...[html.option({ 'value': '' }, "")].concat(apiRefl.Methods.map((_) => {
+                ...[html.option({ 'value': '' }, '')].concat(apiRefl.Methods.map((_) => {
                     return html.option({ 'value': _.Path }, '/' + _.Path)
                 }))),
             select_history = html.select({ 'style': 'max-width:80%', 'onchange': onSelectHistoryItem }, html.option({ 'value': '' }, '')),
@@ -156,8 +156,8 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
 
 function buildVal(refl: YoReflApis, type_name: string, recurse_protection: string[]): any {
     switch (type_name) {
-        case "time.Duration": return 1234 * 1000
-        case "time.Time": return new Date().toISOString()
+        case 'time.Duration': return "1234ms"
+        case 'time.Time': return new Date().toISOString()
     }
     const type_struc = refl.Types[type_name]
     if (type_struc) {
@@ -179,18 +179,18 @@ function buildVal(refl: YoReflApis, type_name: string, recurse_protection: strin
         return ret
     }
     switch (type_name) {
-        case ".bool": return true
-        case ".string": return "foo bar"
-        case ".float32": return 3.2
-        case ".float64": return 6.4
-        case ".int8": return -8
-        case ".int16": return -16
-        case ".int32": return -32
-        case ".int64": return -64
-        case ".uint8": return 8
-        case ".uint16": return 16
-        case ".uint32": return 32
-        case ".uint64": return 64
+        case '.bool': return true
+        case '.string': return "foo bar"
+        case '.float32': return 3.2
+        case '.float64': return 6.4
+        case '.int8': return -8
+        case '.int16': return -16
+        case '.int32': return -32
+        case '.int64': return -64
+        case '.uint8': return 8
+        case '.uint16': return 16
+        case '.uint32': return 32
+        case '.uint64': return 64
     }
     return type_name
 }
@@ -202,7 +202,7 @@ type HistoryEntry = {
 }
 
 function historyOf(methodPath: string): HistoryEntry[] {
-    const json_entries = localStorage.getItem("yo:" + methodPath)
+    const json_entries = localStorage.getItem('yo:' + methodPath)
     if (json_entries) {
         const entries: HistoryEntry[] = JSON.parse(json_entries)
         return entries.reverse()
@@ -218,7 +218,7 @@ function historyLatest() {
     let ret: undefined | (HistoryEntry & { methodPath: string }) = undefined
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
-        const method_path = key.substring("yo:".length)
+        const method_path = key.substring('yo:'.length)
         const json_entries = localStorage.getItem(key)
         const entries: HistoryEntry[] = JSON.parse(json_entries)
         for (const entry of entries)
@@ -240,7 +240,7 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
         const keys_to_remove: string[] = []
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i)
-            const method_path = key.substring("yo:".length)
+            const method_path = key.substring('yo:'.length)
             if (!apiRefl.Methods.some((_) => (_.Path === method_path))) // methodPath no longer part of API
                 keys_to_remove.push(key)
             else {
@@ -248,7 +248,7 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
                 for (let i = 0; i < entries.length; i++) {
                     // check for equality with current payload/queryString: anything the same can go
                     const entry = entries[i], method = apiRefl.Methods.find((_) => (_.Path === method_path))
-                    const remove = ("" !== validate(apiRefl, method.In, entry.payload, method.In)) ||
+                    const remove = ('' !== validate(apiRefl, method.In, entry.payload, method.In)) ||
                         (util.deepEq(entry.payload, payload) && util.deepEq(entry.queryString, queryString))
                     if (remove)
                         [mut, i, entries] = [true, i - 1, entries.filter((_) => (_ != entry))]
@@ -264,7 +264,7 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
     }
 
     console.log(`storing '${methodPath}' history entry:`, entry)
-    let json_entries = localStorage.getItem("yo:" + methodPath)
+    let json_entries = localStorage.getItem('yo:' + methodPath)
     if (!(json_entries && json_entries.length))
         json_entries = '[]'
     let entries: HistoryEntry[] = JSON.parse(json_entries)
@@ -273,7 +273,7 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
     let not_stored_yet = true
     while (not_stored_yet)
         try {
-            localStorage.setItem("yo:" + methodPath, json_entries)
+            localStorage.setItem('yo:' + methodPath, json_entries)
             not_stored_yet = false
         } catch (err) {
             if (entries.length === 0) {
@@ -285,26 +285,36 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
 }
 
 function validate(apiRefl: YoReflApis, type_name: string, obj: string | object, path: string, stringIsNoJson?: boolean): string {
-    if ((!obj) || (obj === ""))
-        return ""
-    if ((typeof obj === 'string') && !stringIsNoJson)
+    if ((!obj) || (obj === ''))
+        return ''
+    const is_str = (typeof obj === 'string')
+    for (const special_case_str_type_name of ['time.Duration', 'time.Time']) {
+        if (type_name === special_case_str_type_name)
+            console.log(is_str, obj !== '', obj === null)
+        if ((type_name === special_case_str_type_name) && !((is_str && obj !== '') || obj === null))
+            return `'${type_name}' field needs a non-empty string value or null`
+    }
+    if (is_str && !stringIsNoJson)
         try {
-            obj = JSON.parse(obj)
+            obj = JSON.parse(obj.toString())
         } catch (err) {
             return `${err}`
         }
     const type_struc = apiRefl.Types[type_name]
     if (obj && type_struc)
         for (const k in (obj as object)) {
+            let display_path = path.substring(path.indexOf('.') + 1) + '/' + k.substring(k.indexOf('.') + 1)
+            while (display_path.startsWith('/'))
+                display_path = display_path.substring(1)
             const field_type_name = type_struc[k]
             if (!field_type_name)
-                return `${path}/${k}: type '${type_name}' has no such field`
+                return `${display_path}: '${type_name}' has no '${k}'`
             const field_type_struc = apiRefl.Types[field_type_name]
             if (field_type_struc) {
                 const err_msg = validate(apiRefl, field_type_name, (obj as object)[k], path + '/' + k, true)
-                if (err_msg !== "")
+                if (err_msg !== '')
                     return err_msg
             }
         }
-    return ""
+    return ''
 }
