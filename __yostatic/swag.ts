@@ -77,19 +77,26 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
     }
 
     const sendRequest = () => {
-        const time_started = new Date().getTime()
+        const time_started = new Date().getTime(), show_err = (err) => {
+            textarea_response.style.backgroundColor = '#f0d0c0'
+            textarea_response.value = `${err}`
+        }
         textarea_response.value = "..."
         textarea_response.style.backgroundColor = '#f0f0f0'
         let query_string: { [_: string]: string }, payload: object
-        if (input_querystring.value && input_querystring.value.length) {
+        if (input_querystring.value && input_querystring.value.length)
             try { query_string = JSON.parse(input_querystring.value) } catch (err) {
-                alert(`${err}`)
-                return
+                return show_err(`URL query-string object:\n${err}`)
             }
-        }
-        try { payload = JSON.parse(textarea_payload.value) } catch (err) {
+        const method_path = select_method.selectedOptions[0].value
+        try {
+            const method = apiRefl.Methods.find((_) => (_.Path == method_path))
+            const err_msg = validate(apiRefl, method.In, payload = JSON.parse(textarea_payload.value), '')
+            if (err_msg && err_msg !== "")
+                return show_err(err_msg)
+        } catch (err) {
             const err_msg = `${err}`
-            alert(err_msg)
+            show_err(err_msg)
             const idx = err_msg.indexOf('osition ')
             if (idx) {
                 const pos_parsed = parseInt(err_msg.substring(idx + 'osition '.length))
@@ -100,20 +107,19 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             }
             return
         }
-        historyStore(apiRefl, select_method.selectedOptions[0].value, payload, query_string)
+        historyStore(apiRefl, method_path, payload, query_string)
         refreshHistory(true, false)
         const on_done = () => {
             const duration_ms = new Date().getTime() - time_started
             document.title = `${duration_ms}ms`
         }
-        yoReq(select_method.selectedOptions[0].value, payload, (result) => {
+        yoReq(method_path, payload, (result) => {
             on_done()
             textarea_response.style.backgroundColor = '#c0f0c0'
             textarea_response.value = JSON.stringify(result, null, 2)
         }, (err, resp?: Response) => {
             on_done()
-            textarea_response.style.backgroundColor = '#f0d0c0'
-            textarea_response.value = JSON.stringify(err, null, 2)
+            show_err(JSON.stringify(err, null, 2))
             if (resp)
                 resp.text().then((response_text) => textarea_response.value += ("\n" + response_text))
         }, query_string)
@@ -307,11 +313,14 @@ function validate(apiRefl: YoReflApis, type_name: string, obj: string | object, 
         }
 
     const type_struc = apiRefl.Types[type_name]
-    if (obj && type_struc)
+    if (obj && type_struc) {
+        const type_struc_field_names = []
+        for (const type_field_name in type_struc)
+            type_struc_field_names.push(type_field_name)
         for (const k in (obj as object)) {
             const field_type_name = type_struc[k]
             if (!field_type_name)
-                return `${display_path(path, k)}: '${type_name}' has no '${k}'`
+                return `${display_path(path, k)}: '${type_name}' has no '${k}' but has: '${type_struc_field_names.join("', '")}'`
             const field_type_struc = apiRefl.Types[field_type_name]
             if (field_type_struc) {
                 const err_msg = validate(apiRefl, field_type_name, (obj as object)[k], path + '/' + k, true)
@@ -319,5 +328,6 @@ function validate(apiRefl: YoReflApis, type_name: string, obj: string | object, 
                     return err_msg
             }
         }
+    }
     return ""
 }
