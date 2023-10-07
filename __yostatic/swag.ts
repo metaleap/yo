@@ -86,10 +86,10 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
     const refreshTree = (methodPath: string, obj: object, ulTree: HTMLUListElement, isForPayload: boolean) => {
         const method = apiRefl.Methods.find((_) => (_.Path === methodPath))
         const type_name = (isForPayload ? method.In : method.Out)
-        refreshTreeNode(type_name, obj, ulTree, isForPayload)
+        refreshTreeNode(type_name, obj, ulTree, isForPayload, '')
     }
 
-    const refreshTreeNode = (typeName: string, obj: object, ulTree: HTMLUListElement, isForPayload: boolean) => {
+    const refreshTreeNode = (typeName: string, obj: object, ulTree: HTMLUListElement, isForPayload: boolean, path: string) => {
         const type_struc = apiRefl.Types[typeName]
         ulTree.innerHTML = ""
         if (obj && type_struc)
@@ -111,11 +111,11 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                     value_elem = html.input({ 'type': 'checkbox', 'readOnly': !isForPayload, 'checked': value })
                 else {
                     value_elem = html.ul({})
-                    refreshTreeNode(field_type_name, value, value_elem as HTMLUListElement, isForPayload)
+                    refreshTreeNode(field_type_name, value, value_elem as HTMLUListElement, isForPayload, path + '.' + field_name)
                     if (value_elem.innerHTML !== '')
                         value_elem.style.borderStyle = 'solid'
                 }
-                van.add(ulTree, html.li({}, html.label({ 'title': field_name }, field_name + ":"), value_elem))
+                van.add(ulTree, html.li({ 'title': displayPath(path, field_name) }, html.label({}, field_name + ":"), value_elem))
             }
     }
 
@@ -333,35 +333,37 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
         }
 }
 
+function displayPath(p: string, k?: string) {
+    return p + (k ? ("." + k) : "")
+}
+
 function validate(apiRefl: YoReflApis, type_name: string, value: any, path: string, stringIsNoJson?: boolean): [string, any] {
-    const is_str = (typeof value === 'string'), display_path = (p: string, k?: string) => {
-        return util.strTrimL(p.substring(p.indexOf('.') + 1) + (k ? ("/" + k.substring(k.indexOf(".") + 1)) : ""), "/")
-    }
+    const is_str = (typeof value === 'string')
     if (value === undefined)
-        return [`${display_path(path)}: new bug, 'value' being 'undefined'`, undefined]
+        return [`${displayPath(path)}: new bug, 'value' being 'undefined'`, undefined]
 
     if (type_name === 'time.Time') {
         if (!((is_str && value !== '') || (value === null)))
-            return [`${display_path(path)}: must be non-empty string or null`, undefined]
+            return [`${displayPath(path)}: must be non-empty string or null`, undefined]
         else if (is_str && value && Number.isNaN(Date.parse(value.toString())))
-            return [`${display_path(path)}: must be 'Date.parse'able`, undefined]
+            return [`${displayPath(path)}: must be 'Date.parse'able`, undefined]
         else
             return ["", value]
     }
 
     if (type_name.startsWith('.') && (value !== null)) {
         if (['.float32', '.float64'].some((_) => (_ === type_name)) && (typeof value !== 'number'))
-            return [`${display_path(path)}: must be float, not ${JSON.stringify(value)}`, undefined]
+            return [`${displayPath(path)}: must be float, not ${JSON.stringify(value)}`, undefined]
         if (('.bool' === type_name) && (typeof value !== 'boolean'))
-            return [`${display_path(path)}: must be true or false, not ${JSON.stringify(value)}`, undefined]
+            return [`${displayPath(path)}: must be true or false, not ${JSON.stringify(value)}`, undefined]
         if (('.string' === type_name) && (typeof value !== 'string'))
-            return [`${display_path(path)}: must be string, not ${JSON.stringify(value)}`, undefined]
+            return [`${displayPath(path)}: must be string, not ${JSON.stringify(value)}`, undefined]
         const value_i = ((typeof value === 'number') && (value.toString().includes('.') || value.toString().includes('e')))
             ? Number.NaN : parseInt(value)
         if (['.uint8', '.uint16', '.uint32', '.uint64', '.int8', '.int16', '.int32', '.int64'].some((_) => (_ === type_name)) && ((typeof value !== 'number') || Number.isNaN(value_i)))
-            return [`${display_path(path)}: must be integer, not ${JSON.stringify(value)}`, undefined]
+            return [`${displayPath(path)}: must be integer, not ${JSON.stringify(value)}`, undefined]
         if (['.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === type_name)) && (value_i < 0))
-            return [`${display_path(path)}: must be greater than 0, not ${JSON.stringify(value)}`, undefined]
+            return [`${displayPath(path)}: must be greater than 0, not ${JSON.stringify(value)}`, undefined]
         return ["", value]
     }
 
@@ -374,7 +376,7 @@ function validate(apiRefl: YoReflApis, type_name: string, value: any, path: stri
 
     if (type_name.startsWith('[') && type_name.endsWith(']') && value) {
         if (!Array.isArray(value))
-            return [`${display_path(path)}: must be null or ${type_name}, not ${value}`, undefined]
+            return [`${displayPath(path)}: must be null or ${type_name}, not ${value}`, undefined]
         for (const i in (value as [])) {
             const item = (value as [])[i]
             const [err_msg, _] = validate(apiRefl, type_name.substring(1, type_name.length - 1), item, path + '[' + i + ']', true)
@@ -384,7 +386,7 @@ function validate(apiRefl: YoReflApis, type_name: string, value: any, path: stri
     }
 
     if (value && (typeof value !== 'object'))
-        return [`${display_path(path)}: must be null or ${type_name}, not ${value}`, undefined]
+        return [`${displayPath(path)}: must be null or ${type_name}, not ${value}`, undefined]
 
     if (type_name.startsWith('{') && type_name.endsWith('}') && value) {
         const splits = type_name.substring(1, type_name.length - 1).split(':')
@@ -407,8 +409,8 @@ function validate(apiRefl: YoReflApis, type_name: string, value: any, path: stri
         for (const k in (value as object)) {
             const field_type_name = type_struc[k]
             if (!field_type_name)
-                return [`${display_path(path, k)}: '${type_name}' has no '${k}' but has: '${type_struc_field_names.join("', '")}'`, undefined]
-            const [err_msg, _] = validate(apiRefl, field_type_name, (value as object)[k], path + '/' + k, true)
+                return [`${displayPath(path, k)}: '${type_name}' has no '${k}' but has: '${type_struc_field_names.join("', '")}'`, undefined]
+            const [err_msg, _] = validate(apiRefl, field_type_name, (value as object)[k], path + '.' + k, true)
             if (err_msg !== '')
                 return [err_msg, undefined]
         }
