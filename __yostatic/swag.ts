@@ -15,14 +15,16 @@ type YoReflMethod = {
     Path: string
 }
 
-export function onInit(apiRefl: YoReflApis) {
-    let select_method: HTMLSelectElement, td_input: HTMLTableCellElement, td_output: HTMLTableCellElement,
-        table: HTMLTableElement, input_querystring: HTMLInputElement, textarea_payload: HTMLTextAreaElement
+export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload: any, onSuccess?: (_?: any) => void, onFailed?: (err: any, resp?: any) => void, query?: { [_: string]: string }) => void) {
+    let select_method: HTMLSelectElement, td_input: HTMLTableCellElement, td_output: HTMLTableCellElement, table: HTMLTableElement,
+        input_querystring: HTMLInputElement, textarea_payload: HTMLTextAreaElement, textarea_response: HTMLTextAreaElement
 
-    const buildApiTypeGui = (td: HTMLTableCellElement, readOnly: boolean, type_name: string) => {
-        const textarea = html.textarea({ 'class': 'src-json', 'readOnly': readOnly }, '')
-        if (!readOnly)
+    const buildApiTypeGui = (td: HTMLTableCellElement, isForPayload: boolean, type_name: string) => {
+        const textarea = html.textarea({ 'class': 'src-json', 'readOnly': !isForPayload }, '')
+        if (isForPayload)
             textarea_payload = textarea
+        else
+            textarea_response = textarea
         td.innerHTML = ''
         if (type_name && type_name !== '') {
             const dummy_val = buildVal(apiRefl, type_name, [])
@@ -34,22 +36,42 @@ export function onInit(apiRefl: YoReflApis) {
         document.title = "/" + select_method.selectedOptions[0].value
         const method = apiRefl.Methods.find((_) => (_.Path === select_method.selectedOptions[0].value))
         table.style.visibility = (method ? 'visible' : 'hidden')
-        buildApiTypeGui(td_input, false, method?.In)
-        buildApiTypeGui(td_output, true, method?.Out)
+        buildApiTypeGui(td_input, true, method?.In)
+        buildApiTypeGui(td_output, false, method?.Out)
     }
     const sendRequest = () => {
+        // const time_started = new Date().getTime()
+        textarea_response.value = "..."
+        textarea_response.style.backgroundColor = '#f0f0f0'
         let query_string: { [_: string]: string }, payload: object
         if (input_querystring.value && input_querystring.value.length) {
             try { query_string = JSON.parse(input_querystring.value) } catch (err) {
-                alert(`Not valid JSON: '${input_querystring.value}'\n\n(${err})`)
+                alert(`${err}`)
                 return
             }
         }
         try { payload = JSON.parse(textarea_payload.value) } catch (err) {
-            alert(`Not valid JSON: '${textarea_payload.value}'\n\n(${err})`)
+            const err_msg = `${err}`
+            alert(err_msg)
+            const idx = err_msg.indexOf("osition ")
+            if (idx) {
+                const pos_parsed = parseInt(err_msg.substring(idx + "osition ".length) + "bla")
+                if (Number.isInteger(pos_parsed) && pos_parsed >= 0) {
+                    textarea_payload.setSelectionRange(pos_parsed - 2, pos_parsed + 2)
+                    textarea_payload.focus()
+                }
+            }
             return
         }
-        yoReq(select_method.selectedOptions[0].value, payload, () => { }, query_string)
+        yoReq(select_method.selectedOptions[0].value, payload, (result) => {
+            textarea_response.style.backgroundColor = '#c0f0c0'
+            textarea_response.value = JSON.stringify(result, null, 2)
+        }, (err, resp?: Response) => {
+            textarea_response.style.backgroundColor = '#f0d0c0'
+            textarea_response.value = JSON.stringify(err, null, 2)
+            if (resp)
+                resp.text().then((response_text) => textarea_response.value += ("\n" + response_text))
+        }, query_string)
     }
 
     van.add(document.body,

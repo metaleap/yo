@@ -37,6 +37,12 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	ctx := ctxNew(req)
 	defer ctx.dispose()
 
+	if s, _ := ctx.Get("yoFail").(string); s != "" {
+		code, _ := aToI(s)
+		http.Error(rw, "forced error via query-string param 'yoFail'", If(code == 0, 500, code))
+		return
+	}
+
 	url_path := strTrimR(strTrimL(req.URL.Path, "/"), "/")
 
 	if url_path == strReplace(ApiSdkGenDstTsFilePath, kv{".ts": ".js"}) {

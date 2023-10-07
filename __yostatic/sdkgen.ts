@@ -1,40 +1,50 @@
-type Yo_i8 = number
-type Yo_i16 = number
-type Yo_i32 = number
-type Yo_i64 = number
-type Yo_u8 = number
-type Yo_u16 = number
-type Yo_u32 = number
-type Yo_u64 = number
-type Yo_f32 = number
-type Yo_f64 = number
+export type Yo_i8 = number
+export type Yo_i16 = number
+export type Yo_i32 = number
+export type Yo_i64 = number
+export type Yo_u8 = number
+export type Yo_u16 = number
+export type Yo_u32 = number
+export type Yo_u64 = number
+export type Yo_f32 = number
+export type Yo_f64 = number
 
-var yoReq_timeoutMilliSec = 1234
+export let yoReq_timeoutMilliSec = 1234
 
-var yoReq_OnFailed = (err: any) => {
-    console.error(err)
+let yoReq_OnFailed = (err: any, resp?: Response) => {
+    console.error(err, resp)
 }
 
-function yoReq(methodPath: string, payload: any, onSuccess?: (_?: any) => void, query?: { [_: string]: string }) {
+export function setReqTimeoutMilliSec(timeout: number) {
+    yoReq_timeoutMilliSec = timeout
+}
+
+export function setOnFailed(onFailed: (err: any, resp?: Response) => void) {
+    yoReq_OnFailed = onFailed
+}
+
+export function yoReq(methodPath: string, payload: any, onSuccess?: (_?: any) => void, onFailed?: (err: any, resp?: Response) => void, query?: { [_: string]: string }) {
     let uri = "/" + methodPath
     if (query)
         uri += '?' + new URLSearchParams(query).toString()
     console.log("callAPI:", uri, payload)
+    if (!onFailed)
+        onFailed = yoReq_OnFailed
     fetch(uri, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         cache: 'no-cache', mode: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(yoReq_timeoutMilliSec)
     })
-        .catch(yoReq_OnFailed)
+        .catch(onFailed)
         .then((resp: Response) => {
             if ((!resp) || (!resp.body) || (resp.status !== 200))
-                return yoReq_OnFailed({ 'status_code': resp?.status, 'status_text': resp?.statusText })
+                return onFailed({ 'status_code': resp?.status, 'status_text': resp?.statusText }, resp)
             else
                 resp.json()
-                    .catch(yoReq_OnFailed)
+                    .catch((err) => onFailed(err, resp))
                     .then((resp_json) => {
                         if (onSuccess)
                             onSuccess(resp_json)
-                    }, yoReq_OnFailed)
-        }, yoReq_OnFailed)
+                    }, (err) => onFailed(err, resp))
+        }, onFailed)
     return false
 }
