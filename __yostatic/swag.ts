@@ -97,20 +97,23 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                 const field_type_name = type_struc[field_name]
                 const value = obj[field_name]
                 let value_elem: HTMLElement
-                if ((field_type_name === 'time.Time') && !Number.isNaN(Date.parse(value)))
-                    value_elem = html.input({ 'type': 'datetime-local', 'readOnly': !isForPayload, 'value': value })
+                // 2023-10-07T19:32:10.055Z vs YYYY-MM-DDThh:mm
+                if ((field_type_name === 'time.Time') && (typeof value === 'string') && (value.length >= 16) && !Number.isNaN(Date.parse(value)))
+                    value_elem = html.input({ 'type': 'datetime-local', 'readOnly': !isForPayload, 'value': value.substring(0, 16) })
                 else if (['.int8', '.int16', '.int32', '.int64', '.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === field_type_name))
-                    && !Number.isNaN(parseInt(value)))
+                    && (typeof value === 'number'))
                     value_elem = html.input({ 'type': 'number', 'readOnly': !isForPayload, 'value': value })
-                else if (['.float32', '.float64'].some((_) => (_ === field_type_name)) && !Number.isNaN(parseFloat(value)))
+                else if (['.float32', '.float64'].some((_) => (_ === field_type_name)) && (typeof value === 'number'))
                     value_elem = html.input({ 'type': 'number', 'readOnly': !isForPayload, 'step': '0.01', 'value': value })
                 else if ((field_type_name === '.string') && (typeof value === 'string'))
                     value_elem = html.input({ 'type': 'text', 'readOnly': !isForPayload, 'value': value })
-                else if ((field_type_name === '.bool') && ((value === true) || (value === false)))
+                else if ((field_type_name === '.bool') && (typeof value === 'boolean'))
                     value_elem = html.input({ 'type': 'checkbox', 'readOnly': !isForPayload, 'checked': value })
                 else {
                     value_elem = html.ul({})
                     refreshTreeNode(field_type_name, value, value_elem as HTMLUListElement, isForPayload)
+                    if (value_elem.innerHTML !== '')
+                        value_elem.style.borderStyle = 'solid'
                 }
                 van.add(ulTree, html.li({}, field_name + ":", value_elem))
             }
