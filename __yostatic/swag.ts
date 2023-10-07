@@ -33,7 +33,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
 
     const onSelectHistoryItem = () => {
         if ((select_history.selectedIndex <= 0) || (select_method.selectedIndex <= 0))
-            return
+            buildApiMethodGui(true)
         const date_time = parseInt(select_history.selectedOptions[0].value)
         const entries = historyOf(select_method.selectedOptions[0].value)
         for (const entry of entries)
@@ -58,13 +58,16 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
         }
     }
 
-    const buildApiMethodGui = () => {
-        refreshHistory(false, true)
+    const buildApiMethodGui = (noHistorySelect?: boolean) => {
+        if (!noHistorySelect)
+            refreshHistory(true, false)
         document.title = "/" + select_method.selectedOptions[0].value
         const method = apiRefl.Methods.find((_) => (_.Path === select_method.selectedOptions[0].value))
         table.style.visibility = (method ? 'visible' : 'hidden')
         buildApiTypeGui(td_input, true, method?.In)
         buildApiTypeGui(td_output, false, method?.Out)
+        if (!noHistorySelect)
+            onSelectHistoryItem()
     }
 
     const sendRequest = () => {
@@ -133,15 +136,18 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             )),
         )),
     )
-    refreshHistory(true, false)
+    refreshHistory(false, false)
     const entry = historyLatest()
+    console.log(entry)
     if (entry)
-        for (let i = 0; i < select_method.options.length; i++)
+        for (let i = 0; i < select_method.options.length; i++) {
+            console.log(i, select_method.options[i].value, "===", entry.methodPath, (select_method.options[i].value === entry.methodPath))
             if (select_method.options[i].value === entry.methodPath) {
                 select_method.selectedIndex = i
-                onSelectHistoryItem()
+                buildApiMethodGui()
                 break
             }
+        }
 }
 
 function buildVal(refl: YoReflApis, type_name: string, recurse_protection: string[]): any {
