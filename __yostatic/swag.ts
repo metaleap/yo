@@ -285,20 +285,27 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
 }
 
 function validate(apiRefl: YoReflApis, type_name: string, obj: string | object, path: string, stringIsNoJson?: boolean): string {
-    if ((!obj) || (obj === ''))
-        return ''
     const is_str = (typeof obj === 'string'), display_path = (p: string, k?: string) => {
         return util.strTrimL(p.substring(p.indexOf('.') + 1) + (k ? ("/" + k.substring(k.indexOf(".") + 1)) : ""), "/")
     }
+    if (obj === undefined)
+        return `${display_path(path)}: use null instead of undefined`
+    if ((obj === null) || (obj === ''))
+        return ""
+
     for (const special_case_str_type_name of ['time.Duration', 'time.Time'])
         if (type_name === special_case_str_type_name)
-            return ((is_str && obj !== '') || obj === null) ? "" : `${display_path(path)}:'${type_name}' field needs a non-empty string value or null`
+            return ((is_str && obj !== '') || obj === null) ? "" : `${display_path(path)}: must be non-empty string or null`
+    if (type_name === 'time.Time' && is_str && Number.isNaN(Date.parse(obj.toString())))
+        return `${display_path(path)}: must be non-empty string or null`
+
     if (is_str && !stringIsNoJson)
         try {
             obj = JSON.parse(obj.toString())
         } catch (err) {
             return `${err}`
         }
+
     const type_struc = apiRefl.Types[type_name]
     if (obj && type_struc)
         for (const k in (obj as object)) {
@@ -312,5 +319,5 @@ function validate(apiRefl: YoReflApis, type_name: string, obj: string | object, 
                     return err_msg
             }
         }
-    return ''
+    return ""
 }
