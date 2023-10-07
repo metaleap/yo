@@ -255,7 +255,7 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
                     // check for equality with current payload/queryString: anything the same can go
                     const entry = entries[i], method = apiRefl.Methods.find((_) => (_.Path === method_path))
                     const remove = ('' !== validate(apiRefl, method.In, entry.payload, method.In)) ||
-                        (util.deepEq(entry.payload, payload) && util.deepEq(entry.queryString, queryString))
+                        ((methodPath === method_path) && util.deepEq(entry.payload, payload) && util.deepEq(entry.queryString, queryString))
                     if (remove)
                         [mut, i, entries] = [true, i - 1, entries.filter((_) => (_ != entry))]
                 }
