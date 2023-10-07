@@ -16,8 +16,33 @@ type YoReflMethod = {
 }
 
 export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload: any, onSuccess?: (_?: any) => void, onFailed?: (err: any, resp?: any) => void, query?: { [_: string]: string }) => void) {
-    let select_method: HTMLSelectElement, td_input: HTMLTableCellElement, td_output: HTMLTableCellElement, table: HTMLTableElement,
-        input_querystring: HTMLInputElement, textarea_payload: HTMLTextAreaElement, textarea_response: HTMLTextAreaElement
+    let select_method: HTMLSelectElement, select_history: HTMLSelectElement, td_input: HTMLTableCellElement, td_output: HTMLTableCellElement,
+        table: HTMLTableElement, input_querystring: HTMLInputElement, textarea_payload: HTMLTextAreaElement, textarea_response: HTMLTextAreaElement
+
+    const refreshHistory = (selectLatest: boolean, selectEmpty: boolean) => {
+        while (select_history.options.length > 1)
+            select_history.options.remove(1)
+        if (select_method.selectedOptions.length < 1)
+            return
+        const method_path = select_method.selectedOptions[0].value
+        for (const entry of historyOf(method_path))
+            select_history.options.add(html.option({ 'value': entry.dateTime }, historyEntryStr(entry)))
+        if (selectEmpty || selectLatest)
+            select_history.selectedIndex = (selectLatest ? 1 : 0)
+    }
+
+    const onSelectHistoryItem = () => {
+        if ((select_history.selectedIndex <= 0) || (select_method.selectedIndex <= 0))
+            return
+        const date_time = parseInt(select_history.selectedOptions[0].value)
+        const entries = historyOf(select_method.selectedOptions[0].value)
+        for (const entry of entries)
+            if (entry.dateTime === date_time) {
+                input_querystring.value = (entry.queryString ? JSON.stringify(entry.queryString) : '')
+                textarea_payload.value = JSON.stringify(entry.payload, null, 2)
+                break
+            }
+    }
 
     const buildApiTypeGui = (td: HTMLTableCellElement, isForPayload: boolean, type_name: string) => {
         const textarea = html.textarea({ 'class': 'src-json', 'readOnly': !isForPayload }, '')
@@ -32,15 +57,18 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             van.add(td, textarea)
         }
     }
+
     const buildApiMethodGui = () => {
+        refreshHistory(false, true)
         document.title = "/" + select_method.selectedOptions[0].value
         const method = apiRefl.Methods.find((_) => (_.Path === select_method.selectedOptions[0].value))
         table.style.visibility = (method ? 'visible' : 'hidden')
         buildApiTypeGui(td_input, true, method?.In)
         buildApiTypeGui(td_output, false, method?.Out)
     }
+
     const sendRequest = () => {
-        // const time_started = new Date().getTime()
+        const time_started = new Date().getTime()
         textarea_response.value = "..."
         textarea_response.style.backgroundColor = '#f0f0f0'
         let query_string: { [_: string]: string }, payload: object
@@ -63,10 +91,18 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             }
             return
         }
+        historyStore(apiRefl, select_method.selectedOptions[0].value, payload, query_string)
+        refreshHistory(true, false)
+        const on_done = () => {
+            const duration_ms = new Date().getTime() - time_started
+            document.title = `${duration_ms}ms`
+        }
         yoReq(select_method.selectedOptions[0].value, payload, (result) => {
+            on_done()
             textarea_response.style.backgroundColor = '#c0f0c0'
             textarea_response.value = JSON.stringify(result, null, 2)
         }, (err, resp?: Response) => {
+            on_done()
             textarea_response.style.backgroundColor = '#f0d0c0'
             textarea_response.value = JSON.stringify(err, null, 2)
             if (resp)
@@ -75,10 +111,13 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
     }
 
     van.add(document.body,
-        html.div({}, select_method = html.select({ 'autofocus': true, 'onchange': (evt: UIEvent) => buildApiMethodGui() },
-            ...[html.option({ 'value': '' }, "")].concat(apiRefl.Methods.map((_) => {
-                return html.option({ 'value': _.Path }, _.Path)
-            })))),
+        html.div({},
+            select_method = html.select({ 'autofocus': true, 'onchange': (evt: UIEvent) => buildApiMethodGui() },
+                ...[html.option({ 'value': '' }, "")].concat(apiRefl.Methods.map((_) => {
+                    return html.option({ 'value': _.Path }, '/' + _.Path)
+                }))),
+            select_history = html.select({ 'onchange': onSelectHistoryItem }, html.option({ 'value': '' }, '')),
+        ),
         html.div({}, table = html.table({ 'width': '99%', 'style': 'visibility:hidden' },
             html.tr({},
                 td_input = html.td({ 'width': '50%' }),
@@ -87,10 +126,22 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             html.tr({}, html.td({ 'colspan': '2', 'style': 'text-align:center', 'align': 'center' },
                 html.label("URL query-string obj:"),
                 input_querystring = html.input({ 'type': 'text', 'value': '', 'placeholder': '{"name":"val", ...}' }),
+                html.label("Login:"),
+                html.input({ 'type': 'text', 'value': '', 'placeholder': 'user email addr.', 'disabled': true }),
+                html.input({ 'type': 'password', 'value': '', 'placeholder': 'user password', 'disabled': true }),
                 html.button({ 'style': 'font-weight:bold', 'onclick': sendRequest }, 'Go!'),
             )),
         )),
     )
+    refreshHistory(true, false)
+    const entry = historyLatest()
+    if (entry)
+        for (let i = 0; i < select_method.options.length; i++)
+            if (select_method.options[i].value === entry.methodPath) {
+                select_method.selectedIndex = i
+                onSelectHistoryItem()
+                break
+            }
 }
 
 function buildVal(refl: YoReflApis, type_name: string, recurse_protection: string[]): any {
@@ -132,4 +183,79 @@ function buildVal(refl: YoReflApis, type_name: string, recurse_protection: strin
         case ".uint64": return 64
     }
     return type_name
+}
+
+type HistoryEntry = {
+    dateTime: number
+    payload: object
+    queryString?: object
+}
+
+function historyOf(methodPath: string): HistoryEntry[] {
+    const json_entries = localStorage.getItem("yo:" + methodPath)
+    if (json_entries) {
+        const entries: HistoryEntry[] = JSON.parse(json_entries)
+        return entries.reverse()
+    }
+    return []
+}
+
+function historyEntryStr(entry: HistoryEntry): string {
+    return new Date(entry.dateTime).toLocaleString() + ": " + JSON.stringify(entry.payload) + (entry.queryString ? ("?" + JSON.stringify(entry.queryString)) : "")
+}
+
+function historyLatest() {
+    let ret: undefined | (HistoryEntry & { methodPath: string }) = undefined
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        const method_path = key.substring("yo:".length)
+        const json_entries = localStorage.getItem(key)
+        const entries: HistoryEntry[] = JSON.parse(json_entries)
+        for (const entry of entries)
+            if ((!ret) || (entry.dateTime > ret.dateTime))
+                ret = { dateTime: entry.dateTime, methodPath: method_path, payload: entry.payload, queryString: entry.queryString }
+    }
+    return ret
+}
+
+function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, queryString?: object) {
+    const entry: HistoryEntry = {
+        dateTime: new Date().getTime(),
+        payload: payload,
+        queryString: queryString
+    }
+    console.log(`storing '${methodPath}' history entry:`, entry)
+
+    {   // since we're anyway writing to localStorage, a good moment to clean out histories of no-longer-existing `methodPath`s
+        const keys_to_remove: string[] = []
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)
+            const method_path = key.substring("yo:".length)
+            if (!apiRefl.Methods.some((_) => (_.Path === method_path)))
+                keys_to_remove.push(key)
+        }
+        for (const key_to_remove of keys_to_remove) {
+            console.log(`removing '${key_to_remove}' history entry due to that method no longer existing'`)
+            localStorage.removeItem(key_to_remove)
+        }
+    }
+
+    let json_entries = localStorage.getItem("yo:" + methodPath)
+    if (!(json_entries && json_entries.length))
+        json_entries = '[]'
+    let entries: HistoryEntry[] = JSON.parse(json_entries)
+    entries.push(entry)
+    json_entries = JSON.stringify(entries)
+    let not_stored_yet = true
+    while (not_stored_yet)
+        try {
+            localStorage.setItem("yo:" + methodPath, json_entries)
+            not_stored_yet = false
+        } catch (err) {
+            if (entries.length === 0) {
+                console.error(err)
+                break
+            }
+            entries = entries.slice(1)
+        }
 }

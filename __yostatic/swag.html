@@ -23,10 +23,12 @@
         textarea.src-json:read-only {
             background-color: #f0f0f0;
         }
+        input[type="text"], input[type="password"]{
+            margin: 0 0.123em;
+        }
     </style>
 </head><body><script type='module' onerror="setTimeout(()=>{location.reload()},123)">
     import * as yo_sdk from '/__yostatic/yo-sdk.js'
     import * as main_view from './swag.js'
-    console.log (yo_sdk)
     yo_sdk.yoReq____refl({}, (_) => main_view.onInit(_, yo_sdk.yoReq))
 </script></body></html>
