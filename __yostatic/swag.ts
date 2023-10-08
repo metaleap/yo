@@ -148,32 +148,37 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
         ulTree.innerHTML = ""
         if (!value)
             return
-        const buildItemInput = (typeName: string, key: string, val: any) => {
+        const buildItemInput = (itemTypeName: string, key: string, val: any) => {
             let field_input: HTMLElement, checkbox: HTMLInputElement, get_val: (_: string) => any
-            const on_change = () => {
-                let index: string | number = key
+            const on_change = (evt: UIEvent) => {
+                let index: string | number = key, refresh_tree = false
                 if (key.startsWith('["') && key.endsWith('"]'))
                     index = key.substring(2, key.length - 2)
                 else if (key.startsWith('[') && key.endsWith(']') && is_array)
                     index = parseInt(key.substring(1))
                 if (!get_val) {
                     const sub_val = fieldInputValue(value[index], is_array)
-                    if ((sub_val === null) || (sub_val === undef))
-                        checkbox.checked = false
+                    if ((checkbox.checked) && ((sub_val === null) || (sub_val === undef))) {
+                        const new_val = fieldInputValue(newSampleVal(apiRefl, itemTypeName, []), is_array)
+                        if (new_val === undef)
+                            checkbox.checked = false
+                        else
+                            [refresh_tree, value[index]] = [true, new_val]
+                    }
                 } else if (checkbox.checked) {
-                    let v = get_val((field_input as any).value)
-                    v = fieldInputValue(v, is_array)
-                    console.log(v, v !== undef)
+                    const v = fieldInputValue(get_val((field_input as any).value), is_array)
                     if (v !== undef)
                         value[index] = v
                     else if (is_array)
                         value[index] = null
                     else {
-                        const new_val = (typeName === '.bool') ? undef : fieldInputValue(newSampleVal(apiRefl, typeName, []), is_array)
+                        const is_new_val_check = (evt.currentTarget === checkbox)
+                        const new_val = ((itemTypeName === '.bool') && !is_new_val_check)
+                            ? undef : fieldInputValue(newSampleVal(apiRefl, itemTypeName, []), is_array)
                         if (new_val === undef)
                             checkbox.checked = false
                         else
-                            value[index] = new_val
+                            [refresh_tree, value[index]] = [true, new_val]
                     }
                 }
                 if (field_input)
@@ -189,26 +194,28 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                 const textarea = (isForPayload ? textarea_payload : textarea_response)
                 textarea.value = JSON.stringify(root, null, 2)
                 textarea_response.style.backgroundColor = '#f0f0f0'
-                selJsonFromTree(path + '.' + key, isForPayload, true)
+                selJsonFromTree(path + '.' + key, isForPayload, !refresh_tree)
+                if (refresh_tree)
+                    refreshTreeNode(typeName, value, ulTree, isForPayload, path, root)
             }
-            if ((typeName === 'time.Time') && (typeof val === 'string') && (val.length >= 16) && !Number.isNaN(Date.parse(val))) {
+            if ((itemTypeName === 'time.Time') && (typeof val === 'string') && (val.length >= 16) && !Number.isNaN(Date.parse(val))) {
                 field_input = html.input({ 'onchange': on_change, 'type': 'datetime-local', 'readOnly': !isForPayload, 'value': val.substring(0, 16) /* must be YYYY-MM-DDThh:mm */ })
                 get_val = (s: string) => new Date(Date.parse(s)).toISOString()
-            } else if (['.int8', '.int16', '.int32', '.int64', '.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === typeName))
+            } else if (['.int8', '.int16', '.int32', '.int64', '.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === itemTypeName))
                 && (typeof val === 'number')) {
                 field_input = html.input({ 'onchange': on_change, 'type': 'number', 'readOnly': !isForPayload, 'value': val })
                 get_val = (s: string) => parseInt(s)
-            } else if (['.float32', '.float64'].some((_) => (_ === typeName)) && (typeof val === 'number')) {
+            } else if (['.float32', '.float64'].some((_) => (_ === itemTypeName)) && (typeof val === 'number')) {
                 field_input = html.input({ 'onchange': on_change, 'type': 'number', 'readOnly': !isForPayload, 'step': '0.01', 'value': val })
                 get_val = (s: string) => parseFloat(s)
-            } else if ((typeName === '.string') && (typeof val === 'string')) {
+            } else if ((itemTypeName === '.string') && (typeof val === 'string')) {
                 field_input = html.input({ 'onchange': on_change, 'type': 'text', 'readOnly': !isForPayload, 'value': val })
                 get_val = (s: string) => s
-            } else if ((typeName === '.bool') && (typeof val === 'boolean')) {
+            } else if ((itemTypeName === '.bool') && (typeof val === 'boolean')) {
                 field_input = html.input({ 'onchange': on_change, 'type': 'checkbox', 'disabled': !isForPayload, 'checked': val })
                 get_val = (_: string) => (field_input as HTMLInputElement).checked
-            } else if (enumExists(apiRefl, typeName) && (typeof val === 'string')) {
-                const enumerants = apiRefl.Enums[typeName]
+            } else if (enumExists(apiRefl, itemTypeName) && (typeof val === 'string')) {
+                const enumerants = apiRefl.Enums[itemTypeName]
                 if (enumerants && (enumerants.length > 0) && (enumerants.indexOf(val) >= 0))
                     field_input = html.select({ 'onchange': on_change }, ...enumerants.map((_) => html.option({ 'value': _, 'selected': (_ === val) }, _)))
                 else
@@ -218,7 +225,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             let field_input_subs = false, field_input_got = (field_input ? true : false)
             if (field_input_subs = (!field_input_got)) {
                 field_input = html.ul({})
-                refreshTreeNode(typeName, val, field_input as HTMLUListElement, isForPayload, path + '.' + key, root)
+                refreshTreeNode(itemTypeName, val, field_input as HTMLUListElement, isForPayload, path + '.' + key, root)
                 if (field_input_got = (field_input.innerHTML !== ''))
                     field_input.style.borderStyle = 'solid'
             }
@@ -229,6 +236,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                 field_input,
             ))
         }
+
         const is_arr = (typeName.startsWith('[') && typeName.endsWith(']')), is_map = (typeName.startsWith('{') && typeName.endsWith('}') && typeName.includes(':'))
         if (is_arr || is_map) {
             if ((is_arr && !is_array) || (is_map && (typeof value !== 'object')))
