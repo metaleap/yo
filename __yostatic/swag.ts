@@ -96,10 +96,9 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             for (const field_name in type_struc) {
                 const field_type_name = type_struc[field_name]
                 const value = obj[field_name]
-                let value_elem: HTMLElement
-                // 2023-10-07T19:32:10.055Z vs YYYY-MM-DDThh:mm
+                let value_got = false, value_elem: HTMLElement
                 if ((field_type_name === 'time.Time') && (typeof value === 'string') && (value.length >= 16) && !Number.isNaN(Date.parse(value)))
-                    value_elem = html.input({ 'type': 'datetime-local', 'readOnly': !isForPayload, 'value': value.substring(0, 16) })
+                    value_elem = html.input({ 'type': 'datetime-local', 'readOnly': !isForPayload, 'value': value.substring(0, 16) /* must be YYYY-MM-DDThh:mm */ })
                 else if (['.int8', '.int16', '.int32', '.int64', '.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === field_type_name))
                     && (typeof value === 'number'))
                     value_elem = html.input({ 'type': 'number', 'readOnly': !isForPayload, 'value': value })
@@ -109,13 +108,17 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                     value_elem = html.input({ 'type': 'text', 'readOnly': !isForPayload, 'value': value })
                 else if ((field_type_name === '.bool') && (typeof value === 'boolean'))
                     value_elem = html.input({ 'type': 'checkbox', 'readOnly': !isForPayload, 'checked': value })
-                else {
+                if (!(value_got = (value_elem ? true : false))) {
                     value_elem = html.ul({})
                     refreshTreeNode(field_type_name, value, value_elem as HTMLUListElement, isForPayload, path + '.' + field_name)
-                    if (value_elem.innerHTML !== '')
+                    if (value_got = (value_elem.innerHTML !== ''))
                         value_elem.style.borderStyle = 'solid'
                 }
-                van.add(ulTree, html.li({ 'title': displayPath(path, field_name) }, html.span({ 'class': 'label' }, field_name + ":"), value_elem))
+                van.add(ulTree, html.li({ 'title': displayPath(path, field_name) },
+                    html.input({ 'type': 'checkbox', 'checked': value_got }),
+                    html.span({ 'class': 'label' }, field_name + ":"),
+                    value_elem,
+                ))
             }
     }
 
