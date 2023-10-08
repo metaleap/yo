@@ -1,9 +1,7 @@
 package yo
 
 import (
-	"cmp"
 	"reflect"
-	"slices"
 )
 
 type apiReflect struct {
@@ -20,18 +18,15 @@ type apiReflectMethod struct {
 
 func apiHandleRefl(_ *Ctx, _ *Void, ret *apiReflect) error {
 	ret.Types, ret.Enums = map[string]map[string]string{}, map[string][]string{}
-	for method_path, f := range API {
+	for _, method_path := range sorted(keys(API)) {
 		m := apiReflectMethod{Path: method_path}
-		rt_in, rt_out := f.reflTypes()
+		rt_in, rt_out := API[method_path].reflTypes()
 		m.In, m.Out = apiReflType(ret, rt_in, "", ""), apiReflType(ret, rt_out, "", "")
 		if no_in, no_out := (m.In == ""), (m.Out == ""); no_in || no_out {
 			panic(method_path + ": invalid " + If(no_in, "In", "Out"))
 		}
 		ret.Methods = append(ret.Methods, m)
 	}
-	slices.SortFunc(ret.Methods, func(a apiReflectMethod, b apiReflectMethod) int {
-		return cmp.Compare(a.Path, b.Path)
-	})
 	return nil
 }
 

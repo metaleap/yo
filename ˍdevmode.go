@@ -17,7 +17,18 @@ func init() {
 	yo_dir_path, all_enums := filepath.Join(filepath.Dir(cur_dir_path), "yo"), map[string][]string{}
 	for _, dir_path := range []string{cur_dir_path, yo_dir_path} {
 		if err := fs.WalkDir(os.DirFS(dir_path), ".", func(path string, dirEntry fs.DirEntry, err error) error {
-			if path = filepath.Join(dir_path, path); strEnds(path, ".go") {
+			path = filepath.Join(dir_path, path)
+
+			if strEnds(path, ".ts") && !foundModifiedTsFiles {
+				fileinfo_ts, err := dirEntry.Info()
+				if err != nil || fileinfo_ts == nil {
+					panic(err)
+				}
+				fileinfo_js, _ := os.Stat(path[:len(path)-len(".ts")] + ".js") // some .d.ts wont have js, ignoring that
+				foundModifiedTsFiles = (fileinfo_js != nil) && (fileinfo_ts.ModTime().After(fileinfo_js.ModTime()))
+			}
+
+			if strEnds(path, ".go") {
 				data, err := os.ReadFile(path)
 				if err != nil {
 					panic(err)

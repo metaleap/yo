@@ -95,43 +95,59 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
         refreshTreeNode(type_name, obj, ulTree, isForPayload, '')
     }
 
-    const refreshTreeNode = (typeName: string, obj: object, ulTree: HTMLUListElement, isForPayload: boolean, path: string) => {
+    const refreshTreeNode = (typeName: string, value: any, ulTree: HTMLUListElement, isForPayload: boolean, path: string) => {
         const type_struc = apiRefl.Types[typeName]
         ulTree.innerHTML = ""
-        if (obj && type_struc)
+        if (!value)
+            return
+        const buildItemInput = (typeName: string, key: string, val: any) => {
+            let field_input: HTMLElement
+            if ((typeName === 'time.Time') && (typeof val === 'string') && (val.length >= 16) && !Number.isNaN(Date.parse(val)))
+                field_input = html.input({ 'type': 'datetime-local', 'readOnly': !isForPayload, 'value': val.substring(0, 16) /* must be YYYY-MM-DDThh:mm */ })
+            else if (['.int8', '.int16', '.int32', '.int64', '.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === typeName))
+                && (typeof val === 'number'))
+                field_input = html.input({ 'type': 'number', 'readOnly': !isForPayload, 'value': val })
+            else if (['.float32', '.float64'].some((_) => (_ === typeName)) && (typeof val === 'number'))
+                field_input = html.input({ 'type': 'number', 'readOnly': !isForPayload, 'step': '0.01', 'value': val })
+            else if ((typeName === '.string') && (typeof val === 'string'))
+                field_input = html.input({ 'type': 'text', 'readOnly': !isForPayload, 'value': val })
+            else if ((typeName === '.bool') && (typeof val === 'boolean'))
+                field_input = html.input({ 'type': 'checkbox', 'readOnly': !isForPayload, 'checked': val })
+            else if (enumExists(apiRefl, typeName) && (typeof val === 'string')) {
+                const enumerants = apiRefl.Enums[typeName]
+                if (enumerants && (enumerants.length > 0) && (enumerants.indexOf(val) >= 0))
+                    field_input = html.select({}, ...enumerants.map((_) => html.option({ 'value': _, 'selected': (_ === val) }, _)))
+                else
+                    field_input = html.input({ 'type': 'text', 'readOnly': !isForPayload, 'value': val })
+            }
+            let field_input_subs = false, field_input_got = (field_input ? true : false)
+            if (field_input_subs = (!field_input_got)) {
+                field_input = html.ul({})
+                refreshTreeNode(typeName, val, field_input as HTMLUListElement, isForPayload, path + '.' + key)
+                if (field_input_got = (field_input.innerHTML !== ''))
+                    field_input.style.borderStyle = 'solid'
+            }
+            van.add(ulTree, html.li({ 'title': displayPath(path, key) },
+                html.input({ 'type': 'checkbox', 'checked': field_input_got }),
+                html.span({ 'class': 'label', 'style': (field_input_subs ? 'width:auto' : '') }, (key.startsWith('[') ? "" : ".") + key),
+                field_input,
+            ))
+        }
+        const is_arr = (typeName.startsWith('[') && typeName.endsWith(']')), is_map = (typeName.startsWith('{') && typeName.endsWith('}') && typeName.includes(':'))
+        if (is_arr || is_map) {
+            if ((is_arr && !Array.isArray(value)) || (is_map && (typeof value !== 'object')))
+                return
+            for (const key in value) {
+                const val = value[key]
+                let type_name = typeName.substring(1, typeName.length - 1)
+                if (is_map)
+                    type_name = type_name.substring(type_name.indexOf(':') + 1)
+                buildItemInput(type_name, (is_arr ? `[${key}]` : `["${key}"]`), val)
+            }
+        } else if (type_struc)
             for (const field_name in type_struc) {
-                const field_type_name = type_struc[field_name]
-                const value = obj[field_name]
-                let value_got = false, value_elem: HTMLElement
-                if ((field_type_name === 'time.Time') && (typeof value === 'string') && (value.length >= 16) && !Number.isNaN(Date.parse(value)))
-                    value_elem = html.input({ 'type': 'datetime-local', 'readOnly': !isForPayload, 'value': value.substring(0, 16) /* must be YYYY-MM-DDThh:mm */ })
-                else if (['.int8', '.int16', '.int32', '.int64', '.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === field_type_name))
-                    && (typeof value === 'number'))
-                    value_elem = html.input({ 'type': 'number', 'readOnly': !isForPayload, 'value': value })
-                else if (['.float32', '.float64'].some((_) => (_ === field_type_name)) && (typeof value === 'number'))
-                    value_elem = html.input({ 'type': 'number', 'readOnly': !isForPayload, 'step': '0.01', 'value': value })
-                else if ((field_type_name === '.string') && (typeof value === 'string'))
-                    value_elem = html.input({ 'type': 'text', 'readOnly': !isForPayload, 'value': value })
-                else if ((field_type_name === '.bool') && (typeof value === 'boolean'))
-                    value_elem = html.input({ 'type': 'checkbox', 'readOnly': !isForPayload, 'checked': value })
-                else if (enumExists(apiRefl, field_type_name) && (typeof value === 'string')) {
-                    const enumerants = apiRefl.Enums[field_type_name]
-                    if (enumerants && (enumerants.length > 0) && (enumerants.indexOf(value) >= 0))
-                        value_elem = html.select({}, ...enumerants.map((_) => html.option({ 'value': _, 'selected': (_ === value) }, _)))
-                    else
-                        value_elem = html.input({ 'type': 'text', 'readOnly': !isForPayload, 'value': value })
-                }
-                if (!(value_got = (value_elem ? true : false))) {
-                    value_elem = html.ul({})
-                    refreshTreeNode(field_type_name, value, value_elem as HTMLUListElement, isForPayload, path + '.' + field_name)
-                    if (value_got = (value_elem.innerHTML !== ''))
-                        value_elem.style.borderStyle = 'solid'
-                }
-                van.add(ulTree, html.li({ 'title': displayPath(path, field_name) },
-                    html.input({ 'type': 'checkbox', 'checked': value_got }),
-                    html.span({ 'class': 'label' }, field_name + ":"),
-                    value_elem,
-                ))
+                const field_type_name = type_struc[field_name], field_val = value[field_name]
+                buildItemInput(field_type_name, field_name, field_val)
             }
     }
 

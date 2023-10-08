@@ -1,8 +1,10 @@
 package yo
 
 import (
+	"cmp"
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -34,6 +36,19 @@ func If[T any](b bool, t T, f T) T {
 		return t
 	}
 	return f
+}
+
+func keys[K comparable, V any](m map[K]V) (ret []K) {
+	ret = make([]K, 0, len(m))
+	for k := range m {
+		ret = append(ret, k)
+	}
+	return
+}
+
+func sorted[S ~[]E, E cmp.Ordered](slice S) S {
+	slices.Sort(slice)
+	return slice
 }
 
 func reflHasMethod(ty reflect.Type, name string) bool {
