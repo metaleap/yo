@@ -55,7 +55,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
         const method_path = select_method.selectedOptions[0].value
         let last_textarea_value = ''
         const on_textarea_maybe_modified = () => {
-            if (textarea_payload.value === last_textarea_value) // not every keyup is a modify
+            if ((!isForPayload) || (textarea_payload.value === last_textarea_value)) // not every keyup is a modify
                 return
             last_textarea_value = textarea_payload.value
             const [err_msg, obj] = validate(apiRefl, type_name, textarea_payload.value, type_name)
