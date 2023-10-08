@@ -89,6 +89,47 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             onSelectHistoryItem()
     }
 
+    const selJsonFromTree = (path: string, isForPayload: boolean) => {
+        const textarea = (isForPayload ? textarea_payload : textarea_response)
+        let level = 0, value = JSON.parse(textarea.value)
+        textarea.value = JSON.stringify(value, null, 2)
+        const path_parts = util.strTrimL(path, '.').split('.')
+        const inner_to_outer = []
+        let text_sel_pos = -1, text_sel_len = 0
+        for (const path_part of path_parts) {
+            level++
+            if (path_part.startsWith('["') && path_part.endsWith('"]'))
+                value = value[path_part.substring(2, path_part.length - 2)]
+            else if (path_part.startsWith('[') && path_part.endsWith(']'))
+                value = value[parseInt(path_part.substring(1))]
+            else
+                value = value[path_part]
+            inner_to_outer.push(value)
+        }
+        for (const value of inner_to_outer) {
+            const json_val = JSON.stringify(value, null, level * 2)
+            const idx_first = textarea.value.indexOf(json_val), idx_last = textarea.value.lastIndexOf(json_val)
+            if ((idx_first >= 0) && (idx_first === idx_last)) {
+                [text_sel_pos, text_sel_len] = [idx_first, json_val.length]
+                break
+            }
+            level--
+        }
+        if ((text_sel_pos >= 0) && (text_sel_len > 0)) {
+            console.log(text_sel_pos, text_sel_len)
+            const text_sel_end = text_sel_pos + text_sel_len
+            { // ensuring select+scrollTo as per https://stackoverflow.com/a/53082182
+                textarea.focus()
+                const full_text = textarea.value
+                textarea.value = full_text.substring(0, text_sel_end)
+                textarea.scrollTop = textarea.scrollHeight
+                textarea.value = full_text
+                textarea.setSelectionRange(text_sel_pos, text_sel_end)
+            }
+        }
+        return false
+    }
+
     const refreshTree = (methodPath: string, obj: object, ulTree: HTMLUListElement, isForPayload: boolean) => {
         const method = apiRefl.Methods.find((_) => (_.Path === methodPath))
         const type_name = (isForPayload ? method.In : method.Out)
@@ -129,7 +170,8 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             }
             van.add(ulTree, html.li({ 'title': displayPath(path, key) },
                 html.input({ 'type': 'checkbox', 'checked': field_input_got }),
-                html.span({ 'class': 'label', 'style': (field_input_subs ? 'width:auto' : '') }, (key.startsWith('[') ? "" : ".") + key),
+                html.a({ 'class': 'label', 'style': (field_input_subs ? 'width:auto' : ''), 'onclick': () => selJsonFromTree(path + '.' + key, isForPayload) },
+                    (key.startsWith('[') ? "" : ".") + key),
                 field_input,
             ))
         }
