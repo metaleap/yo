@@ -70,7 +70,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             [textarea_response, tree_response] = [textarea, tree]
         td.innerHTML = ''
         if (type_name && type_name !== '') {
-            const dummy_val = buildVal(apiRefl, type_name, [])
+            const dummy_val = newSampleVal(apiRefl, type_name, [])
             textarea.value = JSON.stringify(dummy_val, null, 2)
             van.add(td, textarea, tree)
             refreshTree(method_path, dummy_val, isForPayload ? tree_payload : tree_response, isForPayload)
@@ -161,15 +161,20 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                     if ((sub_val === null) || (sub_val === undef))
                         checkbox.checked = false
                 } else if (checkbox.checked) {
-                    const str_val = (field_input as any).value
-                    let v = get_val(str_val)
+                    let v = get_val((field_input as any).value)
                     v = fieldInputValue(v, is_array)
+                    console.log(v, v !== undef)
                     if (v !== undef)
                         value[index] = v
                     else if (is_array)
                         value[index] = null
-                    else
-                        checkbox.checked = false
+                    else {
+                        const new_val = (typeName === '.bool') ? undef : fieldInputValue(newSampleVal(apiRefl, typeName, []), is_array)
+                        if (new_val === undef)
+                            checkbox.checked = false
+                        else
+                            value[index] = new_val
+                    }
                 }
                 if (field_input)
                     if (get_val) // field input control
@@ -329,7 +334,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
         }
 }
 
-function buildVal(refl: YoReflApis, type_name: string, recurse_protection: string[]): any {
+function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: string[]): any {
     switch (type_name) {
         case 'time.Time': return new Date().toISOString()
         case '.bool': return true
@@ -361,15 +366,15 @@ function buildVal(refl: YoReflApis, type_name: string, recurse_protection: strin
         else
             for (const field_name in type_struc) {
                 const field_type_name = type_struc[field_name]
-                obj[field_name] = buildVal(refl, field_type_name, [type_name].concat(recurse_protection))
+                obj[field_name] = newSampleVal(refl, field_type_name, [type_name].concat(recurse_protection))
             }
         return obj
     }
     if (type_name.startsWith('[') && type_name.endsWith(']'))
-        return [buildVal(refl, type_name.substring(1, type_name.length - 1), recurse_protection)]
+        return [newSampleVal(refl, type_name.substring(1, type_name.length - 1), recurse_protection)]
     if (type_name.startsWith('{') && type_name.endsWith('}') && type_name.includes(':')) {
         const ret = {}, splits = type_name.substring(1, type_name.length - 1).split(':')
-        ret[buildVal(refl, splits[0], recurse_protection)] = buildVal(refl, splits.slice(1).join(':'), recurse_protection)
+        ret[newSampleVal(refl, splits[0], recurse_protection)] = newSampleVal(refl, splits.slice(1).join(':'), recurse_protection)
         return ret
     }
     return type_name
