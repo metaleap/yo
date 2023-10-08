@@ -5,7 +5,6 @@ import (
 	"os"
 	"reflect"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -25,8 +24,8 @@ func cfgLoad() {
 	if env_file_data = bytes.TrimSpace(env_file_data); len(env_file_data) == 0 {
 		panic(".env")
 	} else {
-		for i, lines := 0, strings.Split(string(env_file_data), "\n"); i < len(lines); i++ {
-			if name, val, ok := strings.Cut(lines[i], "="); !ok {
+		for i, lines := 0, strSplit(string(env_file_data), "\n"); i < len(lines); i++ {
+			if name, val, ok := strCut(lines[i], "="); !ok {
 				panic(lines[i])
 			} else if err := os.Setenv(name, val); err != nil {
 				panic(err)

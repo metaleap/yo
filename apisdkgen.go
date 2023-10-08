@@ -63,7 +63,7 @@ func apiGenSdkType(buf *strings.Builder, api *apiReflect, typeName string, struc
 		_, _ = buf.WriteString("\n}\n")
 	} else {
 		_, _ = buf.WriteString(strFmt("\nexport type %s = %s\n", apiGenSdkTypeName(typeName),
-			If(len(enumMembers) == 0, "string", "\""+strings.Join(enumMembers, "\" | \"")+"\"")))
+			If(len(enumMembers) == 0, "string", "\""+strJoin(enumMembers, "\" | \"")+"\"")))
 	}
 }
 
@@ -88,7 +88,7 @@ func apiGenSdkTypeName(typeRef string) string {
 		return apiGenSdkTypeName(typeRef[1:len(typeRef)-1]) + "[]"
 	}
 	if strBegins(typeRef, "{") && strEnds(typeRef, "}") {
-		key_part, val_part, ok := strings.Cut(typeRef[1:len(typeRef)-1], ":")
+		key_part, val_part, ok := strCut(typeRef[1:len(typeRef)-1], ":")
 		if !ok {
 			panic(typeRef)
 		}

@@ -18,6 +18,9 @@ var (
 	strTrimL   = strings.TrimPrefix
 	strTrimR   = strings.TrimSuffix
 	strIdx     = strings.IndexByte
+	strJoin    = strings.Join
+	strSplit   = strings.Split
+	strCut     = strings.Cut
 	iToA       = strconv.Itoa
 	aToI       = strconv.Atoi
 	i64ToStr   = strconv.FormatInt
