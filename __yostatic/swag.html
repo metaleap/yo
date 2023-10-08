@@ -19,6 +19,7 @@
             height: 22em;
             font-family: monospace;
             text-wrap: nowrap;
+            resize: none;
         }
         textarea.src-json:read-only {
             background-color: #f0f0f0;
@@ -28,20 +29,28 @@
         }
         tr, td {
             vertical-align: top;
+            overflow: auto;
         }
         ul {
-            padding-inline-start: 1.23em;
+            list-style-type: none;
+            padding: 0 0 0 0.77em;
             margin-block-start: 0;
             border-collapse: collapse;
             border: 1px none #b0b0b0;
         }
-        ul label {
-            display: inline-block;
-            width: 2.77em;
+        ul input, ul li, ul li span.label {
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        ul li span.label {
+            display: inline-flex;
+            width: 3.21em;
+            max-width: 3.21em;
+            min-width: 3.21em;
             text-overflow: ellipsis;
             overflow: hidden;
             text-wrap: nowrap;
-            margin-bottom: -0.2em;
+            margin-right: 0.22em !important;
         }
     </style>
 </head><body><script type='module' onerror="setTimeout(()=>{location.reload()},123)">

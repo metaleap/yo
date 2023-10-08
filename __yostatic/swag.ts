@@ -56,7 +56,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             document.title = err_msg || ("/" + method_path)
             refreshTree(method_path, obj, isForPayload ? tree_payload : tree_response, isForPayload)
         }
-        const tree = html.ul(), textarea = html.textarea({ 'class': 'src-json', 'readOnly': !isForPayload, 'onkeyup': on_textarea_changed, 'onpaste': on_textarea_changed, 'oncut': on_textarea_changed, 'onchange': on_textarea_changed }, '')
+        const tree = html.ul({ 'style': 'font-size:0.88em' }), textarea = html.textarea({ 'class': 'src-json', 'readOnly': !isForPayload, 'onkeyup': on_textarea_changed, 'onpaste': on_textarea_changed, 'oncut': on_textarea_changed, 'onchange': on_textarea_changed }, '')
         if (isForPayload)
             [textarea_payload, tree_payload] = [textarea, tree]
         else
@@ -115,7 +115,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                     if (value_elem.innerHTML !== '')
                         value_elem.style.borderStyle = 'solid'
                 }
-                van.add(ulTree, html.li({ 'title': displayPath(path, field_name) }, html.label({}, field_name + ":"), value_elem))
+                van.add(ulTree, html.li({ 'title': displayPath(path, field_name) }, html.span({ 'class': 'label' }, field_name + ":"), value_elem))
             }
     }
 
