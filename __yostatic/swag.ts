@@ -166,14 +166,15 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                             [refresh_tree, value[index]] = [true, new_val]
                     }
                 } else if (checkbox.checked) {
-                    const v = fieldInputValue(get_val((field_input as any).value), is_array)
+                    const v = fieldInputValue(get_val((field_input as any).value),
+                        is_array || ((typeof val === 'number') && (evt.currentTarget === field_input)))
                     if (v !== undef)
                         value[index] = v
                     else if (is_array)
                         value[index] = null
                     else {
                         const is_new_val_check = (evt.currentTarget === checkbox)
-                        const new_val = ((itemTypeName === '.bool') && !is_new_val_check)
+                        const new_val = (((itemTypeName === '.bool') || (itemTypeName === '.string')) && !is_new_val_check)
                             ? undef : fieldInputValue(newSampleVal(apiRefl, itemTypeName, []), is_array)
                         if (new_val === undef)
                             checkbox.checked = false
@@ -203,10 +204,10 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                 get_val = (s: string) => new Date(Date.parse(s)).toISOString()
             } else if (['.int8', '.int16', '.int32', '.int64', '.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === itemTypeName))
                 && (typeof val === 'number')) {
-                field_input = html.input({ 'onchange': on_change, 'type': 'number', 'readOnly': !isForPayload, 'value': val })
+                field_input = html.input({ 'onchange': on_change, 'type': 'number', 'readOnly': !isForPayload, 'value': val, 'min': numTypeMin(itemTypeName), 'max': numTypeMax(itemTypeName) })
                 get_val = (s: string) => parseInt(s)
             } else if (['.float32', '.float64'].some((_) => (_ === itemTypeName)) && (typeof val === 'number')) {
-                field_input = html.input({ 'onchange': on_change, 'type': 'number', 'readOnly': !isForPayload, 'step': '0.01', 'value': val })
+                field_input = html.input({ 'onchange': on_change, 'type': 'number', 'readOnly': !isForPayload, 'step': '0.01', 'value': val, 'min': numTypeMin(itemTypeName), 'max': numTypeMax(itemTypeName) })
                 get_val = (s: string) => parseFloat(s)
             } else if ((itemTypeName === '.string') && (typeof val === 'string')) {
                 field_input = html.input({ 'onchange': on_change, 'type': 'text', 'readOnly': !isForPayload, 'value': val })
@@ -582,5 +583,18 @@ function fieldInputValue(v: any, preserve: boolean) {
     ) ? v : (v ? v : undef)
 }
 
-
-// +-9007199254740991
+function numTypeMin(typeName: string): number { return numTypeLimits(typeName)[0] }
+function numTypeMax(typeName: string): number { return numTypeLimits(typeName)[1] }
+function numTypeLimits(typeName: string): [number, number] {
+    switch (typeName) {
+        case '.int8': return [-128, 127]
+        case '.int16': return [-32768, 32767]
+        case '.int32': return [-2147483648, 2147483647]
+        case '.int64': return [-9007199254740991, 9007199254740991] // JS limits, not i64 limits
+        case '.uint8': return [0, 255]
+        case '.uint16': return [0, 65535]
+        case '.uint32': return [0, 4294967295]
+        case '.uint64': return [0, 9007199254740991] // JS limits, not i64 limits
+    }
+    return [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER] // JS limits: +-9007199254740991
+}
