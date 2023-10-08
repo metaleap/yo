@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
 const ApiSdkGenDstTsFilePath = staticFileDirPath + "/yo-sdk.ts"
@@ -47,14 +48,20 @@ func apiGenSdk() {
 		}
 	}
 	if foundModifiedTsFiles {
+		log.Println("\t2x tsc...")
+		var work sync.WaitGroup
+		work.Add(2)
 		for _, dir_path := range []string{"", "../yo"} {
-			log.Println("\ttsc...")
-			tsc := exec.Command("tsc")
-			tsc.Dir = dir_path
-			if output, err := tsc.CombinedOutput(); err != nil {
-				panic(err.Error() + "\n" + string(output))
-			}
+			go func(dirPath string) {
+				defer work.Done()
+				tsc := exec.Command("tsc")
+				tsc.Dir = dirPath
+				if output, err := tsc.CombinedOutput(); err != nil {
+					panic(err.Error() + "\n" + string(output))
+				}
+			}(dir_path)
 		}
+		work.Wait()
 	}
 }
 

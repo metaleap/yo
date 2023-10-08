@@ -91,30 +91,41 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
 
     const selJsonFromTree = (path: string, isForPayload: boolean) => {
         const textarea = (isForPayload ? textarea_payload : textarea_response)
-        let level = 0, value = JSON.parse(textarea.value)
+        let level = 1, value = JSON.parse(textarea.value)
         textarea.value = JSON.stringify(value, null, 2)
         const path_parts = util.strTrimL(path, '.').split('.')
-        const inner_to_outer = []
-        let text_sel_pos = -1, text_sel_len = 0
+        let prev_pos = 0, prev_json = textarea.value, text_sel_pos = -1, text_sel_len = 0
         for (const path_part of path_parts) {
-            level++
-            if (path_part.startsWith('["') && path_part.endsWith('"]'))
-                value = value[path_part.substring(2, path_part.length - 2)]
-            else if (path_part.startsWith('[') && path_part.endsWith(']'))
+            let key = path_part
+            if (path_part.startsWith('["') && path_part.endsWith('"]')) {
+                key = path_part.substring(2, path_part.length - 2)
+                value = value[key]
+            } else if (path_part.startsWith('[') && path_part.endsWith(']')) {
+                key = ''
                 value = value[parseInt(path_part.substring(1))]
-            else
+            } else
                 value = value[path_part]
-            inner_to_outer.push(value)
-        }
-        for (const value of inner_to_outer) {
-            const json_val = JSON.stringify(value, null, level * 2)
-            const idx_first = textarea.value.indexOf(json_val), idx_last = textarea.value.lastIndexOf(json_val)
-            if ((idx_first >= 0) && (idx_first === idx_last)) {
-                [text_sel_pos, text_sel_len] = [idx_first, json_val.length]
+
+            let json_val = JSON.stringify(value, null, 2)
+            for (let i = 0; i < json_val.length; i++)
+                if (json_val.charAt(i) === '\n')
+                    json_val = json_val.substring(0, i + 1) + '  '.repeat(level) + json_val.substring(i + 1)
+            const needle_prefix = `\n${'  '.repeat(level)}`
+            const needle = ((key === '') ?
+                `${needle_prefix}${json_val}` :
+                `${needle_prefix}"${key}": ${json_val}`)
+            let pos_cur_first = prev_json.indexOf(needle), pos_cur_last = prev_json.lastIndexOf(needle)
+            if (pos_cur_first < 0)
                 break
+            if (pos_cur_first !== pos_cur_last) {
+                alert("unexpected: " + pos_cur_first + " vs " + pos_cur_last)
+                return false
             }
-            level--
+            const pos = prev_pos + (pos_cur_first + needle_prefix.length)
+            level++
+            [text_sel_pos, text_sel_len, prev_pos, prev_json] = [pos, needle.length, pos, json_val]
         }
+        console.log(text_sel_pos, text_sel_len)
         if ((text_sel_pos >= 0) && (text_sel_len > 0)) {
             console.log(text_sel_pos, text_sel_len)
             const text_sel_end = text_sel_pos + text_sel_len
