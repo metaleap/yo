@@ -18,7 +18,7 @@ type YoReflMethod = {
     Path: string
 }
 
-export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload: any, onSuccess?: (_?: any) => void, onFailed?: (err: any, resp?: any) => void, query?: { [_: string]: string }) => void) {
+export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodPath: string, payload: any, onSuccess?: (_?: any) => void, onFailed?: (err: any, resp?: any) => void, query?: { [_: string]: string }) => void) {
     let select_method: HTMLSelectElement, select_history: HTMLSelectElement, td_input: HTMLTableCellElement, td_output: HTMLTableCellElement,
         table: HTMLTableElement, input_querystring: HTMLInputElement, textarea_payload: HTMLTextAreaElement, textarea_response: HTMLTextAreaElement,
         tree_payload: HTMLUListElement, tree_response: HTMLUListElement
@@ -30,7 +30,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             return
         const method_path = select_method.selectedOptions[0].value
         for (const entry of historyOf(method_path))
-            select_history.options.add(html.option({ 'value': entry.dateTime }, historyEntryStr(entry)))
+            select_history.options.add(html.option({ 'value': entry.dateTime }, historyEntryStr(entry, 123)))
         if (selectEmpty || selectLatest)
             select_history.selectedIndex = (selectLatest ? 1 : 0)
     }
@@ -307,12 +307,21 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
         }, query_string)
     }
 
-    van.add(document.body,
+    const openInNewDialog = () => {
+        const dialog = html.dialog({ 'style': 'width:88%' })
+        van.add(parent, dialog)
+        dialog.onclose = () => { dialog.remove() }
+        onInit(dialog, apiRefl, yoReq)
+        dialog.showModal()
+    }
+
+    van.add(parent,
         html.div({},
             select_method = html.select({ 'autofocus': true, 'onchange': (evt: UIEvent) => buildApiMethodGui() },
                 ...[html.option({ 'value': '' }, '')].concat(apiRefl.Methods.map((_) => {
                     return html.option({ 'value': _.Path }, '/' + _.Path)
                 }))),
+            html.button({ 'onclick': openInNewDialog }, 'New Dialog...'),
             select_history = html.select({ 'style': 'max-width:80%;float:right', 'onchange': onSelectHistoryItem }, html.option({ 'value': '' }, '')),
         ),
         html.div({}, table = html.table({ 'width': '99%', 'style': 'visibility:hidden' },
@@ -404,8 +413,9 @@ function historyOf(methodPath: string): HistoryEntry[] {
     return []
 }
 
-function historyEntryStr(entry: HistoryEntry): string {
-    return new Date(entry.dateTime).toLocaleString() + ": " + JSON.stringify(entry.payload) + (entry.queryString ? ("?" + JSON.stringify(entry.queryString)) : "")
+function historyEntryStr(entry: HistoryEntry, maxLen: number = 0): string {
+    const ret = new Date(entry.dateTime).toLocaleString() + ": " + JSON.stringify(entry.payload) + (entry.queryString ? ("?" + JSON.stringify(entry.queryString)) : "")
+    return ((maxLen > 0) && (ret.length > maxLen)) ? (ret.substring(0, maxLen) + '...') : ret
 }
 
 function historyLatest() {
