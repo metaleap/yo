@@ -31,10 +31,10 @@ func init() {
 							if name, type_name, ok := strCut(name_and_type, " "); ok {
 								if name, type_name = strTrim(name), strTrim(type_name); name != type_name && strBegins(name, type_name) {
 									enumerant_name := name[len(type_name):]
-									if enumerant_name != value {
-										panic(enumerant_name + "!=" + value)
+									if enumerant_name != value && name != value {
+										panic(value + "!=" + enumerant_name + " && " + value + "!=" + name)
 									}
-									all_enums[pkg_name+"."+type_name] = append(all_enums[pkg_name+"."+type_name], enumerant_name)
+									all_enums[pkg_name+"."+type_name] = append(all_enums[pkg_name+"."+type_name], value)
 								}
 							}
 						}
