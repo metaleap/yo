@@ -108,18 +108,16 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                 value = value[path_part]
 
             let json_val = JSON.stringify(value, null, 2)
+            if (json_val === undef) // fresh removal via tree editor
+                break
             for (let i = 0; i < json_val.length; i++)
                 if (json_val.charAt(i) === '\n')
                     json_val = json_val.substring(0, i + 1) + '  '.repeat(level) + json_val.substring(i + 1)
             const needle_prefix = `\n${'  '.repeat(level)}` + ((key === '') ? ('') : (`"${key}": `))
             const needle = needle_prefix + json_val
             let pos_cur_first = prev_json.indexOf(needle), pos_cur_last = prev_json.lastIndexOf(needle)
-            if (pos_cur_first < 0)
+            if ((pos_cur_first < 0) || (pos_cur_first !== pos_cur_last))
                 break
-            if (pos_cur_first !== pos_cur_last) {
-                alert("unexpected: " + pos_cur_first + " vs " + pos_cur_last)
-                return false
-            }
             const pos = prev_pos + (pos_cur_first + needle_prefix.length)
             level++
             [text_sel_pos, text_sel_len, prev_pos, prev_json] = [pos, json_val.length, pos, json_val]
@@ -158,7 +156,11 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                     index = key.substring(2, key.length - 2)
                 else if (key.startsWith('[') && key.endsWith(']') && is_array)
                     index = parseInt(key.substring(1))
-                if (checkbox.checked) {
+                if (!get_val) {
+                    const sub_val = fieldInputValue(value[index], is_array)
+                    if ((sub_val === null) || (sub_val === undef))
+                        checkbox.checked = false
+                } else if (checkbox.checked) {
                     const str_val = (field_input as any).value
                     let v = get_val(str_val)
                     v = fieldInputValue(v, is_array)
@@ -169,13 +171,19 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                     else
                         checkbox.checked = false
                 }
+                if (field_input)
+                    if (get_val) // field input control
+                        field_input.style.visibility = (checkbox.checked ? 'visible' : 'hidden')
+                    else // sub-tree
+                        field_input.style.display = (checkbox.checked ? 'block' : 'none')
                 if (!checkbox.checked)
                     if (typeof index === 'number')
-                        value = value.slice(0, index).concat(value.slice(index + 1))
+                        value[index] = null
                     else
                         delete value[index]
                 const textarea = (isForPayload ? textarea_payload : textarea_response)
                 textarea.value = JSON.stringify(root, null, 2)
+                textarea_response.style.backgroundColor = '#f0f0f0'
                 selJsonFromTree(path + '.' + key, isForPayload, true)
             }
             if ((typeName === 'time.Time') && (typeof val === 'string') && (val.length >= 16) && !Number.isNaN(Date.parse(val))) {
@@ -205,7 +213,6 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             let field_input_subs = false, field_input_got = (field_input ? true : false)
             if (field_input_subs = (!field_input_got)) {
                 field_input = html.ul({})
-                get_val = (_: string) => val
                 refreshTreeNode(typeName, val, field_input as HTMLUListElement, isForPayload, path + '.' + key, root)
                 if (field_input_got = (field_input.innerHTML !== ''))
                     field_input.style.borderStyle = 'solid'
@@ -558,6 +565,7 @@ function fieldInputValue(v: any, preserve: boolean) {
     return (((typeof v === 'boolean') && (v || preserve))
         || ((typeof v === 'number') && !isNaN(v) && ((v !== 0) || preserve))
         || ((typeof v === 'string') && ((v !== '') || preserve))
+        || ((v === null) && preserve)
     ) ? v : (v ? v : undef)
 }
 
