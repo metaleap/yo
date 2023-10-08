@@ -114,6 +114,13 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
                     value_elem = html.input({ 'type': 'text', 'readOnly': !isForPayload, 'value': value })
                 else if ((field_type_name === '.bool') && (typeof value === 'boolean'))
                     value_elem = html.input({ 'type': 'checkbox', 'readOnly': !isForPayload, 'checked': value })
+                else if (enumExists(apiRefl, field_type_name) && (typeof value === 'string')) {
+                    const enumerants = apiRefl.Enums[field_type_name]
+                    if (enumerants && (enumerants.length > 0) && (enumerants.indexOf(value) >= 0))
+                        value_elem = html.select({}, ...enumerants.map((_) => html.option({ 'value': _, 'selected': (_ === value) }, _)))
+                    else
+                        value_elem = html.input({ 'type': 'text', 'readOnly': !isForPayload, 'value': value })
+                }
                 if (!(value_got = (value_elem ? true : false))) {
                     value_elem = html.ul({})
                     refreshTreeNode(field_type_name, value, value_elem as HTMLUListElement, isForPayload, path + '.' + field_name)
@@ -231,6 +238,14 @@ function buildVal(refl: YoReflApis, type_name: string, recurse_protection: strin
         case '.uint32': return 32
         case '.uint64': return 64
     }
+
+    if (enumExists(refl, type_name)) {
+        const enumerants = refl.Enums[type_name]
+        if (enumerants && (enumerants.length > 0))
+            return enumerants.join('|')
+        return `(some ${type_name} enumerant)`
+    }
+
     const type_struc = refl.Types[type_name]
     if (type_struc) {
         const obj = {}
@@ -346,6 +361,10 @@ function displayPath(p: string, k?: string) {
     return p + (k ? ("." + k) : "")
 }
 
+function enumExists(apiRefl: YoReflApis, type_name: string) {
+    return (Object.keys(apiRefl.Enums).indexOf(type_name) >= 0)
+}
+
 function validate(apiRefl: YoReflApis, type_name: string, value: any, path: string, stringIsNoJson?: boolean): [string, any] {
     const is_str = (typeof value === 'string')
     if (value === undefined)
@@ -359,7 +378,7 @@ function validate(apiRefl: YoReflApis, type_name: string, value: any, path: stri
         return ["", value]
     }
 
-    if (Object.keys(apiRefl.Enums).indexOf(type_name) >= 0) {
+    if (enumExists(apiRefl, type_name)) {
         if (!((is_str && value !== '') || (value === null)))
             return [`${displayPath(path)}: must be must be non-empty string or null`, undefined]
         const enumerants = apiRefl.Enums[type_name]
