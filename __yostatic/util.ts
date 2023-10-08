@@ -1,3 +1,4 @@
+const undef = void 0
 
 export function fEq(a: number, b: number): boolean {
     return (isNaN(a) || isNaN(b))
@@ -13,7 +14,7 @@ export function strTrimL(s: string, prefix: string): string {
 
 export function deepEq(val1: any, val2: any, ignoreArrayOrder?: boolean): boolean {
     // deepEq only covers the JSON subset of the JS/TS type-scape
-    if (val1 === val2 || (val1 === null && val2 === undefined) || (val1 === undefined && val2 === null))
+    if ((val1 === val2) || ((val1 === null) && (val2 === undef)) || ((val1 === undef) && (val2 === null)))
         return true
     if ((typeof val1) !== (typeof val2))
         return false

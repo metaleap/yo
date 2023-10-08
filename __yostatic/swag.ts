@@ -1,6 +1,7 @@
 import van from './vanjs/van-1.2.1.debug.js'
 import * as util from './util.js'
 
+const undef = void 0
 const html = van.tags
 
 type YoReflType = { [_: string]: string }
@@ -89,7 +90,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             onSelectHistoryItem()
     }
 
-    const selJsonFromTree = (path: string, isForPayload: boolean) => {
+    const selJsonFromTree = (path: string, isForPayload: boolean, noFocus?: boolean) => {
         const textarea = (isForPayload ? textarea_payload : textarea_response)
         let level = 1, value = JSON.parse(textarea.value)
         textarea.value = JSON.stringify(value, null, 2)
@@ -126,7 +127,8 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
         if ((text_sel_pos >= 0) && (text_sel_len > 0)) {
             const text_sel_start = text_sel_pos, text_sel_end = text_sel_pos + text_sel_len
             { // ensuring select+scrollTo as per https://stackoverflow.com/a/53082182
-                textarea.focus()
+                if (!noFocus)
+                    textarea.focus()
                 const full_text = textarea.value
                 textarea.value = full_text.substring(0, text_sel_start /* quoted post uses end, but we wanna rather see the start of the selection than its end for big selections */)
                 textarea.scrollTop = textarea.scrollHeight
@@ -140,43 +142,76 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
     const refreshTree = (methodPath: string, obj: object, ulTree: HTMLUListElement, isForPayload: boolean) => {
         const method = apiRefl.Methods.find((_) => (_.Path === methodPath))
         const type_name = (isForPayload ? method.In : method.Out)
-        refreshTreeNode(type_name, obj, ulTree, isForPayload, '')
+        refreshTreeNode(type_name, obj, ulTree, isForPayload, '', obj)
     }
 
-    const refreshTreeNode = (typeName: string, value: any, ulTree: HTMLUListElement, isForPayload: boolean, path: string) => {
-        const type_struc = apiRefl.Types[typeName]
+    const refreshTreeNode = (typeName: string, value: any, ulTree: HTMLUListElement, isForPayload: boolean, path: string, root: any) => {
+        const type_struc = apiRefl.Types[typeName], is_array = Array.isArray(value)
         ulTree.innerHTML = ""
         if (!value)
             return
         const buildItemInput = (typeName: string, key: string, val: any) => {
-            let field_input: HTMLElement
-            if ((typeName === 'time.Time') && (typeof val === 'string') && (val.length >= 16) && !Number.isNaN(Date.parse(val)))
-                field_input = html.input({ 'type': 'datetime-local', 'readOnly': !isForPayload, 'value': val.substring(0, 16) /* must be YYYY-MM-DDThh:mm */ })
-            else if (['.int8', '.int16', '.int32', '.int64', '.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === typeName))
-                && (typeof val === 'number'))
-                field_input = html.input({ 'type': 'number', 'readOnly': !isForPayload, 'value': val })
-            else if (['.float32', '.float64'].some((_) => (_ === typeName)) && (typeof val === 'number'))
-                field_input = html.input({ 'type': 'number', 'readOnly': !isForPayload, 'step': '0.01', 'value': val })
-            else if ((typeName === '.string') && (typeof val === 'string'))
-                field_input = html.input({ 'type': 'text', 'readOnly': !isForPayload, 'value': val })
-            else if ((typeName === '.bool') && (typeof val === 'boolean'))
-                field_input = html.input({ 'type': 'checkbox', 'readOnly': !isForPayload, 'checked': val })
-            else if (enumExists(apiRefl, typeName) && (typeof val === 'string')) {
+            let field_input: HTMLElement, checkbox: HTMLInputElement, get_val: (_: string) => any
+            const on_change = () => {
+                let index: string | number = key
+                if (key.startsWith('["') && key.endsWith('"]'))
+                    index = key.substring(2, key.length - 2)
+                else if (key.startsWith('[') && key.endsWith(']') && is_array)
+                    index = parseInt(key.substring(1))
+                if (checkbox.checked) {
+                    const str_val = (field_input as any).value
+                    let v = get_val(str_val)
+                    v = fieldInputValue(v, is_array)
+                    if (v !== undef)
+                        value[index] = v
+                    else if (is_array)
+                        value[index] = null
+                    else
+                        checkbox.checked = false
+                }
+                if (!checkbox.checked)
+                    if (typeof index === 'number')
+                        value = value.slice(0, index).concat(value.slice(index + 1))
+                    else
+                        delete value[index]
+                const textarea = (isForPayload ? textarea_payload : textarea_response)
+                textarea.value = JSON.stringify(root, null, 2)
+                selJsonFromTree(path + '.' + key, isForPayload, true)
+            }
+            if ((typeName === 'time.Time') && (typeof val === 'string') && (val.length >= 16) && !Number.isNaN(Date.parse(val))) {
+                field_input = html.input({ 'onchange': on_change, 'type': 'datetime-local', 'readOnly': !isForPayload, 'value': val.substring(0, 16) /* must be YYYY-MM-DDThh:mm */ })
+                get_val = (s: string) => new Date(Date.parse(s)).toISOString()
+            } else if (['.int8', '.int16', '.int32', '.int64', '.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === typeName))
+                && (typeof val === 'number')) {
+                field_input = html.input({ 'onchange': on_change, 'type': 'number', 'readOnly': !isForPayload, 'value': val })
+                get_val = (s: string) => parseInt(s)
+            } else if (['.float32', '.float64'].some((_) => (_ === typeName)) && (typeof val === 'number')) {
+                field_input = html.input({ 'onchange': on_change, 'type': 'number', 'readOnly': !isForPayload, 'step': '0.01', 'value': val })
+                get_val = (s: string) => parseFloat(s)
+            } else if ((typeName === '.string') && (typeof val === 'string')) {
+                field_input = html.input({ 'onchange': on_change, 'type': 'text', 'readOnly': !isForPayload, 'value': val })
+                get_val = (s: string) => s
+            } else if ((typeName === '.bool') && (typeof val === 'boolean')) {
+                field_input = html.input({ 'onchange': on_change, 'type': 'checkbox', 'disabled': !isForPayload, 'checked': val })
+                get_val = (_: string) => (field_input as HTMLInputElement).checked
+            } else if (enumExists(apiRefl, typeName) && (typeof val === 'string')) {
                 const enumerants = apiRefl.Enums[typeName]
                 if (enumerants && (enumerants.length > 0) && (enumerants.indexOf(val) >= 0))
-                    field_input = html.select({}, ...enumerants.map((_) => html.option({ 'value': _, 'selected': (_ === val) }, _)))
+                    field_input = html.select({ 'onchange': on_change }, ...enumerants.map((_) => html.option({ 'value': _, 'selected': (_ === val) }, _)))
                 else
-                    field_input = html.input({ 'type': 'text', 'readOnly': !isForPayload, 'value': val })
+                    field_input = html.input({ 'onchange': on_change, 'type': 'text', 'readOnly': !isForPayload, 'value': val })
+                get_val = (s: string) => s
             }
             let field_input_subs = false, field_input_got = (field_input ? true : false)
             if (field_input_subs = (!field_input_got)) {
                 field_input = html.ul({})
-                refreshTreeNode(typeName, val, field_input as HTMLUListElement, isForPayload, path + '.' + key)
+                get_val = (_: string) => val
+                refreshTreeNode(typeName, val, field_input as HTMLUListElement, isForPayload, path + '.' + key, root)
                 if (field_input_got = (field_input.innerHTML !== ''))
                     field_input.style.borderStyle = 'solid'
             }
             van.add(ulTree, html.li({ 'title': displayPath(path, key) },
-                html.input({ 'type': 'checkbox', 'checked': field_input_got }),
+                checkbox = html.input({ 'onchange': on_change, 'type': 'checkbox', 'disabled': !isForPayload, 'checked': field_input_got }),
                 html.a({ 'class': 'label', 'style': (field_input_subs ? 'width:auto' : ''), 'onclick': () => selJsonFromTree(path + '.' + key, isForPayload) },
                     (key.startsWith('[') ? "" : ".") + key),
                 field_input,
@@ -184,7 +219,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
         }
         const is_arr = (typeName.startsWith('[') && typeName.endsWith(']')), is_map = (typeName.startsWith('{') && typeName.endsWith('}') && typeName.includes(':'))
         if (is_arr || is_map) {
-            if ((is_arr && !Array.isArray(value)) || (is_map && (typeof value !== 'object')))
+            if ((is_arr && !is_array) || (is_map && (typeof value !== 'object')))
                 return
             for (const key in value) {
                 const val = value[key]
@@ -353,7 +388,7 @@ function historyEntryStr(entry: HistoryEntry): string {
 }
 
 function historyLatest() {
-    let ret: undefined | (HistoryEntry & { methodPath: string }) = undefined
+    let ret: undefined | (HistoryEntry & { methodPath: string }) = undef
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
         const method_path = key.substring('yo:'.length)
@@ -432,39 +467,39 @@ function enumExists(apiRefl: YoReflApis, type_name: string) {
 
 function validate(apiRefl: YoReflApis, type_name: string, value: any, path: string, stringIsNoJson?: boolean): [string, any] {
     const is_str = (typeof value === 'string')
-    if (value === undefined)
-        return [`${displayPath(path)}: new bug, 'value' being 'undefined'`, undefined]
+    if (value === undef)
+        return [`${displayPath(path)}: new bug, 'value' being 'undefined'`, undef]
 
     if (type_name === 'time.Time') {
         if (!((is_str && value !== '') || (value === null)))
-            return [`${displayPath(path)}: must be non-empty string or null`, undefined]
+            return [`${displayPath(path)}: must be non-empty string or null`, undef]
         else if (is_str && value && Number.isNaN(Date.parse(value.toString())))
-            return [`${displayPath(path)}: must be 'Date.parse'able`, undefined]
+            return [`${displayPath(path)}: must be 'Date.parse'able`, undef]
         return ["", value]
     }
 
     if (enumExists(apiRefl, type_name)) {
         if (!((is_str && value !== '') || (value === null)))
-            return [`${displayPath(path)}: must be must be non-empty string or null`, undefined]
+            return [`${displayPath(path)}: must be must be non-empty string or null`, undef]
         const enumerants = apiRefl.Enums[type_name]
         if (enumerants && (enumerants.length > 0) && (enumerants.indexOf(value) < 0))
-            return [`${displayPath(path)}: '${type_name}' has no '${value}' but has '${enumerants.join("', '")}'`, undefined]
+            return [`${displayPath(path)}: '${type_name}' has no '${value}' but has '${enumerants.join("', '")}'`, undef]
         return ["", value]
     }
 
     if (type_name.startsWith('.') && (value !== null)) {
         if (['.float32', '.float64'].some((_) => (_ === type_name)) && (typeof value !== 'number'))
-            return [`${displayPath(path)}: must be float, not ${JSON.stringify(value)}`, undefined]
+            return [`${displayPath(path)}: must be float, not ${JSON.stringify(value)}`, undef]
         if (('.bool' === type_name) && (typeof value !== 'boolean'))
-            return [`${displayPath(path)}: must be true or false, not ${JSON.stringify(value)}`, undefined]
+            return [`${displayPath(path)}: must be true or false, not ${JSON.stringify(value)}`, undef]
         if (('.string' === type_name) && (typeof value !== 'string'))
-            return [`${displayPath(path)}: must be string, not ${JSON.stringify(value)}`, undefined]
+            return [`${displayPath(path)}: must be string, not ${JSON.stringify(value)}`, undef]
         const value_i = ((typeof value === 'number') && (value.toString().includes('.') || value.toString().includes('e')))
             ? Number.NaN : parseInt(value)
         if (['.uint8', '.uint16', '.uint32', '.uint64', '.int8', '.int16', '.int32', '.int64'].some((_) => (_ === type_name)) && ((typeof value !== 'number') || Number.isNaN(value_i)))
-            return [`${displayPath(path)}: must be integer, not ${JSON.stringify(value)}`, undefined]
+            return [`${displayPath(path)}: must be integer, not ${JSON.stringify(value)}`, undef]
         if (['.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === type_name)) && (value_i < 0))
-            return [`${displayPath(path)}: must be greater than 0, not ${JSON.stringify(value)}`, undefined]
+            return [`${displayPath(path)}: must be greater than 0, not ${JSON.stringify(value)}`, undef]
         return ["", value]
     }
 
@@ -472,33 +507,33 @@ function validate(apiRefl: YoReflApis, type_name: string, value: any, path: stri
         try {
             value = JSON.parse(value.toString())
         } catch (err) {
-            return [`${err}`, undefined]
+            return [`${err}`, undef]
         }
 
     if (type_name.startsWith('[') && type_name.endsWith(']') && value) {
         if (!Array.isArray(value))
-            return [`${displayPath(path)}: must be null or ${type_name}, not ${value}`, undefined]
+            return [`${displayPath(path)}: must be null or ${type_name}, not ${value}`, undef]
         for (const i in (value as [])) {
             const item = (value as [])[i]
             const [err_msg, _] = validate(apiRefl, type_name.substring(1, type_name.length - 1), item, path + '[' + i + ']', true)
             if (err_msg && err_msg !== "")
-                return [err_msg, undefined]
+                return [err_msg, undef]
         }
     }
 
     if (value && (typeof value !== 'object'))
-        return [`${displayPath(path)}: must be null or ${type_name}, not ${value}`, undefined]
+        return [`${displayPath(path)}: must be null or ${type_name}, not ${value}`, undef]
 
     if (type_name.startsWith('{') && type_name.endsWith('}') && value) {
         const splits = type_name.substring(1, type_name.length - 1).split(':')
         for (const key in (value as object)) {
             const [err_msg_key, _] = validate(apiRefl, splits[0], key, path + '["' + key + '"]', true)
             if (err_msg_key && err_msg_key !== "")
-                return [err_msg_key, undefined]
+                return [err_msg_key, undef]
             const val = value[key]
             const [err_msg_val, __] = validate(apiRefl, splits.slice(1).join(':'), val, path + '["' + key + '"]', true)
             if (err_msg_val && err_msg_val !== "")
-                return [err_msg_val, undefined]
+                return [err_msg_val, undef]
         }
     }
 
@@ -510,11 +545,21 @@ function validate(apiRefl: YoReflApis, type_name: string, value: any, path: stri
         for (const k in (value as object)) {
             const field_type_name = type_struc[k]
             if (!field_type_name)
-                return [`${displayPath(path, k)}: '${type_name}' has no '${k}' but has: '${type_struc_field_names.join("', '")}'`, undefined]
+                return [`${displayPath(path, k)}: '${type_name}' has no '${k}' but has: '${type_struc_field_names.join("', '")}'`, undef]
             const [err_msg, _] = validate(apiRefl, field_type_name, (value as object)[k], path + '.' + k, true)
             if (err_msg !== '')
-                return [err_msg, undefined]
+                return [err_msg, undef]
         }
     }
     return ["", value]
 }
+
+function fieldInputValue(v: any, preserve: boolean) {
+    return (((typeof v === 'boolean') && (v || preserve))
+        || ((typeof v === 'number') && !isNaN(v) && ((v !== 0) || preserve))
+        || ((typeof v === 'string') && ((v !== '') || preserve))
+    ) ? v : (v ? v : undef)
+}
+
+
+// +-9007199254740991
