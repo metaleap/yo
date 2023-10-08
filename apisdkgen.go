@@ -33,15 +33,15 @@ func apiGenSdk() {
 	for _, method := range api.Methods {
 		apiGenSdkMethod(&buf, &api, &method)
 	}
-	log.Println("\twriting files...")
-	if err := os.WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`), os.ModePerm); err != nil {
-		panic(err)
-	}
 	src_is_changed, src_to_write := true, []byte(buf.String())
 	data, _ := os.ReadFile(ApiSdkGenDstTsFilePath)
 	src_is_changed = (len(data) == 0) || (!bytes.Equal(data, src_to_write))
 	if src_is_changed {
 		foundModifiedTsFiles = true
+		log.Println("\twriting files...")
+		if err := os.WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`), os.ModePerm); err != nil {
+			panic(err)
+		}
 		if err := os.WriteFile(ApiSdkGenDstTsFilePath, src_to_write, os.ModePerm); err != nil {
 			panic(err)
 		}
