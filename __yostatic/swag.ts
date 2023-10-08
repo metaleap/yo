@@ -110,10 +110,8 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             for (let i = 0; i < json_val.length; i++)
                 if (json_val.charAt(i) === '\n')
                     json_val = json_val.substring(0, i + 1) + '  '.repeat(level) + json_val.substring(i + 1)
-            const needle_prefix = `\n${'  '.repeat(level)}`
-            const needle = ((key === '') ?
-                `${needle_prefix}${json_val}` :
-                `${needle_prefix}"${key}": ${json_val}`)
+            const needle_prefix = `\n${'  '.repeat(level)}` + ((key === '') ? ('') : (`"${key}": `))
+            const needle = needle_prefix + json_val
             let pos_cur_first = prev_json.indexOf(needle), pos_cur_last = prev_json.lastIndexOf(needle)
             if (pos_cur_first < 0)
                 break
@@ -123,7 +121,7 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             }
             const pos = prev_pos + (pos_cur_first + needle_prefix.length)
             level++
-            [text_sel_pos, text_sel_len, prev_pos, prev_json] = [pos, needle.length, pos, json_val]
+            [text_sel_pos, text_sel_len, prev_pos, prev_json] = [pos, json_val.length, pos, json_val]
         }
         console.log(text_sel_pos, text_sel_len)
         if ((text_sel_pos >= 0) && (text_sel_len > 0)) {
