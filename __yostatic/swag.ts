@@ -8,6 +8,7 @@ type YoReflType = { [_: string]: string }
 type YoReflApis = {
     Methods: YoReflMethod[]
     Types: { [_: string]: YoReflType }
+    Enums: { [_: string]: string[] }
 }
 
 type YoReflMethod = {
@@ -51,12 +52,17 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
 
     const buildApiTypeGui = (td: HTMLTableCellElement, isForPayload: boolean, type_name: string) => {
         const method_path = select_method.selectedOptions[0].value
-        const on_textarea_changed = () => {
+        let last_textarea_value = ''
+        const on_textarea_maybe_modified = () => {
+            if (textarea_payload.value === last_textarea_value) // not every keyup is a modify
+                return
+            last_textarea_value = textarea_payload.value
             const [err_msg, obj] = validate(apiRefl, type_name, textarea_payload.value, type_name)
             document.title = err_msg || ("/" + method_path)
             refreshTree(method_path, obj, isForPayload ? tree_payload : tree_response, isForPayload)
+            textarea_response.style.backgroundColor = '#f0f0f0'
         }
-        const tree = html.ul({ 'style': 'font-size:0.88em' }), textarea = html.textarea({ 'class': 'src-json', 'readOnly': !isForPayload, 'onkeyup': on_textarea_changed, 'onpaste': on_textarea_changed, 'oncut': on_textarea_changed, 'onchange': on_textarea_changed }, '')
+        const tree = html.ul({ 'style': 'font-size:0.88em' }), textarea = html.textarea({ 'class': 'src-json', 'readOnly': !isForPayload, 'onkeyup': on_textarea_maybe_modified, 'onpaste': on_textarea_maybe_modified, 'oncut': on_textarea_maybe_modified, 'onchange': on_textarea_maybe_modified }, '')
         if (isForPayload)
             [textarea_payload, tree_payload] = [textarea, tree]
         else
@@ -350,8 +356,16 @@ function validate(apiRefl: YoReflApis, type_name: string, value: any, path: stri
             return [`${displayPath(path)}: must be non-empty string or null`, undefined]
         else if (is_str && value && Number.isNaN(Date.parse(value.toString())))
             return [`${displayPath(path)}: must be 'Date.parse'able`, undefined]
-        else
-            return ["", value]
+        return ["", value]
+    }
+
+    if (Object.keys(apiRefl.Enums).indexOf(type_name) >= 0) {
+        if (!((is_str && value !== '') || (value === null)))
+            return [`${displayPath(path)}: must be must be non-empty string or null`, undefined]
+        const enumerants = apiRefl.Enums[type_name]
+        if (enumerants && (enumerants.length > 0) && (enumerants.indexOf(value) < 0))
+            return [`${displayPath(path)}: '${type_name}' has no '${value}' but has '${enumerants.join("', '")}'`, undefined]
+        return ["", value]
     }
 
     if (type_name.startsWith('.') && (value !== null)) {
