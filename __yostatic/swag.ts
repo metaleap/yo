@@ -321,7 +321,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 ...[html.option({ 'value': '' }, '')].concat(apiRefl.Methods.map((_) => {
                     return html.option({ 'value': _.Path }, '/' + _.Path)
                 }))),
-            html.button({ 'onclick': openInNewDialog }, 'New Dialog...'),
+            html.button({ 'style': 'margin-left:1em', 'onclick': openInNewDialog }, 'New Dialog...'),
             select_history = html.select({ 'style': 'max-width:80%;float:right', 'onchange': onSelectHistoryItem }, html.option({ 'value': '' }, '')),
         ),
         html.div({}, table = html.table({ 'width': '99%', 'style': 'visibility:hidden' },
