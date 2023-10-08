@@ -19,7 +19,7 @@ type apiReflectMethod struct {
 }
 
 func apiHandleRefl(_ *Ctx, _ *Void, ret *apiReflect) error {
-	ret.Types = map[string]map[string]string{}
+	ret.Types, ret.Enums = map[string]map[string]string{}, map[string][]string{}
 	for method_path, f := range API {
 		m := apiReflectMethod{Path: method_path}
 		rt_in, rt_out := f.reflTypes()
@@ -55,6 +55,9 @@ func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string)
 	if strBegins(type_ident, ".") {
 		return type_ident
 	}
+	if IsDebugMode && rt_kind == reflect.String {
+		return apiReflEnum(it, rt, type_ident)
+	}
 	switch rt_kind {
 	case reflect.Uint, reflect.Int:
 		panic(rt.Name() + " " + fldName + ": uint or int detected, use sized int types instead")
@@ -79,4 +82,9 @@ func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string)
 		}
 	}
 	return type_ident
+}
+
+var apiReflEnum = func(it *apiReflect, rt reflect.Type, typeIdent string) string {
+	it.Enums[typeIdent] = nil
+	return typeIdent
 }

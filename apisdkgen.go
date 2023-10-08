@@ -21,8 +21,11 @@ func apiGenSdk() {
 		panic(err)
 	}
 	_, _ = buf.Write(b)
-	for type_name, type_fields := range api.Types {
-		apiGenSdkType(&buf, &api, type_name, type_fields)
+	for enum_name, enum_members := range api.Enums {
+		apiGenSdkType(&buf, &api, enum_name, nil, enum_members)
+	}
+	for struct_name, struct_fields := range api.Types {
+		apiGenSdkType(&buf, &api, struct_name, struct_fields, nil)
 	}
 	for _, method := range api.Methods {
 		apiGenSdkMethod(&buf, &api, &method)
@@ -44,7 +47,7 @@ func apiGenSdk() {
 	}
 }
 
-func apiGenSdkType(buf *strings.Builder, api *apiReflect, typeName string, typeFields map[string]string) {
+func apiGenSdkType(buf *strings.Builder, api *apiReflect, typeName string, structFields map[string]string, enumMembers []string) {
 	switch typeName {
 	case "time.Time":
 		_, _ = buf.WriteString(strFmt("\nexport type %s = %s", apiGenSdkTypeName(typeName), apiGenSdkTypeName(".string")))
@@ -52,11 +55,16 @@ func apiGenSdkType(buf *strings.Builder, api *apiReflect, typeName string, typeF
 	case "time.Duration":
 		panic(typeName)
 	}
-	_, _ = buf.WriteString(strFmt("\nexport type %s = {", apiGenSdkTypeName(typeName)))
-	for field_name, field_type := range typeFields {
-		_, _ = buf.WriteString(strFmt("\n\t%s: %s", toIdent(field_name), apiGenSdkTypeName(field_type)))
+	if structFields != nil {
+		_, _ = buf.WriteString(strFmt("\nexport type %s = {", apiGenSdkTypeName(typeName)))
+		for field_name, field_type := range structFields {
+			_, _ = buf.WriteString(strFmt("\n\t%s: %s", toIdent(field_name), apiGenSdkTypeName(field_type)))
+		}
+		_, _ = buf.WriteString("\n}\n")
+	} else {
+		_, _ = buf.WriteString(strFmt("\nexport type %s = %s\n", apiGenSdkTypeName(typeName),
+			If(len(enumMembers) == 0, "string", "\""+strings.Join(enumMembers, "\" | \"")+"\"")))
 	}
-	_, _ = buf.WriteString("\n}\n")
 }
 
 func apiGenSdkTypeName(typeRef string) string {
