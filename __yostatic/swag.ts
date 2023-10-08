@@ -123,17 +123,15 @@ export function onInit(apiRefl: YoReflApis, yoReq: (methodPath: string, payload:
             level++
             [text_sel_pos, text_sel_len, prev_pos, prev_json] = [pos, json_val.length, pos, json_val]
         }
-        console.log(text_sel_pos, text_sel_len)
         if ((text_sel_pos >= 0) && (text_sel_len > 0)) {
-            console.log(text_sel_pos, text_sel_len)
-            const text_sel_end = text_sel_pos + text_sel_len
+            const text_sel_start = text_sel_pos, text_sel_end = text_sel_pos + text_sel_len
             { // ensuring select+scrollTo as per https://stackoverflow.com/a/53082182
                 textarea.focus()
                 const full_text = textarea.value
-                textarea.value = full_text.substring(0, text_sel_end)
+                textarea.value = full_text.substring(0, text_sel_start /* quoted post uses end, but we wanna rather see the start of the selection than its end for big selections */)
                 textarea.scrollTop = textarea.scrollHeight
                 textarea.value = full_text
-                textarea.setSelectionRange(text_sel_pos, text_sel_end)
+                textarea.setSelectionRange(text_sel_start, text_sel_end, "backward")
             }
         }
         return false
