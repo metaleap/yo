@@ -210,6 +210,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 field_input = html.input({ 'onchange': on_change, 'type': 'number', 'readOnly': !isForPayload, 'step': '0.01', 'value': val, 'min': numTypeMin(itemTypeName), 'max': numTypeMax(itemTypeName) })
                 get_val = (s: string) => parseFloat(s)
             } else if ((itemTypeName === '.string') && (typeof val === 'string')) {
+
                 field_input = html.input({ 'onchange': on_change, 'type': 'text', 'readOnly': !isForPayload, 'value': val })
                 get_val = (s: string) => s
             } else if ((itemTypeName === '.bool') && (typeof val === 'boolean')) {
@@ -341,16 +342,16 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             ),
         )),
     )
+    historyCleanUp(apiRefl)
     refreshHistory(false, false)
     const entry = historyLatest()
-    if (entry)
-        for (let i = 0; i < select_method.options.length; i++) {
-            if (select_method.options[i].value === entry.methodPath) {
-                select_method.selectedIndex = i
-                buildApiMethodGui()
-                break
-            }
+    for (let i = 0; entry && i < select_method.options.length; i++) {
+        if (select_method.options[i].value === entry.methodPath) {
+            select_method.selectedIndex = i
+            buildApiMethodGui()
+            break
         }
+    }
 }
 
 function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: string[]): any {
@@ -435,7 +436,7 @@ function historyLatest() {
     return ret
 }
 
-function historyCleanUp(apiRefl: YoReflApis, curMethodPath?: string, curEntry?: HistoryEntry) {
+function historyCleanUp(apiRefl: YoReflApis, newDueToStoreMethodPath?: string, newDueToStoreHistoryEntry?: HistoryEntry) {
     console.log("localStorage history house-keeping...")
 
     const keys_to_remove: string[] = []
@@ -456,7 +457,7 @@ function historyCleanUp(apiRefl: YoReflApis, curMethodPath?: string, curEntry?: 
                 // check for equality with current payload/queryString: anything the same can go
                 const entry = entries[i], method = apiRefl.Methods.find((_) => (_.Path === method_path))
                 const remove = ('' !== validate(apiRefl, method.In, entry.payload, method.In)[0]) ||
-                    (curMethodPath && curEntry && (curMethodPath === method_path) && util.deepEq(entry.payload, curEntry.payload) && util.deepEq(entry.queryString, curEntry.queryString))
+                    (newDueToStoreMethodPath && newDueToStoreHistoryEntry && (newDueToStoreMethodPath === method_path) && util.deepEq(entry.payload, newDueToStoreHistoryEntry.payload) && util.deepEq(entry.queryString, newDueToStoreHistoryEntry.queryString))
                 if (remove)
                     [mut, i, entries] = [true, i - 1, entries.filter((_) => (_ != entry))]
             }
@@ -479,6 +480,8 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
 
     historyCleanUp(apiRefl, methodPath, entry)  // since we're anyway writing to localStorage, a good moment to clean out no-longer-needed history entries
 
+    const method = apiRefl.Methods.find((_) => (_.Path === methodPath))
+
     console.log(`storing '${methodPath}' history entry:`, entry)
     let json_entries = localStorage.getItem('yo.h:' + methodPath)
     if (!(json_entries && json_entries.length))
@@ -498,6 +501,28 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
             }
             entries = entries.slice(1)
         }
+
+    console.log('storing .string field values for auto-complete suggestions')
+    walk(apiRefl, method.In, entry.payload, [], (path, fieldTypeName, fieldValue) => {
+        if ((fieldTypeName !== '.string') || (typeof fieldValue !== 'string') || !fieldValue)
+            return
+        let field_name: string
+        for (let i = path.length - 1; i >= 0; i--)
+            if (typeof path[i] === 'string') {
+                field_name = path[i] as any
+                break
+            }
+        if (field_name) {
+            const storage_key = 'yo.s:' + field_name
+            const json_entries = localStorage.getItem(storage_key) || '[]'
+            const entries = JSON.parse(json_entries) as string[]
+            if (entries.indexOf(fieldValue) < 0) {
+                entries.push(fieldValue)
+                console.log(storage_key, entries)
+                localStorage.setItem(storage_key, JSON.stringify(entries))
+            }
+        }
+    })
 }
 
 function displayPath(p: string, k?: string) {
@@ -508,7 +533,7 @@ function enumExists(apiRefl: YoReflApis, type_name: string) {
     return (Object.keys(apiRefl.Enums).indexOf(type_name) >= 0)
 }
 
-function walk(apiRefl: YoReflApis, typeName: string, value: any, path: (string | number)[], onField: (path: (string | number)[], value: any) => void, callForArrsAndObjs: boolean = false) {
+function walk(apiRefl: YoReflApis, typeName: string, value: any, path: (string | number)[], onField: (path: (string | number)[], fieldTypeName: string, fieldValue: any) => void, callForArrsAndObjs: boolean = false) {
     if (typeName.startsWith('[') && typeName.endsWith(']') && value) {
         const type_name_items = typeName.substring(1, typeName.length - 1)
         for (const idx in value)
@@ -537,7 +562,7 @@ function walk(apiRefl: YoReflApis, typeName: string, value: any, path: (string |
             return
     }
 
-    onField(path, value)
+    onField(path, typeName, value)
 }
 
 function validate(apiRefl: YoReflApis, typeName: string, value: any, path: string, stringIsNoJson?: boolean): [string, any] {

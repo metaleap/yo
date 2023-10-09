@@ -70,8 +70,6 @@ func apiGenSdkType(buf *strings.Builder, api *apiReflect, typeName string, struc
 	case "time.Time":
 		_, _ = buf.WriteString(strFmt("\nexport type %s = %s", apiGenSdkTypeName(typeName), apiGenSdkTypeName(".string")))
 		return
-	case "time.Duration":
-		panic(typeName)
 	}
 	if structFields != nil {
 		_, _ = buf.WriteString(strFmt("\nexport type %s = {", apiGenSdkTypeName(typeName)))
@@ -89,6 +87,8 @@ func apiGenSdkType(buf *strings.Builder, api *apiReflect, typeName string, struc
 func apiGenSdkTypeName(typeRef string) string {
 	if strBegins(typeRef, ".") {
 		switch t := typeRef[1:]; t {
+		case "any":
+			return "any"
 		case "string":
 			return "string"
 		case "bool":

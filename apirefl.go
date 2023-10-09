@@ -31,7 +31,14 @@ func apiHandleRefl(_ *Ctx, _ *Void, ret *apiReflect) error {
 }
 
 func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string) string {
-	rt_kind := rt.Kind()
+	rt_kind, type_ident := rt.Kind(), rt.PkgPath()+"."+rt.Name()
+	if type_ident == "." && rt_kind == reflect.Struct && parent != "" && fldName != "" {
+		type_ident = parent + "_" + fldName
+	}
+	fail := func(msg string) {
+		panic(If(type_ident != "" && type_ident != ".", type_ident+" ", "") + If(parent != "", parent+".", "") + fldName + ": " + msg)
+	}
+
 	if rt_kind == reflect.Pointer {
 		return apiReflType(it, rt.Elem(), fldName, parent)
 	}
@@ -40,12 +47,15 @@ func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string)
 		return If((ty_elem == ""), "", ("[" + ty_elem + "]"))
 	}
 	if rt_kind == reflect.Map {
-		ty_key, ty_val := apiReflType(it, rt.Key(), fldName, parent), apiReflType(it, rt.Elem(), fldName, parent)
+		rt_key := rt.Key()
+		if rt_key.Kind() != reflect.String {
+			fail("non-string map key type '" + rt_key.PkgPath() + "." + rt_key.Name() + "' not supported")
+		}
+		ty_key, ty_val := apiReflType(it, rt_key, fldName, parent), apiReflType(it, rt.Elem(), fldName, parent)
 		return If((ty_key == "") || (ty_val == ""), "", ("{" + ty_key + ":" + ty_val + "}"))
 	}
-	type_ident := rt.PkgPath() + "." + rt.Name()
-	if type_ident == "." && rt_kind == reflect.Struct && parent != "" && fldName != "" {
-		type_ident = parent + "_" + fldName
+	if type_ident == "time.Duration" {
+		fail("time.Duration not supported, use numeric unit-communicating field (like timeoutSec or retainHrs)")
 	}
 	if strBegins(type_ident, ".") {
 		return type_ident
@@ -55,10 +65,12 @@ func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string)
 	}
 	switch rt_kind {
 	case reflect.Uint, reflect.Int:
-		panic(rt.Name() + " " + fldName + ": uint or int detected, use sized int types instead")
+		fail("uint or int not supported, use sized int types instead")
 	case reflect.Float32, reflect.Float64, reflect.Bool, reflect.String,
 		reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint8:
 		return "." + rt_kind.String()
+	case reflect.Interface:
+		return ".any"
 	case reflect.Chan, reflect.Complex128, reflect.Complex64, reflect.Func, reflect.Invalid, reflect.Uintptr, reflect.UnsafePointer:
 		return ""
 	}
