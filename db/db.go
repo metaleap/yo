@@ -15,7 +15,7 @@ import (
 
 var DB *sql.DB
 
-func Connect() {
+func Init() {
 	conn_cfg, err := pgx.ParseConfig(Cfg.DATABASE_URL)
 	if err != nil {
 		panic(err)

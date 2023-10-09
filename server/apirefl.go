@@ -1,4 +1,4 @@
-package api
+package server
 
 import (
 	"reflect"
@@ -8,25 +8,25 @@ import (
 	. "yo/util"
 )
 
-type refl struct {
-	Methods []reflMethod
+type apiRefl struct {
+	Methods []apiReflMethod
 	Types   map[string]map[string]string
 	Enums   map[string][]string
 }
 
-type reflMethod struct {
+type apiReflMethod struct {
 	Path string
 	In   string
 	Out  string
 }
 
-func handleReflReq(_ *Ctx, _ *Void, ret *refl) {
+func apiHandleReflReq(_ *Ctx, _ *Void, ret *apiRefl) {
 	ret.Types, ret.Enums = map[string]map[string]string{}, map[string][]string{}
 	for _, method_path := range Sorted(Keys(API)) {
 		if !str.IsPrtAscii(method_path) {
 			panic("not printable ASCII: '" + method_path + "'")
 		}
-		m := reflMethod{Path: method_path}
+		m := apiReflMethod{Path: method_path}
 		rt_in, rt_out := API[method_path].reflTypes()
 		m.In, m.Out = apiReflType(ret, rt_in, "", ""), apiReflType(ret, rt_out, "", "")
 		if no_in, no_out := (m.In == ""), (m.Out == ""); no_in || no_out {
@@ -36,7 +36,7 @@ func handleReflReq(_ *Ctx, _ *Void, ret *refl) {
 	}
 }
 
-func apiReflType(it *refl, rt reflect.Type, fldName string, parent string) string {
+func apiReflType(it *apiRefl, rt reflect.Type, fldName string, parent string) string {
 	rt_kind, type_ident := rt.Kind(), rt.PkgPath()+"."+rt.Name()
 	if type_ident == "." && rt_kind == reflect.Struct && parent != "" && fldName != "" {
 		type_ident = parent + "_" + fldName
@@ -105,7 +105,7 @@ func apiReflType(it *refl, rt reflect.Type, fldName string, parent string) strin
 	return type_ident
 }
 
-var apiReflEnum = func(it *refl, rt reflect.Type, typeIdent string) string {
+var apiReflEnum = func(it *apiRefl, rt reflect.Type, typeIdent string) string {
 	if !str.IsPrtAscii(typeIdent) {
 		panic("not printable ASCII: '" + typeIdent + "'")
 	}

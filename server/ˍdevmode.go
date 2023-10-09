@@ -1,6 +1,6 @@
 //go:build debug
 
-package api
+package server
 
 import (
 	"io/fs"
@@ -59,7 +59,7 @@ func init() {
 			panic(err)
 		}
 	}
-	apiReflEnum = func(it *refl, rt reflect.Type, typeIdent string) string {
+	apiReflEnum = func(it *apiRefl, rt reflect.Type, typeIdent string) string {
 		found, exists := all_enums[typeIdent]
 		if it.Enums[typeIdent] = found; !exists {
 			panic("no enumerants for " + typeIdent)

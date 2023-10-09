@@ -1,41 +1,42 @@
-package yo
+package server
 
 import (
 	"embed"
+	"io/fs"
 	"net/http"
 	"os"
 
 	"yo/context"
 
-	"yo/api"
 	. "yo/config"
 	"yo/json"
 	"yo/str"
 	. "yo/util"
 )
 
-//go:embed __yostatic
-var staticFileDir embed.FS
-var apiHandle func(*Ctx) (any, bool)
+var staticFileDir *embed.FS
+var staticFileServes = map[string]fs.FS{}
 
-func init() {
-	StaticFileDir = &staticFileDir
+const StaticFileDirPath = "__yostatic"
+
+func Init(staticFS *embed.FS) func() {
+	staticFileDir = staticFS
+	API["__/refl"] = Method[Void, apiRefl](apiHandleReflReq)
+	return If(IsDevMode, apiGenSdk, nil)
 }
 
 func ListenAndServe() {
 	if IsDevMode {
-		StaticFileServes[StaticFileDirPath] = os.DirFS("../yo")
+		staticFileServes[StaticFileDirPath] = os.DirFS("../yo")
 	} else {
-		StaticFileServes[StaticFileDirPath] = StaticFileDir
+		staticFileServes[StaticFileDirPath] = staticFileDir
 	}
 	panic(http.ListenAndServe(":"+str.FromInt(Cfg.YO_API_HTTP_PORT), http.HandlerFunc(handleHTTPRequest)))
 }
 
 func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
-	var ctx *Ctx
+	ctx := context.New(req, rw)
 	defer ctx.Dispose()
-
-	ctx = context.New(req, rw)
 
 	ctx.Timings.Step("check yoFail")
 	if s := ctx.GetStr("yoFail"); s != "" {
@@ -45,15 +46,15 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	ctx.Timings.Step("check static")
-	if ctx.UrlPath == str.ReSuffix(api.SdkGenDstTsFilePath, ".ts", ".js") {
+	if ctx.UrlPath == str.ReSuffix(SdkGenDstTsFilePath, ".ts", ".js") {
 		if IsDevMode {
 			http.ServeFile(rw, req, ctx.UrlPath)
 		} else {
-			http.FileServer(http.FS(StaticFileServes[ctx.UrlPath])).ServeHTTP(rw, req)
+			http.FileServer(http.FS(staticFileServes[ctx.UrlPath])).ServeHTTP(rw, req)
 		}
 		return
 	}
-	for static_prefix, static_serve := range StaticFileServes {
+	for static_prefix, static_serve := range staticFileServes {
 		if static_prefix = static_prefix + "/"; str.Begins(ctx.UrlPath, static_prefix) && ctx.UrlPath != static_prefix {
 			req.URL.Path = str.TrimL(ctx.UrlPath, "__/")
 			http.FileServer(http.FS(static_serve)).ServeHTTP(rw, req)

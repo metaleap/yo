@@ -1,4 +1,4 @@
-package api
+package server
 
 import (
 	"bytes"
@@ -11,19 +11,19 @@ import (
 	. "yo/util"
 )
 
-type Methods = map[string]APIMethod
+type APIMethods = map[string]APIMethod
 
-var API = Methods{}
+var API = APIMethods{}
 
-type handleFunc = func(*Ctx, any) any
+type apiHandleFunc = func(*Ctx, any) any
 
 type APIMethod interface {
-	handle() handleFunc
+	handle() apiHandleFunc
 	loadPayload(data []byte) (any, error)
 	reflTypes() (reflect.Type, reflect.Type)
 }
 
-func InOut[TIn any, TOut any](f func(*Ctx, *TIn, *TOut)) APIMethod {
+func Method[TIn any, TOut any](f func(*Ctx, *TIn, *TOut)) APIMethod {
 	var tmp_in TIn
 	var tmp_out TOut
 	if reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct {
@@ -37,9 +37,9 @@ func InOut[TIn any, TOut any](f func(*Ctx, *TIn, *TOut)) APIMethod {
 	})
 }
 
-type apiMethod[TIn any, TOut any] handleFunc
+type apiMethod[TIn any, TOut any] apiHandleFunc
 
-func (me apiMethod[TIn, TOut]) handle() handleFunc { return me }
+func (me apiMethod[TIn, TOut]) handle() apiHandleFunc { return me }
 func (me apiMethod[TIn, TOut]) loadPayload(data []byte) (any, error) {
 	if len(data) == 0 || bytes.Equal(data, json.JsonNullTok) {
 		return nil, nil
@@ -54,12 +54,7 @@ func (me apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
 	return reflect.ValueOf(tmp_in).Type(), reflect.ValueOf(tmp_out).Type()
 }
 
-func Init() (func(), func(*Ctx) (any, bool)) {
-	API["__/refl"] = InOut[Void, refl](handleReflReq)
-	return If(IsDevMode, genSdk, nil), handle
-}
-
-func handle(ctx *Ctx) (any, bool) {
+func apiHandle(ctx *Ctx) (any, bool) {
 	ctx.Timings.Step("handler lookup")
 	api := API[ctx.UrlPath]
 	if api == nil {

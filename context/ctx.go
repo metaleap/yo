@@ -40,8 +40,9 @@ func (me *Ctx) Dispose() {
 		}
 		me.HttpErr(code, str.Fmt("%v", crashed))
 	}
-
-	me.ctxDone()
+	if me.ctxDone != nil {
+		me.ctxDone()
+	}
 	if IsDevMode {
 		total_duration, steps := me.Timings.AllDone()
 		println(me.Req.RequestURI, str.DurationMs(total_duration))

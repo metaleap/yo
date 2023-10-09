@@ -1,4 +1,4 @@
-package api
+package server
 
 import (
 	"bytes"
@@ -16,24 +16,24 @@ const SdkGenDstTsFilePath = StaticFileDirPath + "/yo-sdk.ts"
 
 var foundModifiedTsFiles bool
 
-func genSdk() {
-	buf, api := strings.Builder{}, refl{}
+func apiGenSdk() {
+	buf, api := strings.Builder{}, apiRefl{}
 	log.Println("\treflect...")
-	handleReflReq(nil, nil, &api)
+	apiHandleReflReq(nil, nil, &api)
 	log.Println("\tgenerate...")
-	b, err := StaticFileDir.ReadFile(StaticFileDirPath + "/sdkgen.ts")
+	b, err := staticFileDir.ReadFile(StaticFileDirPath + "/sdkgen.ts")
 	if err != nil {
 		panic(err)
 	}
 	_, _ = buf.Write(b)
 	for _, enum_name := range Sorted(Keys(api.Enums)) {
-		genSdkType(&buf, &api, enum_name, nil, api.Enums[enum_name])
+		apiGenSdkType(&buf, &api, enum_name, nil, api.Enums[enum_name])
 	}
 	for _, struct_name := range Sorted(Keys(api.Types)) {
-		genSdkType(&buf, &api, struct_name, api.Types[struct_name], nil)
+		apiGenSdkType(&buf, &api, struct_name, api.Types[struct_name], nil)
 	}
 	for _, method := range api.Methods {
-		genSdkMethod(&buf, &api, &method)
+		apiGenSdkMethod(&buf, &api, &method)
 	}
 	src_is_changed, src_to_write := true, []byte(buf.String())
 	data, _ := os.ReadFile(SdkGenDstTsFilePath)
@@ -66,26 +66,26 @@ func genSdk() {
 	}
 }
 
-func genSdkType(buf *strings.Builder, api *refl, typeName string, structFields map[string]string, enumMembers []string) {
+func apiGenSdkType(buf *strings.Builder, api *apiRefl, typeName string, structFields map[string]string, enumMembers []string) {
 	switch typeName {
 	case "time.Time":
-		_, _ = buf.WriteString(str.Fmt("\nexport type %s = %s", genSdkTypeName(api, typeName), genSdkTypeName(api, ".string")))
+		_, _ = buf.WriteString(str.Fmt("\nexport type %s = %s", apiGenSdkTypeName(api, typeName), apiGenSdkTypeName(api, ".string")))
 		return
 	}
 	if structFields != nil {
-		_, _ = buf.WriteString(str.Fmt("\nexport type %s = {", genSdkTypeName(api, typeName)))
+		_, _ = buf.WriteString(str.Fmt("\nexport type %s = {", apiGenSdkTypeName(api, typeName)))
 		for _, field_name := range Sorted(Keys(structFields)) {
 			field_type := structFields[field_name]
-			_, _ = buf.WriteString(str.Fmt("\n\t%s: %s", ToIdent(field_name), genSdkTypeName(api, field_type)))
+			_, _ = buf.WriteString(str.Fmt("\n\t%s: %s", ToIdent(field_name), apiGenSdkTypeName(api, field_type)))
 		}
 		_, _ = buf.WriteString("\n}\n")
 	} else {
-		_, _ = buf.WriteString(str.Fmt("\nexport type %s = %s\n", genSdkTypeName(api, typeName),
+		_, _ = buf.WriteString(str.Fmt("\nexport type %s = %s\n", apiGenSdkTypeName(api, typeName),
 			If(len(enumMembers) == 0, "string", "\""+str.Join(enumMembers, "\" | \"")+"\"")))
 	}
 }
 
-func genSdkTypeName(api *refl, typeName string) string {
+func apiGenSdkTypeName(api *apiRefl, typeName string) string {
 	if str.Begins(typeName, ".") {
 		switch t := typeName[1:]; t {
 		case "string":
@@ -103,7 +103,7 @@ func genSdkTypeName(api *refl, typeName string) string {
 		}
 	}
 	if str.Begins(typeName, "[") && str.Ends(typeName, "]") {
-		return genSdkTypeName(api, typeName[1:len(typeName)-1]) + "[]"
+		return apiGenSdkTypeName(api, typeName[1:len(typeName)-1]) + "[]"
 	}
 	if str.Begins(typeName, "{") && str.Ends(typeName, "}") {
 		key_part, val_part, ok := str.Cut(typeName[1:len(typeName)-1], ":")
@@ -111,16 +111,16 @@ func genSdkTypeName(api *refl, typeName string) string {
 			panic(typeName)
 		}
 		if _, is_enum := api.Enums[key_part]; is_enum {
-			return str.Fmt("{ [key in %s]?: %s }", genSdkTypeName(api, key_part), genSdkTypeName(api, val_part))
+			return str.Fmt("{ [key in %s]?: %s }", apiGenSdkTypeName(api, key_part), apiGenSdkTypeName(api, val_part))
 		}
-		return str.Fmt("{ [_:%s]: %s }", genSdkTypeName(api, key_part), genSdkTypeName(api, val_part))
+		return str.Fmt("{ [_:%s]: %s }", apiGenSdkTypeName(api, key_part), apiGenSdkTypeName(api, val_part))
 	}
 	return "Yo_" + ToIdent(typeName[str.Idx(typeName, '.')+1:])
 }
 
-func genSdkMethod(buf *strings.Builder, api *refl, method *reflMethod) {
+func apiGenSdkMethod(buf *strings.Builder, api *apiRefl, method *apiReflMethod) {
 	_, _ = buf.WriteString(str.Fmt(`
 export function yoReq_%s(payload: %s, onSuccess: (_: %s) => void, onFailed?: (err: any, resp?: Response, query?: {[_:string]:string}) => void): void {
 	yoReq(%s, payload, onSuccess, onFailed)
-}`, ToIdent(method.Path), genSdkTypeName(api, method.In), genSdkTypeName(api, method.Out), str.Q(method.Path)))
+}`, ToIdent(method.Path), apiGenSdkTypeName(api, method.In), apiGenSdkTypeName(api, method.Out), str.Q(method.Path)))
 }
