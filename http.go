@@ -26,7 +26,7 @@ func ListenAndServe() {
 }
 
 func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
-	if !IsDebugMode { // in debug-mode, DO want stack traces
+	if !IsDebugMode { // in dev-mode, DO want stack traces & dont care about service recovery
 		defer func() {
 			if crashed := recover(); crashed != nil {
 				http.Error(rw, strFmt("%v", crashed), 500)
