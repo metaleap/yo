@@ -22,6 +22,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
     let select_method: HTMLSelectElement, select_history: HTMLSelectElement, td_input: HTMLTableCellElement, td_output: HTMLTableCellElement,
         table: HTMLTableElement, input_querystring: HTMLInputElement, textarea_payload: HTMLTextAreaElement, textarea_response: HTMLTextAreaElement,
         tree_payload: HTMLUListElement, tree_response: HTMLUListElement
+    let last_textarea_payload_value = ''
 
     const refreshHistory = (selectLatest: boolean, selectEmpty: boolean) => {
         while (select_history.options.length > 1)
@@ -46,6 +47,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             if (entry.dateTime === date_time) {
                 input_querystring.value = (entry.queryString ? JSON.stringify(entry.queryString) : '')
                 textarea_payload.value = JSON.stringify(entry.payload, null, 2)
+                last_textarea_payload_value = textarea_payload.value
                 refreshTree(method_path, entry.payload, tree_payload, true)
                 break
             }
@@ -53,11 +55,10 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
 
     const buildApiTypeGui = (td: HTMLTableCellElement, isForPayload: boolean, type_name: string) => {
         const method_path = select_method.selectedOptions[0].value
-        let last_textarea_value = ''
         const on_textarea_maybe_modified = () => {
-            if ((!isForPayload) || (textarea_payload.value === last_textarea_value)) // not every keyup is a modify
+            if ((!isForPayload) || (textarea_payload.value === last_textarea_payload_value)) // not every keyup is a modify
                 return
-            last_textarea_value = textarea_payload.value
+            last_textarea_payload_value = textarea_payload.value
             const [err_msg, obj] = validate(apiRefl, type_name, textarea_payload.value, type_name)
             document.title = err_msg || ("/" + method_path)
             refreshTree(method_path, obj, isForPayload ? tree_payload : tree_response, isForPayload)
@@ -72,6 +73,8 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         if (type_name && type_name !== '') {
             const dummy_val = newSampleVal(apiRefl, type_name, [])
             textarea.value = JSON.stringify(dummy_val, null, 2)
+            if (isForPayload)
+                last_textarea_payload_value = textarea.value
             van.add(td, textarea, tree)
             refreshTree(method_path, dummy_val, isForPayload ? tree_payload : tree_response, isForPayload)
         }
@@ -94,6 +97,8 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         const textarea = (isForPayload ? textarea_payload : textarea_response)
         let level = 1, value = JSON.parse(textarea.value)
         textarea.value = JSON.stringify(value, null, 2)
+        if (isForPayload)
+            last_textarea_payload_value = textarea.value
         const path_parts = util.strTrimL(path, '.').split('.')
         let prev_pos = 0, prev_json = textarea.value, text_sel_pos = -1, text_sel_len = 0
         for (const path_part of path_parts) {
@@ -131,6 +136,8 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 textarea.value = full_text.substring(0, text_sel_start /* quoted post uses end, but we wanna rather see the start of the selection than its end for big selections */)
                 textarea.scrollTop = textarea.scrollHeight
                 textarea.value = full_text
+                if (isForPayload)
+                    last_textarea_payload_value = textarea.value
                 textarea.setSelectionRange(text_sel_start, text_sel_end, "backward")
             }
         }
@@ -193,8 +200,13 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                     else
                         delete value[index]
                 const textarea = (isForPayload ? textarea_payload : textarea_response)
-                textarea.value = JSON.stringify(root, null, 2)
-                textarea_response.style.backgroundColor = '#f0f0f0'
+                const textarea_newvalue = JSON.stringify(root, null, 2)
+                const dim_textarea_response = isForPayload && (textarea_newvalue != textarea.value)
+                textarea.value = textarea_newvalue
+                if (isForPayload)
+                    last_textarea_payload_value = textarea.value
+                if (dim_textarea_response)
+                    textarea_response.style.backgroundColor = '#f0f0f0'
                 selJsonFromTree(path + '.' + key, isForPayload, !refresh_tree)
                 if (refresh_tree)
                     refreshTreeNode(typeName, value, ulTree, isForPayload, path, root)
@@ -437,8 +449,6 @@ function historyLatest() {
 }
 
 function historyCleanUp(apiRefl: YoReflApis, newDueToStoreMethodPath?: string, newDueToStoreHistoryEntry?: HistoryEntry) {
-    console.log("localStorage history house-keeping...")
-
     const keys_to_remove: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
@@ -446,29 +456,42 @@ function historyCleanUp(apiRefl: YoReflApis, newDueToStoreMethodPath?: string, n
             keys_to_remove.push(key)
             continue
         }
-        if (!key.startsWith('yo.h:'))
-            continue
-        const method_path = key.substring('yo.h:'.length)
-        if (!apiRefl.Methods.some((_) => (_.Path === method_path))) // methodPath no longer part of API
-            keys_to_remove.push(key)
-        else {
-            let mut = false, entries: HistoryEntry[] = JSON.parse(localStorage.getItem(key))
-            for (let i = 0; i < entries.length; i++) {
-                // check for equality with current payload/queryString: anything the same can go
-                const entry = entries[i], method = apiRefl.Methods.find((_) => (_.Path === method_path))
-                const remove = ('' !== validate(apiRefl, method.In, entry.payload, method.In)[0]) ||
-                    (newDueToStoreMethodPath && newDueToStoreHistoryEntry && (newDueToStoreMethodPath === method_path) && util.deepEq(entry.payload, newDueToStoreHistoryEntry.payload) && util.deepEq(entry.queryString, newDueToStoreHistoryEntry.queryString))
-                if (remove)
-                    [mut, i, entries] = [true, i - 1, entries.filter((_) => (_ != entry))]
+        if (key.startsWith('yo.h:')) {
+            const method_path = key.substring('yo.h:'.length)
+            if (!apiRefl.Methods.some((_) => (_.Path === method_path))) // methodPath no longer part of API
+                keys_to_remove.push(key)
+            else {
+                let mut = false, entries: HistoryEntry[] = JSON.parse(localStorage.getItem(key))
+                for (let i = 0; i < entries.length; i++) {
+                    // check for equality with current payload/queryString: anything the same can go
+                    const entry = entries[i], method = apiRefl.Methods.find((_) => (_.Path === method_path))
+                    const remove = ('' !== validate(apiRefl, method.In, entry.payload, method.In)[0]) ||
+                        (newDueToStoreMethodPath && newDueToStoreHistoryEntry && (newDueToStoreMethodPath === method_path) && util.deepEq(entry.payload, newDueToStoreHistoryEntry.payload) && util.deepEq(entry.queryString, newDueToStoreHistoryEntry.queryString))
+                    if (remove)
+                        [mut, i, entries] = [true, i - 1, entries.filter((_) => (_ != entry))]
+                }
+                if (mut)
+                    localStorage.setItem(key, JSON.stringify(entries))
             }
-            if (mut)
-                localStorage.setItem(key, JSON.stringify(entries))
+        }
+        if (key.startsWith('yo.s:')) {
+            const str_name = key.substring('yo.s:'.length)
+            let field_name_still_exists = false
+            for (const type_ident in apiRefl.Types) {
+                const type_refl = apiRefl.Types[type_ident]
+                if (type_refl)
+                    for (const field_name in type_refl)
+                        if (field_name_still_exists = (field_name === str_name))
+                            break
+                if (field_name_still_exists)
+                    break
+            }
+            if (!field_name_still_exists)
+                keys_to_remove.push(key)
         }
     }
-    for (const key_to_remove of keys_to_remove) {
-        console.log(`removing '${key_to_remove}' history entry due to that method no longer existing'`)
+    for (const key_to_remove of keys_to_remove)
         localStorage.removeItem(key_to_remove)
-    }
 }
 
 function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, queryString?: object) {
@@ -482,7 +505,6 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
 
     const method = apiRefl.Methods.find((_) => (_.Path === methodPath))
 
-    console.log(`storing '${methodPath}' history entry:`, entry)
     let json_entries = localStorage.getItem('yo.h:' + methodPath)
     if (!(json_entries && json_entries.length))
         json_entries = '[]'
@@ -502,26 +524,23 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
             entries = entries.slice(1)
         }
 
-    console.log('storing .string field values for auto-complete suggestions')
     walk(apiRefl, method.In, entry.payload, [], (path, fieldTypeName, fieldValue) => {
         if ((fieldTypeName !== '.string') || (typeof fieldValue !== 'string') || !fieldValue)
             return
-        let field_name: string
-        for (let i = path.length - 1; i >= 0; i--)
-            if (typeof path[i] === 'string') {
-                field_name = path[i] as any
-                break
+        let field_names: string[] = []
+        for (const path_part of path)
+            if ((typeof path_part === 'string') && (field_names.indexOf(path_part) < 0))
+                field_names.push(path_part)
+        if (field_names.length)
+            for (const field_name of field_names) {
+                const storage_key = 'yo.s:' + field_name
+                const json_entries = localStorage.getItem(storage_key) || '[]'
+                const entries = JSON.parse(json_entries) as string[]
+                if (entries.indexOf(fieldValue) < 0) {
+                    entries.push(fieldValue)
+                    localStorage.setItem(storage_key, JSON.stringify(entries))
+                }
             }
-        if (field_name) {
-            const storage_key = 'yo.s:' + field_name
-            const json_entries = localStorage.getItem(storage_key) || '[]'
-            const entries = JSON.parse(json_entries) as string[]
-            if (entries.indexOf(fieldValue) < 0) {
-                entries.push(fieldValue)
-                console.log(storage_key, entries)
-                localStorage.setItem(storage_key, JSON.stringify(entries))
-            }
-        }
     })
 }
 
@@ -534,10 +553,10 @@ function enumExists(apiRefl: YoReflApis, type_name: string) {
 }
 
 function walk(apiRefl: YoReflApis, typeName: string, value: any, path: (string | number)[], onField: (path: (string | number)[], fieldTypeName: string, fieldValue: any) => void, callForArrsAndObjs: boolean = false) {
-    if (typeName.startsWith('[') && typeName.endsWith(']') && value) {
+    if (typeName.startsWith('[') && typeName.endsWith(']') && value && Array.isArray(value)) {
         const type_name_items = typeName.substring(1, typeName.length - 1)
-        for (const idx in value)
-            walk(apiRefl, type_name_items, value[idx], path.concat([idx]), onField, callForArrsAndObjs)
+        for (let i = 0; i < value.length; i++)
+            walk(apiRefl, type_name_items, value[i], path.concat([i]), onField, callForArrsAndObjs)
         if (!callForArrsAndObjs)
             return
     }
