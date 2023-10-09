@@ -13,7 +13,7 @@ func If[T any](b bool, t T, f T) T {
 	return f
 }
 
-func toIdent(s string) string {
+func ToIdent(s string) string {
 	var buf strings.Builder
 	buf.Grow(len(s))
 	for i := 0; i < len(s); i++ {

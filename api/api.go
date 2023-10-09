@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"io"
 	"reflect"
 
 	. "yo/context"
@@ -10,14 +11,14 @@ import (
 	. "yo/util"
 )
 
-type APIMethods = map[string]APIMethod
+type Methods = map[string]APIMethod
 
-var API = APIMethods{}
+var API = Methods{}
 
-type apiHandleFunc = func(*Ctx, any) any
+type handleFunc = func(*Ctx, any) any
 
 type APIMethod interface {
-	handle() apiHandleFunc
+	handle() handleFunc
 	loadPayload(data []byte) (any, error)
 	reflTypes() (reflect.Type, reflect.Type)
 }
@@ -36,9 +37,9 @@ func InOut[TIn any, TOut any](f func(*Ctx, *TIn, *TOut)) APIMethod {
 	})
 }
 
-type apiMethod[TIn any, TOut any] apiHandleFunc
+type apiMethod[TIn any, TOut any] handleFunc
 
-func (me apiMethod[TIn, TOut]) handle() apiHandleFunc { return me }
+func (me apiMethod[TIn, TOut]) handle() handleFunc { return me }
 func (me apiMethod[TIn, TOut]) loadPayload(data []byte) (any, error) {
 	if len(data) == 0 || bytes.Equal(data, json.JsonNullTok) {
 		return nil, nil
@@ -53,6 +54,33 @@ func (me apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
 	return reflect.ValueOf(tmp_in).Type(), reflect.ValueOf(tmp_out).Type()
 }
 
-func apiInit() {
-	API["__/refl"] = InOut[Void, apiReflect](apiHandleRefl)
+func Init() (func(), func(*Ctx) (any, bool)) {
+	API["__/refl"] = InOut[Void, refl](handleReflReq)
+	return If(IsDevMode, genSdk, nil), handle
+}
+
+func handle(ctx *Ctx) (any, bool) {
+	ctx.Timings.Step("handler lookup")
+	api := API[ctx.UrlPath]
+	if api == nil {
+		ctx.HttpErr(404, "Not Found")
+		return nil, false
+	}
+
+	ctx.Timings.Step("read req")
+	payload_data, err := io.ReadAll(ctx.Req.Body)
+	if err != nil {
+		ctx.HttpErr(500, err.Error())
+		return nil, false
+	}
+
+	ctx.Timings.Step("unmarshal req")
+	payload, err := api.loadPayload(payload_data)
+	if err != nil {
+		ctx.HttpErr(400, err.Error()+If(IsDevMode, "\n"+string(payload_data), ""))
+		return nil, false
+	}
+
+	ctx.Timings.Step("handle req")
+	return api.handle()(ctx, payload), true
 }

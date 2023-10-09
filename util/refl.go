@@ -4,7 +4,7 @@ import (
 	"reflect"
 )
 
-func reflHasMethod(ty reflect.Type, name string) bool {
+func ReflHasMethod(ty reflect.Type, name string) bool {
 	for ty.Kind() == reflect.Pointer {
 		ty = ty.Elem()
 	}

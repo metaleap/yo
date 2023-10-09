@@ -1,4 +1,4 @@
-package yo
+package util
 
 type Err string
 

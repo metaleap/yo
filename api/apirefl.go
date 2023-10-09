@@ -8,25 +8,25 @@ import (
 	. "yo/util"
 )
 
-type apiReflect struct {
-	Methods []apiReflectMethod
+type refl struct {
+	Methods []reflMethod
 	Types   map[string]map[string]string
 	Enums   map[string][]string
 }
 
-type apiReflectMethod struct {
+type reflMethod struct {
 	Path string
 	In   string
 	Out  string
 }
 
-func apiHandleRefl(_ *Ctx, _ *Void, ret *apiReflect) {
+func handleReflReq(_ *Ctx, _ *Void, ret *refl) {
 	ret.Types, ret.Enums = map[string]map[string]string{}, map[string][]string{}
 	for _, method_path := range Sorted(Keys(API)) {
 		if !str.IsPrtAscii(method_path) {
 			panic("not printable ASCII: '" + method_path + "'")
 		}
-		m := apiReflectMethod{Path: method_path}
+		m := reflMethod{Path: method_path}
 		rt_in, rt_out := API[method_path].reflTypes()
 		m.In, m.Out = apiReflType(ret, rt_in, "", ""), apiReflType(ret, rt_out, "", "")
 		if no_in, no_out := (m.In == ""), (m.Out == ""); no_in || no_out {
@@ -36,7 +36,7 @@ func apiHandleRefl(_ *Ctx, _ *Void, ret *apiReflect) {
 	}
 }
 
-func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string) string {
+func apiReflType(it *refl, rt reflect.Type, fldName string, parent string) string {
 	rt_kind, type_ident := rt.Kind(), rt.PkgPath()+"."+rt.Name()
 	if type_ident == "." && rt_kind == reflect.Struct && parent != "" && fldName != "" {
 		type_ident = parent + "_" + fldName
@@ -87,7 +87,7 @@ func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string)
 		ty_refl := map[string]string{}
 		it.Types[type_ident] = ty_refl
 		if rt_kind == reflect.Struct {
-			if !(reflHasMethod(rt, "MarshalJSON") && reflHasMethod(rt, "UnmarshalJSON")) {
+			if !(ReflHasMethod(rt, "MarshalJSON") && ReflHasMethod(rt, "UnmarshalJSON")) {
 				for i := 0; i < rt.NumField(); i++ {
 					field := rt.Field(i)
 					if str.IsUp(str.Sub(field.Name, 0, 1)) {
@@ -105,7 +105,7 @@ func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string)
 	return type_ident
 }
 
-var apiReflEnum = func(it *apiReflect, rt reflect.Type, typeIdent string) string {
+var apiReflEnum = func(it *refl, rt reflect.Type, typeIdent string) string {
 	if !str.IsPrtAscii(typeIdent) {
 		panic("not printable ASCII: '" + typeIdent + "'")
 	}
