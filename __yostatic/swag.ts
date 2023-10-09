@@ -23,6 +23,26 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         table: HTMLTableElement, input_querystring: HTMLInputElement, textarea_payload: HTMLTextAreaElement, textarea_response: HTMLTextAreaElement,
         tree_payload: HTMLUListElement, tree_response: HTMLUListElement
     let last_textarea_payload_value = ''
+    const auto_completes: { [_: string]: HTMLDataListElement } = {}
+
+    const refreshAutoCompletes = () => {
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)
+            if (key.startsWith('yo.s:')) {
+                const json_strs = localStorage.getItem(key)
+                const strs = JSON.parse(json_strs) as string[]
+                const str_name = key.substring('yo.s:'.length)
+                let is_new = false, datalist = auto_completes[str_name]
+                if (!datalist) {
+                    [is_new, datalist] = [true, html.datalist({ 'id': 'autocomplete_' + str_name })]
+                    auto_completes[str_name] = datalist
+                }
+                datalist.replaceChildren(...strs.map((_) => html.option({ 'value': _ })))
+                if (is_new)
+                    van.add(document.body, datalist)
+            }
+        }
+    }
 
     const refreshHistory = (selectLatest: boolean, selectEmpty: boolean) => {
         while (select_history.options.length > 1)
@@ -222,8 +242,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 field_input = html.input({ 'onchange': on_change, 'type': 'number', 'readOnly': !isForPayload, 'step': '0.01', 'value': val, 'min': numTypeMin(itemTypeName), 'max': numTypeMax(itemTypeName) })
                 get_val = (s: string) => parseFloat(s)
             } else if ((itemTypeName === '.string') && (typeof val === 'string')) {
-
-                field_input = html.input({ 'onchange': on_change, 'type': 'text', 'readOnly': !isForPayload, 'value': val })
+                field_input = html.input({ 'onchange': on_change, 'type': 'text', 'list': 'autocomplete_' + autoCompleteFieldName(util.strTrimL(path + '.' + key, '.').split('.')), 'readOnly': !isForPayload, 'value': val })
                 get_val = (s: string) => s
             } else if ((itemTypeName === '.bool') && (typeof val === 'boolean')) {
                 field_input = html.input({ 'onchange': on_change, 'type': 'checkbox', 'disabled': !isForPayload, 'checked': val })
@@ -308,6 +327,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         }
         historyStore(apiRefl, method_path, payload, query_string)
         refreshHistory(true, false)
+        refreshAutoCompletes()
         yoReq(method_path, payload, (result) => {
             on_done()
             textarea_response.style.backgroundColor = '#c0f0c0'
@@ -356,6 +376,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
     )
     historyCleanUp(apiRefl)
     refreshHistory(false, false)
+    refreshAutoCompletes()
     const entry = historyLatest()
     for (let i = 0; entry && i < select_method.options.length; i++) {
         if (select_method.options[i].value === entry.methodPath) {
@@ -475,19 +496,24 @@ function historyCleanUp(apiRefl: YoReflApis, newDueToStoreMethodPath?: string, n
             }
         }
         if (key.startsWith('yo.s:')) {
-            const str_name = key.substring('yo.s:'.length)
-            let field_name_still_exists = false
-            for (const type_ident in apiRefl.Types) {
-                const type_refl = apiRefl.Types[type_ident]
-                if (type_refl)
-                    for (const field_name in type_refl)
-                        if (field_name_still_exists = (field_name === str_name))
-                            break
-                if (field_name_still_exists)
-                    break
-            }
-            if (!field_name_still_exists)
+            const json_strs = localStorage.getItem(key)
+            if ((!json_strs) || (json_strs.length) <= 2) // JSON value of [] stored. cannot actually happen but whatev
                 keys_to_remove.push(key)
+            else {
+                const str_name = key.substring('yo.s:'.length)
+                let field_name_still_exists = false
+                for (const type_ident in apiRefl.Types) {
+                    const type_refl = apiRefl.Types[type_ident]
+                    if (type_refl)
+                        for (const field_name in type_refl)
+                            if (field_name_still_exists = (field_name === str_name))
+                                break
+                    if (field_name_still_exists)
+                        break
+                }
+                if (!field_name_still_exists)
+                    keys_to_remove.push(key)
+            }
         }
     }
     for (const key_to_remove of keys_to_remove)
@@ -527,21 +553,28 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
     walk(apiRefl, method.In, entry.payload, [], (path, fieldTypeName, fieldValue) => {
         if ((fieldTypeName !== '.string') || (typeof fieldValue !== 'string') || !fieldValue)
             return
-        let field_names: string[] = []
-        for (const path_part of path)
-            if ((typeof path_part === 'string') && (field_names.indexOf(path_part) < 0))
-                field_names.push(path_part)
-        if (field_names.length)
-            for (const field_name of field_names) {
-                const storage_key = 'yo.s:' + field_name
-                const json_entries = localStorage.getItem(storage_key) || '[]'
-                const entries = JSON.parse(json_entries) as string[]
-                if (entries.indexOf(fieldValue) < 0) {
-                    entries.push(fieldValue)
-                    localStorage.setItem(storage_key, JSON.stringify(entries))
-                }
+        const field_name = autoCompleteFieldName(path)
+        if (field_name) {
+            const storage_key = 'yo.s:' + field_name
+            const json_entries = localStorage.getItem(storage_key) || '[]'
+            const entries = JSON.parse(json_entries) as string[]
+            if (entries.indexOf(fieldValue) < 0) {
+                entries.push(fieldValue)
+                console.log("===>", storage_key, entries)
+                localStorage.setItem(storage_key, JSON.stringify(entries))
             }
+        }
     })
+}
+
+function autoCompleteFieldName(path: string[]): string {
+    if (path.length)
+        for (let i = path.length - 1; i >= 0; i--) {
+            const path_item = path[i]
+            if (!(path_item.startsWith('[') && path_item.endsWith(']')))
+                return path_item
+        }
+    return ''
 }
 
 function displayPath(p: string, k?: string) {
@@ -552,11 +585,11 @@ function enumExists(apiRefl: YoReflApis, type_name: string) {
     return (Object.keys(apiRefl.Enums).indexOf(type_name) >= 0)
 }
 
-function walk(apiRefl: YoReflApis, typeName: string, value: any, path: (string | number)[], onField: (path: (string | number)[], fieldTypeName: string, fieldValue: any) => void, callForArrsAndObjs: boolean = false) {
+function walk(apiRefl: YoReflApis, typeName: string, value: any, path: string[], onField: (path: string[], fieldTypeName: string, fieldValue: any) => void, callForArrsAndObjs: boolean = false) {
     if (typeName.startsWith('[') && typeName.endsWith(']') && value && Array.isArray(value)) {
         const type_name_items = typeName.substring(1, typeName.length - 1)
         for (let i = 0; i < value.length; i++)
-            walk(apiRefl, type_name_items, value[i], path.concat([i]), onField, callForArrsAndObjs)
+            walk(apiRefl, type_name_items, value[i], path.concat([`[${i}]`]), onField, callForArrsAndObjs)
         if (!callForArrsAndObjs)
             return
     }
@@ -565,7 +598,7 @@ function walk(apiRefl: YoReflApis, typeName: string, value: any, path: (string |
         const splits = typeName.substring(1, typeName.length - 1).split(':')
         const type_name_val = splits.slice(1).join(':')
         for (const key in value)
-            walk(apiRefl, type_name_val, value[key], path.concat([key]), onField, callForArrsAndObjs)
+            walk(apiRefl, type_name_val, value[key], path.concat([`["${key}"]`]), onField, callForArrsAndObjs)
         if (!callForArrsAndObjs)
             return
     }
