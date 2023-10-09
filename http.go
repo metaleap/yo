@@ -34,11 +34,13 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	var ctx *Ctx
 	var timings diag.Timings
 	defer func() {
-		if !IsDevMode { // in dev-mode, DO want stack traces & dont care about service recovery
-			if crashed := recover(); crashed != nil {
-				http.Error(rw, strFmt("%v", crashed), 500)
+		if code, crashed := 500, recover(); crashed != nil {
+			if err, is_app_err := crashed.(Err); is_app_err {
+				code = If(strHas(err.Error(), "AlreadyExists"), 409, If(strHas(err.Error(), "DoesNotExist"), 404, 400))
 			}
-		} else { // dev-mode-only stuff
+			http.Error(rw, strFmt("%v", crashed), code)
+		}
+		if IsDevMode {
 			total_duration, steps := timings.AllDone()
 			println(req.RequestURI, strDurationMs(total_duration))
 			for _, step := range steps {
@@ -99,14 +101,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	timings.Step("handle req")
-	result, err := api.handle()(ctx, payload)
-	if code := 500; err != nil {
-		if _, is_app_err := err.(Err); is_app_err {
-			code = If(strHas(err.Error(), "AlreadyExists"), 409, If(strHas(err.Error(), "DoesNotExist"), 404, 400))
-		}
-		http.Error(rw, err.Error(), code)
-		return
-	}
+	result := api.handle()(ctx, payload)
 
 	timings.Step("marshal resp")
 	resp_data, err := json.MarshalIndent(result, "", "  ")

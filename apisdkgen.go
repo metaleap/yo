@@ -18,9 +18,7 @@ var foundModifiedTsFiles bool
 func apiGenSdk() {
 	buf, api := strings.Builder{}, apiReflect{}
 	log.Println("\treflect...")
-	if err := apiHandleRefl(nil, nil, &api); err != nil {
-		panic(err)
-	}
+	apiHandleRefl(nil, nil, &api)
 	log.Println("\tgenerate...")
 	b, err := staticFileDir.ReadFile(staticFileDirPath + "/sdkgen.ts")
 	if err != nil {

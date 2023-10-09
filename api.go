@@ -12,7 +12,7 @@ type APIMethods = map[string]APIMethod
 
 var API = APIMethods{}
 
-type apiHandleFunc = func(*Ctx, any) (any, error)
+type apiHandleFunc = func(*Ctx, any) any
 
 type APIMethod interface {
 	handle() apiHandleFunc
@@ -20,17 +20,17 @@ type APIMethod interface {
 	reflTypes() (reflect.Type, reflect.Type)
 }
 
-func InOut[TIn any, TOut any](f func(*Ctx, *TIn, *TOut) error) APIMethod {
+func InOut[TIn any, TOut any](f func(*Ctx, *TIn, *TOut)) APIMethod {
 	var tmp_in TIn
 	var tmp_out TOut
 	if reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct {
 		panic(strFmt("in/out types must be structs, got in:%T, out:%T", tmp_in, tmp_out))
 	}
-	return apiMethod[TIn, TOut](func(ctx *Ctx, in any) (any, error) {
+	return apiMethod[TIn, TOut](func(ctx *Ctx, in any) any {
 		var output TOut
 		input, _ := in.(*TIn)
-		err := f(ctx, input, &output)
-		return &output, err
+		f(ctx, input, &output)
+		return &output
 	})
 }
 

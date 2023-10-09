@@ -18,7 +18,7 @@ type apiReflectMethod struct {
 	Out  string
 }
 
-func apiHandleRefl(_ *Ctx, _ *Void, ret *apiReflect) error {
+func apiHandleRefl(_ *Ctx, _ *Void, ret *apiReflect) {
 	ret.Types, ret.Enums = map[string]map[string]string{}, map[string][]string{}
 	for _, method_path := range sorted(keys(API)) {
 		if !strIsPrtAscii(method_path) {
@@ -32,7 +32,6 @@ func apiHandleRefl(_ *Ctx, _ *Void, ret *apiReflect) error {
 		}
 		ret.Methods = append(ret.Methods, m)
 	}
-	return nil
 }
 
 func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string) string {
