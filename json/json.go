@@ -1,6 +1,11 @@
 package json
 
-var JsonNullTok = []byte("null")
+import (
+	"encoding/json"
+)
 
-type Void struct {
-}
+var (
+	MarshalIndent = json.MarshalIndent
+	Unmarshal     = json.Unmarshal
+	JsonNullTok   = []byte("null")
+)

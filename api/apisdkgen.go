@@ -1,4 +1,4 @@
-package yo
+package api
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	. "yo/util"
 )
 
-const ApiSdkGenDstTsFilePath = staticFileDirPath + "/yo-sdk.ts"
+const ApiSdkGenDstTsFilePath = StaticFileDirPath + "/yo-sdk.ts"
 
 var foundModifiedTsFiles bool
 
@@ -21,7 +21,7 @@ func apiGenSdk() {
 	log.Println("\treflect...")
 	apiHandleRefl(nil, nil, &api)
 	log.Println("\tgenerate...")
-	b, err := staticFileDir.ReadFile(staticFileDirPath + "/sdkgen.ts")
+	b, err := staticFileDir.ReadFile(StaticFileDirPath + "/sdkgen.ts")
 	if err != nil {
 		panic(err)
 	}

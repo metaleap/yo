@@ -1,5 +1,5 @@
 //go:build !debug
 
-package yo
+package util
 
 const IsDevMode = false

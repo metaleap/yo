@@ -2,32 +2,33 @@ package yo
 
 import (
 	"embed"
-	"encoding/json"
 	"io"
-	"io/fs"
-	"log"
 	"net/http"
 	"os"
 
 	"yo/context"
 	"yo/diag"
 
+	. "yo/config"
+	"yo/json"
+	"yo/str"
 	. "yo/util"
 )
 
-const staticFileDirPath = "__yostatic"
-
 //go:embed __yostatic
 var staticFileDir embed.FS
-var StaticFileServes = map[string]fs.FS{}
+
+func init() {
+	StaticFileDir = staticFileDir
+}
 
 func ListenAndServe() {
 	if IsDevMode {
-		StaticFileServes[staticFileDirPath] = os.DirFS("../yo")
+		StaticFileServes[StaticFileDirPath] = os.DirFS("../yo")
 	} else {
-		StaticFileServes[staticFileDirPath] = &staticFileDir
+		StaticFileServes[StaticFileDirPath] = StaticFileDir
 	}
-	log.Fatal(http.ListenAndServe(":"+iToA(cfg.YO_API_HTTP_PORT), http.HandlerFunc(handleHTTPRequest)))
+	panic(http.ListenAndServe(":"+str.FromInt(Cfg.YO_API_HTTP_PORT), http.HandlerFunc(handleHTTPRequest)))
 }
 
 func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
@@ -36,15 +37,15 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	defer func() {
 		if code, crashed := 500, recover(); crashed != nil {
 			if err, is_app_err := crashed.(Err); is_app_err {
-				code = If(strHas(err.Error(), "AlreadyExists"), 409, If(strHas(err.Error(), "DoesNotExist"), 404, 400))
+				code = If(str.Has(err.Error(), "AlreadyExists"), 409, If(str.Has(err.Error(), "DoesNotExist"), 404, 400))
 			}
-			http.Error(rw, strFmt("%v", crashed), code)
+			http.Error(rw, str.Fmt("%v", crashed), code)
 		}
 		if IsDevMode {
 			total_duration, steps := timings.AllDone()
-			println(req.RequestURI, strDurationMs(total_duration))
+			println(req.RequestURI, str.DurationMs(total_duration))
 			for _, step := range steps {
-				println("\t" + step.Step + ":\t" + strDurationMs(step.Duration))
+				println("\t" + step.Step + ":\t" + str.DurationMs(step.Duration))
 			}
 		}
 		ctx.Dispose()
@@ -55,15 +56,15 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 
 	timings.Step("check yoFail")
 	if s := ctx.GetStr("yoFail"); s != "" {
-		code, _ := aToI(s)
+		code, _ := str.ToInt(s)
 		http.Error(rw, "forced error via query-string param 'yoFail'", If(code == 0, 500, code))
 		return
 	}
 
-	url_path := strTrimR(strTrimL(req.URL.Path, "/"), "/")
+	url_path := str.TrimR(str.TrimL(req.URL.Path, "/"), "/")
 
 	timings.Step("check static")
-	if url_path == strReSuffix(ApiSdkGenDstTsFilePath, ".ts", ".js") {
+	if url_path == str.ReSuffix(ApiSdkGenDstTsFilePath, ".ts", ".js") {
 		if IsDevMode {
 			http.ServeFile(rw, req, url_path)
 		} else {
@@ -72,8 +73,8 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	for static_prefix, static_serve := range StaticFileServes {
-		if static_prefix = static_prefix + "/"; strBegins(url_path, static_prefix) && url_path != static_prefix {
-			req.URL.Path = strTrimL(url_path, "__/")
+		if static_prefix = static_prefix + "/"; str.Begins(url_path, static_prefix) && url_path != static_prefix {
+			req.URL.Path = str.TrimL(url_path, "__/")
 			http.FileServer(http.FS(static_serve)).ServeHTTP(rw, req)
 			return
 		}
@@ -112,6 +113,6 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 
 	timings.Step("write resp")
 	rw.Header().Set("Content-Type", "application/json")
-	rw.Header().Set("Content-Length", iToA(len(resp_data)))
+	rw.Header().Set("Content-Length", str.FromInt(len(resp_data)))
 	_, _ = rw.Write(resp_data)
 }

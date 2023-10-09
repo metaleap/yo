@@ -1,15 +1,15 @@
 //go:build debug
 
-package yo
+package api
 
 import (
 	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
-)
 
-const IsDevMode = true
+	"yo/str"
+)
 
 func init() {
 	cur_dir_path, err := os.Getwd()
@@ -21,7 +21,7 @@ func init() {
 		if err := fs.WalkDir(os.DirFS(dir_path), ".", func(path string, dirEntry fs.DirEntry, err error) error {
 			path = filepath.Join(dir_path, path)
 
-			if strEnds(path, ".ts") && !foundModifiedTsFiles {
+			if str.Ends(path, ".ts") && !foundModifiedTsFiles {
 				fileinfo_ts, err := dirEntry.Info()
 				if err != nil || fileinfo_ts == nil {
 					panic(err)
@@ -30,19 +30,19 @@ func init() {
 				foundModifiedTsFiles = (fileinfo_js != nil) && (fileinfo_ts.ModTime().After(fileinfo_js.ModTime()))
 			}
 
-			if strEnds(path, ".go") {
+			if str.Ends(path, ".go") {
 				data, err := os.ReadFile(path)
 				if err != nil {
 					panic(err)
 				}
 				pkg_name := ""
-				for _, line := range strSplit(strTrim(string(data)), "\n") {
-					if strBegins(line, "package ") {
+				for _, line := range str.Split(str.Trim(string(data)), "\n") {
+					if str.Begins(line, "package ") {
 						pkg_name = line[len("package "):]
-					} else if strBegins(line, "\t") && strEnds(line, "\"") && strHas(line, " = \"") {
-						if name_and_type, value, ok := strCut(line[1:len(line)-1], " = \""); ok {
-							if name, type_name, ok := strCut(name_and_type, " "); ok {
-								if name, type_name = strTrim(name), strTrim(type_name); name != type_name && strBegins(name, type_name) {
+					} else if str.Begins(line, "\t") && str.Ends(line, "\"") && str.Has(line, " = \"") {
+						if name_and_type, value, ok := str.Cut(line[1:len(line)-1], " = \""); ok {
+							if name, type_name, ok := str.Cut(name_and_type, " "); ok {
+								if name, type_name = str.Trim(name), str.Trim(type_name); name != type_name && str.Begins(name, type_name) {
 									enumerant_name := name[len(type_name):]
 									if enumerant_name != value && name != value {
 										panic(value + "!=" + enumerant_name + " && " + value + "!=" + name)

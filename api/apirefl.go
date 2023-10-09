@@ -1,8 +1,9 @@
-package yo
+package api
 
 import (
 	"reflect"
 
+	. "yo/context"
 	"yo/str"
 	. "yo/util"
 )
@@ -21,7 +22,7 @@ type apiReflectMethod struct {
 
 func apiHandleRefl(_ *Ctx, _ *Void, ret *apiReflect) {
 	ret.Types, ret.Enums = map[string]map[string]string{}, map[string][]string{}
-	for _, method_path := range sorted(keys(API)) {
+	for _, method_path := range Sorted(Keys(API)) {
 		if !str.IsPrtAscii(method_path) {
 			panic("not printable ASCII: '" + method_path + "'")
 		}
