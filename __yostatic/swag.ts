@@ -21,7 +21,7 @@ type YoReflMethod = {
 export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodPath: string, payload: any, onSuccess?: (_?: any) => void, onFailed?: (err: any, resp?: any) => void, query?: { [_: string]: string }) => void) {
     let select_method: HTMLSelectElement, select_history: HTMLSelectElement, td_input: HTMLTableCellElement, td_output: HTMLTableCellElement,
         table: HTMLTableElement, input_querystring: HTMLInputElement, textarea_payload: HTMLTextAreaElement, textarea_response: HTMLTextAreaElement,
-        tree_payload: HTMLUListElement, tree_response: HTMLUListElement
+        tree_payload: HTMLUListElement, tree_response: HTMLUListElement, div_validate_error_msg: HTMLDivElement
     let last_textarea_payload_value = ''
     const auto_completes: { [_: string]: HTMLDataListElement } = {}
 
@@ -62,42 +62,48 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             return buildApiMethodGui(true)
         }
         const date_time = parseInt(select_history.selectedOptions[0].value), method_path = select_method.selectedOptions[0].value
-        const entries = historyOf(method_path)
-        for (const entry of entries)
-            if (entry.dateTime === date_time) {
-                input_querystring.value = (entry.queryString ? JSON.stringify(entry.queryString) : '')
-                textarea_payload.value = JSON.stringify(entry.payload, null, 2)
-                last_textarea_payload_value = textarea_payload.value
-                refreshTree(method_path, entry.payload, tree_payload, true)
-                break
-            }
+        const entries = historyOf(method_path), method = apiRefl.Methods.find((_) => (_.Path === method_path))
+        if (method)
+            for (const entry of entries)
+                if (entry.dateTime === date_time) {
+                    input_querystring.value = (entry.queryString ? JSON.stringify(entry.queryString) : '')
+                    textarea_payload.value = JSON.stringify(entry.payload, null, 2)
+                    onPayloadTextAreaMaybeModified(method_path, method.In)
+                    break
+                }
+    }
+
+    const onPayloadTextAreaMaybeModified = (methodPath: string, typeName: string) => {
+        if (textarea_payload.value === last_textarea_payload_value)// not every keyup is a modify
+            return
+        last_textarea_payload_value = textarea_payload.value
+        const [err_msg, obj] = validate(apiRefl, typeName, textarea_payload.value, typeName)
+        div_validate_error_msg.innerText = err_msg || '(all ok)' /* no empty string or whitespace-only, as that'd (visually) `display:none` the div and its outer td/tr */
+        div_validate_error_msg.style.visibility = (((err_msg || '').length > 0) ? 'visible' : 'hidden')
+        refreshTree(methodPath, obj, tree_payload, true)
+        if (textarea_response)
+            textarea_response.style.backgroundColor = '#f0f0f0'
     }
 
     const buildApiTypeGui = (td: HTMLTableCellElement, isForPayload: boolean, type_name: string) => {
         const method_path = select_method.selectedOptions[0].value
         const on_textarea_maybe_modified = () => {
-            if ((!isForPayload) || (textarea_payload.value === last_textarea_payload_value)) // not every keyup is a modify
-                return
-            last_textarea_payload_value = textarea_payload.value
-            const [err_msg, obj] = validate(apiRefl, type_name, textarea_payload.value, type_name)
-            document.title = err_msg || ("/" + method_path)
-            refreshTree(method_path, obj, isForPayload ? tree_payload : tree_response, isForPayload)
-            textarea_response.style.backgroundColor = '#f0f0f0'
+            if (isForPayload)
+                onPayloadTextAreaMaybeModified(method_path, type_name)
         }
         const tree = html.ul({ 'style': 'font-size:0.88em' }), textarea = html.textarea({ 'class': 'src-json', 'readOnly': !isForPayload, 'onkeyup': on_textarea_maybe_modified, 'onpaste': on_textarea_maybe_modified, 'oncut': on_textarea_maybe_modified, 'onchange': on_textarea_maybe_modified }, '')
         if (isForPayload)
             [textarea_payload, tree_payload] = [textarea, tree]
         else
             [textarea_response, tree_response] = [textarea, tree]
-        td.innerHTML = ''
         if (type_name && type_name !== '') {
             const dummy_val = newSampleVal(apiRefl, type_name, [])
             textarea.value = JSON.stringify(dummy_val, null, 2)
-            if (isForPayload)
-                last_textarea_payload_value = textarea.value
-            van.add(td, textarea, tree)
+            on_textarea_maybe_modified()
             refreshTree(method_path, dummy_val, isForPayload ? tree_payload : tree_response, isForPayload)
-        }
+            td.replaceChildren(textarea, tree)
+        } else
+            td.replaceChildren()
     }
 
     const buildApiMethodGui = (noHistorySelect?: boolean) => {
@@ -172,7 +178,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
 
     const refreshTreeNode = (typeName: string, value: any, ulTree: HTMLUListElement, isForPayload: boolean, path: string, root: any) => {
         const type_struc = apiRefl.Types[typeName], is_array = Array.isArray(value)
-        ulTree.innerHTML = ""
+        ulTree.replaceChildren()
         if (!value)
             return
         const buildItemInput = (itemTypeName: string, key: string, val: any) => {
@@ -368,6 +374,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 html.input({ 'type': 'password', 'value': '', 'placeholder': 'user password', 'disabled': true }),
                 html.button({ 'style': 'font-weight:bold', 'onclick': sendRequest }, 'Go!'),
             )),
+            html.tr({}, html.td({ 'colspan': '2' }, div_validate_error_msg = html.div({ 'style': 'background-color:#f0d0c0;border: 1px solid #303030;visibility:hidden' }, 'some error message'))),
             html.tr({},
                 td_input = html.td({ 'width': '50%' }),
                 td_output = html.td({ 'width': '50%' }),
@@ -640,18 +647,17 @@ function validate(apiRefl: YoReflApis, typeName: string, value: any, path: strin
     }
 
     if (typeName.startsWith('.') && (value !== null)) {
-        if (['.float32', '.float64'].some((_) => (_ === typeName)) && (typeof value !== 'number'))
-            return [`${displayPath(path)}: must be float, not ${JSON.stringify(value)}`, undef]
+        const [min, max] = (typeName.startsWith('.u') || typeName.startsWith('.i') || typeName.startsWith('.f')) ? numTypeLimits(typeName) : [0, 0]
+        if (['.float32', '.float64'].some((_) => (_ === typeName)) && ((typeof value !== 'number') || Number.isNaN(value) || (value < min) || (value > max)))
+            return [`${displayPath(path)}: must be ${typeName}, not ${JSON.stringify(value)}`, undef]
         if (('.bool' === typeName) && (typeof value !== 'boolean'))
             return [`${displayPath(path)}: must be true or false, not ${JSON.stringify(value)}`, undef]
         if (('.string' === typeName) && (typeof value !== 'string'))
             return [`${displayPath(path)}: must be string, not ${JSON.stringify(value)}`, undef]
         const value_i = ((typeof value === 'number') && (value.toString().includes('.') || value.toString().includes('e')))
             ? Number.NaN : parseInt(value)
-        if (['.uint8', '.uint16', '.uint32', '.uint64', '.int8', '.int16', '.int32', '.int64'].some((_) => (_ === typeName)) && ((typeof value !== 'number') || Number.isNaN(value_i)))
-            return [`${displayPath(path)}: must be integer, not ${JSON.stringify(value)}`, undef]
-        if (['.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === typeName)) && (value_i < 0))
-            return [`${displayPath(path)}: must be greater than 0, not ${JSON.stringify(value)}`, undef]
+        if (['.uint8', '.uint16', '.uint32', '.uint64', '.int8', '.int16', '.int32', '.int64'].some((_) => (_ === typeName)) && ((typeof value !== 'number') || Number.isNaN(value_i) || (value_i < min) || (value_i > max)))
+            return [`${displayPath(path)}: must be ${typeName}, not ${JSON.stringify(value)}`, undef]
         return ["", value]
     }
 
