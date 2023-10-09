@@ -8,6 +8,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"yo/context"
+	"yo/diag"
+
+	. "yo/util"
 )
 
 const staticFileDirPath = "__yostatic"
@@ -17,7 +22,7 @@ var staticFileDir embed.FS
 var StaticFileServes = map[string]fs.FS{}
 
 func ListenAndServe() {
-	if IsDebugMode {
+	if IsDevMode {
 		StaticFileServes[staticFileDirPath] = os.DirFS("../yo")
 	} else {
 		StaticFileServes[staticFileDirPath] = &staticFileDir
@@ -26,18 +31,28 @@ func ListenAndServe() {
 }
 
 func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
-	if !IsDebugMode { // in dev-mode, DO want stack traces & dont care about service recovery
-		defer func() {
+	var ctx *Ctx
+	var timings diag.Timings
+	defer func() {
+		if !IsDevMode { // in dev-mode, DO want stack traces & dont care about service recovery
 			if crashed := recover(); crashed != nil {
 				http.Error(rw, strFmt("%v", crashed), 500)
 			}
-		}()
-	}
+		} else { // dev-mode-only stuff
+			total_duration, steps := timings.AllDone()
+			println(req.RequestURI, strDurationMs(total_duration))
+			for _, step := range steps {
+				println("\t" + step.Step + ":\t" + strDurationMs(step.Duration))
+			}
+		}
+		ctx.Dispose()
+	}()
 
-	ctx := ctxNew(req)
-	defer ctx.dispose()
+	timings = diag.NewTimings("init ctx", !IsDevMode)
+	ctx = context.New(req)
 
-	if s, _ := ctx.Get("yoFail").(string); s != "" {
+	timings.Step("check yoFail")
+	if s := ctx.GetStr("yoFail"); s != "" {
 		code, _ := aToI(s)
 		http.Error(rw, "forced error via query-string param 'yoFail'", If(code == 0, 500, code))
 		return
@@ -45,8 +60,9 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 
 	url_path := strTrimR(strTrimL(req.URL.Path, "/"), "/")
 
-	if url_path == strReplace(ApiSdkGenDstTsFilePath, kv{".ts": ".js"}) {
-		if IsDebugMode {
+	timings.Step("check static")
+	if url_path == strReSuffix(ApiSdkGenDstTsFilePath, ".ts", ".js") {
+		if IsDevMode {
 			http.ServeFile(rw, req, url_path)
 		} else {
 			http.FileServer(http.FS(StaticFileServes[url_path])).ServeHTTP(rw, req)
@@ -61,23 +77,28 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	timings.Step("handler lookup")
 	api := API[url_path]
 	if api == nil {
 		http.Error(rw, "Not Found", 404)
 		return
 	}
 
+	timings.Step("read req")
 	payload_data, err := io.ReadAll(req.Body)
 	if err != nil {
 		http.Error(rw, err.Error(), 500)
 		return
 	}
+
+	timings.Step("unmarshal req")
 	payload, err := api.loadPayload(payload_data)
 	if err != nil {
-		http.Error(rw, err.Error()+If(IsDebugMode, "\n"+string(payload_data), ""), 400)
+		http.Error(rw, err.Error()+If(IsDevMode, "\n"+string(payload_data), ""), 400)
 		return
 	}
 
+	timings.Step("handle req")
 	result, err := api.handle()(ctx, payload)
 	if code := 500; err != nil {
 		if _, is_app_err := err.(Err); is_app_err {
@@ -87,12 +108,14 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	timings.Step("marshal resp")
 	resp_data, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		http.Error(rw, err.Error(), 500)
 		return
 	}
 
+	timings.Step("write resp")
 	rw.Header().Set("Content-Type", "application/json")
 	rw.Header().Set("Content-Length", iToA(len(resp_data)))
 	_, _ = rw.Write(resp_data)

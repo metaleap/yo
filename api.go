@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"reflect"
+
+	yo_json "yo/json"
 )
 
 type APIMethods = map[string]APIMethod
@@ -36,7 +38,7 @@ type apiMethod[TIn any, TOut any] apiHandleFunc
 
 func (me apiMethod[TIn, TOut]) handle() apiHandleFunc { return me }
 func (me apiMethod[TIn, TOut]) loadPayload(data []byte) (any, error) {
-	if len(data) == 0 || bytes.Equal(data, jsonNullTok) {
+	if len(data) == 0 || bytes.Equal(data, yo_json.JsonNullTok) {
 		return nil, nil
 	}
 	var it TIn

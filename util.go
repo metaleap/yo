@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -31,13 +32,6 @@ var (
 	strFmt     = fmt.Sprintf
 	strQ       = strconv.Quote
 )
-
-func If[T any](b bool, t T, f T) T {
-	if b {
-		return t
-	}
-	return f
-}
 
 func keys[K comparable, V any](m map[K]V) (ret []K) {
 	ret = make([]K, 0, len(m))
@@ -69,6 +63,14 @@ func strReplace(s string, repl map[string]string) string {
 		repl_old_new = append(repl_old_new, k, v)
 	}
 	return strings.NewReplacer(repl_old_new...).Replace(s)
+}
+
+func strReSuffix(s string, oldSuffix string, newSuffix string) string {
+	return strTrimR(s, oldSuffix) + newSuffix
+}
+
+func strDurationMs(nanos int64) string {
+	return strconv.FormatInt(time.Duration(nanos).Milliseconds(), 10) + "ms"
 }
 
 func strIsLo(s string) bool {

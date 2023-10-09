@@ -1,4 +1,4 @@
-package yo
+package context
 
 import (
 	"context"
@@ -11,7 +11,7 @@ type Ctx struct {
 	Req     *http.Request
 }
 
-func ctxNew(req *http.Request) *Ctx {
+func New(req *http.Request) *Ctx {
 	ret := Ctx{
 		Context: context.Background(),
 		Req:     req,
@@ -26,5 +26,11 @@ func (me *Ctx) Get(name string) any {
 	return me.Context.Value(name)
 }
 
-func (me *Ctx) dispose() {
+func (me *Ctx) GetStr(name string) (ret string) {
+	any := me.Get(name)
+	ret, _ = any.(string)
+	return
+}
+
+func (me *Ctx) Dispose() {
 }

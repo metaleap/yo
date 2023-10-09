@@ -2,6 +2,8 @@ package yo
 
 import (
 	"reflect"
+
+	. "yo/util"
 )
 
 type apiReflect struct {
@@ -66,7 +68,7 @@ func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string)
 	if type_ident != "." && strBegins(type_ident, ".") {
 		return type_ident
 	}
-	if IsDebugMode && rt_kind == reflect.String {
+	if IsDevMode && rt_kind == reflect.String {
 		return apiReflEnum(it, rt, type_ident)
 	}
 	switch rt_kind {

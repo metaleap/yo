@@ -9,6 +9,8 @@ import (
 	"reflect"
 )
 
+const IsDevMode = true
+
 func init() {
 	cur_dir_path, err := os.Getwd()
 	if err != nil {

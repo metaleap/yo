@@ -2,19 +2,27 @@ package yo
 
 import (
 	"log"
-	"os"
+	"time"
+
+	"yo/context"
+	"yo/json"
 )
 
-var TraceItAll = IsDebugMode
-var IsDebugMode = strHas(os.Args[0], "__debug_bin") || strHas(os.Args[0], "/go-build")
+type Ctx = context.Ctx
+type Void = json.Void
+
+func init() {
+	time.Local = time.UTC
+}
 
 func Init() {
+	time.Local = time.UTC // between above `init` and now, `time` might have its own `init`-time ideas about setting `time.Local`...
 	log.Println("Load config...")
 	cfgLoad()
 	log.Println("API init...")
 	apiInit()
 	log.Println("API SDK gen...")
-	if IsDebugMode {
+	if IsDevMode {
 		apiGenSdk()
 	}
 	log.Println("`ListenAndServe`-ready!")

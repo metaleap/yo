@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+
+	. "yo/util"
 )
 
 const ApiSdkGenDstTsFilePath = staticFileDirPath + "/yo-sdk.ts"
