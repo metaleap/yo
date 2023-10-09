@@ -100,7 +100,7 @@ func apiGenSdkTypeName(typeRef string) string {
 		case "float32", "float64":
 			return "Yo_f" + t[len("float"):]
 		default:
-			panic(t)
+			panic("no type-name gen for '" + typeRef + "'")
 		}
 	}
 	if strBegins(typeRef, "[") && strEnds(typeRef, "]") {

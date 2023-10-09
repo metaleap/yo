@@ -57,7 +57,7 @@ func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string)
 	if type_ident == "time.Duration" {
 		fail("time.Duration not supported, use numeric unit-communicating field (like timeoutSec or retainHrs)")
 	}
-	if strBegins(type_ident, ".") {
+	if type_ident != "." && strBegins(type_ident, ".") {
 		return type_ident
 	}
 	if IsDebugMode && rt_kind == reflect.String {
