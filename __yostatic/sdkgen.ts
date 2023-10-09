@@ -46,5 +46,4 @@ export function yoReq(methodPath: string, payload: any, onSuccess?: (_?: any) =>
                             onSuccess(resp_json)
                     }, (err) => onFailed(err, resp))
         }, onFailed)
-    return false
 }

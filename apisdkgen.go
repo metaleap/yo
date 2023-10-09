@@ -118,7 +118,7 @@ func apiGenSdkTypeName(typeRef string) string {
 
 func apiGenSdkMethod(buf *strings.Builder, api *apiReflect, method *apiReflectMethod) {
 	_, _ = buf.WriteString(strFmt(`
-export function yoReq_%s(payload: %s, onSuccess: (_:%s) => void): void {
-	yoReq(%s, payload, onSuccess)
+export function yoReq_%s(payload: %s, onSuccess: (_: %s) => void, onFailed?: (err: any, resp?: Response, query?: {[_:string]:string}) => void): void {
+	yoReq(%s, payload, onSuccess, onFailed)
 }`, toIdent(method.Path), apiGenSdkTypeName(method.In), apiGenSdkTypeName(method.Out), strQ(method.Path)))
 }

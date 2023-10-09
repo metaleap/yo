@@ -61,5 +61,10 @@
 </head><body><script type='module' onerror="setTimeout(()=>{location.reload()},123)">
     import * as yo_sdk from '/__yostatic/yo-sdk.js'
     import * as main_view from './swag.js'
-    yo_sdk.yoReq____refl({}, (_) => main_view.onInit(document.body, _, yo_sdk.yoReq))
+
+    function loadUp() {
+        yo_sdk.yoReq____refl({}, (_) => main_view.onInit(document.body, _, yo_sdk.yoReq), () => setTimeout(loadUp, 123))
+    }
+
+    loadUp()
 </script></body></html>

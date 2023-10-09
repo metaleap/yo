@@ -319,7 +319,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         html.div({},
             select_method = html.select({ 'autofocus': true, 'onchange': (evt: UIEvent) => buildApiMethodGui() },
                 ...[html.option({ 'value': '' }, '')].concat(apiRefl.Methods.map((_) => {
-                    return html.option({ 'value': _.Path }, '/' + _.Path)
+                    return html.option({ 'value': _.Path }, _.Path)
                 }))),
             html.button({ 'style': 'margin-left:1em', 'onclick': openInNewDialog }, 'New Dialog...'),
             select_history = html.select({ 'style': 'max-width:80%;float:right', 'onchange': onSelectHistoryItem }, html.option({ 'value': '' }, '')),
