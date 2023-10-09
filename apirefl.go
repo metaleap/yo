@@ -19,6 +19,9 @@ type apiReflectMethod struct {
 func apiHandleRefl(_ *Ctx, _ *Void, ret *apiReflect) error {
 	ret.Types, ret.Enums = map[string]map[string]string{}, map[string][]string{}
 	for _, method_path := range sorted(keys(API)) {
+		if !strIsPrtAscii(method_path) {
+			panic("not printable ASCII: '" + method_path + "'")
+		}
 		m := apiReflectMethod{Path: method_path}
 		rt_in, rt_out := API[method_path].reflTypes()
 		m.In, m.Out = apiReflType(ret, rt_in, "", ""), apiReflType(ret, rt_out, "", "")
@@ -37,6 +40,9 @@ func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string)
 	}
 	fail := func(msg string) {
 		panic(If(type_ident != "" && type_ident != ".", type_ident+" ", "") + If(parent != "", parent+".", "") + fldName + ": " + msg)
+	}
+	if !strIsPrtAscii(type_ident) {
+		fail("not printable ASCII: '" + type_ident + "'")
 	}
 
 	if rt_kind == reflect.Pointer {
@@ -70,7 +76,7 @@ func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string)
 		reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint8:
 		return "." + rt_kind.String()
 	case reflect.Interface:
-		return ".any"
+		fail("any not supported")
 	case reflect.Chan, reflect.Complex128, reflect.Complex64, reflect.Func, reflect.Invalid, reflect.Uintptr, reflect.UnsafePointer:
 		return ""
 	}
@@ -81,8 +87,13 @@ func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string)
 			if !(reflHasMethod(rt, "MarshalJSON") && reflHasMethod(rt, "UnmarshalJSON")) {
 				for i := 0; i < rt.NumField(); i++ {
 					field := rt.Field(i)
-					if ty_field := apiReflType(it, field.Type, field.Name, type_ident); ty_field != "" {
-						ty_refl[field.Name] = ty_field
+					if strIsUp(strSub(field.Name, 0, 1)) {
+						if !strIsPrtAscii(field.Name) {
+							fail("not printable ASCII: '" + field.Name + "'")
+						}
+						if ty_field := apiReflType(it, field.Type, field.Name, type_ident); ty_field != "" {
+							ty_refl[field.Name] = ty_field
+						}
 					}
 				}
 			}
@@ -92,6 +103,9 @@ func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string)
 }
 
 var apiReflEnum = func(it *apiReflect, rt reflect.Type, typeIdent string) string {
+	if !strIsPrtAscii(typeIdent) {
+		panic("not printable ASCII: '" + typeIdent + "'")
+	}
 	it.Enums[typeIdent] = nil
 	return typeIdent
 }

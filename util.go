@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 type Dict map[string]any
@@ -68,6 +69,60 @@ func strReplace(s string, repl map[string]string) string {
 		repl_old_new = append(repl_old_new, k, v)
 	}
 	return strings.NewReplacer(repl_old_new...).Replace(s)
+}
+
+func strIsLo(s string) bool {
+	for _, r := range s {
+		if !unicode.IsLower(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func strIsUp(s string) bool {
+	for _, r := range s {
+		if strBegins(s, "Ä") {
+			println(s, r, unicode.IsUpper(r))
+		}
+		if !unicode.IsUpper(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func strIsPrtAscii(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if (s[i] < 0x20) || (s[i] > 0x7e) {
+			return false
+		}
+	}
+	return true
+}
+
+func strSub(s string, runeIdx int, runesLen int) string {
+	if s == "" || runesLen == 0 {
+		return ""
+	}
+	n, idxStart, idxEnd := 0, -1, -1
+	for i := range s { // iter by runes
+		if n == runeIdx {
+			if idxStart = i; runesLen < 0 {
+				break
+			}
+		} else if (idxStart >= 0) && ((n - idxStart) == runesLen) {
+			idxEnd = i
+			break
+		}
+		n++
+	}
+	if idxStart < 0 {
+		return ""
+	} else if runesLen < 0 {
+		return s[idxStart:]
+	}
+	return s[idxStart:idxEnd]
 }
 
 func toIdent(s string) string {

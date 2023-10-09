@@ -68,27 +68,25 @@ func apiGenSdk() {
 func apiGenSdkType(buf *strings.Builder, api *apiReflect, typeName string, structFields map[string]string, enumMembers []string) {
 	switch typeName {
 	case "time.Time":
-		_, _ = buf.WriteString(strFmt("\nexport type %s = %s", apiGenSdkTypeName(typeName), apiGenSdkTypeName(".string")))
+		_, _ = buf.WriteString(strFmt("\nexport type %s = %s", apiGenSdkTypeName(api, typeName), apiGenSdkTypeName(api, ".string")))
 		return
 	}
 	if structFields != nil {
-		_, _ = buf.WriteString(strFmt("\nexport type %s = {", apiGenSdkTypeName(typeName)))
+		_, _ = buf.WriteString(strFmt("\nexport type %s = {", apiGenSdkTypeName(api, typeName)))
 		for _, field_name := range sorted(keys(structFields)) {
 			field_type := structFields[field_name]
-			_, _ = buf.WriteString(strFmt("\n\t%s: %s", toIdent(field_name), apiGenSdkTypeName(field_type)))
+			_, _ = buf.WriteString(strFmt("\n\t%s: %s", toIdent(field_name), apiGenSdkTypeName(api, field_type)))
 		}
 		_, _ = buf.WriteString("\n}\n")
 	} else {
-		_, _ = buf.WriteString(strFmt("\nexport type %s = %s\n", apiGenSdkTypeName(typeName),
+		_, _ = buf.WriteString(strFmt("\nexport type %s = %s\n", apiGenSdkTypeName(api, typeName),
 			If(len(enumMembers) == 0, "string", "\""+strJoin(enumMembers, "\" | \"")+"\"")))
 	}
 }
 
-func apiGenSdkTypeName(typeRef string) string {
-	if strBegins(typeRef, ".") {
-		switch t := typeRef[1:]; t {
-		case "any":
-			return "any"
+func apiGenSdkTypeName(api *apiReflect, typeName string) string {
+	if strBegins(typeName, ".") {
+		switch t := typeName[1:]; t {
 		case "string":
 			return "string"
 		case "bool":
@@ -100,25 +98,28 @@ func apiGenSdkTypeName(typeRef string) string {
 		case "float32", "float64":
 			return "Yo_f" + t[len("float"):]
 		default:
-			panic("no type-name gen for '" + typeRef + "'")
+			panic("no type-name gen for '" + typeName + "'")
 		}
 	}
-	if strBegins(typeRef, "[") && strEnds(typeRef, "]") {
-		return apiGenSdkTypeName(typeRef[1:len(typeRef)-1]) + "[]"
+	if strBegins(typeName, "[") && strEnds(typeName, "]") {
+		return apiGenSdkTypeName(api, typeName[1:len(typeName)-1]) + "[]"
 	}
-	if strBegins(typeRef, "{") && strEnds(typeRef, "}") {
-		key_part, val_part, ok := strCut(typeRef[1:len(typeRef)-1], ":")
+	if strBegins(typeName, "{") && strEnds(typeName, "}") {
+		key_part, val_part, ok := strCut(typeName[1:len(typeName)-1], ":")
 		if !ok {
-			panic(typeRef)
+			panic(typeName)
 		}
-		return strFmt("{ [_:%s]: %s }", apiGenSdkTypeName(key_part), apiGenSdkTypeName(val_part))
+		if _, is_enum := api.Enums[key_part]; is_enum {
+			return strFmt("{ [key in %s]?: %s }", apiGenSdkTypeName(api, key_part), apiGenSdkTypeName(api, val_part))
+		}
+		return strFmt("{ [_:%s]: %s }", apiGenSdkTypeName(api, key_part), apiGenSdkTypeName(api, val_part))
 	}
-	return "Yo_" + toIdent(typeRef[strIdx(typeRef, '.')+1:])
+	return "Yo_" + toIdent(typeName[strIdx(typeName, '.')+1:])
 }
 
 func apiGenSdkMethod(buf *strings.Builder, api *apiReflect, method *apiReflectMethod) {
 	_, _ = buf.WriteString(strFmt(`
 export function yoReq_%s(payload: %s, onSuccess: (_: %s) => void, onFailed?: (err: any, resp?: Response, query?: {[_:string]:string}) => void): void {
 	yoReq(%s, payload, onSuccess, onFailed)
-}`, toIdent(method.Path), apiGenSdkTypeName(method.In), apiGenSdkTypeName(method.Out), strQ(method.Path)))
+}`, toIdent(method.Path), apiGenSdkTypeName(api, method.In), apiGenSdkTypeName(api, method.Out), strQ(method.Path)))
 }
