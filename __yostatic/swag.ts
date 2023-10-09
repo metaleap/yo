@@ -288,12 +288,13 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             }
             return
         }
-        historyStore(apiRefl, method_path, payload, query_string)
-        refreshHistory(true, false)
+
         const on_done = () => {
             const duration_ms = new Date().getTime() - time_started
             document.title = `${duration_ms}ms`
         }
+        historyStore(apiRefl, method_path, payload, query_string)
+        refreshHistory(true, false)
         yoReq(method_path, payload, (result) => {
             on_done()
             textarea_response.style.backgroundColor = '#c0f0c0'
@@ -405,7 +406,7 @@ type HistoryEntry = {
 }
 
 function historyOf(methodPath: string): HistoryEntry[] {
-    const json_entries = localStorage.getItem('yo:' + methodPath)
+    const json_entries = localStorage.getItem('yo.h:' + methodPath)
     if (json_entries) {
         const entries: HistoryEntry[] = JSON.parse(json_entries)
         return entries.reverse()
@@ -422,7 +423,9 @@ function historyLatest() {
     let ret: undefined | (HistoryEntry & { methodPath: string }) = undef
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
-        const method_path = key.substring('yo:'.length)
+        if (!key.startsWith('yo.h:'))
+            continue
+        const method_path = key.substring('yo.h:'.length)
         const json_entries = localStorage.getItem(key)
         const entries: HistoryEntry[] = JSON.parse(json_entries)
         for (const entry of entries)
@@ -432,6 +435,41 @@ function historyLatest() {
     return ret
 }
 
+function historyCleanUp(apiRefl: YoReflApis, curMethodPath?: string, curEntry?: HistoryEntry) {
+    console.log("localStorage history house-keeping...")
+
+    const keys_to_remove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (!key.startsWith('yo.')) {
+            keys_to_remove.push(key)
+            continue
+        }
+        if (!key.startsWith('yo.h:'))
+            continue
+        const method_path = key.substring('yo.h:'.length)
+        if (!apiRefl.Methods.some((_) => (_.Path === method_path))) // methodPath no longer part of API
+            keys_to_remove.push(key)
+        else {
+            let mut = false, entries: HistoryEntry[] = JSON.parse(localStorage.getItem(key))
+            for (let i = 0; i < entries.length; i++) {
+                // check for equality with current payload/queryString: anything the same can go
+                const entry = entries[i], method = apiRefl.Methods.find((_) => (_.Path === method_path))
+                const remove = ('' !== validate(apiRefl, method.In, entry.payload, method.In)[0]) ||
+                    (curMethodPath && curEntry && (curMethodPath === method_path) && util.deepEq(entry.payload, curEntry.payload) && util.deepEq(entry.queryString, curEntry.queryString))
+                if (remove)
+                    [mut, i, entries] = [true, i - 1, entries.filter((_) => (_ != entry))]
+            }
+            if (mut)
+                localStorage.setItem(key, JSON.stringify(entries))
+        }
+    }
+    for (const key_to_remove of keys_to_remove) {
+        console.log(`removing '${key_to_remove}' history entry due to that method no longer existing'`)
+        localStorage.removeItem(key_to_remove)
+    }
+}
+
 function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, queryString?: object) {
     const entry: HistoryEntry = {
         dateTime: new Date().getTime(),
@@ -439,36 +477,10 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
         queryString: queryString
     }
 
-    console.log("localStorage history house-keeping...")
-    {   // since we're anyway writing to localStorage, a good moment to clean out no longer needed history entries
-        const keys_to_remove: string[] = []
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i)
-            const method_path = key.substring('yo:'.length)
-            if (!apiRefl.Methods.some((_) => (_.Path === method_path))) // methodPath no longer part of API
-                keys_to_remove.push(key)
-            else {
-                let mut = false, entries: HistoryEntry[] = JSON.parse(localStorage.getItem(key))
-                for (let i = 0; i < entries.length; i++) {
-                    // check for equality with current payload/queryString: anything the same can go
-                    const entry = entries[i], method = apiRefl.Methods.find((_) => (_.Path === method_path))
-                    const remove = ('' !== validate(apiRefl, method.In, entry.payload, method.In)[0]) ||
-                        ((methodPath === method_path) && util.deepEq(entry.payload, payload) && util.deepEq(entry.queryString, queryString))
-                    if (remove)
-                        [mut, i, entries] = [true, i - 1, entries.filter((_) => (_ != entry))]
-                }
-                if (mut)
-                    localStorage.setItem(key, JSON.stringify(entries))
-            }
-        }
-        for (const key_to_remove of keys_to_remove) {
-            console.log(`removing '${key_to_remove}' history entry due to that method no longer existing'`)
-            localStorage.removeItem(key_to_remove)
-        }
-    }
+    historyCleanUp(apiRefl, methodPath, entry)  // since we're anyway writing to localStorage, a good moment to clean out no-longer-needed history entries
 
     console.log(`storing '${methodPath}' history entry:`, entry)
-    let json_entries = localStorage.getItem('yo:' + methodPath)
+    let json_entries = localStorage.getItem('yo.h:' + methodPath)
     if (!(json_entries && json_entries.length))
         json_entries = '[]'
     let entries: HistoryEntry[] = JSON.parse(json_entries)
@@ -477,7 +489,7 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
     let not_stored_yet = true
     while (not_stored_yet)
         try {
-            localStorage.setItem('yo:' + methodPath, json_entries)
+            localStorage.setItem('yo.h:' + methodPath, json_entries)
             not_stored_yet = false
         } catch (err) {
             if (entries.length === 0) {
@@ -496,12 +508,44 @@ function enumExists(apiRefl: YoReflApis, type_name: string) {
     return (Object.keys(apiRefl.Enums).indexOf(type_name) >= 0)
 }
 
-function validate(apiRefl: YoReflApis, type_name: string, value: any, path: string, stringIsNoJson?: boolean): [string, any] {
+function walk(apiRefl: YoReflApis, typeName: string, value: any, path: (string | number)[], onField: (path: (string | number)[], value: any) => void, callForArrsAndObjs: boolean = false) {
+    if (typeName.startsWith('[') && typeName.endsWith(']') && value) {
+        const type_name_items = typeName.substring(1, typeName.length - 1)
+        for (const idx in value)
+            walk(apiRefl, type_name_items, value[idx], path.concat([idx]), onField, callForArrsAndObjs)
+        if (!callForArrsAndObjs)
+            return
+    }
+
+    if (typeName.startsWith('{') && typeName.endsWith('}') && typeName.includes(':') && value) {
+        const splits = typeName.substring(1, typeName.length - 1).split(':')
+        const type_name_val = splits.slice(1).join(':')
+        for (const key in value)
+            walk(apiRefl, type_name_val, value[key], path.concat([key]), onField, callForArrsAndObjs)
+        if (!callForArrsAndObjs)
+            return
+    }
+
+    const type_struc = apiRefl.Types[typeName]
+    if (type_struc && value) {
+        for (const field_name in value) {
+            const field_type_name = type_struc[field_name]
+            if (field_type_name)
+                walk(apiRefl, field_type_name, value[field_name], path.concat([field_name]), onField, callForArrsAndObjs)
+        }
+        if (!callForArrsAndObjs)
+            return
+    }
+
+    onField(path, value)
+}
+
+function validate(apiRefl: YoReflApis, typeName: string, value: any, path: string, stringIsNoJson?: boolean): [string, any] {
     const is_str = (typeof value === 'string')
     if (value === undef)
         return [`${displayPath(path)}: new bug, 'value' being 'undefined'`, undef]
 
-    if (type_name === 'time.Time') {
+    if (typeName === 'time.Time') {
         if (!((is_str && value !== '') || (value === null)))
             return [`${displayPath(path)}: must be non-empty string or null`, undef]
         else if (is_str && value && Number.isNaN(Date.parse(value.toString())))
@@ -509,27 +553,27 @@ function validate(apiRefl: YoReflApis, type_name: string, value: any, path: stri
         return ["", value]
     }
 
-    if (enumExists(apiRefl, type_name)) {
+    if (enumExists(apiRefl, typeName)) {
         if (!((is_str && value !== '') || (value === null)))
             return [`${displayPath(path)}: must be must be non-empty string or null`, undef]
-        const enumerants = apiRefl.Enums[type_name]
+        const enumerants = apiRefl.Enums[typeName]
         if (enumerants && (enumerants.length > 0) && (enumerants.indexOf(value) < 0))
-            return [`${displayPath(path)}: '${type_name}' has no '${value}' but has '${enumerants.join("', '")}'`, undef]
+            return [`${displayPath(path)}: '${typeName}' has no '${value}' but has '${enumerants.join("', '")}'`, undef]
         return ["", value]
     }
 
-    if (type_name.startsWith('.') && (value !== null)) {
-        if (['.float32', '.float64'].some((_) => (_ === type_name)) && (typeof value !== 'number'))
+    if (typeName.startsWith('.') && (value !== null)) {
+        if (['.float32', '.float64'].some((_) => (_ === typeName)) && (typeof value !== 'number'))
             return [`${displayPath(path)}: must be float, not ${JSON.stringify(value)}`, undef]
-        if (('.bool' === type_name) && (typeof value !== 'boolean'))
+        if (('.bool' === typeName) && (typeof value !== 'boolean'))
             return [`${displayPath(path)}: must be true or false, not ${JSON.stringify(value)}`, undef]
-        if (('.string' === type_name) && (typeof value !== 'string'))
+        if (('.string' === typeName) && (typeof value !== 'string'))
             return [`${displayPath(path)}: must be string, not ${JSON.stringify(value)}`, undef]
         const value_i = ((typeof value === 'number') && (value.toString().includes('.') || value.toString().includes('e')))
             ? Number.NaN : parseInt(value)
-        if (['.uint8', '.uint16', '.uint32', '.uint64', '.int8', '.int16', '.int32', '.int64'].some((_) => (_ === type_name)) && ((typeof value !== 'number') || Number.isNaN(value_i)))
+        if (['.uint8', '.uint16', '.uint32', '.uint64', '.int8', '.int16', '.int32', '.int64'].some((_) => (_ === typeName)) && ((typeof value !== 'number') || Number.isNaN(value_i)))
             return [`${displayPath(path)}: must be integer, not ${JSON.stringify(value)}`, undef]
-        if (['.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === type_name)) && (value_i < 0))
+        if (['.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === typeName)) && (value_i < 0))
             return [`${displayPath(path)}: must be greater than 0, not ${JSON.stringify(value)}`, undef]
         return ["", value]
     }
@@ -541,43 +585,45 @@ function validate(apiRefl: YoReflApis, type_name: string, value: any, path: stri
             return [`${err}`, undef]
         }
 
-    if (type_name.startsWith('[') && type_name.endsWith(']') && value) {
+    if (typeName.startsWith('[') && typeName.endsWith(']') && value) {
         if (!Array.isArray(value))
-            return [`${displayPath(path)}: must be null or ${type_name}, not ${value}`, undef]
+            return [`${displayPath(path)}: must be null or ${typeName}, not ${value}`, undef]
+        const type_name_items = typeName.substring(1, typeName.length - 1)
         for (const i in (value as [])) {
             const item = (value as [])[i]
-            const [err_msg, _] = validate(apiRefl, type_name.substring(1, type_name.length - 1), item, path + '[' + i + ']', true)
+            const [err_msg, _] = validate(apiRefl, type_name_items, item, path + '[' + i + ']', true)
             if (err_msg && err_msg !== "")
                 return [err_msg, undef]
         }
     }
 
     if (value && (typeof value !== 'object'))
-        return [`${displayPath(path)}: must be null or ${type_name}, not ${value}`, undef]
+        return [`${displayPath(path)}: must be null or ${typeName}, not ${value}`, undef]
 
-    if (type_name.startsWith('{') && type_name.endsWith('}') && value) {
-        const splits = type_name.substring(1, type_name.length - 1).split(':')
+    if (typeName.startsWith('{') && typeName.endsWith('}') && value) {
+        const splits = typeName.substring(1, typeName.length - 1).split(':')
+        const type_name_key = splits[0], type_name_val = splits.slice(1).join(':')
         for (const key in (value as object)) {
-            const [err_msg_key, _] = validate(apiRefl, splits[0], key, path + '["' + key + '"]', true)
+            const [err_msg_key, _] = validate(apiRefl, type_name_key, key, path + '["' + key + '"]', true)
             if (err_msg_key && err_msg_key !== "")
                 return [err_msg_key, undef]
             const val = value[key]
-            const [err_msg_val, __] = validate(apiRefl, splits.slice(1).join(':'), val, path + '["' + key + '"]', true)
+            const [err_msg_val, __] = validate(apiRefl, type_name_val, val, path + '["' + key + '"]', true)
             if (err_msg_val && err_msg_val !== "")
                 return [err_msg_val, undef]
         }
     }
 
-    const type_struc = apiRefl.Types[type_name]
+    const type_struc = apiRefl.Types[typeName]
     if (type_struc && value) {
         const type_struc_field_names = []
         for (const type_field_name in type_struc)
             type_struc_field_names.push(type_field_name)
-        for (const k in (value as object)) {
-            const field_type_name = type_struc[k]
+        for (const field_name in (value as object)) {
+            const field_type_name = type_struc[field_name]
             if (!field_type_name)
-                return [`${displayPath(path, k)}: '${type_name}' has no '${k}' but has: '${type_struc_field_names.join("', '")}'`, undef]
-            const [err_msg, _] = validate(apiRefl, field_type_name, (value as object)[k], path + '.' + k, true)
+                return [`${displayPath(path, field_name)}: '${typeName}' has no '${field_name}' but has: '${type_struc_field_names.join("', '")}'`, undef]
+            const [err_msg, _] = validate(apiRefl, field_type_name, (value as object)[field_name], path + '.' + field_name, true)
             if (err_msg !== '')
                 return [err_msg, undef]
         }
