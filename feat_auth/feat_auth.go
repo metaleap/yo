@@ -5,15 +5,13 @@ import (
 )
 
 type UserAccount struct {
-	id      db.Int
+	id      db.I64
 	created db.DateTime
 
 	EmailAddr      db.Text
 	PasswordHashed db.Bytes
-	FooBarBaz      db.Bool
-	Data           db.Bytes
 }
 
 func Use() {
-	db.Ensure[UserAccount](false, "user_acc", map[string]string{"foo": "Data"})
+	db.Ensure[UserAccount](false, "", map[string]string{})
 }

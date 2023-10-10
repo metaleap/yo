@@ -178,10 +178,16 @@ func sqlColTypeFrom(ty reflect.Type) string {
 		return "boolean"
 	case tyBytes:
 		return "bytea"
-	case tyFloat:
-		return "double precision"
-	case tyInt:
-		return "bigint"
+	case tyF32:
+		return "float4"
+	case tyF64:
+		return "float8"
+	case tyI8, tyI16, tyU8:
+		return "int2"
+	case tyI32, tyU16:
+		return "int4"
+	case tyI64, tyU32:
+		return "int8"
 	case tyText:
 		return "text"
 	case tyTimestamp:
@@ -196,16 +202,12 @@ func sqlColDeclFrom(ty reflect.Type) string {
 	switch ty {
 	case tyBool:
 		return sql_data_type_name + " NOT NULL DEFAULT (false)"
-	case tyBytes:
+	case tyBytes, tyTimestamp:
 		return sql_data_type_name + " NULL DEFAULT (NULL)"
-	case tyFloat:
-		return sql_data_type_name + " NOT NULL DEFAULT (0)"
-	case tyInt:
+	case tyF32, tyF64, tyI16, tyI32, tyI64, tyI8, tyU16, tyU32, tyU8:
 		return sql_data_type_name + " NOT NULL DEFAULT (0)"
 	case tyText:
 		return sql_data_type_name + " NOT NULL DEFAULT ('')"
-	case tyTimestamp:
-		return sql_data_type_name + " NULL DEFAULT (NULL)"
 	default:
 		panic(ty)
 	}

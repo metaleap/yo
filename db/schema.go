@@ -10,7 +10,7 @@ import (
 type TableColumn struct {
 	tableName       Text
 	ColumnName      Text
-	OrdinalPosition Int
+	OrdinalPosition U8
 	ColumnDefault   Text
 	IsNullable      Bool
 	DataType        Text
