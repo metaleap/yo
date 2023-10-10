@@ -5,12 +5,14 @@ import (
 	"reflect"
 
 	. "yo/ctx"
+	"yo/str"
 
 	"github.com/jackc/pgx/v5"
 )
 
 func doExec(ctx *Ctx, stmt *Stmt, args pgx.NamedArgs) sql.Result {
-	result, err := DB.ExecContext(ctx, stmt.String(), args)
+	sql_raw := str.TrimR(stmt.String(), ",")
+	result, err := DB.ExecContext(ctx, sql_raw, args)
 	if err != nil {
 		panic(err)
 	}

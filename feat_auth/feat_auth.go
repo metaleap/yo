@@ -13,5 +13,5 @@ type UserAccount struct {
 }
 
 func Use() {
-	db.Ensure[UserAccount](false, nil)
+	db.Ensure[UserAccount](false, "", nil)
 }

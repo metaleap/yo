@@ -8,7 +8,6 @@ import (
 
 	. "yo/config"
 	"yo/ctx"
-	"yo/str"
 )
 
 const (
@@ -54,6 +53,10 @@ type structDesc struct {
 	idBig     bool     // allow up to 9223372036854775807 instead of up to 2147483647
 }
 
+func isColField(fieldType reflect.Type) bool {
+	return slices.Contains(okTypes, fieldType)
+}
+
 func desc[T any]() (ret *structDesc) {
 	var it T
 	ty := reflect.TypeOf(it)
@@ -62,7 +65,7 @@ func desc[T any]() (ret *structDesc) {
 		descs[ty] = ret
 		for i, l := 0, ty.NumField(); i < l; i++ {
 			field := ty.Field(i)
-			if field_type := field.Type; slices.Contains(okTypes, field_type) {
+			if isColField(field.Type) {
 				ret.fields, ret.cols = append(ret.fields, field.Name), append(ret.cols, NameFrom(field.Name))
 			}
 		}
@@ -104,34 +107,15 @@ func (me scanner) Scan(src any) error {
 	return nil
 }
 
-func Ensure[T any](idBig bool, colRenames map[string]string) {
+func Ensure[T any](idBig bool, oldTableName string, renamesOldColToNewField map[string]string) {
 	ctx := ctx.New(nil, nil, Cfg.DB_REQ_TIMEOUT)
 	defer ctx.Dispose()
 	desc := desc[T]()
 	desc.idBig = idBig
 	table := GetTable(ctx, desc.tableName)
 	if table == nil {
-		_ = doExec(ctx, new(Stmt).CreateTable(desc), nil)
-	} else {
-		cols_new, cols_gone := []string{}, []string{}
-		for _, table_col := range table {
-			if !slices.Contains(desc.cols, string(table_col.ColumnName)) {
-				cols_gone = append(cols_gone, string(table_col.ColumnName))
-			}
-		}
-		for _, struct_col_name := range desc.cols {
-			if !slices.ContainsFunc(table, func(t *TableColumn) bool { return t.ColumnName == Text(struct_col_name) }) {
-				cols_new = append(cols_new, struct_col_name)
-			}
-		}
-		if colRenames != nil {
-			for old_name, new_name := range colRenames {
-				idx_old, idx_new := slices.Index(cols_gone, old_name), slices.Index(cols_new, new_name)
-				if idx_old < 0 || idx_new < 0 {
-					panic(str.Fmt("outdated column rename: '%s' => '%s'", old_name, new_name))
-				}
-				cols_gone, cols_new = slices.Delete(cols_gone, idx_old, idx_old+1), slices.Delete(cols_new, idx_new, idx_new+1)
-			}
-		}
+		_ = doExec(ctx, new(Stmt).createTable(desc), nil)
+	} else if stmt := new(Stmt).alterTable(desc, table, oldTableName, renamesOldColToNewField); stmt != nil {
+		_ = doExec(ctx, stmt, nil)
 	}
 }
