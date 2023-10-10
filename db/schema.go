@@ -1,16 +1,11 @@
 package db
 
 import (
-	"time"
 	. "yo/ctx"
-)
+	. "yo/util"
 
-type Bool bool
-type Bytes []byte
-type Int int64
-type Float float64
-type Str string
-type Time time.Time
+	"github.com/jackc/pgx/v5"
+)
 
 type TableColumn struct {
 	tableName       Str
@@ -21,17 +16,27 @@ type TableColumn struct {
 	DataType        Str
 }
 
-func ListTables(ctx *Ctx) map[Str][]TableColumn {
-	ret := map[Str][]TableColumn{}
+func GetTable(ctx *Ctx, name string) []*TableColumn {
+
+	return nil
+}
+
+func ListTables(ctx *Ctx, tableName string) map[Str][]*TableColumn {
+	ret := map[Str][]*TableColumn{}
 	desc := desc[TableColumn]()
 	desc.tableName = "information_schema.columns"
-	stmt := new(Stmt).Select(desc.cols...).From(desc.tableName).
-		Where("table_name IN (" +
-			(new(Stmt).Select("table_name").From("information_schema.tables").
-				Where("(table_type = 'BASE TABLE') AND (table_schema NOT IN ('pg_catalog', 'information_schema'))")).
-				String() + ")").
+	args, stmt := pgx.NamedArgs{"table_name": tableName}, new(Stmt).Select(desc.cols...).From(desc.tableName).
+		Where(If(tableName != "", "table_name = @table_name",
+			"table_name IN ("+
+				(new(Stmt).Select("table_name").From("information_schema.tables").
+					Where("(table_type = 'BASE TABLE') AND (table_schema NOT IN ('pg_catalog', 'information_schema'))")).
+					String()+
+				")")).
 		OrderBy("table_name, ordinal_position")
-	flat_results := doSelect[TableColumn](ctx, stmt)
+	if tableName != "" {
+		args["table_name"] = tableName
+	}
+	flat_results := doSelect[TableColumn](ctx, stmt, args)
 	for _, result := range flat_results {
 		ret[result.tableName] = append(ret[result.tableName], result)
 	}
