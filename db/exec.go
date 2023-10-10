@@ -84,12 +84,12 @@ func doStream[T any](ctx *Ctx, stmt *Stmt, onRecord func(*T), args pgx.NamedArgs
 	}
 	for rows.Next() {
 		var rec T
-		rv, col_ptrs := reflect.ValueOf(&rec).Elem(), make([]any, len(desc.cols))
+		rv, col_scanners := reflect.ValueOf(&rec).Elem(), make([]any, len(desc.cols))
 		for i := range desc.cols {
 			field := rv.Field(i)
-			col_ptrs[i] = scanner{ptr: field.UnsafeAddr(), ty: field.Type()}
+			col_scanners[i] = scanner{ptr: field.UnsafeAddr(), ty: field.Type()}
 		}
-		if err = rows.Scan(col_ptrs...); err != nil {
+		if err = rows.Scan(col_scanners...); err != nil {
 			panic(err)
 		}
 		onRecord(&rec)
