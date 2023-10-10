@@ -3,7 +3,7 @@ package server
 import (
 	"reflect"
 
-	. "yo/context"
+	. "yo/ctx"
 	"yo/str"
 	. "yo/util"
 )
@@ -28,13 +28,13 @@ func apiHandleReflReq(_ *Ctx, _ *Void, ret *apiRefl) {
 		if !str.IsPrtAscii(method_path) {
 			panic("not printable ASCII: '" + method_path + "'")
 		}
-		m := apiReflMethod{Path: method_path}
+		method_name, method := ToIdent(method_path), apiReflMethod{Path: method_path}
 		rt_in, rt_out := API[method_path].reflTypes()
-		m.In, m.Out = apiReflType(ret, rt_in, "", ""), apiReflType(ret, rt_out, "", "")
-		if no_in, no_out := (m.In == ""), (m.Out == ""); no_in || no_out {
+		method.In, method.Out = apiReflType(ret, rt_in, "In", method_name), apiReflType(ret, rt_out, "Out", method_name)
+		if no_in, no_out := (method.In == ""), (method.Out == ""); no_in || no_out {
 			panic(method_path + ": invalid " + If(no_in, "In", "Out"))
 		}
-		ret.Methods = append(ret.Methods, m)
+		ret.Methods = append(ret.Methods, method)
 	}
 }
 

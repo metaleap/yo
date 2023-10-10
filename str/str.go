@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 	"unicode"
 )
 
@@ -40,7 +39,12 @@ func ReSuffix(s string, oldSuffix string, newSuffix string) string {
 }
 
 func DurationMs(nanos int64) string {
-	return strconv.FormatInt(time.Duration(nanos).Milliseconds(), 10) + "ms"
+	ms := float64(nanos) * 0.000001
+	return FromFloat(ms, 2) + "ms"
+}
+
+func FromFloat(f float64, prec int) string {
+	return strconv.FormatFloat(f, 'f', prec, 64)
 }
 
 func IsLo(s string) bool {

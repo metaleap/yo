@@ -6,9 +6,8 @@ import (
 	"net/http"
 	"os"
 
-	"yo/context"
-
 	. "yo/config"
+	"yo/ctx"
 	"yo/json"
 	"yo/str"
 	. "yo/util"
@@ -23,7 +22,7 @@ var apiGenSdkMaybe func() = nil // overwritten by apisdkgen.go in debug build mo
 
 func Init(staticFS *embed.FS) (func(), func()) {
 	staticFileDir = staticFS
-	API["__/refl"] = Method[Void, apiRefl](apiHandleReflReq)
+	API["__/refl"] = Method(apiHandleReflReq)
 	return apiGenSdkMaybe, listenAndServe
 }
 
@@ -37,7 +36,7 @@ func listenAndServe() {
 }
 
 func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
-	ctx := context.New(req, rw)
+	ctx := ctx.New(req, rw)
 	defer ctx.Dispose()
 
 	ctx.Timings.Step("check yoFail")
@@ -65,7 +64,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	if result, handler_called := apiHandleRequest(ctx); handler_called {
-		ctx.Timings.Step("marshal resp")
+		ctx.Timings.Step("jsonify result")
 		resp_data, err := json.MarshalIndent(result, "", "  ")
 		if err != nil {
 			ctx.HttpErr(500, err.Error())

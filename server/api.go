@@ -5,7 +5,7 @@ import (
 	"io"
 	"reflect"
 
-	. "yo/context"
+	. "yo/ctx"
 	"yo/json"
 	"yo/str"
 	. "yo/util"
@@ -69,13 +69,13 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 		return nil, false
 	}
 
-	ctx.Timings.Step("unmarshal req")
+	ctx.Timings.Step("parse req")
 	payload, err := api.loadPayload(payload_data)
 	if err != nil {
 		ctx.HttpErr(400, err.Error()+If(IsDevMode, "\n"+string(payload_data), ""))
 		return nil, false
 	}
 
-	ctx.Timings.Step("handle req")
+	ctx.Timings.Step("HANDLE")
 	return api.handle()(ctx, payload), true
 }

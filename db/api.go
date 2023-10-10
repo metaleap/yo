@@ -1,7 +1,17 @@
 package db
 
-// . "yo/util"
+import (
+	. "yo/ctx"
+	"yo/server"
+	. "yo/util"
+)
 
-type ApiRespListTables struct {
-	Tables []string
+func init() {
+	server.API["__/db/listTables"] = server.Method(apiListTables)
+}
+
+func apiListTables(ctx *Ctx, in *Void, out *struct {
+	Names []string
+}) {
+	out.Names = []string{"Foo", "Bar", "Baz"}
 }

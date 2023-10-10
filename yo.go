@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"yo/config"
-	"yo/context"
+	"yo/ctx"
 	"yo/db"
 	"yo/log"
 	"yo/server"
@@ -15,7 +15,7 @@ import (
 var staticFileDir embed.FS
 
 type APIMethods = server.APIMethods
-type Ctx = context.Ctx
+type Ctx = ctx.Ctx
 
 func init() {
 	time.Local = time.UTC
