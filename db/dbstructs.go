@@ -8,6 +8,8 @@ import (
 
 	. "yo/config"
 	"yo/ctx"
+	"yo/log"
+	. "yo/util"
 )
 
 const (
@@ -21,11 +23,6 @@ type Int int64
 type Float float64
 type Text string
 type DateTime *time.Time
-
-type Base struct {
-	ID      Int
-	Created DateTime
-}
 
 var (
 	tyBool      = reflect.TypeOf(Bool(false))
@@ -108,14 +105,20 @@ func (me scanner) Scan(src any) error {
 }
 
 func Ensure[T any](idBig bool, oldTableName string, renamesOldColToNewField map[string]string) {
-	ctx := ctx.New(nil, nil, Cfg.DB_REQ_TIMEOUT)
+	ctx := ctx.NewForDbTx(Cfg.DB_REQ_TIMEOUT)
 	defer ctx.Dispose()
 	desc := desc[T]()
 	desc.idBig = idBig
-	table := GetTable(ctx, desc.tableName)
-	if table == nil {
-		_ = doExec(ctx, new(Stmt).createTable(desc), nil)
-	} else if stmt := new(Stmt).alterTable(desc, table, oldTableName, renamesOldColToNewField); stmt != nil {
-		_ = doExec(ctx, stmt, nil)
+	log.Println("db.Mig: " + desc.tableName)
+	is_table_rename := (oldTableName != "")
+	cur_table := GetTable(ctx, If(is_table_rename, oldTableName, desc.tableName))
+	if cur_table == nil {
+		if !is_table_rename {
+			_ = doExec(ctx, new(Stmt).createTable(desc), nil)
+		} else {
+			panic("outdated table rename: '" + oldTableName + "'")
+		}
+	} else if stmts := alterTable(desc, cur_table, oldTableName, renamesOldColToNewField); len(stmts) > 0 {
+		doTx(ctx, nil, stmts...)
 	}
 }

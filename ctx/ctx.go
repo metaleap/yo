@@ -2,6 +2,7 @@ package ctx
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"time"
 
@@ -13,30 +14,41 @@ import (
 type Ctx struct {
 	context.Context
 	ctxDone func()
-	Req     *http.Request
-	Resp    http.ResponseWriter
-	UrlPath string
+	Http    struct {
+		Req     *http.Request
+		Resp    http.ResponseWriter
+		UrlPath string
+	}
+	Db struct {
+		Tx *sql.Tx
+	}
 	Timings diag.Timings
 }
 
-func New(req *http.Request, resp http.ResponseWriter, timeout time.Duration) *Ctx {
-	ret := Ctx{
+func newCtx(timeout time.Duration) *Ctx {
+	ctx := Ctx{
 		Timings: diag.NewTimings("init ctx", !IsDevMode),
 		Context: context.Background(),
-		Req:     req,
-		Resp:    resp,
-	}
-	if req != nil {
-		ret.UrlPath = str.TrimR(str.TrimL(req.URL.Path, "/"), "/")
 	}
 	if timeout > 0 {
-		ret.Context, ret.ctxDone = context.WithTimeout(ret.Context, timeout)
+		ctx.Context, ctx.ctxDone = context.WithTimeout(ctx.Context, timeout)
 	}
-	return &ret
+	return &ctx
+}
+
+func NewForHttp(req *http.Request, resp http.ResponseWriter, timeout time.Duration) *Ctx {
+	ctx := newCtx(timeout)
+	ctx.Http.Req, ctx.Http.Resp, ctx.Http.UrlPath = req, resp, str.TrimR(str.TrimL(req.URL.Path, "/"), "/")
+	return ctx
+}
+
+func NewForDbTx(timeout time.Duration) *Ctx {
+	ctx := newCtx(timeout)
+	return ctx
 }
 
 func (me *Ctx) Dispose() {
-	if me.Req != nil && me.Resp != nil {
+	if me.Http.Req != nil && me.Http.Resp != nil {
 		if code, fail := 500, recover(); fail != nil {
 			if err, is_app_err := fail.(Err); is_app_err {
 				code = err.HttpStatusCode()
@@ -49,8 +61,8 @@ func (me *Ctx) Dispose() {
 	}
 	if IsDevMode {
 		total_duration, steps := me.Timings.AllDone()
-		if me.Req != nil {
-			println(me.Req.RequestURI, str.DurationMs(total_duration))
+		if me.Http.Req != nil {
+			println(me.Http.Req.RequestURI, str.DurationMs(total_duration))
 			for _, step := range steps {
 				println("\t" + step.Step + ":\t" + str.DurationMs(step.Duration))
 			}
@@ -59,11 +71,11 @@ func (me *Ctx) Dispose() {
 }
 
 func (me *Ctx) HttpErr(statusCode int, statusText string) {
-	http.Error(me.Resp, statusText, statusCode)
+	http.Error(me.Http.Resp, statusText, statusCode)
 }
 
 func (me *Ctx) Get(name string) any {
-	if s := me.Req.URL.Query().Get(name); s != "" {
+	if s := me.Http.Req.URL.Query().Get(name); s != "" {
 		return s
 	}
 	return me.Context.Value(name)

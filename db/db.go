@@ -35,7 +35,7 @@ func Init() {
 type dbLogger struct{}
 
 func (dbLogger) Log(ctx context.Context, level tracelog.LogLevel, msg string, data map[string]any) {
-	log.Println("DB: %s %v", msg, data)
+	log.Println("dbPgx: %s %v", msg, data)
 }
 
 func NameFrom(s string) string {

@@ -56,14 +56,14 @@ func (me apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
 
 func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	ctx.Timings.Step("handler lookup")
-	api := API[ctx.UrlPath]
+	api := API[ctx.Http.UrlPath]
 	if api == nil {
 		ctx.HttpErr(404, "Not Found")
 		return nil, false
 	}
 
 	ctx.Timings.Step("read req")
-	payload_data, err := io.ReadAll(ctx.Req.Body)
+	payload_data, err := io.ReadAll(ctx.Http.Req.Body)
 	if err != nil {
 		ctx.HttpErr(500, err.Error())
 		return nil, false

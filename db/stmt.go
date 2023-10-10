@@ -93,7 +93,10 @@ func (me *Stmt) createTable(desc *structDesc) *Stmt {
 }
 
 func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, renamesOldColToNewField map[string]string) (ret []*Stmt) {
-	stmt := new(Stmt)
+	if oldTableName == desc.tableName {
+		panic("invalid table rename: " + oldTableName)
+	}
+
 	cols_gone, fields_new := []string{}, []string{}
 	for _, table_col := range curTable {
 		if !slices.Contains(desc.cols, string(table_col.ColumnName)) {
@@ -107,6 +110,10 @@ func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, 
 	}
 	if renamesOldColToNewField != nil {
 		for old_col_name, new_field_name := range renamesOldColToNewField {
+			new_col_name := NameFrom(new_field_name)
+			if new_col_name == old_col_name {
+				panic("invalid column rename: " + old_col_name)
+			}
 			idx_old, idx_new := slices.Index(cols_gone, old_col_name), slices.Index(fields_new, new_field_name)
 			if idx_old < 0 || idx_new < 0 {
 				panic(str.Fmt("outdated column rename: col '%s' => field '%s'", old_col_name, new_field_name))
@@ -114,56 +121,91 @@ func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, 
 			cols_gone, fields_new = slices.Delete(cols_gone, idx_old, idx_old+1), slices.Delete(fields_new, idx_new, idx_new+1)
 		}
 	}
-	if (len(cols_gone) == 0) && (len(fields_new) == 0) && (len(renamesOldColToNewField) == 0) {
-		return nil
-	}
 
-	w := (*str.Buf)(stmt).WriteString
-	w("ALTER TABLE ")
-	w(desc.tableName)
-	for _, field_name := range fields_new {
-		col_name := desc.cols[slices.Index(desc.fields, field_name)]
-		w(" \n\tADD COLUMN IF NOT EXISTS ")
-		w(col_name)
-		w(" ")
-		field, _ := desc.ty.FieldByName(field_name)
-		w(sqlColDeclFrom(field.Type))
-		w(",")
-	}
-	for _, col_name := range cols_gone {
-		w(" \n\tDROP COLUMN IF EXISTS ")
-		w(col_name)
-		w(",")
-	}
-	ret = append(ret, stmt)
-	if len(renamesOldColToNewField) > 0 {
-		stmt = new(Stmt)
-		w = (*str.Buf)(stmt).WriteString
+	if oldTableName != "" {
+		stmt := new(Stmt)
+		w := (*str.Buf)(stmt).WriteString
 		w("ALTER TABLE ")
+		w(oldTableName)
+		w(" RENAME TO ")
 		w(desc.tableName)
 
-		for old_col_name, new_field_name := range renamesOldColToNewField {
+		ret = append(ret, stmt)
+	}
 
+	if (len(cols_gone) > 0) || (len(fields_new) > 0) {
+		stmt := new(Stmt)
+		w := (*str.Buf)(stmt).WriteString
+		w("ALTER TABLE ")
+		w(desc.tableName)
+		for _, field_name := range fields_new {
+			col_name := desc.cols[slices.Index(desc.fields, field_name)]
+			w(" \n\tADD COLUMN IF NOT EXISTS ")
+			w(col_name)
+			w(" ")
+			field, _ := desc.ty.FieldByName(field_name)
+			w(sqlColDeclFrom(field.Type))
+			w(",")
+		}
+		for _, col_name := range cols_gone {
+			w(" \n\tDROP COLUMN IF EXISTS ")
+			w(col_name)
+			w(",")
+		}
+		ret = append(ret, stmt)
+	}
+
+	if len(renamesOldColToNewField) > 0 {
+		for old_col_name, new_field_name := range renamesOldColToNewField {
+			stmt := new(Stmt)
+			w := (*str.Buf)(stmt).WriteString
+			w("ALTER TABLE ")
+			w(desc.tableName)
+			w(" RENAME COLUMN ")
+			w(old_col_name)
+			w(" TO ")
+			w(NameFrom(new_field_name))
+			ret = append(ret, stmt)
 		}
 	}
 
 	return
 }
 
-func sqlColDeclFrom(ty reflect.Type) string {
+func sqlColTypeFrom(ty reflect.Type) string {
 	switch ty {
 	case tyBool:
-		return "boolean NOT NULL DEFAULT (0)"
+		return "boolean"
 	case tyBytes:
-		return "bytea NULL DEFAULT (NULL)"
+		return "bytea"
 	case tyFloat:
-		return "double precision NOT NULL DEFAULT (0)"
+		return "double precision"
 	case tyInt:
-		return "bigint NOT NULL DEFAULT (0)"
+		return "bigint"
 	case tyText:
-		return "text NOT NULL DEFAULT ('')"
+		return "text"
 	case tyTimestamp:
-		return "timestamp without time zone NULL DEFAULT (NULL)"
+		return "timestamp without time zone"
+	default:
+		panic(ty)
+	}
+}
+
+func sqlColDeclFrom(ty reflect.Type) string {
+	sql_data_type_name := sqlColTypeFrom(ty)
+	switch ty {
+	case tyBool:
+		return sql_data_type_name + " NOT NULL DEFAULT (false)"
+	case tyBytes:
+		return sql_data_type_name + " NULL DEFAULT (NULL)"
+	case tyFloat:
+		return sql_data_type_name + " NOT NULL DEFAULT (0)"
+	case tyInt:
+		return sql_data_type_name + " NOT NULL DEFAULT (0)"
+	case tyText:
+		return sql_data_type_name + " NOT NULL DEFAULT ('')"
+	case tyTimestamp:
+		return sql_data_type_name + " NULL DEFAULT (NULL)"
 	default:
 		panic(ty)
 	}

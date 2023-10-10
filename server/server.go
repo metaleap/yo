@@ -9,6 +9,7 @@ import (
 	. "yo/config"
 	"yo/ctx"
 	"yo/json"
+	"yo/log"
 	"yo/str"
 	. "yo/util"
 )
@@ -37,11 +38,12 @@ func listenAndServe() {
 	} else {
 		staticFileServes[StaticFileDirPath] = staticFileDir
 	}
+	log.Println("live @ port %d", Cfg.YO_API_HTTP_PORT)
 	panic(http.ListenAndServe(":"+str.FromInt(Cfg.YO_API_HTTP_PORT), http.HandlerFunc(handleHTTPRequest)))
 }
 
 func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
-	ctx := ctx.New(req, rw, Cfg.YO_API_IMPL_TIMEOUT)
+	ctx := ctx.NewForHttp(req, rw, Cfg.YO_API_IMPL_TIMEOUT)
 	defer ctx.Dispose()
 
 	ctx.Timings.Step("check yoFail")
@@ -52,17 +54,17 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	ctx.Timings.Step("check static")
-	if ctx.UrlPath == str.ReSuffix(sdkGenDstTsFilePath, ".ts", ".js") {
+	if ctx.Http.UrlPath == str.ReSuffix(sdkGenDstTsFilePath, ".ts", ".js") {
 		if IsDevMode {
-			http.ServeFile(rw, req, ctx.UrlPath)
+			http.ServeFile(rw, req, ctx.Http.UrlPath)
 		} else {
-			http.FileServer(http.FS(staticFileServes[ctx.UrlPath])).ServeHTTP(rw, req)
+			http.FileServer(http.FS(staticFileServes[ctx.Http.UrlPath])).ServeHTTP(rw, req)
 		}
 		return
 	}
 	for static_prefix, static_serve := range staticFileServes {
-		if static_prefix = static_prefix + "/"; str.Begins(ctx.UrlPath, static_prefix) && ctx.UrlPath != static_prefix {
-			req.URL.Path = str.TrimL(ctx.UrlPath, "__/")
+		if static_prefix = static_prefix + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && ctx.Http.UrlPath != static_prefix {
+			req.URL.Path = str.TrimL(ctx.Http.UrlPath, "__/")
 			http.FileServer(http.FS(static_serve)).ServeHTTP(rw, req)
 			return
 		}

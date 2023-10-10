@@ -10,8 +10,10 @@ type UserAccount struct {
 
 	EmailAddr      db.Text
 	PasswordHashed db.Bytes
+	FooBarBaz      db.Bool
+	Data           db.Bytes
 }
 
 func Use() {
-	db.Ensure[UserAccount](false, "", nil)
+	db.Ensure[UserAccount](false, "user_acc", map[string]string{"foo": "Data"})
 }
