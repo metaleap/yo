@@ -8,24 +8,24 @@ import (
 )
 
 type TableColumn struct {
-	tableName       Str
-	ColumnName      Str
+	tableName       Text
+	ColumnName      Text
 	OrdinalPosition Int
-	ColumnDefault   Str
+	ColumnDefault   Text
 	IsNullable      Bool
-	DataType        Str
+	DataType        Text
 }
 
 func GetTable(ctx *Ctx, tableName string) []*TableColumn {
 	tables := ListTables(ctx, tableName)
-	return tables[Str(tableName)]
+	return tables[(Text)(tableName)]
 }
 
-func ListTables(ctx *Ctx, tableName string) map[Str][]*TableColumn {
-	ret := map[Str][]*TableColumn{}
+func ListTables(ctx *Ctx, tableName string) map[Text][]*TableColumn {
+	ret := map[Text][]*TableColumn{}
 	desc := desc[TableColumn]()
 	desc.tableName = "information_schema.columns"
-	args, stmt := pgx.NamedArgs{"table_name": tableName}, new(Stmt).Select(desc.cols...).From(desc.tableName).
+	stmt := new(Stmt).Select(desc.cols...).From(desc.tableName).
 		Where(If(tableName != "", "table_name = @table_name",
 			"table_name IN ("+
 				(new(Stmt).Select("table_name").From("information_schema.tables").
@@ -33,10 +33,7 @@ func ListTables(ctx *Ctx, tableName string) map[Str][]*TableColumn {
 					String()+
 				")")).
 		OrderBy("table_name, ordinal_position")
-	if tableName != "" {
-		args["table_name"] = tableName
-	}
-	flat_results := doSelect[TableColumn](ctx, stmt, args)
+	flat_results := doSelect[TableColumn](ctx, stmt, pgx.NamedArgs{"table_name": tableName})
 	for _, result := range flat_results {
 		ret[result.tableName] = append(ret[result.tableName], result)
 	}

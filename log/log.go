@@ -11,12 +11,17 @@ import (
 var mut sync.Mutex
 
 func Println(msg string, args ...any) {
-	now := time.Now()
+	now, buf := time.Now(), str.Buf{}
+	buf.Grow(len(msg) + 10 + (8 * len(args)))
+	buf.WriteString(now.Format("15:04:05"))
+	buf.WriteString("  ")
+	if len(args) == 0 {
+		buf.WriteString(msg)
+	} else {
+		buf.WriteString(str.Fmt(msg, args...))
+	}
+	buf.WriteString("\n")
 	mut.Lock()
 	defer mut.Unlock()
-	if msg = now.Format("15:04:05") + msg + "\n"; len(args) == 0 {
-		_, _ = os.Stderr.WriteString(msg)
-	} else {
-		_, _ = os.Stderr.WriteString(str.Fmt(msg, args...))
-	}
+	_, _ = os.Stderr.WriteString(buf.String())
 }

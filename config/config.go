@@ -62,5 +62,4 @@ func Load() {
 		}
 		struc.Field(i).Set(reflect.ValueOf(new_val))
 	}
-	println(str.Fmt("%#v", Cfg))
 }

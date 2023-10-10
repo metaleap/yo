@@ -12,7 +12,7 @@ func init() {
 func apiListTables(ctx *Ctx, in *struct {
 	Name string
 }, out *struct {
-	Tables map[Str][]*TableColumn
+	Tables map[Text][]*TableColumn
 }) {
 	out.Tables = ListTables(ctx, in.Name)
 }

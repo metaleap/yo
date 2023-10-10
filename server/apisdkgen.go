@@ -74,9 +74,9 @@ func init() {
 
 func apiGenSdk() {
 	buf, api := str.Buf{}, apiRefl{}
-	log.Println("\treflect...")
+	log.Println("  reflect...")
 	apiHandleReflReq(nil, nil, &api)
-	log.Println("\tgenerate...")
+	log.Println("  generate...")
 	b, err := staticFileDir.ReadFile(StaticFileDirPath + "/sdkgen.ts")
 	if err != nil {
 		panic(err)
@@ -96,7 +96,7 @@ func apiGenSdk() {
 	src_is_changed = (len(data) == 0) || (!bytes.Equal(data, src_to_write))
 	if src_is_changed {
 		foundModifiedTsFiles = true
-		log.Println("\twriting files...")
+		log.Println("  writing files...")
 		if err := os.WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`), os.ModePerm); err != nil {
 			panic(err)
 		}
@@ -105,7 +105,7 @@ func apiGenSdk() {
 		}
 	}
 	if foundModifiedTsFiles {
-		log.Println("\t2x tsc...")
+		log.Println("  2x tsc...")
 		var work sync.WaitGroup
 		work.Add(2)
 		for _, dir_path := range []string{"", "../yo"} {

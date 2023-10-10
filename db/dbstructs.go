@@ -10,26 +10,37 @@ import (
 	"yo/ctx"
 )
 
+const (
+	ColNameID      string = "id"
+	ColNameCreated string = "created"
+)
+
 type Bool bool
 type Bytes []byte
 type Int int64
 type Float float64
-type Str string
-type Time *time.Time
+type Text string
+type DateTime *time.Time
 
 type Base struct {
 	ID      Int
-	Created Time
+	Created DateTime
 }
 
 var (
-	okTypes = []reflect.Type{
-		reflect.TypeOf(Bool(false)),
-		reflect.TypeOf(Bytes(nil)),
-		reflect.TypeOf(Int(0)),
-		reflect.TypeOf(Float(0)),
-		reflect.TypeOf(Str("")),
-		reflect.TypeOf(Time(nil)),
+	tyBool      = reflect.TypeOf(Bool(false))
+	tyBytes     = reflect.TypeOf(Bytes(nil))
+	tyInt       = reflect.TypeOf(Int(0))
+	tyFloat     = reflect.TypeOf(Float(0))
+	tyText      = reflect.TypeOf(Text(""))
+	tyTimestamp = reflect.TypeOf(DateTime(nil))
+	okTypes     = []reflect.Type{
+		tyBool,
+		tyBytes,
+		tyInt,
+		tyFloat,
+		tyText,
+		tyTimestamp,
 	}
 	descs = map[reflect.Type]*structDesc{}
 )
@@ -99,7 +110,8 @@ func Ensure[T any](idBig bool) {
 	desc.idBig = idBig
 	table := GetTable(ctx, desc.tableName)
 	if table == nil {
-		stmt := new(Stmt).CreateTable(desc)
-		println(stmt.String())
+		_ = doExec(ctx, new(Stmt).CreateTable(desc), nil)
+	} else {
+
 	}
 }

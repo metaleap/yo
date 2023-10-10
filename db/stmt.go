@@ -1,8 +1,6 @@
 package db
 
 import (
-	"reflect"
-
 	"yo/str"
 	. "yo/util"
 )
@@ -74,37 +72,32 @@ func (me *Stmt) CreateTable(desc *structDesc) *Stmt {
 		if i > 0 {
 			w(",\n\t")
 		}
-		if col == "id" {
-			w("id ")
+		if col == ColNameID {
+			w(ColNameID)
+			w(" ")
 			w(If(desc.idBig, "bigserial", "serial"))
 			w(" PRIMARY KEY")
+		} else if col == ColNameCreated {
+			w(ColNameCreated)
+			w(" timestamp without time zone NOT NULL DEFAULT (current_timestamp)")
 		} else {
 			w(col)
-			var default_value string
-			it := reflect.New(desc.ty).Interface()
-			switch it.(type) {
-			case Bool:
-				default_value = "0"
-				w(" boolean NOT NULL")
-			case Bytes:
-				default_value = "NULL"
-				w(" bytea NULL")
-			case Float:
-				default_value = "0"
-				w(" double precision NOT NULL")
-			case Int:
-				default_value = "0"
-				w(" bigint NOT NULL")
-			case Str:
-				default_value = `""`
-				w(" text NOT NULL")
-			case Time:
-				default_value = "NULL"
-				w(" timestamp without time zone NULL")
+			switch field_type := desc.ty.Field(i).Type; field_type {
+			case tyBool:
+				w(" boolean NOT NULL DEFAULT (0)")
+			case tyBytes:
+				w(" bytea NULL DEFAULT (NULL)")
+			case tyFloat:
+				w(" double precision NOT NULL DEFAULT (0)")
+			case tyInt:
+				w(" bigint NOT NULL DEFAULT (0)")
+			case tyText:
+				w(" text NOT NULL DEFAULT ('')")
+			case tyTimestamp:
+				w(" timestamp without time zone NULL DEFAULT (NULL)")
+			default:
+				panic(field_type)
 			}
-			w(" DEFAULT (")
-			w(default_value)
-			w(")")
 		}
 	}
 	w("\n)")

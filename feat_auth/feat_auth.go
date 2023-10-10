@@ -5,8 +5,10 @@ import (
 )
 
 type UserAccount struct {
-	db.Base
-	EmailAddr      db.Str
+	id      db.Int
+	created db.DateTime
+
+	EmailAddr      db.Text
 	PasswordHashed db.Bytes
 }
 

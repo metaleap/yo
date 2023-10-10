@@ -1,23 +1,38 @@
 package db
 
 import (
+	"database/sql"
 	"reflect"
 
 	. "yo/ctx"
+
+	"github.com/jackc/pgx/v5"
 )
 
-func doSelect[T any](ctx *Ctx, stmt *Stmt, args ...any) (ret []*T) {
+func doExec(ctx *Ctx, stmt *Stmt, args pgx.NamedArgs) sql.Result {
+	result, err := DB.ExecContext(ctx, stmt.String(), args)
+	if err != nil {
+		panic(err)
+	}
+	return result
+}
+
+func doInsert[T any](ctx *Ctx, it *T) sql.Result {
+	panic("TODO")
+}
+
+func doSelect[T any](ctx *Ctx, stmt *Stmt, args pgx.NamedArgs) (ret []*T) {
 	doStream[T](ctx, stmt, func(rec *T) {
 		ret = append(ret, rec)
-	}, args...)
+	}, args)
 	return
 }
 
-func doStream[T any](ctx *Ctx, stmt *Stmt, onRecord func(*T), args ...any) {
+func doStream[T any](ctx *Ctx, stmt *Stmt, onRecord func(*T), args pgx.NamedArgs) {
 	desc := desc[T]()
 	sql_raw := stmt.String()
 	ctx.Timings.Step("DB: " + sql_raw)
-	rows, err := DB.QueryContext(ctx, sql_raw, args...)
+	rows, err := DB.QueryContext(ctx, sql_raw, args)
 	if rows != nil {
 		defer rows.Close()
 	}
