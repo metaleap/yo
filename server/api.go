@@ -54,7 +54,7 @@ func (me apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
 	return reflect.ValueOf(tmp_in).Type(), reflect.ValueOf(tmp_out).Type()
 }
 
-func apiHandle(ctx *Ctx) (any, bool) {
+func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	ctx.Timings.Step("handler lookup")
 	api := API[ctx.UrlPath]
 	if api == nil {

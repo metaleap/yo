@@ -1,9 +1,13 @@
+//go:build debug
+
 package server
 
 import (
 	"bytes"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -12,9 +16,62 @@ import (
 	. "yo/util"
 )
 
-const SdkGenDstTsFilePath = StaticFileDirPath + "/yo-sdk.ts"
+const sdkGenDstTsFilePath = StaticFileDirPath + "/yo-sdk.ts"
 
 var foundModifiedTsFiles bool
+
+func init() {
+	apiGenSdkMaybe = apiGenSdk
+
+	cur_dir_path, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	yo_dir_path := filepath.Join(filepath.Dir(cur_dir_path), "yo")
+
+	for _, dir_path := range []string{cur_dir_path, yo_dir_path} {
+		if err := fs.WalkDir(os.DirFS(dir_path), ".", func(path string, dirEntry fs.DirEntry, err error) error {
+			path = filepath.Join(dir_path, path)
+
+			if str.Ends(path, ".ts") && !foundModifiedTsFiles {
+				fileinfo_ts, err := dirEntry.Info()
+				if err != nil || fileinfo_ts == nil {
+					panic(err)
+				}
+				fileinfo_js, _ := os.Stat(path[:len(path)-len(".ts")] + ".js") // some .d.ts wont have js, ignoring that
+				foundModifiedTsFiles = (fileinfo_js != nil) && (fileinfo_ts.ModTime().After(fileinfo_js.ModTime()))
+			}
+
+			if str.Ends(path, ".go") { // looking for enums' enumerants
+				data, err := os.ReadFile(path)
+				if err != nil {
+					panic(err)
+				}
+				pkg_name := ""
+				for _, line := range str.Split(str.Trim(string(data)), "\n") {
+					if str.Begins(line, "package ") {
+						pkg_name = line[len("package "):]
+					} else if str.Begins(line, "\t") && str.Ends(line, "\"") && str.Has(line, " = \"") {
+						if name_and_type, value, ok := str.Cut(line[1:len(line)-1], " = \""); ok {
+							if name, type_name, ok := str.Cut(name_and_type, " "); ok {
+								if name, type_name = str.Trim(name), str.Trim(type_name); name != type_name && str.Begins(name, type_name) {
+									enumerant_name := name[len(type_name):]
+									if enumerant_name != value && name != value {
+										panic(value + "!=" + enumerant_name + " && " + value + "!=" + name)
+									}
+									apiReflAllEnums[pkg_name+"."+type_name] = append(apiReflAllEnums[pkg_name+"."+type_name], value)
+								}
+							}
+						}
+					}
+				}
+			}
+			return nil
+		}); err != nil {
+			panic(err)
+		}
+	}
+}
 
 func apiGenSdk() {
 	buf, api := strings.Builder{}, apiRefl{}
@@ -36,7 +93,7 @@ func apiGenSdk() {
 		apiGenSdkMethod(&buf, &api, &method)
 	}
 	src_is_changed, src_to_write := true, []byte(buf.String())
-	data, _ := os.ReadFile(SdkGenDstTsFilePath)
+	data, _ := os.ReadFile(sdkGenDstTsFilePath)
 	src_is_changed = (len(data) == 0) || (!bytes.Equal(data, src_to_write))
 	if src_is_changed {
 		foundModifiedTsFiles = true
@@ -44,7 +101,7 @@ func apiGenSdk() {
 		if err := os.WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`), os.ModePerm); err != nil {
 			panic(err)
 		}
-		if err := os.WriteFile(SdkGenDstTsFilePath, src_to_write, os.ModePerm); err != nil {
+		if err := os.WriteFile(sdkGenDstTsFilePath, src_to_write, os.ModePerm); err != nil {
 			panic(err)
 		}
 	}
@@ -64,6 +121,13 @@ func apiGenSdk() {
 		}
 		work.Wait()
 	}
+}
+
+func apiGenSdkMethod(buf *strings.Builder, api *apiRefl, method *apiReflMethod) {
+	_, _ = buf.WriteString(str.Fmt(`
+export function yoReq_%s(payload: %s, onSuccess: (_: %s) => void, onFailed?: (err: any, resp?: Response, query?: {[_:string]:string}) => void): void {
+	yoReq(%s, payload, onSuccess, onFailed)
+}`, ToIdent(method.Path), apiGenSdkTypeName(api, method.In), apiGenSdkTypeName(api, method.Out), str.Q(method.Path)))
 }
 
 func apiGenSdkType(buf *strings.Builder, api *apiRefl, typeName string, structFields map[string]string, enumMembers []string) {
@@ -116,11 +180,4 @@ func apiGenSdkTypeName(api *apiRefl, typeName string) string {
 		return str.Fmt("{ [_:%s]: %s }", apiGenSdkTypeName(api, key_part), apiGenSdkTypeName(api, val_part))
 	}
 	return "Yo_" + ToIdent(typeName[str.Idx(typeName, '.')+1:])
-}
-
-func apiGenSdkMethod(buf *strings.Builder, api *apiRefl, method *apiReflMethod) {
-	_, _ = buf.WriteString(str.Fmt(`
-export function yoReq_%s(payload: %s, onSuccess: (_: %s) => void, onFailed?: (err: any, resp?: Response, query?: {[_:string]:string}) => void): void {
-	yoReq(%s, payload, onSuccess, onFailed)
-}`, ToIdent(method.Path), apiGenSdkTypeName(api, method.In), apiGenSdkTypeName(api, method.Out), str.Q(method.Path)))
 }

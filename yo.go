@@ -33,13 +33,13 @@ func Init(apiMethods server.APIMethods) (listenAndServe func()) {
 	db.Init()
 	log.Println("API init...")
 	var apiGenSdk func()
-	apiGenSdk = server.Init(&staticFileDir)
+	apiGenSdk, listenAndServe = server.Init(&staticFileDir)
 	log.Println("API SDK gen...")
 	if apiGenSdk != nil {
 		apiGenSdk()
 	}
 	log.Println("`ListenAndServe`-ready!")
-	return server.ListenAndServe
+	return
 }
 
 func InOut[TIn any, TOut any](f func(*Ctx, *TIn, *TOut)) server.APIMethod {

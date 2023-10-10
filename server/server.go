@@ -19,13 +19,15 @@ var staticFileServes = map[string]fs.FS{}
 
 const StaticFileDirPath = "__yostatic"
 
-func Init(staticFS *embed.FS) func() {
+var apiGenSdkMaybe func() = nil // overwritten by apisdkgen.go in debug build mode
+
+func Init(staticFS *embed.FS) (func(), func()) {
 	staticFileDir = staticFS
 	API["__/refl"] = Method[Void, apiRefl](apiHandleReflReq)
-	return If(IsDevMode, apiGenSdk, nil)
+	return apiGenSdkMaybe, listenAndServe
 }
 
-func ListenAndServe() {
+func listenAndServe() {
 	if IsDevMode {
 		staticFileServes[StaticFileDirPath] = os.DirFS("../yo")
 	} else {
@@ -46,7 +48,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	ctx.Timings.Step("check static")
-	if ctx.UrlPath == str.ReSuffix(SdkGenDstTsFilePath, ".ts", ".js") {
+	if ctx.UrlPath == str.ReSuffix(sdkGenDstTsFilePath, ".ts", ".js") {
 		if IsDevMode {
 			http.ServeFile(rw, req, ctx.UrlPath)
 		} else {
@@ -62,7 +64,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	if result, ok := apiHandle(ctx); ok {
+	if result, handler_called := apiHandleRequest(ctx); handler_called {
 		ctx.Timings.Step("marshal resp")
 		resp_data, err := json.MarshalIndent(result, "", "  ")
 		if err != nil {

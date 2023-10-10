@@ -8,6 +8,8 @@ import (
 	. "yo/util"
 )
 
+var apiReflAllEnums = map[string][]string{}
+
 type apiRefl struct {
 	Methods []apiReflMethod
 	Types   map[string]map[string]string
@@ -105,10 +107,18 @@ func apiReflType(it *apiRefl, rt reflect.Type, fldName string, parent string) st
 	return type_ident
 }
 
-var apiReflEnum = func(it *apiRefl, rt reflect.Type, typeIdent string) string {
+func apiReflEnum(it *apiRefl, rt reflect.Type, typeIdent string) string {
 	if !str.IsPrtAscii(typeIdent) {
 		panic("not printable ASCII: '" + typeIdent + "'")
 	}
-	it.Enums[typeIdent] = nil
+	if !IsDevMode {
+		it.Enums[typeIdent] = apiReflAllEnums[typeIdent] // nil for now because only populated in dev-mode
+	} else {
+		found, exists := apiReflAllEnums[typeIdent]
+		if it.Enums[typeIdent] = found; !exists {
+			panic("no enumerants for " + typeIdent)
+		}
+		return typeIdent
+	}
 	return typeIdent
 }

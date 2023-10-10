@@ -34,11 +34,11 @@ func New(req *http.Request, resp http.ResponseWriter) *Ctx {
 }
 
 func (me *Ctx) Dispose() {
-	if code, crashed := 500, recover(); crashed != nil {
-		if err, is_app_err := crashed.(Err); is_app_err {
-			code = If(str.Has(err.Error(), "AlreadyExists"), 409, If(str.Has(err.Error(), "DoesNotExist"), 404, 400))
+	if code, fail := 500, recover(); fail != nil {
+		if err, is_app_err := fail.(Err); is_app_err {
+			code = err.HttpStatusCode()
 		}
-		me.HttpErr(code, str.Fmt("%v", crashed))
+		me.HttpErr(code, str.Fmt("%v", fail))
 	}
 	if me.ctxDone != nil {
 		me.ctxDone()
