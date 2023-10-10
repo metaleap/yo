@@ -179,9 +179,10 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
 
     const refreshTreeNode = (typeName: string, value: any, ulTree: HTMLUListElement, isForPayload: boolean, path: string, root: any) => {
         const type_struc = apiRefl.Types[typeName], is_array = Array.isArray(value)
+        let ret_count = -1
         ulTree.replaceChildren()
         if (!value)
-            return
+            return ret_count
         const buildItemInput = (itemTypeName: string, key: string, val: any) => {
             let field_input: HTMLElement, checkbox: HTMLInputElement, get_val: (_: string) => any
             const on_change = (evt: UIEvent) => {
@@ -262,17 +263,18 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                     field_input = html.input({ 'onchange': on_change, 'type': 'text', 'readOnly': !isForPayload, 'value': val })
                 get_val = (s: string) => s
             }
-            let field_input_subs = false, field_input_got = (field_input ? true : false)
+            let sub_count = -1, field_input_subs = false, field_input_got = (field_input ? true : false)
             if (field_input_subs = (!field_input_got)) {
                 field_input = html.ul({})
-                refreshTreeNode(itemTypeName, val, field_input as HTMLUListElement, isForPayload, path + '.' + key, root)
+                sub_count = refreshTreeNode(itemTypeName, val, field_input as HTMLUListElement, isForPayload, path + '.' + key, root)
                 if (field_input_got = (field_input.innerHTML !== ''))
                     field_input.style.borderStyle = 'solid'
             }
             van.add(ulTree, html.li({ 'title': displayPath(path, key) },
                 checkbox = html.input({ 'onchange': on_change, 'type': 'checkbox', 'disabled': !isForPayload, 'checked': field_input_got }),
                 html.a({ 'class': 'label', 'style': (field_input_subs ? 'width:auto' : ''), 'onclick': () => selJsonFromTree(path + '.' + key, isForPayload) },
-                    (key.startsWith('[') ? "" : ".") + key),
+                    (key.startsWith('[') ? "" : ".") + key,
+                    (sub_count < 0) ? undefined : html.b({}, ` — (${sub_count})`)),
                 field_input,
             ))
         }
@@ -280,8 +282,10 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         const is_arr = (typeName.startsWith('[') && typeName.endsWith(']')), is_map = (typeName.startsWith('{') && typeName.endsWith('}') && typeName.includes(':'))
         if (is_arr || is_map) {
             if ((is_arr && !is_array) || (is_map && (typeof value !== 'object')))
-                return
+                return ret_count
+            ret_count = 0
             for (const key in value) {
+                ret_count++
                 const val = value[key]
                 let type_name = typeName.substring(1, typeName.length - 1)
                 if (is_map)
@@ -293,6 +297,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 const field_type_name = type_struc[field_name], field_val = value[field_name]
                 buildItemInput(field_type_name, field_name, field_val)
             }
+        return ret_count
     }
 
     const sendRequest = () => {
