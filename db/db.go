@@ -44,6 +44,9 @@ func NameFrom(s string) string {
 	}
 	var buf str.Buf
 	buf.Grow(len(s) + 2)
+	if str.IsUp(s) {
+		s = str.Lo(s)
+	}
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		if c >= 'A' && c <= 'Z' {

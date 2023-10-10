@@ -26,6 +26,8 @@ var (
 	ToI64   = strconv.ParseInt
 	Fmt     = fmt.Sprintf
 	Q       = strconv.Quote
+	Lo      = strings.ToLower
+	Up      = strings.ToUpper
 )
 
 func From(v any) string {

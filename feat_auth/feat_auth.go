@@ -5,11 +5,11 @@ import (
 )
 
 type UserAccount struct {
-	ID             db.Int
+	db.Base
 	EmailAddr      db.Str
 	PasswordHashed db.Bytes
 }
 
 func Use() {
-	db.Ensure[UserAccount]()
+	db.Ensure[UserAccount](false)
 }

@@ -15,7 +15,12 @@ type Bytes []byte
 type Int int64
 type Float float64
 type Str string
-type Time time.Time
+type Time *time.Time
+
+type Base struct {
+	ID      Int
+	Created Time
+}
 
 var (
 	okTypes = []reflect.Type{
@@ -24,7 +29,7 @@ var (
 		reflect.TypeOf(Int(0)),
 		reflect.TypeOf(Float(0)),
 		reflect.TypeOf(Str("")),
-		reflect.TypeOf(Time(time.Time{})),
+		reflect.TypeOf(Time(nil)),
 	}
 	descs = map[reflect.Type]*structDesc{}
 )
@@ -34,6 +39,7 @@ type structDesc struct {
 	tableName string   // defaults to db.NameFrom(structTypeName)
 	fields    []string // struct fields marked persistish by being of a type in `okTypes`
 	cols      []string // for each field above, its db.NameFrom()
+	idBig     bool     // allow up to 9223372036854775807 instead of up to 2147483647
 }
 
 func desc[T any]() (ret *structDesc) {
@@ -42,13 +48,10 @@ func desc[T any]() (ret *structDesc) {
 	if ret = descs[ty]; ret == nil {
 		ret = &structDesc{ty: ty, tableName: NameFrom(ty.Name()), cols: make([]string, 0, ty.NumField())}
 		descs[ty] = ret
-		for i := 0; i < ty.NumField(); i++ {
+		for i, l := 0, ty.NumField(); i < l; i++ {
 			field := ty.Field(i)
 			if field_type := field.Type; slices.Contains(okTypes, field_type) {
-				println("OK:", field.Name)
 				ret.fields, ret.cols = append(ret.fields, field.Name), append(ret.cols, NameFrom(field.Name))
-			} else {
-				println("SKIP:", field.Name)
 			}
 		}
 	}
@@ -80,20 +83,23 @@ func (me scanner) Scan(src any) error {
 	case string:
 		setPtr(uintptr(me), it)
 	case time.Time:
-		setPtr(uintptr(me), it)
+		ptr_dt := new(time.Time)
+		*ptr_dt = it
+		setPtr(uintptr(me), ptr_dt)
 	default:
 		panic(it)
 	}
 	return nil
 }
 
-func Ensure[T any]() {
+func Ensure[T any](idBig bool) {
 	ctx := ctx.New(nil, nil, Cfg.DB_REQ_TIMEOUT)
 	defer ctx.Dispose()
 	desc := desc[T]()
-
+	desc.idBig = idBig
 	table := GetTable(ctx, desc.tableName)
 	if table == nil {
-		_ = "CREATE TABLE IF NOT EXISTS table_name ( id integer PRIMARY KEY )"
+		stmt := new(Stmt).CreateTable(desc)
+		println(stmt.String())
 	}
 }
