@@ -8,6 +8,7 @@ import (
 
 	. "yo/config"
 	"yo/ctx"
+	"yo/str"
 )
 
 const (
@@ -103,7 +104,7 @@ func (me scanner) Scan(src any) error {
 	return nil
 }
 
-func Ensure[T any](idBig bool) {
+func Ensure[T any](idBig bool, colRenames map[string]string) {
 	ctx := ctx.New(nil, nil, Cfg.DB_REQ_TIMEOUT)
 	defer ctx.Dispose()
 	desc := desc[T]()
@@ -112,6 +113,25 @@ func Ensure[T any](idBig bool) {
 	if table == nil {
 		_ = doExec(ctx, new(Stmt).CreateTable(desc), nil)
 	} else {
-
+		cols_new, cols_gone := []string{}, []string{}
+		for _, table_col := range table {
+			if !slices.Contains(desc.cols, string(table_col.ColumnName)) {
+				cols_gone = append(cols_gone, string(table_col.ColumnName))
+			}
+		}
+		for _, struct_col_name := range desc.cols {
+			if !slices.ContainsFunc(table, func(t *TableColumn) bool { return t.ColumnName == Text(struct_col_name) }) {
+				cols_new = append(cols_new, struct_col_name)
+			}
+		}
+		if colRenames != nil {
+			for old_name, new_name := range colRenames {
+				idx_old, idx_new := slices.Index(cols_gone, old_name), slices.Index(cols_new, new_name)
+				if idx_old < 0 || idx_new < 0 {
+					panic(str.Fmt("outdated column rename: '%s' => '%s'", old_name, new_name))
+				}
+				cols_gone, cols_new = slices.Delete(cols_gone, idx_old, idx_old+1), slices.Delete(cols_new, idx_new, idx_new+1)
+			}
+		}
 	}
 }
