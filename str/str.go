@@ -7,6 +7,8 @@ import (
 	"unicode"
 )
 
+type Buf = strings.Builder
+
 var (
 	Has     = strings.Contains
 	Begins  = strings.HasPrefix
@@ -25,6 +27,10 @@ var (
 	Fmt     = fmt.Sprintf
 	Q       = strconv.Quote
 )
+
+func From(v any) string {
+	return Fmt("%#v", v)
+}
 
 func Replace(s string, repl map[string]string) string {
 	repl_old_new := make([]string, 0, len(repl)*2)

@@ -14,6 +14,7 @@ func If[T any](b bool, t T, f T) T {
 }
 
 func ToIdent(s string) string {
+	s = strings.TrimSpace(s)
 	var buf strings.Builder
 	buf.Grow(len(s))
 	for i := 0; i < len(s); i++ {

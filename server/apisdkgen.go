@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"yo/log"
@@ -74,7 +73,7 @@ func init() {
 }
 
 func apiGenSdk() {
-	buf, api := strings.Builder{}, apiRefl{}
+	buf, api := str.Buf{}, apiRefl{}
 	log.Println("\treflect...")
 	apiHandleReflReq(nil, nil, &api)
 	log.Println("\tgenerate...")
@@ -123,14 +122,14 @@ func apiGenSdk() {
 	}
 }
 
-func apiGenSdkMethod(buf *strings.Builder, api *apiRefl, method *apiReflMethod) {
+func apiGenSdkMethod(buf *str.Buf, api *apiRefl, method *apiReflMethod) {
 	_, _ = buf.WriteString(str.Fmt(`
 export function yoReq_%s(payload: %s, onSuccess: (_: %s) => void, onFailed?: (err: any, resp?: Response, query?: {[_:string]:string}) => void): void {
 	yoReq(%s, payload, onSuccess, onFailed)
 }`, ToIdent(method.Path), apiGenSdkTypeName(api, method.In), apiGenSdkTypeName(api, method.Out), str.Q(method.Path)))
 }
 
-func apiGenSdkType(buf *strings.Builder, api *apiRefl, typeName string, structFields map[string]string, enumMembers []string) {
+func apiGenSdkType(buf *str.Buf, api *apiRefl, typeName string, structFields map[string]string, enumMembers []string) {
 	switch typeName {
 	case "time.Time":
 		_, _ = buf.WriteString(str.Fmt("\nexport type %s = %s", apiGenSdkTypeName(api, typeName), apiGenSdkTypeName(api, ".string")))

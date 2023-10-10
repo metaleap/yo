@@ -23,6 +23,11 @@ var apiGenSdkMaybe func() = nil // overwritten by apisdkgen.go in debug build mo
 func Init(staticFS *embed.FS) (func(), func()) {
 	staticFileDir = staticFS
 	API["__/refl"] = Method(apiHandleReflReq)
+	for method_path := range API {
+		if str.Trim(method_path) != method_path || method_path == "" || !str.IsPrtAscii(method_path) {
+			panic("not a valid method path: '" + method_path + "'")
+		}
+	}
 	return apiGenSdkMaybe, listenAndServe
 }
 
