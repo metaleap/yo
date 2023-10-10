@@ -38,7 +38,7 @@ func Init(apiMethods server.APIMethods) (listenAndServe func()) {
 	if apiGenSdk != nil {
 		apiGenSdk()
 	}
-	log.Println("`ListenAndServe`-ready!")
+	log.Println("yo.Init done")
 	return
 }
 

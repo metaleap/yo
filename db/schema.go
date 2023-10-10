@@ -16,9 +16,9 @@ type TableColumn struct {
 	DataType        Str
 }
 
-func GetTable(ctx *Ctx, name string) []*TableColumn {
-
-	return nil
+func GetTable(ctx *Ctx, tableName string) []*TableColumn {
+	tables := ListTables(ctx, tableName)
+	return tables[Str(tableName)]
 }
 
 func ListTables(ctx *Ctx, tableName string) map[Str][]*TableColumn {

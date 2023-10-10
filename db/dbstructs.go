@@ -5,6 +5,9 @@ import (
 	"slices"
 	"time"
 	"unsafe"
+
+	. "yo/config"
+	"yo/ctx"
 )
 
 type Bool bool
@@ -85,6 +88,12 @@ func (me scanner) Scan(src any) error {
 }
 
 func Ensure[T any]() {
+	ctx := ctx.New(nil, nil, Cfg.DB_REQ_TIMEOUT)
+	defer ctx.Dispose()
 	desc := desc[T]()
-	_ = desc
+
+	table := GetTable(ctx, desc.tableName)
+	if table == nil {
+		_ = "CREATE TABLE IF NOT EXISTS table_name ( id integer PRIMARY KEY )"
+	}
 }
