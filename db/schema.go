@@ -1,20 +1,28 @@
 package db
 
 import (
+	"time"
 	. "yo/ctx"
 )
 
+type Bool bool
+type Bytes []byte
+type Int int64
+type Float float64
+type Str string
+type Time time.Time
+
 type TableColumn struct {
-	tableName       string
-	ColumnName      string
-	OrdinalPosition int64
-	ColumnDefault   string
-	IsNullable      bool
-	DataType        string
+	tableName       Str
+	ColumnName      Str
+	OrdinalPosition Int
+	ColumnDefault   Str
+	IsNullable      Bool
+	DataType        Str
 }
 
-func ListTables(ctx *Ctx) map[string][]TableColumn {
-	ret := map[string][]TableColumn{}
+func ListTables(ctx *Ctx) map[Str][]TableColumn {
+	ret := map[Str][]TableColumn{}
 	desc := desc[TableColumn]()
 	desc.tableName = "information_schema.columns"
 	stmt := new(Stmt).Select(desc.cols...).From(desc.tableName).

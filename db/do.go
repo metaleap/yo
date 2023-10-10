@@ -2,6 +2,7 @@ package db
 
 import (
 	"reflect"
+	"slices"
 	"time"
 	"unsafe"
 
@@ -9,11 +10,20 @@ import (
 )
 
 var descs = map[reflect.Type]*structDesc{}
+var okTypes = []reflect.Type{
+	reflect.TypeOf(Bool(false)),
+	reflect.TypeOf(Bytes(nil)),
+	reflect.TypeOf(Int(0)),
+	reflect.TypeOf(Float(0)),
+	reflect.TypeOf(Str("")),
+	reflect.TypeOf(Time(time.Time{})),
+}
 
 type structDesc struct {
 	ty        reflect.Type
-	tableName string
-	cols      []string
+	tableName string   // defaults to db.NameFrom(structTypeName)
+	fields    []string // struct fields marked persistish by being of a type in `okTypes`
+	cols      []string // for each field above, its db.NameFrom()
 }
 
 func desc[T any]() (ret *structDesc) {
@@ -24,7 +34,12 @@ func desc[T any]() (ret *structDesc) {
 		descs[ty] = ret
 		for i := 0; i < ty.NumField(); i++ {
 			field := ty.Field(i)
-			ret.cols = append(ret.cols, NameFrom(field.Name))
+			if field_type := field.Type; slices.Contains(okTypes, field_type) {
+				println("OK:", field.Name)
+				ret.fields, ret.cols = append(ret.fields, field.Name), append(ret.cols, NameFrom(field.Name))
+			} else {
+				println("SKIP:", field.Name)
+			}
 		}
 	}
 	return
@@ -67,7 +82,6 @@ func setPtr[T any](at uintptr, value T) {
 
 func (me scanner) Scan(src any) error {
 	if src == nil {
-		setPtr[any](uintptr(me), nil)
 		return nil
 	}
 	switch it := src.(type) {

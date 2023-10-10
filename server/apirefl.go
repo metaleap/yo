@@ -71,8 +71,10 @@ func apiReflType(it *apiRefl, rt reflect.Type, fldName string, parent string) st
 	if type_ident != "." && str.Begins(type_ident, ".") {
 		return type_ident
 	}
-	if IsDevMode && rt_kind == reflect.String {
-		return apiReflEnum(it, rt, type_ident)
+	if rt_kind == reflect.String {
+		if enum_type_name := apiReflEnum(it, rt, type_ident); enum_type_name != "" {
+			return enum_type_name
+		}
 	}
 	switch rt_kind {
 	case reflect.Uint, reflect.Int:
@@ -111,14 +113,11 @@ func apiReflEnum(it *apiRefl, rt reflect.Type, typeIdent string) string {
 	if !str.IsPrtAscii(typeIdent) {
 		panic("not printable ASCII: '" + typeIdent + "'")
 	}
-	if !IsDevMode {
-		it.Enums[typeIdent] = apiReflAllEnums[typeIdent] // nil for now because only populated in dev-mode
-	} else {
-		found, exists := apiReflAllEnums[typeIdent]
-		if it.Enums[typeIdent] = found; !exists {
-			panic("no enumerants for " + typeIdent)
+	if IsDevMode {
+		if found, exists := apiReflAllEnums[typeIdent]; exists {
+			it.Enums[typeIdent] = found
+			return typeIdent
 		}
-		return typeIdent
 	}
-	return typeIdent
+	return ""
 }

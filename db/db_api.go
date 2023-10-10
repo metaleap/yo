@@ -11,7 +11,7 @@ func init() {
 }
 
 func apiListTables(ctx *Ctx, in *Void, out *struct {
-	Tables map[string][]TableColumn
+	Tables map[Str][]TableColumn
 }) {
 	out.Tables = ListTables(ctx)
 }
