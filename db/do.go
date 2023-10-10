@@ -20,11 +20,11 @@ func desc[T any]() (ret *structDesc) {
 	var it T
 	ty := reflect.TypeOf(it)
 	if ret = descs[ty]; ret == nil {
-		ret = &structDesc{ty: ty, tableName: ty.Name(), cols: make([]string, 0, ty.NumField())}
+		ret = &structDesc{ty: ty, tableName: NameFrom(ty.Name()), cols: make([]string, 0, ty.NumField())}
 		descs[ty] = ret
 		for i := 0; i < ty.NumField(); i++ {
 			field := ty.Field(i)
-			ret.cols = append(ret.cols, field.Name)
+			ret.cols = append(ret.cols, NameFrom(field.Name))
 		}
 	}
 	return
