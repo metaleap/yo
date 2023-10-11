@@ -16,10 +16,30 @@ type Stmt str.Buf
 func (me *Stmt) Sql(buf *str.Buf) { buf.WriteString(me.String()) }
 func (me *Stmt) String() string   { return (*str.Buf)(me).String() }
 
-func (me *Stmt) Select(cols ...string) *Stmt {
+func (me *Stmt) delete(from string) *Stmt {
+	w := (*str.Buf)(me).WriteString
+	w("DELETE FROM ")
+	w(from)
+	return me
+}
+
+func (me *Stmt) sel(countColName q.C, countDistinct bool, cols ...string) *Stmt {
 	w := (*str.Buf)(me).WriteString
 	w("SELECT ")
-	if len(cols) == 0 {
+	if countColName != "" {
+		w("COUNT")
+		w("(")
+		if !countDistinct {
+			w(string(countColName))
+		} else {
+			w("DISTINCT")
+			if countColName != "" {
+				w(" ")
+				w(string(countColName))
+			}
+		}
+		w(")")
+	} else if len(cols) == 0 {
 		w("*")
 	} else {
 		for i, col := range cols {
@@ -32,7 +52,7 @@ func (me *Stmt) Select(cols ...string) *Stmt {
 	return me
 }
 
-func (me *Stmt) From(from string) *Stmt {
+func (me *Stmt) from(from string) *Stmt {
 	w := (*str.Buf)(me).WriteString
 	if from != "" {
 		w(" FROM ")
@@ -41,7 +61,7 @@ func (me *Stmt) From(from string) *Stmt {
 	return me
 }
 
-func (me *Stmt) Limit(max int) *Stmt {
+func (me *Stmt) limit(max int) *Stmt {
 	w := (*str.Buf)(me).WriteString
 	if max > 0 {
 		w(" LIMIT (")
@@ -51,7 +71,7 @@ func (me *Stmt) Limit(max int) *Stmt {
 	return me
 }
 
-func (me *Stmt) Where(where q.Query, args pgx.NamedArgs) *Stmt {
+func (me *Stmt) where(where q.Query, args pgx.NamedArgs) *Stmt {
 	w := (*str.Buf)(me).WriteString
 	if where != nil {
 		w(" WHERE (")
@@ -61,7 +81,7 @@ func (me *Stmt) Where(where q.Query, args pgx.NamedArgs) *Stmt {
 	return me
 }
 
-func (me *Stmt) OrderBy(orderBy ...q.O) *Stmt {
+func (me *Stmt) orderBy(orderBy ...q.O) *Stmt {
 	w := (*str.Buf)(me).WriteString
 	if len(orderBy) > 0 {
 		w(" ORDER BY ")
@@ -75,7 +95,7 @@ func (me *Stmt) OrderBy(orderBy ...q.O) *Stmt {
 	return me
 }
 
-func (me *Stmt) Insert(into string, numRows int, cols ...string) *Stmt {
+func (me *Stmt) insert(into string, numRows int, cols ...string) *Stmt {
 	w := (*str.Buf)(me).WriteString
 	w("INSERT INTO ")
 	w(into)
@@ -117,7 +137,7 @@ func (me *Stmt) Insert(into string, numRows int, cols ...string) *Stmt {
 	}
 	if numRows == 1 {
 		w(" RETURNING ")
-		w(ColNameID)
+		w(string(ColID))
 	}
 	return me
 }
@@ -133,11 +153,11 @@ func (me *Stmt) createTable(desc *structDesc) *Stmt {
 		}
 		w(col_name)
 		switch col_name {
-		case ColNameID:
+		case string(ColID):
 			w(" ")
 			w(If(desc.idBig, "bigserial", "serial"))
 			w(" PRIMARY KEY")
-		case ColNameCreated:
+		case string(ColCreated):
 			w(" timestamp without time zone NOT NULL DEFAULT (current_timestamp)")
 		default:
 			w(" ")

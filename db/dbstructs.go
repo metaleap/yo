@@ -8,14 +8,15 @@ import (
 
 	. "yo/cfg"
 	yoctx "yo/ctx"
+	q "yo/db/query"
 	yolog "yo/log"
 	. "yo/util"
 	"yo/util/str"
 )
 
 const (
-	ColNameID      string = "id"
-	ColNameCreated string = "created"
+	ColID      = q.C("id")
+	ColCreated = q.C("created")
 )
 
 type Bool bool
@@ -184,10 +185,10 @@ func Ensure[T any](idBig bool, oldTableName string, renamesOldColToNewField map[
 	}
 	desc := desc[T]()
 	desc.idBig, desc.mig.oldTableName, desc.mig.renamesOldColToNewField = idBig, oldTableName, renamesOldColToNewField
-	if (len(desc.cols) < 1) || (desc.cols[0] != ColNameID) {
-		panic(desc.tableName + ": first column must be '" + ColNameID + "'")
-	} else if (len(desc.cols) < 2) || (desc.cols[1] != ColNameCreated) {
-		panic(desc.tableName + ": second column must be '" + ColNameCreated + "'")
+	if (len(desc.cols) < 1) || (desc.cols[0] != string(ColID)) {
+		panic(desc.tableName + ": first column must be '" + string(ColID) + "'")
+	} else if (len(desc.cols) < 2) || (desc.cols[1] != string(ColCreated)) {
+		panic(desc.tableName + ": second column must be '" + string(ColCreated) + "'")
 	} else if len(desc.cols) < 3 {
 		panic(desc.tableName + ": no custom columns")
 	}

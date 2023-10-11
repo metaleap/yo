@@ -6,6 +6,7 @@ import (
 
 	. "yo/ctx"
 	q "yo/db/query"
+	. "yo/util"
 	"yo/util/str"
 
 	"github.com/jackc/pgx/v5"
@@ -17,7 +18,7 @@ func Get[T any](ctx *Ctx, id I64) *T {
 	if id <= 0 {
 		return nil
 	}
-	return FindOne[T](ctx, q.C(ColNameID).Equals(id))
+	return FindOne[T](ctx, ColID.Equals(id))
 }
 
 func FindOne[T any](ctx *Ctx, query q.Query, orderBy ...q.O) *T {
@@ -31,16 +32,35 @@ func FindOne[T any](ctx *Ctx, query q.Query, orderBy ...q.O) *T {
 func FindAll[T any](ctx *Ctx, query q.Query, maxResults int, orderBy ...q.O) []*T {
 	desc, args := desc[T](), dbArgs{}
 	return doSelect[T](ctx,
-		new(Stmt).Select(desc.cols...).From(desc.tableName).Where(query, args).OrderBy(orderBy...).Limit(maxResults), args, maxResults)
+		new(Stmt).sel("", false, desc.cols...).from(desc.tableName).where(query, args).orderBy(orderBy...).limit(maxResults), args, maxResults)
 }
 
 func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.O, onRecord func(rec *T, enough *bool)) {
 	desc, args := desc[T](), dbArgs{}
-	doStream[T](ctx, new(Stmt).Select(desc.cols...).From(desc.tableName).Where(query, args).OrderBy(orderBy...).Limit(maxResults), onRecord, args)
+	doStream[T](ctx, new(Stmt).sel("", false, desc.cols...).from(desc.tableName).where(query, args).orderBy(orderBy...).limit(maxResults), onRecord, args)
 }
 
-func Delete[T any](ctx *Ctx, query q.Query) {
-	// doExec(ctx,new(Stmt).)
+func Count[T any](ctx *Ctx, query q.Query, max int, nonNullColumn q.C, distinct *q.C) int64 {
+	desc, args := desc[T](), dbArgs{}
+	col := If((nonNullColumn != ""), nonNullColumn, ColID)
+	if distinct != nil {
+		col = *distinct
+	}
+	results := doSelect[int64](ctx, new(Stmt).sel(col, distinct != nil).from(desc.tableName).limit(max).where(query, args), args, 1)
+	return *results[0]
+}
+
+func Delete[T any](ctx *Ctx, query q.Query) int64 {
+	if query == nil {
+		panic("Delete without query")
+	}
+	desc, args := desc[T](), dbArgs{}
+	result := doExec(ctx, new(Stmt).delete(desc.tableName).where(query, args), args)
+	num_rows_affected, err := result.RowsAffected()
+	if err != nil {
+		panic(err)
+	}
+	return num_rows_affected
 }
 
 func CreateOne[T any](ctx *Ctx, rec *T) I64 {
@@ -54,7 +74,7 @@ func CreateOne[T any](ctx *Ctx, rec *T) I64 {
 		}
 	}
 
-	result := doSelect[int64](ctx, new(Stmt).Insert(desc.tableName, 1, desc.cols[2:]...), args, 1)
+	result := doSelect[int64](ctx, new(Stmt).insert(desc.tableName, 1, desc.cols[2:]...), args, 1)
 	if (len(result) > 0) && (result[0] != nil) {
 		return I64(*result[0])
 	}
@@ -80,7 +100,7 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 			}
 		}
 	}
-	_ = doExec(ctx, new(Stmt).Insert(desc.tableName, len(recs), desc.cols[2:]...), args)
+	_ = doExec(ctx, new(Stmt).insert(desc.tableName, len(recs), desc.cols[2:]...), args)
 }
 
 func doExec(ctx *Ctx, stmt *Stmt, args dbArgs) (result sql.Result) {
@@ -124,14 +144,14 @@ func doStream[T any](ctx *Ctx, stmt *Stmt, onRecord func(*T, *bool), args dbArgs
 		panic(err)
 	}
 	var struct_desc *structDesc
-	_, is_id_returned_from_insert := ((any)(new(T))).(*int64)
-	if !is_id_returned_from_insert {
+	_, is_i64_returned_from_insert_or_count := ((any)(new(T))).(*int64)
+	if !is_i64_returned_from_insert_or_count {
 		struct_desc = desc[T]()
 	}
 	var abort bool
 	for rows.Next() {
 		var rec T
-		if is_id_returned_from_insert {
+		if is_i64_returned_from_insert_or_count {
 			if err := rows.Scan(&rec); err != nil {
 				panic(err)
 			}
