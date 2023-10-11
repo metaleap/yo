@@ -1,4 +1,4 @@
-package db
+package yodb
 
 import (
 	"reflect"
@@ -62,6 +62,34 @@ func (me *Stmt) OrderBy(orderBy string) *Stmt {
 	if orderBy != "" {
 		w(" ORDER BY ")
 		w(orderBy)
+	}
+	return me
+}
+
+func (me *Stmt) Insert(into string, cols ...string) *Stmt {
+	w := (*str.Buf)(me).WriteString
+	w("INSERT INTO ")
+	w(into)
+	if len(cols) == 0 {
+		w(" DEFAULT VALUES")
+	} else {
+		w(" (")
+		for i, col_name := range cols {
+			if i > 0 {
+				w(", ")
+			}
+			w(col_name)
+		}
+		w(")")
+		w(" VALUES (")
+		for i, col_name := range cols {
+			if i > 0 {
+				w(", ")
+			}
+			w("@")
+			w(col_name)
+		}
+		w(")")
 	}
 	return me
 }

@@ -1,4 +1,4 @@
-package db
+package yodb
 
 import (
 	. "yo/ctx"

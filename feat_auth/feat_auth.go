@@ -1,20 +1,20 @@
 package yofeat_auth
 
 import (
-	"yo/db"
+	yodb "yo/db"
 	"yo/util/str"
 )
 
 type UserAccount struct {
-	id      db.I64
-	created db.DateTime
+	ID      yodb.I64
+	Created yodb.DateTime
 
-	EmailAddr      db.Text
-	PasswordHashed db.Bytes
+	EmailAddr      yodb.Text
+	passwordHashed yodb.Bytes
 }
 
 func init() {
-	db.Ensure[UserAccount](false, "", nil)
+	yodb.Ensure[UserAccount](false, "", nil)
 }
 
 func userRegister(emailAddr string, passwordPlain string) {

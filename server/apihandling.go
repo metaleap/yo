@@ -31,7 +31,11 @@ func Method[TIn any, TOut any](f func(*Ctx, *TIn, *TOut) any) APIMethod {
 	}
 	return apiMethod[TIn, TOut](func(ctx *Ctx, in any) any {
 		var output TOut
-		return f(ctx, in.(*TIn), &output)
+		var input *TIn
+		if in != nil { // could shorten to `input, _ := in.(*TIn)` but want to panic below in case of new bugs
+			input = in.(*TIn)
+		}
+		return f(ctx, input, &output)
 	})
 }
 

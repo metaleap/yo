@@ -1,4 +1,4 @@
-package db
+package yodb
 
 import (
 	. "yo/ctx"
@@ -19,13 +19,25 @@ func apiListTables(ctx *Ctx, args *struct {
 }
 
 func registerApiHandlers[T any](desc *structDesc) {
-	// type_name := desc.ty.Name()
-	// yoserve.API["__/db/"+type_name+"/getById"] = nil
+	type_name := desc.ty.Name()
+	yoserve.API["__/db/"+type_name+"/getById"] = yoserve.Method(apiGetById[T])
+	yoserve.API["__/db/"+type_name+"/createOne"] = yoserve.Method(apiCreateOne[T])
 }
 
-func apiGetById[T any](ctx *Ctx, args *struct{ ID int }, ret *T) {
-	// desc := desc[T]()
-	// stmt := new(Stmt).Select(desc.cols...).From(desc.tableName).
-	// 	Where("id = @id").Limit(1)
-	// _ = stmt
+func apiGetById[T any](ctx *Ctx, args *struct {
+	ID I64
+}, ret *T) any {
+	if it := Get[T](ctx, args.ID); it != nil {
+		*ret = *it
+		return ret
+	}
+	return nil
+}
+
+func apiCreateOne[T any](ctx *Ctx, args *T, ret *struct {
+	ID int64
+}) any {
+	id := CreateOne[T](ctx, args)
+	ret.ID = int64(id)
+	return ret
 }

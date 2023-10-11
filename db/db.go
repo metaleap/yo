@@ -1,8 +1,9 @@
-package db
+package yodb
 
 import (
 	"context"
 	"database/sql"
+	"reflect"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -16,7 +17,7 @@ import (
 
 var DB *sql.DB
 
-func Init() {
+func Init() (dbStructs []reflect.Type) {
 	if inited {
 		panic("db.Init called twice?")
 	}
@@ -34,7 +35,11 @@ func Init() {
 		yolog.Println("DB connect: " + err.Error())
 	}
 	doEnsureDbStructTables()
+	for _, desc := range ensureDescs {
+		dbStructs = append(dbStructs, desc.ty)
+	}
 	inited = true
+	return
 }
 
 type dbLogger struct{}

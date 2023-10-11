@@ -2,6 +2,7 @@ package yoserve
 
 import (
 	"reflect"
+	"slices"
 
 	. "yo/ctx"
 	. "yo/util"
@@ -9,11 +10,13 @@ import (
 )
 
 var apiReflAllEnums = map[string][]string{}
+var apiReflAllDbStructs []reflect.Type
 
 type apiRefl struct {
-	Methods []apiReflMethod
-	Types   map[string]map[string]string
-	Enums   map[string][]string
+	Methods   []apiReflMethod
+	Types     map[string]map[string]string
+	Enums     map[string][]string
+	DbStructs []string
 }
 
 type apiReflMethod struct {
@@ -91,17 +94,18 @@ func apiReflType(it *apiRefl, rt reflect.Type, fldName string, parent string) st
 	if _, exists := it.Types[type_ident]; !exists {
 		ty_refl := map[string]string{}
 		it.Types[type_ident] = ty_refl
-		if rt_kind == reflect.Struct {
-			if !(ReflHasMethod(rt, "MarshalJSON") && ReflHasMethod(rt, "UnmarshalJSON")) {
-				for i := 0; i < rt.NumField(); i++ {
-					field := rt.Field(i)
-					if str.IsUp(str.Sub(field.Name, 0, 1)) {
-						if !str.IsPrtAscii(field.Name) {
-							fail("not printable ASCII: '" + field.Name + "'")
-						}
-						if ty_field := apiReflType(it, field.Type, field.Name, type_ident); ty_field != "" {
-							ty_refl[field.Name] = ty_field
-						}
+		if (rt_kind == reflect.Struct) && !(ReflHasMethod(rt, "MarshalJSON") && ReflHasMethod(rt, "UnmarshalJSON")) {
+			if slices.Contains(apiReflAllDbStructs, rt) && !slices.Contains(it.DbStructs, type_ident) {
+				it.DbStructs = append(it.DbStructs, type_ident)
+			}
+			for i := 0; i < rt.NumField(); i++ {
+				field := rt.Field(i)
+				if str.IsUp(str.Sub(field.Name, 0, 1)) {
+					if !str.IsPrtAscii(field.Name) {
+						fail("not printable ASCII: '" + field.Name + "'")
+					}
+					if ty_field := apiReflType(it, field.Type, field.Name, type_ident); ty_field != "" {
+						ty_refl[field.Name] = ty_field
 					}
 				}
 			}

@@ -1,4 +1,4 @@
-package db
+package yodb
 
 import (
 	"reflect"
@@ -82,8 +82,9 @@ func desc[T any]() (ret *structDesc) {
 		descs[ty] = ret
 		for i, l := 0, ty.NumField(); i < l; i++ {
 			field := ty.Field(i)
+			col_name := NameFrom(field.Name)
 			if isColField(field.Type) {
-				ret.fields, ret.cols = append(ret.fields, field.Name), append(ret.cols, NameFrom(field.Name))
+				ret.fields, ret.cols = append(ret.fields, field.Name), append(ret.cols, col_name)
 			}
 		}
 	}
@@ -158,8 +159,20 @@ func Ensure[T any](idBig bool, oldTableName string, renamesOldColToNewField map[
 	}
 	desc := desc[T]()
 	desc.idBig, desc.mig.oldTableName, desc.mig.renamesOldColToNewField = idBig, oldTableName, renamesOldColToNewField
+	if (len(desc.cols) < 1) || (desc.cols[0] != ColNameID) {
+		panic(desc.tableName + ": first column must be '" + ColNameID + "'")
+	} else if (len(desc.cols) < 2) || (desc.cols[1] != ColNameCreated) {
+		panic(desc.tableName + ": second column must be '" + ColNameCreated + "'")
+	} else if len(desc.cols) < 3 {
+		panic(desc.tableName + ": no custom columns")
+	}
 	ensureDescs = append(ensureDescs, desc)
 	registerApiHandlers[T](desc)
+}
+
+func Is(ty reflect.Type) (ret bool) {
+	_, ret = descs[ty]
+	return
 }
 
 func doEnsureDbStructTables() {

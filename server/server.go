@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"reflect"
 
 	. "yo/cfg"
 	yoctx "yo/ctx"
@@ -21,7 +22,9 @@ const StaticFileDirPath = "__yostatic"
 
 var apiGenSdkMaybe func() = nil // overwritten by apisdkgen.go in debug build mode
 
-func Init(staticFS *embed.FS) (func(), func()) {
+// called from yo.Init, not user code
+func Init(staticFS *embed.FS, dbStructs []reflect.Type) (func(), func()) {
+	apiReflAllDbStructs = dbStructs
 	staticFileDir = staticFS
 	API["__/refl"] = Method(apiHandleReflReq)
 	for method_path := range API {
