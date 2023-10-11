@@ -10,6 +10,7 @@ type YoReflApis = {
     Methods: YoReflMethod[]
     Types: { [_: string]: YoReflType }
     Enums: { [_: string]: string[] }
+    DbStructs: string[]
 }
 
 type YoReflMethod = {
@@ -98,6 +99,10 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             [textarea_response, tree_response] = [textarea, tree]
         if (type_name && type_name !== '') {
             const dummy_val = newSampleVal(apiRefl, type_name, [])
+            const filter_dbstruct_fields = (apiRefl.DbStructs.indexOf(type_name) >= 0) && method_path.startsWith('__/db/') && (method_path.endsWith('/createOne') || method_path.endsWith('/createMany'))
+            if (filter_dbstruct_fields)
+                for (const field_name of ['ID', 'Created'])
+                    delete dummy_val[field_name]
             textarea.value = (isForPayload ? "" : "// example of response structure:\n\n") + JSON.stringify(dummy_val, null, 2)
 
             on_textarea_maybe_modified()

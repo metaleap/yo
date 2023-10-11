@@ -42,14 +42,36 @@ func NewForHttp(req *http.Request, resp http.ResponseWriter, timeout time.Durati
 	return ctx
 }
 
-func NewForDbTx(timeout time.Duration) *Ctx {
+func NewForDbTx(timeout time.Duration, newTxNowFrom *sql.DB) *Ctx {
 	ctx := newCtx(timeout)
+	if newTxNowFrom != nil {
+		ctx.DbTx(newTxNowFrom)
+	}
 	return ctx
 }
 
+func (me *Ctx) DbTx(db *sql.DB) {
+	if me.Db.Tx != nil {
+		panic("invalid Ctx.DbTx call: already have a Ctx.Db.Tx")
+	}
+	var err error
+	if me.Db.Tx, err = db.BeginTx(me, nil); err != nil {
+		panic(err)
+	}
+}
+
 func (me *Ctx) Dispose() {
+	fail := recover()
+	if me.Db.Tx != nil {
+		if fail == nil {
+			fail = me.Db.Tx.Commit()
+		}
+		if fail != nil {
+			_ = me.Db.Tx.Rollback()
+		}
+	}
 	if me.Http.Req != nil && me.Http.Resp != nil {
-		if code, fail := 500, recover(); fail != nil {
+		if code := 500; fail != nil {
 			if err, is_app_err := fail.(Err); is_app_err {
 				code = err.HttpStatusCode()
 			}

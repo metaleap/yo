@@ -91,6 +91,8 @@ func (me *Stmt) Insert(into string, cols ...string) *Stmt {
 		}
 		w(")")
 	}
+	w(" RETURNING ")
+	w(ColNameID)
 	return me
 }
 

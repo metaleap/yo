@@ -10,6 +10,7 @@ import (
 	yoctx "yo/ctx"
 	yolog "yo/log"
 	. "yo/util"
+	"yo/util/str"
 )
 
 const (
@@ -101,8 +102,29 @@ type scanner struct {
 	ty  reflect.Type
 }
 
+func reflFieldValue(rvField reflect.Value) any {
+	if rvField.CanInterface() && !IsDevMode {
+		return rvField.Interface()
+	}
+	addr := rvField.UnsafeAddr()
+	switch val := reflect.New(rvField.Type()).Interface().(type) {
+	case *Bool:
+		return *getPtr[Bool](addr)
+	case *Text:
+		return *getPtr[Text](addr)
+	case *Bytes:
+		return *getPtr[Bytes](addr)
+	default:
+		panic(str.Fmt("%T", val))
+	}
+}
+
+func getPtr[T any](at uintptr) *T {
+	return (*T)((unsafe.Pointer)(at))
+}
+
 func setPtr[T any](at uintptr, value T) {
-	var it *T = (*T)((unsafe.Pointer)(at))
+	it := getPtr[T](at)
 	*it = value
 }
 
@@ -176,25 +198,23 @@ func Is(ty reflect.Type) (ret bool) {
 }
 
 func doEnsureDbStructTables() {
-	ctx := yoctx.NewForDbTx(Cfg.DB_REQ_TIMEOUT)
+	ctx := yoctx.NewForDbTx(Cfg.DB_REQ_TIMEOUT, DB)
 	defer ctx.Dispose()
 
-	doTx(ctx, func(ctx *yoctx.Ctx) {
-		for _, desc := range ensureDescs {
-			yolog.Println("db.Mig: " + desc.tableName)
-			is_table_rename := (desc.mig.oldTableName != "")
-			cur_table := GetTable(ctx, If(is_table_rename, desc.mig.oldTableName, desc.tableName))
-			if cur_table == nil {
-				if !is_table_rename {
-					_ = doExec(ctx, new(Stmt).createTable(desc), nil)
-				} else {
-					panic("outdated table rename: '" + desc.mig.oldTableName + "'")
-				}
-			} else if stmts := alterTable(desc, cur_table, desc.mig.oldTableName, desc.mig.renamesOldColToNewField); len(stmts) > 0 {
-				for _, stmt := range stmts {
-					_ = doExec(ctx, stmt, nil)
-				}
+	for _, desc := range ensureDescs {
+		yolog.Println("db.Mig: " + desc.tableName)
+		is_table_rename := (desc.mig.oldTableName != "")
+		cur_table := GetTable(ctx, If(is_table_rename, desc.mig.oldTableName, desc.tableName))
+		if cur_table == nil {
+			if !is_table_rename {
+				_ = doExec(ctx, new(Stmt).createTable(desc), nil)
+			} else {
+				panic("outdated table rename: '" + desc.mig.oldTableName + "'")
+			}
+		} else if stmts := alterTable(desc, cur_table, desc.mig.oldTableName, desc.mig.renamesOldColToNewField); len(stmts) > 0 {
+			for _, stmt := range stmts {
+				_ = doExec(ctx, stmt, nil)
 			}
 		}
-	})
+	}
 }

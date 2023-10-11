@@ -33,7 +33,7 @@ func CreateOne[T any](ctx *Ctx, rec *T) I64 {
 	for i, col_name := range desc.cols {
 		if i >= 2 { // skip 'id' and 'created'
 			field := rv.Field(i)
-			args[col_name] = field.Interface()
+			args[col_name] = reflFieldValue(field)
 		}
 	}
 
@@ -43,37 +43,6 @@ func CreateOne[T any](ctx *Ctx, rec *T) I64 {
 		panic(err)
 	}
 	return I64(id)
-}
-
-func Tx(ctx *Ctx, do func(*Ctx)) {
-	doTx(ctx, do)
-}
-
-func doTx(ctx *Ctx, do func(*Ctx), stmts ...*Stmt) {
-	if do != nil && len(stmts) > 0 {
-		panic("either `do` or `stmts` should be nil")
-	}
-	tx, err := DB.BeginTx(ctx, nil)
-	if err != nil {
-		panic(err)
-	}
-	ctx.Db.Tx = tx
-	defer func() {
-		fail := recover()
-		if fail == nil {
-			fail = tx.Commit()
-		}
-		if fail != nil {
-			_ = tx.Rollback()
-			panic(fail)
-		}
-	}()
-	for _, stmt := range stmts {
-		_ = doExec(ctx, stmt, nil)
-	}
-	if do != nil {
-		do(ctx)
-	}
 }
 
 func doExec(ctx *Ctx, stmt *Stmt, args dbArgs) sql.Result {
