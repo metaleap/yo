@@ -28,12 +28,11 @@ func ListTables(ctx *Ctx, tableName string) map[Text][]*TableColumn {
 	args := dbArgs{}
 	stmt := new(Stmt).Select(desc.cols...).From(desc.tableName).
 		Where(If(tableName != "",
-			q.Col("table_name").Equals(tableName),
-			q.Col("table_name").In(
+			q.C("table_name").Equals(tableName),
+			q.C("table_name").In(
 				new(Stmt).Select("table_name").From("information_schema.tables").
-					Where(q.AllTrue(
-						q.Col("table_type").Equals("BASE TABLE"),
-						q.Col("table_schema").NotIn("pg_catalog", "information_schema"),
+					Where(q.C("table_type").Equals("BASE TABLE").And(
+						q.C("table_schema").NotIn("pg_catalog", "information_schema"),
 					), args),
 			),
 		), args).

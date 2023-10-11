@@ -7,17 +7,17 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type Col string
+type C string
 
-func (me Col) Equals(x any) Query     { return Equal(me, x) }
-func (me Col) In(set ...any) Query    { return In(me, set...) }
-func (me Col) NotIn(set ...any) Query { return NotIn(me, set...) }
+func (me C) Equals(x any) Query     { return Equal(me, x) }
+func (me C) In(set ...any) Query    { return In(me, set...) }
+func (me C) NotIn(set ...any) Query { return NotIn(me, set...) }
 
-type Arg[T any] struct{ It T }
+type A[T any] struct{ It T }
 
-func (me Arg[T]) Equals(x any) Query     { return Equal(me.It, x) }
-func (me Arg[T]) In(set ...any) Query    { return In(me.It, set...) }
-func (me Arg[T]) NotIn(set ...any) Query { return NotIn(me.It, set...) }
+func (me A[T]) Equals(x any) Query     { return Equal(me.It, x) }
+func (me A[T]) In(set ...any) Query    { return In(me.It, set...) }
+func (me A[T]) NotIn(set ...any) Query { return NotIn(me.It, set...) }
 
 const (
 	opNone  = ""
@@ -35,6 +35,9 @@ const (
 )
 
 type Query interface {
+	And(...Query) Query
+	Or(...Query) Query
+	Not() Query
 	Sql(*str.Buf, pgx.NamedArgs)
 	String(pgx.NamedArgs) string
 }
@@ -67,6 +70,10 @@ type query struct {
 	conds    []Query
 	operands []any
 }
+
+func (me *query) And(also ...Query) Query { return AllTrue(append([]Query{me}, also...)...) }
+func (me *query) Or(also ...Query) Query  { return EitherOr(append([]Query{me}, also...)...) }
+func (me *query) Not() Query              { return Not(me) }
 
 func (me *query) Sql(buf *str.Buf, args pgx.NamedArgs) {
 	me.sql(buf, args)
@@ -125,7 +132,7 @@ func (me *query) sql(buf *str.Buf, args pgx.NamedArgs) {
 					break
 				}
 			}
-			col_name, is := operand.(Col)
+			col_name, is := operand.(C)
 			if is {
 				buf.WriteString(string(col_name))
 			} else {
