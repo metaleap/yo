@@ -4,6 +4,7 @@ import (
 	. "yo/ctx"
 	q "yo/db/query"
 	. "yo/util"
+	"yo/util/str"
 )
 
 type TableColumn struct {
@@ -24,6 +25,9 @@ func ListTables(ctx *Ctx, tableName string) map[Text][]*TableColumn {
 	ret := map[Text][]*TableColumn{}
 	desc := desc[TableColumn]()
 	desc.tableName = "information_schema.columns"
+	for i, col_name := range desc.cols {
+		desc.cols[i] = q.C(str.TrimR(string(col_name), "_"))
+	}
 
 	args := dbArgs{}
 	stmt := new(Stmt).sel("", false, desc.cols...).from(desc.tableName).
@@ -36,7 +40,7 @@ func ListTables(ctx *Ctx, tableName string) map[Text][]*TableColumn {
 					), args),
 			),
 		), args).
-		orderBy(q.O("table_name"), q.O("ordinal_position"))
+		orderBy(q.C("table_name").Asc(), q.C("ordinal_position").Desc())
 	flat_results := doSelect[TableColumn](ctx, stmt, args, If(tableName == "", 0, 1))
 	for _, result := range flat_results {
 		ret[result.tableName] = append(ret[result.tableName], result)

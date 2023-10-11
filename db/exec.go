@@ -21,7 +21,7 @@ func Get[T any](ctx *Ctx, id I64) *T {
 	return FindOne[T](ctx, ColID.Equals(id))
 }
 
-func FindOne[T any](ctx *Ctx, query q.Query, orderBy ...q.O) *T {
+func FindOne[T any](ctx *Ctx, query q.Query, orderBy ...q.OrderBy) *T {
 	results := FindAll[T](ctx, query, 1, orderBy...)
 	if len(results) == 0 {
 		return nil
@@ -29,13 +29,13 @@ func FindOne[T any](ctx *Ctx, query q.Query, orderBy ...q.O) *T {
 	return results[0]
 }
 
-func FindAll[T any](ctx *Ctx, query q.Query, maxResults int, orderBy ...q.O) []*T {
+func FindAll[T any](ctx *Ctx, query q.Query, maxResults int, orderBy ...q.OrderBy) []*T {
 	desc, args := desc[T](), dbArgs{}
 	return doSelect[T](ctx,
 		new(Stmt).sel("", false, desc.cols...).from(desc.tableName).where(query, args).orderBy(orderBy...).limit(maxResults), args, maxResults)
 }
 
-func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.O, onRecord func(rec *T, enough *bool)) {
+func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.OrderBy, onRecord func(rec *T, enough *bool)) {
 	desc, args := desc[T](), dbArgs{}
 	doStream[T](ctx, new(Stmt).sel("", false, desc.cols...).from(desc.tableName).where(query, args).orderBy(orderBy...).limit(maxResults), onRecord, args)
 }
@@ -70,7 +70,7 @@ func CreateOne[T any](ctx *Ctx, rec *T) I64 {
 	for i, col_name := range desc.cols {
 		if i >= 2 { // skip 'id' and 'created'
 			field := rv.Field(i)
-			args[col_name] = reflFieldValue(field)
+			args["A"+string(col_name)] = reflFieldValue(field)
 		}
 	}
 
@@ -96,7 +96,7 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 		for i, col_name := range desc.cols {
 			if i >= 2 { // skip 'id' and 'created'
 				field := rv.Field(i)
-				args[col_name+str.FromInt(j)] = reflFieldValue(field)
+				args["A"+string(col_name)+str.FromInt(j)] = reflFieldValue(field)
 			}
 		}
 	}

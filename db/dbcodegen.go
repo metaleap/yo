@@ -86,10 +86,12 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 			buf.WriteString(" = ")
 			buf.WriteString(desc.ty.Name())
 			buf.WriteString("Col(\"")
-			buf.WriteString(col_name)
+			buf.WriteString(string(col_name))
 			buf.WriteString("\")\n")
 		}
 		buf.WriteString(")\n\n")
+
+		// render querying-payload struct
 
 	}
 	raw_src, err := format.Source([]byte(buf.String()))

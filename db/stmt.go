@@ -23,7 +23,7 @@ func (me *Stmt) delete(from string) *Stmt {
 	return me
 }
 
-func (me *Stmt) sel(countColName q.C, countDistinct bool, cols ...string) *Stmt {
+func (me *Stmt) sel(countColName q.C, countDistinct bool, cols ...q.C) *Stmt {
 	w := (*str.Buf)(me).WriteString
 	w("SELECT ")
 	if countColName != "" {
@@ -34,7 +34,6 @@ func (me *Stmt) sel(countColName q.C, countDistinct bool, cols ...string) *Stmt 
 		} else {
 			w("DISTINCT")
 			if countColName != "" {
-				w(" ")
 				w(string(countColName))
 			}
 		}
@@ -46,7 +45,7 @@ func (me *Stmt) sel(countColName q.C, countDistinct bool, cols ...string) *Stmt 
 			if i > 0 {
 				w(", ")
 			}
-			w(col)
+			w(string(col))
 		}
 	}
 	return me
@@ -81,7 +80,7 @@ func (me *Stmt) where(where q.Query, args pgx.NamedArgs) *Stmt {
 	return me
 }
 
-func (me *Stmt) orderBy(orderBy ...q.O) *Stmt {
+func (me *Stmt) orderBy(orderBy ...q.OrderBy) *Stmt {
 	w := (*str.Buf)(me).WriteString
 	if len(orderBy) > 0 {
 		w(" ORDER BY ")
@@ -95,7 +94,7 @@ func (me *Stmt) orderBy(orderBy ...q.O) *Stmt {
 	return me
 }
 
-func (me *Stmt) insert(into string, numRows int, cols ...string) *Stmt {
+func (me *Stmt) insert(into string, numRows int, cols ...q.C) *Stmt {
 	w := (*str.Buf)(me).WriteString
 	w("INSERT INTO ")
 	w(into)
@@ -113,7 +112,7 @@ func (me *Stmt) insert(into string, numRows int, cols ...string) *Stmt {
 			if i > 0 {
 				w(", ")
 			}
-			w(col_name)
+			w(string(col_name))
 		}
 		w(")")
 		w(" VALUES ")
@@ -126,8 +125,8 @@ func (me *Stmt) insert(into string, numRows int, cols ...string) *Stmt {
 				if i > 0 {
 					w(", ")
 				}
-				w("@")
-				w(col_name)
+				w("@A")
+				w(string(col_name))
 				if numRows > 1 {
 					w(str.FromInt(j))
 				}
@@ -151,32 +150,31 @@ func (me *Stmt) createTable(desc *structDesc) *Stmt {
 		if i > 0 {
 			w(",\n\t")
 		}
-		w(col_name)
+		w(string(col_name))
+		w(" ")
 		switch col_name {
-		case string(ColID):
-			w(" ")
-			w(If(desc.idBig, "bigserial", "serial"))
-			w(" PRIMARY KEY")
-		case string(ColCreated):
-			w(" timestamp without time zone NOT NULL DEFAULT (current_timestamp)")
+		case ColID:
+			w(If(desc.idBig, "bigserial PRIMARY KEY", " serial PRIMARY KEY"))
+		case ColCreated:
+			w("timestamp without time zone NOT NULL DEFAULT (current_timestamp)")
 		default:
-			w(" ")
-			w(sqlColDeclFrom(desc.ty.Field(i).Type))
+			w(sqlColTypeDeclFrom(desc.ty.Field(i).Type))
 		}
 	}
 	w("\n)")
 	return me
 }
 
-func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, renamesOldColToNewField map[string]string) (ret []*Stmt) {
+func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, renamesOldColToNewField map[q.C]string) (ret []*Stmt) {
 	if oldTableName == desc.tableName {
 		panic("invalid table rename: " + oldTableName)
 	}
 
-	cols_gone, fields_new := []string{}, []string{}
+	cols_gone, fields_new := []q.C{}, []string{}
 	for _, table_col := range curTable {
-		if !slices.Contains(desc.cols, string(table_col.ColumnName)) {
-			cols_gone = append(cols_gone, string(table_col.ColumnName))
+		col_name := q.C(table_col.ColumnName)
+		if !slices.Contains(desc.cols, col_name) {
+			cols_gone = append(cols_gone, col_name)
 		}
 	}
 	for i, struct_col_name := range desc.cols {
@@ -186,7 +184,7 @@ func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, 
 	}
 	if renamesOldColToNewField != nil {
 		for old_col_name, new_field_name := range renamesOldColToNewField {
-			new_col_name := NameFrom(new_field_name)
+			new_col_name := q.C(NameFrom(new_field_name))
 			if new_col_name == old_col_name {
 				panic("invalid column rename: " + old_col_name)
 			}
@@ -217,15 +215,15 @@ func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, 
 		for _, field_name := range fields_new {
 			col_name := desc.cols[slices.Index(desc.fields, field_name)]
 			w(" \n\tADD COLUMN IF NOT EXISTS ")
-			w(col_name)
+			w(string(col_name))
 			w(" ")
 			field, _ := desc.ty.FieldByName(field_name)
-			w(sqlColDeclFrom(field.Type))
+			w(sqlColTypeDeclFrom(field.Type))
 			w(",")
 		}
 		for _, col_name := range cols_gone {
 			w(" \n\tDROP COLUMN IF EXISTS ")
-			w(col_name)
+			w(string(col_name))
 			w(",")
 		}
 		ret = append(ret, stmt)
@@ -238,7 +236,7 @@ func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, 
 			w("ALTER TABLE ")
 			w(desc.tableName)
 			w(" RENAME COLUMN ")
-			w(old_col_name)
+			w(string(old_col_name))
 			w(" TO ")
 			w(NameFrom(new_field_name))
 			ret = append(ret, stmt)
@@ -273,7 +271,7 @@ func sqlColTypeFrom(ty reflect.Type) string {
 	}
 }
 
-func sqlColDeclFrom(ty reflect.Type) string {
+func sqlColTypeDeclFrom(ty reflect.Type) string {
 	sql_data_type_name := sqlColTypeFrom(ty)
 	switch ty {
 	case tyBool:

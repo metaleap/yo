@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	ColID      = q.C("id")
-	ColCreated = q.C("created")
+	ColID      = q.C("id_")
+	ColCreated = q.C("created_")
 )
 
 type Bool bool
@@ -64,11 +64,11 @@ type structDesc struct {
 	ty        reflect.Type
 	tableName string   // defaults to db.NameFrom(structTypeName)
 	fields    []string // struct fields marked persistish by being of a type in `okTypes`
-	cols      []string // for each field above, its db.NameFrom()
+	cols      []q.C    // for each field above, its db.NameFrom()
 	idBig     bool     // allow up to 9223372036854775807 instead of up to 2147483647
 	mig       struct {
 		oldTableName            string
-		renamesOldColToNewField map[string]string
+		renamesOldColToNewField map[q.C]string
 	}
 }
 
@@ -80,7 +80,7 @@ func desc[T any]() (ret *structDesc) {
 	var it T
 	ty := reflect.TypeOf(it)
 	if ret = descs[ty]; ret == nil {
-		ret = &structDesc{ty: ty, tableName: NameFrom(ty.Name()), cols: make([]string, 0, ty.NumField())}
+		ret = &structDesc{ty: ty, tableName: NameFrom(ty.Name()), cols: make([]q.C, 0, ty.NumField())}
 		descs[ty] = ret
 		for i, l := 0, ty.NumField(); i < l; i++ {
 			field := ty.Field(i)
@@ -89,7 +89,7 @@ func desc[T any]() (ret *structDesc) {
 				if !str.IsPrtAscii(field.Name) {
 					panic("DB-column fields' names should be ASCII")
 				}
-				ret.fields, ret.cols = append(ret.fields, field.Name), append(ret.cols, col_name)
+				ret.fields, ret.cols = append(ret.fields, field.Name), append(ret.cols, q.C(col_name))
 			}
 		}
 	}
@@ -179,20 +179,20 @@ func (me scanner) Scan(src any) error {
 	return nil
 }
 
-func Ensure[T any](idBig bool, oldTableName string, renamesOldColToNewField map[string]string) {
+func Ensure[T any](idBig bool, oldTableName string, renamesOldColToNewField map[q.C]string) {
 	if inited {
 		panic("db.Ensure called after db.Init")
 	}
 	desc := desc[T]()
+	ensureDescs = append(ensureDescs, desc)
 	desc.idBig, desc.mig.oldTableName, desc.mig.renamesOldColToNewField = idBig, oldTableName, renamesOldColToNewField
-	if (len(desc.cols) < 1) || (desc.cols[0] != string(ColID)) {
-		panic(desc.tableName + ": first column must be '" + string(ColID) + "'")
-	} else if (len(desc.cols) < 2) || (desc.cols[1] != string(ColCreated)) {
-		panic(desc.tableName + ": second column must be '" + string(ColCreated) + "'")
+	if (len(desc.cols) < 1) || (desc.cols[0] != ColID) {
+		panic(desc.tableName + ": first column must be '" + string(ColID) + "', not '" + string(desc.cols[0]) + "'")
+	} else if (len(desc.cols) < 2) || (desc.cols[1] != ColCreated) {
+		panic(desc.tableName + ": second column must be '" + string(ColCreated) + "', not '" + string(desc.cols[1]) + "'")
 	} else if len(desc.cols) < 3 {
 		panic(desc.tableName + ": no custom columns")
 	}
-	ensureDescs = append(ensureDescs, desc)
 	registerApiHandlers[T](desc)
 	if IsDevMode {
 		codeGenDBStructs()

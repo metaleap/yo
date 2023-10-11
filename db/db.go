@@ -70,5 +70,6 @@ func NameFrom(s string) string {
 			buf.WriteByte(c)
 		}
 	}
+	buf.WriteByte('_')
 	return buf.String()
 }
