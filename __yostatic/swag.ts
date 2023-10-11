@@ -22,7 +22,7 @@ type YoReflMethod = {
 export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodPath: string, payload: any, onSuccess?: (_?: any) => void, onFailed?: (err: any, resp?: any) => void, query?: { [_: string]: string }) => void) {
     let select_method: HTMLSelectElement, select_history: HTMLSelectElement, td_input: HTMLTableCellElement, td_output: HTMLTableCellElement,
         table: HTMLTableElement, input_querystring: HTMLInputElement, textarea_payload: HTMLTextAreaElement, textarea_response: HTMLTextAreaElement,
-        tree_payload: HTMLUListElement, tree_response: HTMLUListElement, div_validate_error_msg: HTMLDivElement, checkbox_novalidate: HTMLInputElement
+        tree_payload: HTMLUListElement, tree_response: HTMLUListElement, div_validate_error_msg: HTMLDivElement
     let last_textarea_payload_value = ''
     const auto_completes: { [_: string]: HTMLDataListElement } = {}
 
@@ -79,7 +79,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             return
         last_textarea_payload_value = textarea_payload.value
         const [err_msg, obj] = validate(apiRefl, typeName, textarea_payload.value, typeName)
-        div_validate_error_msg.innerText = err_msg || '(all ok)' /* no empty string or whitespace-only, as that'd (visually) `display:none` the div and its outer td/tr */
+        div_validate_error_msg.innerText = err_msg ? util.strReplace(err_msg, '\n', ' ') : '(all ok)' /* no empty string or whitespace-only, as that'd (visually) `display:none` the div and its outer td/tr */
         div_validate_error_msg.style.visibility = (((err_msg || '').length > 0) ? 'visible' : 'hidden')
         refreshTree(methodPath, obj, tree_payload, true)
         if (textarea_response)
@@ -98,11 +98,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         else
             [textarea_response, tree_response] = [textarea, tree]
         if (type_name && type_name !== '') {
-            const dummy_val = newSampleVal(apiRefl, type_name, [])
-            const filter_dbstruct_fields = (apiRefl.DbStructs.indexOf(type_name) >= 0) && method_path.startsWith('__/db/') && (method_path.endsWith('/createOne') || method_path.endsWith('/createMany'))
-            if (filter_dbstruct_fields)
-                for (const field_name of ['ID', 'Created'])
-                    delete dummy_val[field_name]
+            const dummy_val = newSampleVal(apiRefl, type_name, [], isForPayload ? method_path : undef)
             textarea.value = (isForPayload ? "" : "// example of response structure:\n\n") + JSON.stringify(dummy_val, null, 2)
 
             on_textarea_maybe_modified()
@@ -313,7 +309,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         }
         textarea_response.value = "..."
         textarea_response.style.backgroundColor = '#f0f0f0'
-        let query_string: { [_: string]: string }, payload: object
+        let query_string: { [_: string]: string }, payload: object, is_validate_failed = false
         if (input_querystring.value && input_querystring.value.length)
             try { query_string = JSON.parse(input_querystring.value) } catch (err) {
                 return show_err(`URL query-string object:\n${err}`)
@@ -322,8 +318,8 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         try {
             const method = apiRefl.Methods.find((_) => (_.Path == method_path))
             const [err_msg, _] = validate(apiRefl, method.In, payload = JSON.parse(textarea_payload.value), '')
-            if (err_msg && err_msg !== "" && !checkbox_novalidate.checked)
-                return show_err(err_msg)
+            if (is_validate_failed = (err_msg && err_msg !== ""))
+                show_err(err_msg)
         } catch (err) {
             const err_msg = `${err}`
             show_err(err_msg)
@@ -342,12 +338,15 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             const duration_ms = new Date().getTime() - time_started
             document.title = `${duration_ms}ms`
         }
-        historyStore(apiRefl, method_path, payload, query_string)
-        refreshHistory(true, false)
-        refreshAutoCompletes()
+        if (!is_validate_failed) {
+            historyStore(apiRefl, method_path, payload, query_string)
+            refreshHistory(true, false)
+            refreshAutoCompletes()
+        }
         yoReq(method_path, payload, (result) => {
             on_done()
-            textarea_response.style.backgroundColor = '#c0f0c0'
+            if (!is_validate_failed)
+                textarea_response.style.backgroundColor = '#c0f0c0'
             textarea_response.value = JSON.stringify(result, null, 2)
             refreshTree(method_path, result, tree_response, false)
         }, (err, resp?: Response) => {
@@ -389,10 +388,6 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                     html.input({ 'type': 'password', 'placeholder': 'user password', 'disabled': true, 'value': '' }),
                 ),
                 html.button({ 'style': 'font-weight:bold', 'onclick': sendRequest }, 'Go!'),
-                html.span({ 'class': 'nobr' },
-                    checkbox_novalidate = html.input({ 'title': '(no prior client-side validation)', 'checked': true, 'id': ('n' + now), 'type': 'checkbox' }),
-                    html.label({ 'for': ('n' + now), 'title': '(no prior client-side validation)' }, 'force-send'),
-                ),
             )),
             html.tr({}, html.td({ 'colspan': '2' }, div_validate_error_msg = html.div({ 'style': 'background-color:#f0d0c0;border: 1px solid #303030;visibility:hidden' }, 'some error message'))),
             html.tr({},
@@ -414,7 +409,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
     }
 }
 
-function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: string[]): any {
+function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: string[], methodPath?: string): any {
     switch (type_name) {
         case 'time.Time': return new Date().toISOString()
         case '.bool': return true
@@ -443,18 +438,22 @@ function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: s
         const obj = {}
         if (recurse_protection.indexOf(type_name) >= 0)
             return null
-        else
-            for (const field_name in type_struc) {
-                const field_type_name = type_struc[field_name]
-                obj[field_name] = newSampleVal(refl, field_type_name, [type_name].concat(recurse_protection))
-            }
+        for (const field_name in type_struc) {
+            const field_type_name = type_struc[field_name]
+            obj[field_name] = newSampleVal(refl, field_type_name, [type_name].concat(recurse_protection), methodPath)
+        }
+        const filter_dbstruct_fields = (refl.DbStructs.indexOf(type_name) >= 0) && methodPath
+            && methodPath.startsWith('__/db/') && (methodPath.endsWith('/createOne') || methodPath.endsWith('/createMany'))
+        if (filter_dbstruct_fields)
+            for (const field_name of ['ID', 'Created'])
+                delete obj[field_name]
         return obj
     }
     if (type_name.startsWith('[') && type_name.endsWith(']'))
-        return [newSampleVal(refl, type_name.substring(1, type_name.length - 1), recurse_protection)]
+        return [newSampleVal(refl, type_name.substring(1, type_name.length - 1), recurse_protection, methodPath)]
     if (type_name.startsWith('{') && type_name.endsWith('}') && type_name.includes(':')) {
         const ret = {}, splits = type_name.substring(1, type_name.length - 1).split(':')
-        ret[newSampleVal(refl, splits[0], recurse_protection)] = newSampleVal(refl, splits.slice(1).join(':'), recurse_protection)
+        ret[newSampleVal(refl, splits[0], recurse_protection, methodPath)] = newSampleVal(refl, splits.slice(1).join(':'), recurse_protection, methodPath)
         return ret
     }
     return type_name

@@ -12,6 +12,10 @@ export function strTrimL(s: string, prefix: string): string {
     return s
 }
 
+export function strReplace(s: string, oldStr: string, newStr: string): string {
+    return (s as any).replaceAll(oldStr, newStr)
+}
+
 export function deepEq(val1: any, val2: any, ignoreArrayOrder?: boolean): boolean {
     // deepEq only covers the JSON subset of the JS/TS type-scape
     if ((val1 === val2) || ((val1 === null) && (val2 === undef)) || ((val1 === undef) && (val2 === null)))

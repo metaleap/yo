@@ -10,6 +10,7 @@ import (
 type Buf = strings.Builder
 
 var (
+	Bool    = strconv.FormatBool
 	Has     = strings.Contains
 	Begins  = strings.HasPrefix
 	Ends    = strings.HasSuffix

@@ -18,7 +18,7 @@ func Get[T any](ctx *Ctx, id I64) *T {
 	}
 	desc := desc[T]()
 	results := doSelect[T](ctx,
-		new(Stmt).Select(desc.cols...).From(desc.tableName).Where("id = @id").Limit(1),
+		new(Stmt).Select(desc.cols...).From(desc.tableName).Where(ColNameID+" = @"+ColNameID).Limit(1),
 		dbArgs{ColNameID: id})
 	if len(results) == 0 {
 		return nil
