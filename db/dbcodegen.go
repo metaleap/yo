@@ -71,19 +71,27 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	var buf str.Buf
 	buf.WriteString("package ")
 	buf.WriteString(pkg_name)
-	buf.WriteString("\n\nimport q \"yo/db/query\"\n\nconst (\n")
+	buf.WriteString("\n\nimport q \"yo/db/query\"\n\n")
 	for _, desc := range descs {
+		// render enumerants for the column names
+		buf.WriteString("type ")
+		buf.WriteString(desc.ty.Name())
+		buf.WriteString("Col = q.C\n\n")
+		buf.WriteString("const (\n")
 		for i, col_name := range desc.cols {
 			buf.WriteByte('\t')
 			buf.WriteString(desc.ty.Name())
 			buf.WriteString(str.Up(desc.fields[i][:1]))
 			buf.WriteString(desc.fields[i][1:])
-			buf.WriteString(" = q.C(\"")
+			buf.WriteString(" = ")
+			buf.WriteString(desc.ty.Name())
+			buf.WriteString("Col(\"")
 			buf.WriteString(col_name)
 			buf.WriteString("\")\n")
 		}
+		buf.WriteString(")\n\n")
+
 	}
-	buf.WriteString(")\n")
 	raw_src, err := format.Source([]byte(buf.String()))
 	if err != nil {
 		panic(err)

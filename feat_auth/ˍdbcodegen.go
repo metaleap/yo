@@ -2,9 +2,11 @@ package yofeat_auth
 
 import q "yo/db/query"
 
+type UserAccountCol = q.C
+
 const (
-	UserAccountID             = q.C("id")
-	UserAccountCreated        = q.C("created")
-	UserAccountEmailAddr      = q.C("email_addr")
-	UserAccountPasswordHashed = q.C("password_hashed")
+	UserAccountID             = UserAccountCol("id")
+	UserAccountCreated        = UserAccountCol("created")
+	UserAccountEmailAddr      = UserAccountCol("email_addr")
+	UserAccountPasswordHashed = UserAccountCol("password_hashed")
 )
