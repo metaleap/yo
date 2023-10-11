@@ -37,23 +37,23 @@ func CreateOne[T any](ctx *Ctx, rec *T) I64 {
 		}
 	}
 
-	result := doExec(ctx, new(Stmt).Insert(desc.tableName, desc.cols[2:]...), args)
-	id, err := result.LastInsertId()
-	if err != nil {
-		panic(err)
+	result := doSelect[int64](ctx, new(Stmt).Insert(desc.tableName, desc.cols[2:]...), args)
+	if (len(result) > 0) && (result[0] != nil) {
+		return I64(*result[0])
 	}
-	return I64(id)
+	return 0
 }
 
-func doExec(ctx *Ctx, stmt *Stmt, args dbArgs) sql.Result {
+func doExec(ctx *Ctx, stmt *Stmt, args dbArgs) (result sql.Result) {
+	sql_raw := str.TrimR(stmt.String(), ",")
+	ctx.Timings.Step("dbExec: `" + sql_raw + "`")
 	exec := DB.ExecContext
 	if ctx.Db.Tx != nil {
 		exec = ctx.Db.Tx.ExecContext
 	}
-	sql_raw := str.TrimR(stmt.String(), ",")
 	println(sql_raw)
-	ctx.Timings.Step("dbExec: `" + sql_raw + "`")
-	result, err := exec(ctx, sql_raw, args)
+	var err error
+	result, err = exec(ctx, sql_raw, args)
 	if err != nil {
 		panic(err)
 	}
@@ -68,13 +68,12 @@ func doSelect[T any](ctx *Ctx, stmt *Stmt, args dbArgs) (ret []*T) {
 }
 
 func doStream[T any](ctx *Ctx, stmt *Stmt, onRecord func(*T), args dbArgs) {
+	sql_raw := stmt.String()
+	ctx.Timings.Step("dbQuery: `" + sql_raw + "`")
 	query := DB.QueryContext
 	if ctx.Db.Tx != nil {
 		query = ctx.Db.Tx.QueryContext
 	}
-	desc := desc[T]()
-	sql_raw := stmt.String()
-	ctx.Timings.Step("dbQuery: `" + sql_raw + "`")
 	rows, err := query(ctx, sql_raw, args)
 	if rows != nil {
 		defer rows.Close()
@@ -82,10 +81,22 @@ func doStream[T any](ctx *Ctx, stmt *Stmt, onRecord func(*T), args dbArgs) {
 	if err != nil {
 		panic(err)
 	}
+	var struct_desc *structDesc
+	_, is_id_returned_from_insert := ((any)(new(T))).(*int64)
+	if !is_id_returned_from_insert {
+		struct_desc = desc[T]()
+	}
 	for rows.Next() {
 		var rec T
-		rv, col_scanners := reflect.ValueOf(&rec).Elem(), make([]any, len(desc.cols))
-		for i := range desc.cols {
+		if is_id_returned_from_insert {
+			if err := rows.Scan(&rec); err != nil {
+				panic(err)
+			}
+			onRecord(&rec)
+			break
+		}
+		rv, col_scanners := reflect.ValueOf(&rec).Elem(), make([]any, len(struct_desc.cols))
+		for i := range struct_desc.cols {
 			field := rv.Field(i)
 			col_scanners[i] = scanner{ptr: field.UnsafeAddr(), ty: field.Type()}
 		}

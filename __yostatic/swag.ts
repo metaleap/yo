@@ -390,7 +390,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 ),
                 html.button({ 'style': 'font-weight:bold', 'onclick': sendRequest }, 'Go!'),
                 html.span({ 'class': 'nobr' },
-                    checkbox_novalidate = html.input({ 'id': ('n' + now), 'title': '(no prior client-side validation)', 'type': 'checkbox' }),
+                    checkbox_novalidate = html.input({ 'title': '(no prior client-side validation)', 'checked': true, 'id': ('n' + now), 'type': 'checkbox' }),
                     html.label({ 'for': ('n' + now), 'title': '(no prior client-side validation)' }, 'force-send'),
                 ),
             )),
