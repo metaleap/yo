@@ -92,7 +92,22 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 		buf.WriteString(")\n\n")
 
 		// render querying-payload struct
+		//   { "OR": [ {"EQ":[{"F":"Id"},{"F":"EmailAddr"}]}, {"AND": [{"LT":[{"F":"Id"},{"N":123} ] }  , {"NOT": { "IN": [ {"N":321}, {"N":456}] } } ] } ] }
 
+		// BizObjQueryValue: {
+		//		F?: "Field1" | "Field2"
+		//		S?: string
+		//		N?: number
+		//		B?: boolean | BizObjQueryExpr
+		//		V?: BizObjQueryValue
+		// }
+		// BizObjQueryExpr: {
+		//		AND:	[BizObjQueryExpr]
+		//		OR		[BizObjQueryExpr]
+		//		NOT		BizObjQueryExpr
+		//		EQ		BizObjQueryValue
+		//		IN		[BizObjQueryValue]
+		// }
 	}
 	raw_src, err := format.Source([]byte(buf.String()))
 	if err != nil {

@@ -6,7 +6,7 @@ import (
 )
 
 type UserAccount struct {
-	ID      yodb.I64
+	Id      yodb.I64
 	Created yodb.DateTime
 
 	EmailAddr      yodb.Text
