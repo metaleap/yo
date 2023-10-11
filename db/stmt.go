@@ -61,11 +61,16 @@ func (me *Stmt) Where(where q.Query, args pgx.NamedArgs) *Stmt {
 	return me
 }
 
-func (me *Stmt) OrderBy(orderBy string) *Stmt {
+func (me *Stmt) OrderBy(orderBy ...q.O) *Stmt {
 	w := (*str.Buf)(me).WriteString
-	if orderBy != "" {
+	if len(orderBy) > 0 {
 		w(" ORDER BY ")
-		w(orderBy)
+		for i, o := range orderBy {
+			if i > 0 {
+				w(", ")
+			}
+			w(string(o))
+		}
 	}
 	return me
 }

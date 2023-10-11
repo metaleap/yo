@@ -36,8 +36,8 @@ func ListTables(ctx *Ctx, tableName string) map[Text][]*TableColumn {
 					), args),
 			),
 		), args).
-		OrderBy("table_name, ordinal_position")
-	flat_results := doSelect[TableColumn](ctx, stmt, args)
+		OrderBy(q.O("table_name"), q.O("ordinal_position"))
+	flat_results := doSelect[TableColumn](ctx, stmt, args, If(tableName == "", 0, 1))
 	for _, result := range flat_results {
 		ret[result.tableName] = append(ret[result.tableName], result)
 	}

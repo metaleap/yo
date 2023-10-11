@@ -12,12 +12,16 @@ type C string
 func (me C) Equals(x any) Query     { return Equal(me, x) }
 func (me C) In(set ...any) Query    { return In(me, set...) }
 func (me C) NotIn(set ...any) Query { return NotIn(me, set...) }
+func (me C) Asc() O                 { return O(string(me) + " ASC") }
+func (me C) Desc() O                { return O(string(me) + " DESC") }
 
 type A[T any] struct{ It T }
 
 func (me A[T]) Equals(x any) Query     { return Equal(me.It, x) }
 func (me A[T]) In(set ...any) Query    { return In(me.It, set...) }
 func (me A[T]) NotIn(set ...any) Query { return NotIn(me.It, set...) }
+
+type O string
 
 const (
 	opNone  = ""
