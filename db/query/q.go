@@ -38,8 +38,8 @@ func Less(x any, y any) Query           { return &query{op: opLt, operands: []an
 func LessOrEqual(x any, y any) Query    { return &query{op: opLeq, operands: []any{x, y}} }
 func Greater(x any, y any) Query        { return &query{op: opGt, operands: []any{x, y}} }
 func GreaterOrEqual(x any, y any) Query { return &query{op: opGeq, operands: []any{x, y}} }
-func In(x any, y ...any) Query          { return inOrNotIn(opIn, x, y) }
-func NotIn(x any, y ...any) Query       { return inOrNotIn(opNotIn, x, y) }
+func In(x any, y ...any) Query          { return inOrNotIn(opIn, x, y...) }
+func NotIn(x any, y ...any) Query       { return inOrNotIn(opNotIn, x, y...) }
 func inOrNotIn(op string, x any, y ...any) Query {
 	if len(y) == 0 {
 		panic(str.Trim(op + "+empty set"))

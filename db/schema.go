@@ -27,7 +27,7 @@ func ListTables(ctx *Ctx, tableName string) map[Text][]*TableColumn {
 
 	args := dbArgs{}
 	stmt := new(Stmt).Select(desc.cols...).From(desc.tableName).
-		Where(If[q.Query](tableName != "",
+		Where(If(tableName != "",
 			q.Equal(q.Col("table_name"), tableName),
 			q.In(q.Col("table_name"),
 				new(Stmt).Select("table_name").From("information_schema.tables").
