@@ -5,6 +5,8 @@ import (
 )
 
 type Void struct{}
+type Arg[T any] struct{ Value T }
+type Return[T any] struct{ Result T }
 
 func If[T any](b bool, t T, f T) T {
 	if b {

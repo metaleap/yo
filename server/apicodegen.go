@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sync"
 
 	yolog "yo/log"
@@ -22,55 +21,42 @@ var foundModifiedTsFiles bool
 func init() {
 	apiGenSdkMaybe = apiGenSdk
 
-	cur_dir_path, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	yo_dir_path := filepath.Join(filepath.Dir(cur_dir_path), "yo")
-
-	for _, dir_path := range []string{cur_dir_path, yo_dir_path} {
-		if err := fs.WalkDir(os.DirFS(dir_path), ".", func(path string, dirEntry fs.DirEntry, err error) error {
-			path = filepath.Join(dir_path, path)
-
-			if str.Ends(path, ".ts") && (!str.Ends(path, ".d.ts")) && !foundModifiedTsFiles {
-				fileinfo_ts, err := dirEntry.Info()
-				if err != nil || fileinfo_ts == nil {
-					panic(err)
-				}
-				fileinfo_js, err := os.Stat(path[:len(path)-len(".ts")] + ".js")
-				foundModifiedTsFiles = ((fileinfo_js == nil) || (err != nil) ||
-					(fileinfo_ts.ModTime().After(fileinfo_js.ModTime())))
+	WalkCodeFiles(true, true, func(path string, dirEntry fs.DirEntry) {
+		if str.Ends(path, ".ts") && (!str.Ends(path, ".d.ts")) && !foundModifiedTsFiles {
+			fileinfo_ts, err := dirEntry.Info()
+			if err != nil || fileinfo_ts == nil {
+				panic(err)
 			}
+			fileinfo_js, err := os.Stat(path[:len(path)-len(".ts")] + ".js")
+			foundModifiedTsFiles = ((fileinfo_js == nil) || (err != nil) ||
+				(fileinfo_ts.ModTime().After(fileinfo_js.ModTime())))
+		}
 
-			if str.Ends(path, ".go") { // looking for enums' enumerants
-				data, err := os.ReadFile(path)
-				if err != nil {
-					panic(err)
-				}
-				pkg_name := ""
-				for _, line := range str.Split(str.Trim(string(data)), "\n") {
-					if str.Begins(line, "package ") {
-						pkg_name = line[len("package "):]
-					} else if str.Begins(line, "\t") && str.Ends(line, "\"") && str.Has(line, " = \"") {
-						if name_and_type, value, ok := str.Cut(line[1:len(line)-1], " = \""); ok && value != "" {
-							if name, type_name, ok := str.Cut(name_and_type, " "); ok {
-								if name, type_name = str.Trim(name), str.Trim(type_name); type_name != "" && type_name != "string" && name != type_name && str.Begins(name, type_name) {
-									enumerant_name := name[len(type_name):]
-									if enumerant_name != value && name != value {
-										panic(value + "!=" + enumerant_name + " && " + value + "!=" + name)
-									}
-									apiReflAllEnums[pkg_name+"."+type_name] = append(apiReflAllEnums[pkg_name+"."+type_name], value)
+		if str.Ends(path, ".go") { // looking for enums' enumerants
+			data, err := os.ReadFile(path)
+			if err != nil {
+				panic(err)
+			}
+			pkg_name := ""
+			for _, line := range str.Split(str.Trim(string(data)), "\n") {
+				if str.Begins(line, "package ") {
+					pkg_name = line[len("package "):]
+				} else if str.Begins(line, "\t") && str.Ends(line, "\"") && str.Has(line, " = \"") {
+					if name_and_type, value, ok := str.Cut(line[1:len(line)-1], " = \""); ok && value != "" {
+						if name, type_name, ok := str.Cut(name_and_type, " "); ok {
+							if name, type_name = str.Trim(name), str.Trim(type_name); type_name != "" && type_name != "string" && name != type_name && str.Begins(name, type_name) {
+								enumerant_name := name[len(type_name):]
+								if enumerant_name != value && name != value {
+									panic(value + "!=" + enumerant_name + " && " + value + "!=" + name)
 								}
+								apiReflAllEnums[pkg_name+"."+type_name] = append(apiReflAllEnums[pkg_name+"."+type_name], value)
 							}
 						}
 					}
 				}
 			}
-			return nil
-		}); err != nil {
-			panic(err)
 		}
-	}
+	})
 }
 
 func apiGenSdk() {

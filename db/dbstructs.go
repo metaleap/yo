@@ -85,6 +85,9 @@ func desc[T any]() (ret *structDesc) {
 			field := ty.Field(i)
 			col_name := NameFrom(field.Name)
 			if isColField(field.Type) {
+				if !str.IsPrtAscii(field.Name) {
+					panic("DB-column fields' names should be ASCII")
+				}
 				ret.fields, ret.cols = append(ret.fields, field.Name), append(ret.cols, col_name)
 			}
 		}
@@ -190,6 +193,9 @@ func Ensure[T any](idBig bool, oldTableName string, renamesOldColToNewField map[
 	}
 	ensureDescs = append(ensureDescs, desc)
 	registerApiHandlers[T](desc)
+	if IsDevMode {
+		codeGenDBStructs()
+	}
 }
 
 func Is(ty reflect.Type) (ret bool) {
