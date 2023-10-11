@@ -42,7 +42,7 @@ func In(x any, y ...any) Query          { return inOrNotIn(opIn, x, y) }
 func NotIn(x any, y ...any) Query       { return inOrNotIn(opNotIn, x, y) }
 func inOrNotIn(op string, x any, y ...any) Query {
 	if len(y) == 0 {
-		panic(op + "+empty set")
+		panic(str.Trim(op + "+empty set"))
 	}
 	sub_stmt, _ := y[0].(interface{ Sql(*str.Buf) })
 	return &query{op: If(((len(y) == 1) && (sub_stmt == nil)), opEq, op), operands: append([]any{x}, y...)}

@@ -26,14 +26,16 @@ func ListTables(ctx *Ctx, tableName string) map[Text][]*TableColumn {
 	desc.tableName = "information_schema.columns"
 
 	args := dbArgs{}
-
 	stmt := new(Stmt).Select(desc.cols...).From(desc.tableName).
-		Where(If(tableName != "", q.Equal(q.Col("table_name"), tableName),
-			q.In(q.Col("table_name"), new(Stmt).Select("table_name").From("information_schema.tables").
-				Where(q.AllTrue(
-					q.Equal(q.Col("table_type"), "BASE TABLE"),
-					q.NotIn(q.Col("table_schema"), "pg_catalog", "information_schema"),
-				), args)),
+		Where(If[q.Query](tableName != "",
+			q.Equal(q.Col("table_name"), tableName),
+			q.In(q.Col("table_name"),
+				new(Stmt).Select("table_name").From("information_schema.tables").
+					Where(q.AllTrue(
+						q.Equal(q.Col("table_type"), "BASE TABLE"),
+						q.NotIn(q.Col("table_schema"), "pg_catalog", "information_schema"),
+					), args),
+			),
 		), args).
 		OrderBy("table_name, ordinal_position")
 	flat_results := doSelect[TableColumn](ctx, stmt, args)
