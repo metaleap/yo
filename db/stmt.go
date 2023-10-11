@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"slices"
 
-	"yo/str"
 	. "yo/util"
+	"yo/util/str"
 )
 
 type Stmt str.Buf

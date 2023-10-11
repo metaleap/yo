@@ -1,6 +1,6 @@
 package util
 
-import "yo/str"
+import "yo/util/str"
 
 type Err string
 

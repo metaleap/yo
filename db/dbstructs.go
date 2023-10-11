@@ -6,9 +6,9 @@ import (
 	"time"
 	"unsafe"
 
-	. "yo/config"
-	"yo/ctx"
-	"yo/log"
+	. "yo/cfg"
+	yoctx "yo/ctx"
+	yolog "yo/log"
 	. "yo/util"
 )
 
@@ -32,6 +32,7 @@ type Text string
 type DateTime *time.Time
 
 var (
+	inited      = false
 	tyBool      = reflect.TypeOf(Bool(false))
 	tyBytes     = reflect.TypeOf(Bytes(nil))
 	tyI8        = reflect.TypeOf(I8(0))
@@ -53,7 +54,8 @@ var (
 		tyText,
 		tyTimestamp,
 	}
-	descs = map[reflect.Type]*structDesc{}
+	descs       = map[reflect.Type]*structDesc{}
+	ensureDescs []*structDesc
 )
 
 type structDesc struct {
@@ -62,6 +64,10 @@ type structDesc struct {
 	fields    []string // struct fields marked persistish by being of a type in `okTypes`
 	cols      []string // for each field above, its db.NameFrom()
 	idBig     bool     // allow up to 9223372036854775807 instead of up to 2147483647
+	mig       struct {
+		oldTableName            string
+		renamesOldColToNewField map[string]string
+	}
 }
 
 func isColField(fieldType reflect.Type) bool {
@@ -147,20 +153,35 @@ func (me scanner) Scan(src any) error {
 }
 
 func Ensure[T any](idBig bool, oldTableName string, renamesOldColToNewField map[string]string) {
-	ctx := ctx.NewForDbTx(Cfg.DB_REQ_TIMEOUT)
-	defer ctx.Dispose()
-	desc := desc[T]()
-	desc.idBig = idBig
-	log.Println("db.Mig: " + desc.tableName)
-	is_table_rename := (oldTableName != "")
-	cur_table := GetTable(ctx, If(is_table_rename, oldTableName, desc.tableName))
-	if cur_table == nil {
-		if !is_table_rename {
-			_ = doExec(ctx, new(Stmt).createTable(desc), nil)
-		} else {
-			panic("outdated table rename: '" + oldTableName + "'")
-		}
-	} else if stmts := alterTable(desc, cur_table, oldTableName, renamesOldColToNewField); len(stmts) > 0 {
-		doTx(ctx, nil, stmts...)
+	if inited {
+		panic("db.Ensure called after db.Init")
 	}
+	desc := desc[T]()
+	desc.idBig, desc.mig.oldTableName, desc.mig.renamesOldColToNewField = idBig, oldTableName, renamesOldColToNewField
+	ensureDescs = append(ensureDescs, desc)
+	registerApiHandlers[T](desc)
+}
+
+func doEnsureDbStructTables() {
+	ctx := yoctx.NewForDbTx(Cfg.DB_REQ_TIMEOUT)
+	defer ctx.Dispose()
+
+	doTx(ctx, func(ctx *yoctx.Ctx) {
+		for _, desc := range ensureDescs {
+			yolog.Println("db.Mig: " + desc.tableName)
+			is_table_rename := (desc.mig.oldTableName != "")
+			cur_table := GetTable(ctx, If(is_table_rename, desc.mig.oldTableName, desc.tableName))
+			if cur_table == nil {
+				if !is_table_rename {
+					_ = doExec(ctx, new(Stmt).createTable(desc), nil)
+				} else {
+					panic("outdated table rename: '" + desc.mig.oldTableName + "'")
+				}
+			} else if stmts := alterTable(desc, cur_table, desc.mig.oldTableName, desc.mig.renamesOldColToNewField); len(stmts) > 0 {
+				for _, stmt := range stmts {
+					_ = doExec(ctx, stmt, nil)
+				}
+			}
+		}
+	})
 }

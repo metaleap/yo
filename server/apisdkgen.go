@@ -1,6 +1,6 @@
 //go:build debug
 
-package server
+package yoserve
 
 import (
 	"bytes"
@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"yo/log"
-	"yo/str"
+	yolog "yo/log"
 	. "yo/util"
+	"yo/util/str"
 )
 
 const sdkGenDstTsFilePath = StaticFileDirPath + "/yo-sdk.ts"
@@ -32,13 +32,14 @@ func init() {
 		if err := fs.WalkDir(os.DirFS(dir_path), ".", func(path string, dirEntry fs.DirEntry, err error) error {
 			path = filepath.Join(dir_path, path)
 
-			if str.Ends(path, ".ts") && !foundModifiedTsFiles {
+			if str.Ends(path, ".ts") && (!str.Ends(path, ".d.ts")) && !foundModifiedTsFiles {
 				fileinfo_ts, err := dirEntry.Info()
 				if err != nil || fileinfo_ts == nil {
 					panic(err)
 				}
-				fileinfo_js, _ := os.Stat(path[:len(path)-len(".ts")] + ".js") // some .d.ts wont have js, ignoring that
-				foundModifiedTsFiles = (fileinfo_js != nil) && (fileinfo_ts.ModTime().After(fileinfo_js.ModTime()))
+				fileinfo_js, err := os.Stat(path[:len(path)-len(".ts")] + ".js")
+				foundModifiedTsFiles = ((fileinfo_js == nil) || (err != nil) ||
+					(fileinfo_ts.ModTime().After(fileinfo_js.ModTime())))
 			}
 
 			if str.Ends(path, ".go") { // looking for enums' enumerants
@@ -74,9 +75,9 @@ func init() {
 
 func apiGenSdk() {
 	buf, api := str.Buf{}, apiRefl{}
-	log.Println("  reflect...")
+	yolog.Println("  reflect...")
 	apiHandleReflReq(nil, nil, &api)
-	log.Println("  generate...")
+	yolog.Println("  generate...")
 	b, err := staticFileDir.ReadFile(StaticFileDirPath + "/sdkgen.ts")
 	if err != nil {
 		panic(err)
@@ -96,7 +97,7 @@ func apiGenSdk() {
 	src_is_changed = (len(data) == 0) || (!bytes.Equal(data, src_to_write))
 	if src_is_changed {
 		foundModifiedTsFiles = true
-		log.Println("  writing files...")
+		yolog.Println("  writing files...")
 		if err := os.WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`), os.ModePerm); err != nil {
 			panic(err)
 		}
@@ -105,7 +106,7 @@ func apiGenSdk() {
 		}
 	}
 	if foundModifiedTsFiles {
-		log.Println("  2x tsc...")
+		yolog.Println("  2x tsc...")
 		var work sync.WaitGroup
 		work.Add(2)
 		for _, dir_path := range []string{"", "../yo"} {

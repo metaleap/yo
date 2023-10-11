@@ -274,7 +274,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 checkbox = html.input({ 'onchange': on_change, 'type': 'checkbox', 'disabled': !isForPayload, 'checked': field_input_got }),
                 html.a({ 'class': 'label', 'style': (field_input_subs ? 'width:auto' : ''), 'onclick': () => selJsonFromTree(path + '.' + key, isForPayload) },
                     (key.startsWith('[') ? "" : ".") + key,
-                    (sub_count < 0) ? undefined : html.b({}, ` — (${sub_count})`)),
+                    (sub_count < 0) ? undefined : html.b({ 'class': 'count' }, `(${sub_count})`)),
                 field_input,
             ))
         }

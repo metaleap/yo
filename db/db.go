@@ -9,14 +9,17 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/jackc/pgx/v5/tracelog"
 
-	. "yo/config"
-	"yo/log"
-	"yo/str"
+	. "yo/cfg"
+	yolog "yo/log"
+	"yo/util/str"
 )
 
 var DB *sql.DB
 
 func Init() {
+	if inited {
+		panic("db.Init called twice?")
+	}
 	conn_cfg, err := pgx.ParseConfig(Cfg.DATABASE_URL)
 	if err != nil {
 		panic(err)
@@ -28,14 +31,16 @@ func Init() {
 	}
 	str_conn := stdlib.RegisterConnConfig(conn_cfg)
 	for DB, err = sql.Open("pgx", str_conn); err != nil; time.Sleep(time.Second) {
-		log.Println("DB connect: " + err.Error())
+		yolog.Println("DB connect: " + err.Error())
 	}
+	doEnsureDbStructTables()
+	inited = true
 }
 
 type dbLogger struct{}
 
 func (dbLogger) Log(ctx context.Context, level tracelog.LogLevel, msg string, data map[string]any) {
-	log.Println("dbPgx: %s %v", msg, data)
+	yolog.Println("dbPgx: %s %v", msg, data)
 }
 
 func NameFrom(s string) string {

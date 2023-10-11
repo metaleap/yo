@@ -1,11 +1,11 @@
-package log
+package yolog
 
 import (
 	"os"
 	"sync"
 	"time"
 
-	"yo/str"
+	"yo/util/str"
 )
 
 var mut sync.Mutex

@@ -3,8 +3,6 @@ package db
 import (
 	. "yo/ctx"
 	. "yo/util"
-
-	"github.com/jackc/pgx/v5"
 )
 
 type TableColumn struct {
@@ -33,7 +31,7 @@ func ListTables(ctx *Ctx, tableName string) map[Text][]*TableColumn {
 					String()+
 				")")).
 		OrderBy("table_name, ordinal_position")
-	flat_results := doSelect[TableColumn](ctx, stmt, pgx.NamedArgs{"table_name": tableName})
+	flat_results := doSelect[TableColumn](ctx, stmt, dbArgs{"table_name": tableName})
 	for _, result := range flat_results {
 		ret[result.tableName] = append(ret[result.tableName], result)
 	}

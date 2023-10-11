@@ -1,4 +1,4 @@
-package json
+package yojson
 
 import (
 	"encoding/json"

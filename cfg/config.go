@@ -1,4 +1,4 @@
-package config
+package yocfg
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"time"
 
-	"yo/str"
+	"yo/util/str"
 )
 
 var Cfg struct {

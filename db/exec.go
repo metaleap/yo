@@ -5,10 +5,12 @@ import (
 	"reflect"
 
 	. "yo/ctx"
-	"yo/str"
+	"yo/util/str"
 
 	"github.com/jackc/pgx/v5"
 )
+
+type dbArgs = pgx.NamedArgs
 
 func Tx(ctx *Ctx, do func(*Ctx)) {
 	doTx(ctx, do)
@@ -41,7 +43,7 @@ func doTx(ctx *Ctx, do func(*Ctx), stmts ...*Stmt) {
 	}
 }
 
-func doExec(ctx *Ctx, stmt *Stmt, args pgx.NamedArgs) sql.Result {
+func doExec(ctx *Ctx, stmt *Stmt, args dbArgs) sql.Result {
 	exec := DB.ExecContext
 	if ctx.Db.Tx != nil {
 		exec = ctx.Db.Tx.ExecContext
@@ -60,14 +62,14 @@ func doInsert[T any](ctx *Ctx, it *T) sql.Result {
 	panic("TODO")
 }
 
-func doSelect[T any](ctx *Ctx, stmt *Stmt, args pgx.NamedArgs) (ret []*T) {
+func doSelect[T any](ctx *Ctx, stmt *Stmt, args dbArgs) (ret []*T) {
 	doStream[T](ctx, stmt, func(rec *T) {
 		ret = append(ret, rec)
 	}, args)
 	return
 }
 
-func doStream[T any](ctx *Ctx, stmt *Stmt, onRecord func(*T), args pgx.NamedArgs) {
+func doStream[T any](ctx *Ctx, stmt *Stmt, onRecord func(*T), args dbArgs) {
 	query := DB.QueryContext
 	if ctx.Db.Tx != nil {
 		query = ctx.Db.Tx.QueryContext

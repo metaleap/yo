@@ -1,11 +1,11 @@
-package server
+package yoserve
 
 import (
 	"reflect"
 
 	. "yo/ctx"
-	"yo/str"
 	. "yo/util"
+	"yo/util/str"
 )
 
 var apiReflAllEnums = map[string][]string{}
@@ -22,7 +22,7 @@ type apiReflMethod struct {
 	Out  string
 }
 
-func apiHandleReflReq(_ *Ctx, _ *Void, ret *apiRefl) {
+func apiHandleReflReq(_ *Ctx, _ *Void, ret *apiRefl) any {
 	ret.Types, ret.Enums = map[string]map[string]string{}, map[string][]string{}
 	for _, method_path := range Sorted(Keys(API)) {
 		if !str.IsPrtAscii(method_path) {
@@ -36,6 +36,7 @@ func apiHandleReflReq(_ *Ctx, _ *Void, ret *apiRefl) {
 		}
 		ret.Methods = append(ret.Methods, method)
 	}
+	return ret
 }
 
 func apiReflType(it *apiRefl, rt reflect.Type, fldName string, parent string) string {

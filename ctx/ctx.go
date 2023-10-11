@@ -1,4 +1,4 @@
-package ctx
+package yoctx
 
 import (
 	"context"
@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"yo/diag"
-	"yo/str"
+	yodiag "yo/diag"
 	. "yo/util"
+	"yo/util/str"
 )
 
 type Ctx struct {
@@ -22,12 +22,12 @@ type Ctx struct {
 	Db struct {
 		Tx *sql.Tx
 	}
-	Timings diag.Timings
+	Timings yodiag.Timings
 }
 
 func newCtx(timeout time.Duration) *Ctx {
 	ctx := Ctx{
-		Timings: diag.NewTimings("init ctx", !IsDevMode),
+		Timings: yodiag.NewTimings("init ctx", !IsDevMode),
 		Context: context.Background(),
 	}
 	if timeout > 0 {

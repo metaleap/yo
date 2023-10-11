@@ -1,4 +1,4 @@
-package server
+package yoserve
 
 import (
 	"embed"
@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"os"
 
-	. "yo/config"
-	"yo/ctx"
-	"yo/json"
-	"yo/log"
-	"yo/str"
+	. "yo/cfg"
+	yoctx "yo/ctx"
+	yojson "yo/json"
+	yolog "yo/log"
 	. "yo/util"
+	"yo/util/str"
 )
 
 var staticFileDir *embed.FS
@@ -38,12 +38,12 @@ func listenAndServe() {
 	} else {
 		staticFileServes[StaticFileDirPath] = staticFileDir
 	}
-	log.Println("live @ port %d", Cfg.YO_API_HTTP_PORT)
+	yolog.Println("live @ port %d", Cfg.YO_API_HTTP_PORT)
 	panic(http.ListenAndServe(":"+str.FromInt(Cfg.YO_API_HTTP_PORT), http.HandlerFunc(handleHTTPRequest)))
 }
 
 func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
-	ctx := ctx.NewForHttp(req, rw, Cfg.YO_API_IMPL_TIMEOUT)
+	ctx := yoctx.NewForHttp(req, rw, Cfg.YO_API_IMPL_TIMEOUT)
 	defer ctx.Dispose()
 
 	ctx.Timings.Step("check yoFail")
@@ -72,7 +72,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 
 	if result, handler_called := apiHandleRequest(ctx); handler_called {
 		ctx.Timings.Step("jsonify result")
-		resp_data, err := json.MarshalIndent(result, "", "  ")
+		resp_data, err := yojson.MarshalIndent(result, "", "  ")
 		if err != nil {
 			ctx.HttpErr(500, err.Error())
 			return
