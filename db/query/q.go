@@ -9,11 +9,16 @@ import (
 
 type C string
 
-func (me C) Equals(x any) Query     { return Equal(me, x) }
-func (me C) In(set ...any) Query    { return In(me, set...) }
-func (me C) NotIn(set ...any) Query { return NotIn(me, set...) }
-func (me C) Asc() OrderBy           { return OrderBy(me + " ASC") }
-func (me C) Desc() OrderBy          { return OrderBy(me + " DESC") }
+func (me C) Equal(other any) Query          { return Equal(me, other) }
+func (me C) NotEqual(other any) Query       { return NotEqual(me, other) }
+func (me C) LessThan(other any) Query       { return LessThan(me, other) }
+func (me C) GreaterThan(other any) Query    { return GreaterThan(me, other) }
+func (me C) LessOrEqual(other any) Query    { return LessOrEqual(me, other) }
+func (me C) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, other) }
+func (me C) In(set ...any) Query            { return In(me, set...) }
+func (me C) NotIn(set ...any) Query         { return NotIn(me, set...) }
+func (me C) Asc() OrderBy                   { return OrderBy(me + " ASC") }
+func (me C) Desc() OrderBy                  { return OrderBy(me + " DESC") }
 
 type A[T any] struct{ It T }
 
@@ -46,14 +51,11 @@ type Query interface {
 	String(pgx.NamedArgs) string
 }
 
-func AllTrue(conds ...Query) Query      { return &query{op: OpAnd, conds: conds} }
-func EitherOr(conds ...Query) Query     { return &query{op: OpOr, conds: conds} }
-func Not(cond Query) Query              { return &query{op: OpNot, conds: []Query{cond}} }
 func Equal(x any, y any) Query          { return &query{op: OpEq, operands: []any{x, y}} }
 func NotEqual(x any, y any) Query       { return &query{op: OpNeq, operands: []any{x, y}} }
-func Less(x any, y any) Query           { return &query{op: OpLt, operands: []any{x, y}} }
+func LessThan(x any, y any) Query       { return &query{op: OpLt, operands: []any{x, y}} }
 func LessOrEqual(x any, y any) Query    { return &query{op: OpLeq, operands: []any{x, y}} }
-func Greater(x any, y any) Query        { return &query{op: OpGt, operands: []any{x, y}} }
+func GreaterThan(x any, y any) Query    { return &query{op: OpGt, operands: []any{x, y}} }
 func GreaterOrEqual(x any, y any) Query { return &query{op: OpGeq, operands: []any{x, y}} }
 func In(x any, y ...any) Query          { return inOrNotIn(OpIn, x, y...) }
 func NotIn(x any, y ...any) Query       { return inOrNotIn(OpNotIn, x, y...) }
@@ -63,6 +65,31 @@ func inOrNotIn(op string, x any, y ...any) Query {
 	}
 	sub_stmt, _ := y[0].(interface{ Sql(*str.Buf) })
 	return &query{op: If(((len(y) == 1) && (sub_stmt == nil)), OpEq, op), operands: append([]any{x}, y...)}
+}
+func AllTrue(conds ...Query) Query  { return &query{op: OpAnd, conds: conds} }
+func EitherOr(conds ...Query) Query { return &query{op: OpOr, conds: conds} }
+func Not(cond Query) Query {
+	switch q := cond.(*query); q.op {
+	case OpIn:
+		return NotIn(q.operands[0], q.operands[1:]...)
+	case OpNotIn:
+		return In(q.operands[0], q.operands[1:]...)
+	case OpEq:
+		return NotEqual(q.operands[0], q.operands[1])
+	case OpNeq:
+		return Equal(q.operands[0], q.operands[1])
+	case OpGt:
+		return LessOrEqual(q.operands[0], q.operands[1])
+	case OpLt:
+		return GreaterOrEqual(q.operands[0], q.operands[1])
+	case OpGeq:
+		return LessThan(q.operands[0], q.operands[1])
+	case OpLeq:
+		return GreaterThan(q.operands[0], q.operands[1])
+	case OpNot:
+		return q.conds[0]
+	}
+	return &query{op: OpNot, conds: []Query{cond}}
 }
 
 func q() *query {

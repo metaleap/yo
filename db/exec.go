@@ -18,7 +18,7 @@ func Get[T any](ctx *Ctx, id I64) *T {
 	if id <= 0 {
 		return nil
 	}
-	return FindOne[T](ctx, ColID.Equals(id))
+	return FindOne[T](ctx, ColID.Equal(id))
 }
 
 func FindOne[T any](ctx *Ctx, query q.Query, orderBy ...q.OrderBy) *T {

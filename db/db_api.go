@@ -58,6 +58,6 @@ func apiCreateMany[T any](ctx *Ctx, args *struct {
 }
 
 func apiDeleteOne[T any](ctx *Ctx, args *argId, ret *retCount) any {
-	ret.Count = Delete[T](ctx, ColID.Equals(args.ID))
+	ret.Count = Delete[T](ctx, ColID.Equal(args.ID))
 	return ret
 }
