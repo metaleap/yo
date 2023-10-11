@@ -9,6 +9,16 @@ import (
 
 type Col string
 
+func (me Col) Equals(x any) Query     { return Equal(me, x) }
+func (me Col) In(set ...any) Query    { return In(me, set...) }
+func (me Col) NotIn(set ...any) Query { return NotIn(me, set...) }
+
+type Arg[T any] struct{ It T }
+
+func (me Arg[T]) Equals(x any) Query     { return Equal(me.It, x) }
+func (me Arg[T]) In(set ...any) Query    { return In(me.It, set...) }
+func (me Arg[T]) NotIn(set ...any) Query { return NotIn(me.It, set...) }
+
 const (
 	opNone  = ""
 	opEq    = " = "
@@ -73,7 +83,7 @@ func (me *query) sql(buf *str.Buf, args pgx.NamedArgs) {
 		if sub_stmt, _ := operand.(interface{ Sql(*str.Buf) }); sub_stmt != nil {
 			sub_stmt.Sql(buf)
 		} else {
-			arg_name := "@a" + str.FromInt(len(args))
+			arg_name := "@A" + str.FromInt(len(args))
 			args[arg_name[1:]] = operand
 			buf.WriteString(arg_name)
 		}
