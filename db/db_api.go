@@ -3,6 +3,7 @@ package yodb
 import (
 	. "yo/ctx"
 	yoserve "yo/server"
+	. "yo/util"
 )
 
 func init() {
@@ -22,6 +23,7 @@ func registerApiHandlers[T any](desc *structDesc) {
 	type_name := desc.ty.Name()
 	yoserve.API["__/db/"+type_name+"/getById"] = yoserve.Method(apiGetById[T])
 	yoserve.API["__/db/"+type_name+"/createOne"] = yoserve.Method(apiCreateOne[T])
+	yoserve.API["__/db/"+type_name+"/createMany"] = yoserve.Method(apiCreateMany[T])
 }
 
 func apiGetById[T any](ctx *Ctx, args *struct {
@@ -39,5 +41,12 @@ func apiCreateOne[T any](ctx *Ctx, args *T, ret *struct {
 }) any {
 	id := CreateOne[T](ctx, args)
 	ret.ID = int64(id)
+	return ret
+}
+
+func apiCreateMany[T any](ctx *Ctx, args *struct {
+	Items []*T
+}, ret *Void) any {
+	CreateMany[T](ctx, args.Items...)
 	return ret
 }

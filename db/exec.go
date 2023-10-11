@@ -37,11 +37,33 @@ func CreateOne[T any](ctx *Ctx, rec *T) I64 {
 		}
 	}
 
-	result := doSelect[int64](ctx, new(Stmt).Insert(desc.tableName, desc.cols[2:]...), args)
+	result := doSelect[int64](ctx, new(Stmt).Insert(desc.tableName, 1, desc.cols[2:]...), args)
 	if (len(result) > 0) && (result[0] != nil) {
 		return I64(*result[0])
 	}
 	return 0
+}
+
+func CreateMany[T any](ctx *Ctx, recs ...*T) {
+	if len(recs) == 0 {
+		return
+	}
+	if len(recs) == 1 {
+		_ = CreateOne[T](ctx, recs[0])
+		return
+	}
+	desc := desc[T]()
+	args := make(dbArgs, len(recs)*(len(desc.cols)-2))
+	for j, rec := range recs {
+		rv := reflect.ValueOf(rec).Elem()
+		for i, col_name := range desc.cols {
+			if i >= 2 { // skip 'id' and 'created'
+				field := rv.Field(i)
+				args[col_name+str.FromInt(j)] = reflFieldValue(field)
+			}
+		}
+	}
+	_ = doExec(ctx, new(Stmt).Insert(desc.tableName, len(recs), desc.cols[2:]...), args)
 }
 
 func doExec(ctx *Ctx, stmt *Stmt, args dbArgs) (result sql.Result) {

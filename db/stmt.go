@@ -66,11 +66,17 @@ func (me *Stmt) OrderBy(orderBy string) *Stmt {
 	return me
 }
 
-func (me *Stmt) Insert(into string, cols ...string) *Stmt {
+func (me *Stmt) Insert(into string, numRows int, cols ...string) *Stmt {
 	w := (*str.Buf)(me).WriteString
 	w("INSERT INTO ")
 	w(into)
+	if numRows < 1 {
+		panic(numRows)
+	}
 	if len(cols) == 0 {
+		if numRows != 1 {
+			panic("invalid INSERT: multiple rows but no cols specified")
+		}
 		w(" DEFAULT VALUES")
 	} else {
 		w(" (")
@@ -81,18 +87,29 @@ func (me *Stmt) Insert(into string, cols ...string) *Stmt {
 			w(col_name)
 		}
 		w(")")
-		w(" VALUES (")
-		for i, col_name := range cols {
-			if i > 0 {
+		w(" VALUES ")
+		for j := 0; j < numRows; j++ {
+			if j > 0 {
 				w(", ")
 			}
-			w("@")
-			w(col_name)
+			w("(")
+			for i, col_name := range cols {
+				if i > 0 {
+					w(", ")
+				}
+				w("@")
+				w(col_name)
+				if numRows > 1 {
+					w(str.FromInt(j))
+				}
+			}
+			w(")")
 		}
-		w(")")
 	}
-	w(" RETURNING ")
-	w(ColNameID)
+	if numRows == 1 {
+		w(" RETURNING ")
+		w(ColNameID)
+	}
 	return me
 }
 
