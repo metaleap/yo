@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	. "yo/ctx"
+	q "yo/db/query"
 	"yo/util/str"
 
 	"github.com/jackc/pgx/v5"
@@ -16,10 +17,9 @@ func Get[T any](ctx *Ctx, id I64) *T {
 	if id <= 0 {
 		return nil
 	}
-	desc := desc[T]()
+	desc, args := desc[T](), dbArgs{}
 	results := doSelect[T](ctx,
-		new(Stmt).Select(desc.cols...).From(desc.tableName).Where(ColNameID+" = @"+ColNameID).Limit(1),
-		dbArgs{ColNameID: id})
+		new(Stmt).Select(desc.cols...).From(desc.tableName).Where(q.Equal(q.Col(ColNameID), id), args).Limit(1), args)
 	if len(results) == 0 {
 		return nil
 	}

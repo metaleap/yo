@@ -2,6 +2,7 @@ package yodb
 
 import (
 	. "yo/ctx"
+	q "yo/db/query"
 	. "yo/util"
 )
 
@@ -23,15 +24,19 @@ func ListTables(ctx *Ctx, tableName string) map[Text][]*TableColumn {
 	ret := map[Text][]*TableColumn{}
 	desc := desc[TableColumn]()
 	desc.tableName = "information_schema.columns"
+
+	args := dbArgs{}
+
 	stmt := new(Stmt).Select(desc.cols...).From(desc.tableName).
-		Where(If(tableName != "", "table_name = @table_name",
-			"table_name IN ("+
-				(new(Stmt).Select("table_name").From("information_schema.tables").
-					Where("(table_type = 'BASE TABLE') AND (table_schema NOT IN ('pg_catalog', 'information_schema'))")).
-					String()+
-				")")).
+		Where(If(tableName != "", q.Equal(q.Col("table_name"), tableName),
+			q.In(q.Col("table_name"), new(Stmt).Select("table_name").From("information_schema.tables").
+				Where(q.AllTrue(
+					q.Equal(q.Col("table_type"), "BASE TABLE"),
+					q.NotIn(q.Col("table_schema"), "pg_catalog", "information_schema"),
+				), args)),
+		), args).
 		OrderBy("table_name, ordinal_position")
-	flat_results := doSelect[TableColumn](ctx, stmt, dbArgs{"table_name": tableName})
+	flat_results := doSelect[TableColumn](ctx, stmt, args)
 	for _, result := range flat_results {
 		ret[result.tableName] = append(ret[result.tableName], result)
 	}

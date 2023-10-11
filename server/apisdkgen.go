@@ -52,9 +52,9 @@ func init() {
 					if str.Begins(line, "package ") {
 						pkg_name = line[len("package "):]
 					} else if str.Begins(line, "\t") && str.Ends(line, "\"") && str.Has(line, " = \"") {
-						if name_and_type, value, ok := str.Cut(line[1:len(line)-1], " = \""); ok {
+						if name_and_type, value, ok := str.Cut(line[1:len(line)-1], " = \""); ok && value != "" {
 							if name, type_name, ok := str.Cut(name_and_type, " "); ok {
-								if name, type_name = str.Trim(name), str.Trim(type_name); name != type_name && str.Begins(name, type_name) {
+								if name, type_name = str.Trim(name), str.Trim(type_name); type_name != "" && type_name != "string" && name != type_name && str.Begins(name, type_name) {
 									enumerant_name := name[len(type_name):]
 									if enumerant_name != value && name != value {
 										panic(value + "!=" + enumerant_name + " && " + value + "!=" + name)

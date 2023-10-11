@@ -1,34 +1,35 @@
 package q
 
 import (
+	. "yo/util"
 	"yo/util/str"
 
 	"github.com/jackc/pgx/v5"
 )
 
-type QFld string
-
-type op string
+type Col string
 
 const (
-	opNone op = ""
-	opEq   op = " == "
-	opNeq  op = " != "
-	opLt   op = " < "
-	opLeq  op = " <= "
-	opGt   op = " > "
-	opGeq  op = " >= "
-	opIn   op = " IN "
-	opAnd  op = " AND "
-	opOr   op = " OR "
-	opNot  op = "NOT "
+	opNone  = ""
+	opEq    = " = "
+	opNeq   = " != "
+	opLt    = " < "
+	opLeq   = " <= "
+	opGt    = " > "
+	opGeq   = " >= "
+	opIn    = " IN "
+	opNotIn = " NOT IN "
+	opAnd   = " AND "
+	opOr    = " OR "
+	opNot   = "NOT "
 )
 
 type Query interface {
-	Sql() string
+	Sql(*str.Buf, pgx.NamedArgs)
+	String(pgx.NamedArgs) string
 }
 
-func All(conds ...Query) Query          { return &query{op: opAnd, conds: conds} }
+func AllTrue(conds ...Query) Query      { return &query{op: opAnd, conds: conds} }
 func EitherOr(conds ...Query) Query     { return &query{op: opOr, conds: conds} }
 func Not(cond Query) Query              { return &query{op: opNot, conds: []Query{cond}} }
 func Equal(x any, y any) Query          { return &query{op: opEq, operands: []any{x, y}} }
@@ -37,41 +38,50 @@ func Less(x any, y any) Query           { return &query{op: opLt, operands: []an
 func LessOrEqual(x any, y any) Query    { return &query{op: opLeq, operands: []any{x, y}} }
 func Greater(x any, y any) Query        { return &query{op: opGt, operands: []any{x, y}} }
 func GreaterOrEqual(x any, y any) Query { return &query{op: opGeq, operands: []any{x, y}} }
-func In(x any, y any) Query             { return &query{op: opIn, operands: []any{x, y}} }
+func In(x any, y ...any) Query          { return inOrNotIn(opIn, x, y) }
+func NotIn(x any, y ...any) Query       { return inOrNotIn(opNotIn, x, y) }
+func inOrNotIn(op string, x any, y ...any) Query {
+	if len(y) == 0 {
+		panic(op + "+empty set")
+	}
+	sub_stmt, _ := y[0].(interface{ Sql(*str.Buf) })
+	return &query{op: If(((len(y) == 1) && (sub_stmt == nil)), opEq, op), operands: append([]any{x}, y...)}
+}
 
 func q() *query {
 	return &query{}
 }
 
 type query struct {
-	op       op
+	op       string
 	conds    []Query
 	operands []any
 }
 
-func (me *query) sqlExpr(buf *str.Buf, expr any) {
-	switch expr := expr.(type) {
-	case bool:
-		buf.WriteString(str.Bool(expr))
-	case string:
-		buf.WriteString(str.Q(expr))
-	default:
-		panic(expr)
-	}
+func (me *query) Sql(buf *str.Buf, args pgx.NamedArgs) {
+	me.sql(buf, args)
 }
 
-func (me *query) Sql() string {
-	args := pgx.NamedArgs{}
+func (me *query) String(args pgx.NamedArgs) string {
 	var buf str.Buf
-	buf.Grow(16)
-	me.sql(&buf, args)
+	me.Sql(&buf, args)
 	return buf.String()
 }
 
 func (me *query) sql(buf *str.Buf, args pgx.NamedArgs) {
+	do_arg := func(operand any) {
+		if sub_stmt, _ := operand.(interface{ Sql(*str.Buf) }); sub_stmt != nil {
+			sub_stmt.Sql(buf)
+		} else {
+			arg_name := "@a" + str.FromInt(len(args))
+			args[arg_name[1:]] = operand
+			buf.WriteString(arg_name)
+		}
+	}
+
 	if (str.Trim(string(me.op)) == "") || ((len(me.conds) == 0) && (len(me.operands) == 0)) ||
 		((len(me.conds) != 0) && (len(me.operands) != 0)) ||
-		((len(me.operands) != 0) && (len(me.operands) != 2)) {
+		((len(me.operands) != 0) && (len(me.operands) != 2) && (me.op != opIn) && (me.op != opNotIn)) {
 		panic(str.From(me))
 	}
 	buf.WriteByte('(')
@@ -90,9 +100,28 @@ func (me *query) sql(buf *str.Buf, args pgx.NamedArgs) {
 			buf.WriteByte(')')
 		}
 	default:
-		me.sqlExpr(buf, me.operands[0])
-		buf.WriteString(string(me.op))
-		me.sqlExpr(buf, me.operands[1])
+		is_in_or_notin := (me.op == opIn) || (me.op == opNotIn)
+		for i, operand := range me.operands {
+			if i > 0 {
+				if buf.WriteString(string(me.op)); is_in_or_notin {
+					buf.WriteByte('(')
+					for j, operand := range me.operands[i:] {
+						if j > 0 {
+							buf.WriteString(", ")
+						}
+						do_arg(operand)
+					}
+					buf.WriteByte(')')
+					break
+				}
+			}
+			col_name, is := operand.(Col)
+			if is {
+				buf.WriteString(string(col_name))
+			} else {
+				do_arg(operand)
+			}
+		}
 	}
 	buf.WriteByte(')')
 }

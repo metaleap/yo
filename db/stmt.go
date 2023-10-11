@@ -4,13 +4,17 @@ import (
 	"reflect"
 	"slices"
 
+	q "yo/db/query"
 	. "yo/util"
 	"yo/util/str"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type Stmt str.Buf
 
-func (me *Stmt) String() string { return (*str.Buf)(me).String() }
+func (me *Stmt) Sql(buf *str.Buf) { buf.WriteString(me.String()) }
+func (me *Stmt) String() string   { return (*str.Buf)(me).String() }
 
 func (me *Stmt) Select(cols ...string) *Stmt {
 	w := (*str.Buf)(me).WriteString
@@ -47,11 +51,11 @@ func (me *Stmt) Limit(max int) *Stmt {
 	return me
 }
 
-func (me *Stmt) Where(where string) *Stmt {
+func (me *Stmt) Where(where q.Query, args pgx.NamedArgs) *Stmt {
 	w := (*str.Buf)(me).WriteString
-	if where != "" {
+	if where != nil {
 		w(" WHERE (")
-		w(where)
+		where.Sql((*str.Buf)(me), args)
 		w(")")
 	}
 	return me
