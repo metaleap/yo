@@ -10,12 +10,14 @@ func init() {
 	yoserve.API["__/db/listTables"] = yoserve.Method(apiListTables)
 }
 
+type Return[T any] struct {
+	Result T
+}
+
 func apiListTables(ctx *Ctx, args *struct {
 	Name string
-}, ret *struct {
-	Tables map[Text][]*TableColumn
-}) any {
-	ret.Tables = ListTables(ctx, args.Name)
+}, ret *Return[map[Text][]*TableColumn]) any {
+	ret.Result = ListTables(ctx, args.Name)
 	return ret
 }
 
