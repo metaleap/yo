@@ -191,6 +191,8 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 itemTypeName = itemTypeName.substring(1)
             let field_input: HTMLElement, checkbox: HTMLInputElement, get_val: (_: string) => any
             const on_change = (evt: UIEvent) => {
+                const is_checkbox_change = (evt.currentTarget === checkbox)
+                console.log(is_checkbox_change, checkbox.checked)
                 let index: string | number = key, refresh_tree = false
                 if (key.startsWith('["') && key.endsWith('"]'))
                     index = key.substring(2, key.length - 2)
@@ -213,9 +215,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                     else if (is_array)
                         value[index] = null
                     else {
-                        const is_new_val_check = (evt.currentTarget === checkbox)
-                        const new_val = (((itemTypeName === '.bool') || (itemTypeName === '.string')) && !is_new_val_check)
-                            ? undef : fieldInputValue(newSampleVal(apiRefl, itemTypeName, [], isForPayload), is_array)
+                        const new_val = fieldInputValue(newSampleVal(apiRefl, itemTypeName, [], isForPayload), is_array || is_checkbox_change)
                         if (new_val === undef)
                             checkbox.checked = false
                         else
