@@ -118,10 +118,10 @@ func apiDeleteMany[TObj any, TFld ~string](ctx *Ctx, args *argQuery[TObj, TFld],
 
 func apiUpdateOne[TObj any, TFld ~string](ctx *Ctx, args *struct {
 	argId
-	Changes   *TObj
-	AllFields bool
+	Changes                       *TObj
+	IncludingEmptyOrMissingFields bool
 }, ret *retCount) any {
-	ret.Count = Update[TObj](ctx, args.Changes, args.AllFields, ColID.Equal(args.ID))
+	ret.Count = Update[TObj](ctx, args.Changes, args.IncludingEmptyOrMissingFields, ColID.Equal(args.ID))
 	return ret
 }
 
