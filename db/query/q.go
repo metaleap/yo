@@ -29,18 +29,17 @@ func (me A[T]) NotIn(set ...any) Query { return NotIn(me.It, set...) }
 type OrderBy string
 
 const (
-	OpNone  = ""
-	OpEq    = " = "
-	OpNeq   = " != "
-	OpLt    = " < "
-	OpLeq   = " <= "
-	OpGt    = " > "
-	OpGeq   = " >= "
-	OpIn    = " IN "
-	OpNotIn = " NOT IN "
-	OpAnd   = " AND "
-	OpOr    = " OR "
-	OpNot   = "NOT "
+	opEq    = " = "
+	opNeq   = " != "
+	opLt    = " < "
+	opLeq   = " <= "
+	opGt    = " > "
+	opGeq   = " >= "
+	opIn    = " IN "
+	opNotIn = " NOT IN "
+	opAnd   = " AND "
+	opOr    = " OR "
+	opNot   = "NOT "
 )
 
 type Query interface {
@@ -51,45 +50,45 @@ type Query interface {
 	String(pgx.NamedArgs) string
 }
 
-func Equal(x any, y any) Query          { return &query{op: OpEq, operands: []any{x, y}} }
-func NotEqual(x any, y any) Query       { return &query{op: OpNeq, operands: []any{x, y}} }
-func LessThan(x any, y any) Query       { return &query{op: OpLt, operands: []any{x, y}} }
-func LessOrEqual(x any, y any) Query    { return &query{op: OpLeq, operands: []any{x, y}} }
-func GreaterThan(x any, y any) Query    { return &query{op: OpGt, operands: []any{x, y}} }
-func GreaterOrEqual(x any, y any) Query { return &query{op: OpGeq, operands: []any{x, y}} }
-func In(x any, y ...any) Query          { return inOrNotIn(OpIn, x, y...) }
-func NotIn(x any, y ...any) Query       { return inOrNotIn(OpNotIn, x, y...) }
+func Equal(x any, y any) Query          { return &query{op: opEq, operands: []any{x, y}} }
+func NotEqual(x any, y any) Query       { return &query{op: opNeq, operands: []any{x, y}} }
+func LessThan(x any, y any) Query       { return &query{op: opLt, operands: []any{x, y}} }
+func LessOrEqual(x any, y any) Query    { return &query{op: opLeq, operands: []any{x, y}} }
+func GreaterThan(x any, y any) Query    { return &query{op: opGt, operands: []any{x, y}} }
+func GreaterOrEqual(x any, y any) Query { return &query{op: opGeq, operands: []any{x, y}} }
+func In(x any, y ...any) Query          { return inOrNotIn(opIn, x, y...) }
+func NotIn(x any, y ...any) Query       { return inOrNotIn(opNotIn, x, y...) }
 func inOrNotIn(op string, x any, y ...any) Query {
 	if len(y) == 0 {
 		panic(str.Trim(op + "+empty set"))
 	}
 	sub_stmt, _ := y[0].(interface{ Sql(*str.Buf) })
-	return &query{op: If(((len(y) == 1) && (sub_stmt == nil)), OpEq, op), operands: append([]any{x}, y...)}
+	return &query{op: If(((len(y) == 1) && (sub_stmt == nil)), opEq, op), operands: append([]any{x}, y...)}
 }
-func AllTrue(conds ...Query) Query  { return &query{op: OpAnd, conds: conds} }
-func EitherOr(conds ...Query) Query { return &query{op: OpOr, conds: conds} }
+func AllTrue(conds ...Query) Query  { return &query{op: opAnd, conds: conds} }
+func EitherOr(conds ...Query) Query { return &query{op: opOr, conds: conds} }
 func Not(cond Query) Query {
 	switch q := cond.(*query); q.op {
-	case OpIn:
+	case opIn:
 		return NotIn(q.operands[0], q.operands[1:]...)
-	case OpNotIn:
+	case opNotIn:
 		return In(q.operands[0], q.operands[1:]...)
-	case OpEq:
+	case opEq:
 		return NotEqual(q.operands[0], q.operands[1])
-	case OpNeq:
+	case opNeq:
 		return Equal(q.operands[0], q.operands[1])
-	case OpGt:
+	case opGt:
 		return LessOrEqual(q.operands[0], q.operands[1])
-	case OpLt:
+	case opLt:
 		return GreaterOrEqual(q.operands[0], q.operands[1])
-	case OpGeq:
+	case opGeq:
 		return LessThan(q.operands[0], q.operands[1])
-	case OpLeq:
+	case opLeq:
 		return GreaterThan(q.operands[0], q.operands[1])
-	case OpNot:
+	case opNot:
 		return q.conds[0]
 	}
-	return &query{op: OpNot, conds: []Query{cond}}
+	return &query{op: opNot, conds: []Query{cond}}
 }
 
 func q() *query {
@@ -129,13 +128,13 @@ func (me *query) sql(buf *str.Buf, args pgx.NamedArgs) {
 
 	if (str.Trim(string(me.op)) == "") || ((len(me.conds) == 0) && (len(me.operands) == 0)) ||
 		((len(me.conds) != 0) && (len(me.operands) != 0)) ||
-		((len(me.operands) != 0) && (len(me.operands) != 2) && (me.op != OpIn) && (me.op != OpNotIn)) {
+		((len(me.operands) != 0) && (len(me.operands) != 2) && (me.op != opIn) && (me.op != opNotIn)) {
 		panic(str.From(me))
 	}
 	buf.WriteByte('(')
 	switch me.op {
-	case OpAnd, OpOr, OpNot:
-		is_not := (me.op == OpNot)
+	case opAnd, opOr, opNot:
+		is_not := (me.op == opNot)
 		if is_not && (len(me.conds) != 1) {
 			panic(str.From(me))
 		}
@@ -148,7 +147,7 @@ func (me *query) sql(buf *str.Buf, args pgx.NamedArgs) {
 			buf.WriteByte(')')
 		}
 	default:
-		is_in_or_notin := (me.op == OpIn) || (me.op == OpNotIn)
+		is_in_or_notin := (me.op == opIn) || (me.op == opNotIn)
 		for i, operand := range me.operands {
 			if i > 0 {
 				if buf.WriteString(string(me.op)); is_in_or_notin {

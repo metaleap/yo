@@ -6,26 +6,8 @@ import (
 	yojson "yo/json"
 	yoserve "yo/server"
 	. "yo/util"
+	"yo/util/sl"
 )
-
-type ApiQueryVal struct {
-	F *string
-	S *string
-	B *bool
-	N *yojson.Num
-}
-type ApiQueryExpr struct {
-	AND []ApiQueryExpr
-	OR  []ApiQueryExpr
-	NOT *ApiQueryExpr
-	EQ  [2]ApiQueryVal
-	NEQ [2]ApiQueryVal
-	LT  [2]ApiQueryVal
-	LE  [2]ApiQueryVal
-	GT  [2]ApiQueryVal
-	GE  [2]ApiQueryVal
-	IN  []ApiQueryVal
-}
 
 func init() {
 	yoserve.API["__/db/listTables"] = yoserve.Method(apiListTables)
@@ -83,10 +65,39 @@ func apiDeleteOne[T any](ctx *Ctx, args *argId, ret *retCount) any {
 	return ret
 }
 
-func (me *ApiQueryExpr) Query() q.Query {
+type ApiQueryVal[T any] struct {
+	F *string
+	S *string
+	B *bool
+	N *yojson.Num
+}
+type ApiQueryExpr[T any] struct {
+	AND []ApiQueryExpr[T]
+	OR  []ApiQueryExpr[T]
+	NOT *ApiQueryExpr[T]
+	EQ  []ApiQueryVal[T]
+	NEQ []ApiQueryVal[T]
+	LT  []ApiQueryVal[T]
+	LE  []ApiQueryVal[T]
+	GT  []ApiQueryVal[T]
+	GE  []ApiQueryVal[T]
+	IN  []ApiQueryVal[T]
+}
+
+func (me *ApiQueryVal[T]) Val() any {
+	return nil
+}
+
+func (me *ApiQueryExpr[T]) Query() q.Query {
 	switch {
 	case len(me.AND) >= 2:
-		return q.AllTrue()
+		return q.AllTrue(sl.Map(me.AND, func(it ApiQueryExpr[T]) q.Query { return it.Query() })...)
+	case len(me.OR) >= 2:
+		return q.AllTrue(sl.Map(me.OR, func(it ApiQueryExpr[T]) q.Query { return it.Query() })...)
+	case me.NOT != nil:
+		return q.Not(me.NOT.Query())
+	case len(me.IN) >= 2:
+		return q.In(me.IN[0])
 	}
 	return nil
 }

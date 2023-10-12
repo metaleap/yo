@@ -124,3 +124,25 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	}
 	return false
 }
+
+func codeGenWriteEnumDecl(buf *str.Buf, desc *structDesc, name string) {
+	buf.WriteString("type ")
+	buf.WriteString(desc.ty.Name())
+	buf.WriteString(name)
+	buf.WriteString(" = q.C\n\n")
+	buf.WriteString("const (\n")
+	for i, col_name := range desc.cols {
+		buf.WriteByte('\t')
+		buf.WriteString(desc.ty.Name())
+		buf.WriteString(str.Up(desc.fields[i][:1]))
+		buf.WriteString(desc.fields[i][1:])
+		buf.WriteString(" = ")
+		buf.WriteString(desc.ty.Name())
+		buf.WriteString(name)
+		buf.WriteString("(\"")
+		buf.WriteString(string(col_name))
+		buf.WriteString("\")\n")
+	}
+	buf.WriteString(")\n\n")
+
+}
