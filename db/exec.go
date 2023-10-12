@@ -106,13 +106,15 @@ func Delete[T any](ctx *Ctx, where q.Query) int64 {
 func Update[T any](ctx *Ctx, upd *T, allFields bool, where q.Query) int64 {
 	desc, args := desc[T](), dbArgs{}
 	col_names, col_vals := []string{}, []any{}
-	ForEachField[T](upd, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
-		if allFields || !isZero {
-			col_names, col_vals = append(col_names, string(colName)), append(col_vals, fieldValue)
-		}
-	})
+	if upd != nil {
+		ForEachField[T](upd, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
+			if allFields || !isZero {
+				col_names, col_vals = append(col_names, string(colName)), append(col_vals, fieldValue)
+			}
+		})
+	}
 	if len(col_names) == 0 {
-		panic("Update without changes")
+		panic(Err("ExpectedChangesForUpdate"))
 	}
 	for i, col_name := range col_names {
 		args[col_name] = col_vals[i]

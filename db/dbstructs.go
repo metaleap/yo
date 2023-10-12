@@ -219,6 +219,9 @@ func Is(ty reflect.Type) (ret bool) {
 
 func ForEachField[T any](it *T, do func(fieldName q.F, colName q.C, fieldValue any, isZero bool)) {
 	desc, rv := desc[T](), reflect.ValueOf(it).Elem()
+	if it == nil {
+		panic("ForEachField called with nil, check at call-site")
+	}
 	for i, field := range desc.fields {
 		value := reflFieldValue(rv.FieldByName(string(field)))
 		frv := reflect.ValueOf(value)

@@ -30,7 +30,7 @@ func (me *sqlStmt) update(tableName string, colNames ...string) *sqlStmt {
 	}
 	w("UPDATE ")
 	w(tableName)
-	w("SET ")
+	w(" SET ")
 	for i, name := range colNames {
 		if i > 0 {
 			w(", ")
