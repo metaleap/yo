@@ -86,6 +86,9 @@ func apiGenSdk() {
 	for again := true; again; {
 		again = false
 		for _, enum_name := range sl.Sorted(Keys(api.Enums)) {
+			if (!api.codeGen.typesUsed[enum_name]) && str.Ends(enum_name, "Field") {
+				api.codeGen.typesUsed[enum_name] = true
+			}
 			if apiGenSdkType(&buf, &api, enum_name, nil, api.Enums[enum_name]) {
 				again = true
 			}

@@ -142,8 +142,7 @@ type ApiQueryVal[TObj any, TFld ~string] struct {
 	Fld  *TFld
 	Str  *string
 	Bool *bool
-	I64  *int64
-	F64  *float64
+	Int  *int64
 }
 type ApiQueryExpr[TObj any, TFld ~string] struct {
 	AND []ApiQueryExpr[TObj, TFld]
@@ -214,7 +213,7 @@ func (me *ApiQueryExpr[TObj, TFld]) toDbQ() q.Query {
 
 func (me *ApiQueryVal[TObj, TFld]) Validate() {
 	num_set, r_v := 0, reflect.ValueOf
-	for _, rv := range []reflect.Value{r_v(me.Fld), r_v(me.Str), r_v(me.Bool), r_v(me.I64), r_v(me.F64)} {
+	for _, rv := range []reflect.Value{r_v(me.Fld), r_v(me.Str), r_v(me.Bool), r_v(me.Int)} {
 		if !rv.IsNil() {
 			num_set++
 		}
@@ -232,10 +231,8 @@ func (me *ApiQueryVal[TObj, TFld]) val() any {
 		return *me.Str
 	case me.Bool != nil:
 		return *me.Bool
-	case me.I64 != nil:
-		return *me.I64
-	case me.F64 != nil:
-		return *me.F64
+	case me.Int != nil:
+		return *me.Int
 	}
 	return nil
 }
