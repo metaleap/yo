@@ -103,16 +103,24 @@ func apiReflType(it *apiRefl, rt reflect.Type, fldName string, parent string) st
 			if sl.Has(apiReflAllDbStructs, rt) && !sl.Has(it.DbStructs, type_ident) {
 				it.DbStructs = append(it.DbStructs, type_ident)
 			}
-			for i := 0; i < rt.NumField(); i++ {
-				field := rt.Field(i)
-				if str.IsUp(str.Sub(field.Name, 0, 1)) {
-					if !str.IsPrtAscii(field.Name) {
-						fail("not printable ASCII: '" + field.Name + "'")
+			var do_field func(field reflect.StructField)
+			do_field = func(field reflect.StructField) {
+				if !str.IsPrtAscii(field.Name) {
+					fail("not printable ASCII: '" + field.Name + "'")
+				}
+				if field.Anonymous {
+					for sub_field_name := range it.Types[apiReflType(it, field.Type, field.Name, type_ident)] {
+						sub_field, _ := field.Type.FieldByName(sub_field_name)
+						do_field(sub_field)
 					}
+				} else if str.IsUp(str.Sub(field.Name, 0, 1)) {
 					if ty_field := apiReflType(it, field.Type, field.Name, type_ident); ty_field != "" {
 						ty_refl[field.Name] = ty_field
 					}
 				}
+			}
+			for i := 0; i < rt.NumField(); i++ {
+				do_field(rt.Field(i))
 			}
 		}
 	}

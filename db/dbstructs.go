@@ -217,15 +217,22 @@ func Is(ty reflect.Type) (ret bool) {
 	return
 }
 
-func ToQuery[T any](it *T) q.Query {
+func ForEachField[T any](it *T, do func(fieldName q.F, colName q.C, fieldValue any, isZero bool)) {
 	desc, rv := desc[T](), reflect.ValueOf(it).Elem()
-	var col_eqs []q.Query
 	for i, field := range desc.fields {
 		value := reflFieldValue(rv.FieldByName(string(field)))
-		if frv := reflect.ValueOf(value); frv.IsValid() && !frv.IsZero() {
-			col_eqs = append(col_eqs, desc.cols[i].Equal(value))
-		}
+		frv := reflect.ValueOf(value)
+		do(field, desc.cols[i], value, (!frv.IsValid()) || frv.IsZero())
 	}
+}
+
+func Q[T any](it *T) q.Query {
+	var col_eqs []q.Query
+	ForEachField(it, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
+		if !isZero {
+			col_eqs = append(col_eqs, colName.Equal(fieldValue))
+		}
+	})
 	return q.AllTrue(col_eqs...)
 }
 

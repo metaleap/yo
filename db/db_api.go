@@ -31,6 +31,7 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 	yoserve.API["__/db/"+type_name+"/createMany"] = yoserve.Method(apiCreateMany[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/deleteOne"] = yoserve.Method(apiDeleteOne[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/deleteMany"] = yoserve.Method(apiDeleteMany[TObj, TFld])
+	yoserve.API["__/db/"+type_name+"/updateOne"] = yoserve.Method(apiUpdateOne[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/count"] = yoserve.Method(apiCount[TObj, TFld])
 }
 
@@ -51,7 +52,7 @@ func (me *argQuery[TObj, TFld]) toDbQ() q.Query {
 		panic(Err("ExpectedOnlyEitherQueryOrQueryFromButNotBoth"))
 	}
 	if me.QueryFrom != nil {
-		return ToQuery(me.QueryFrom)
+		return Q[TObj](me.QueryFrom)
 	}
 	me.Query.Validate()
 	return me.Query.toDbQ()
@@ -112,6 +113,15 @@ func apiDeleteMany[TObj any, TFld ~string](ctx *Ctx, args *argQuery[TObj, TFld],
 		panic(Err("QueryRequiredButMissing"))
 	}
 	ret.Count = Delete[TObj](ctx, query)
+	return ret
+}
+
+func apiUpdateOne[TObj any, TFld ~string](ctx *Ctx, args *struct {
+	argId
+	Changes   *TObj
+	AllFields bool
+}, ret *retCount) any {
+	ret.Count = Update[TObj](ctx, args.Changes, args.AllFields, ColID.Equal(args.ID))
 	return ret
 }
 

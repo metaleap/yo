@@ -23,6 +23,25 @@ func (me *sqlStmt) delete(from string) *sqlStmt {
 	return me
 }
 
+func (me *sqlStmt) update(tableName string, colNames ...string) *sqlStmt {
+	w := (*str.Buf)(me).WriteString
+	if len(colNames) == 0 {
+		panic("buggy update call: len(upd)==0, include the check at the call site")
+	}
+	w("UPDATE ")
+	w(tableName)
+	w("SET ")
+	for i, name := range colNames {
+		if i > 0 {
+			w(", ")
+		}
+		w(name)
+		w(" = @")
+		w(name)
+	}
+	return me
+}
+
 func (me *sqlStmt) sel(countColName q.C, countDistinct bool, cols ...q.C) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	w("SELECT ")

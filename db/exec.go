@@ -50,19 +50,6 @@ func Count[T any](ctx *Ctx, query q.Query, max int, nonNullColumn q.C, distinct 
 	return *results[0]
 }
 
-func Delete[T any](ctx *Ctx, query q.Query) int64 {
-	if query == nil {
-		panic("Delete without query")
-	}
-	desc, args := desc[T](), dbArgs{}
-	result := doExec(ctx, new(sqlStmt).delete(desc.tableName).where(query, desc.fieldNameToColName, args), args)
-	num_rows_affected, err := result.RowsAffected()
-	if err != nil {
-		panic(err)
-	}
-	return num_rows_affected
-}
-
 func CreateOne[T any](ctx *Ctx, rec *T) I64 {
 	desc := desc[T]()
 	args := make(dbArgs, len(desc.cols)-2)
@@ -101,6 +88,41 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 		}
 	}
 	_ = doExec(ctx, new(sqlStmt).insert(desc.tableName, len(recs), desc.cols[2:]...), args)
+}
+
+func Delete[T any](ctx *Ctx, where q.Query) int64 {
+	if where == nil {
+		panic("Delete without query")
+	}
+	desc, args := desc[T](), dbArgs{}
+	result := doExec(ctx, new(sqlStmt).delete(desc.tableName).where(where, desc.fieldNameToColName, args), args)
+	num_rows_affected, err := result.RowsAffected()
+	if err != nil {
+		panic(err)
+	}
+	return num_rows_affected
+}
+
+func Update[T any](ctx *Ctx, upd *T, allFields bool, where q.Query) int64 {
+	desc, args := desc[T](), dbArgs{}
+	col_names, col_vals := []string{}, []any{}
+	ForEachField[T](upd, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
+		if allFields || !isZero {
+			col_names, col_vals = append(col_names, string(colName)), append(col_vals, fieldValue)
+		}
+	})
+	if len(col_names) == 0 {
+		panic("Update without changes")
+	}
+	for i, col_name := range col_names {
+		args[col_name] = col_vals[i]
+	}
+	result := doExec(ctx, new(sqlStmt).update(desc.tableName, col_names...).where(where, desc.fieldNameToColName, args), args)
+	num_rows_affected, err := result.RowsAffected()
+	if err != nil {
+		panic(err)
+	}
+	return num_rows_affected
 }
 
 func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) (result sql.Result) {
