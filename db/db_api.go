@@ -36,7 +36,7 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 }
 
 type retCount struct{ Count int64 }
-type argId struct{ ID I64 }
+type argId struct{ Id I64 }
 type argQuery[TObj any, TFld ~string] struct {
 	Query     *ApiQueryExpr[TObj, TFld]
 	QueryFrom *TObj
@@ -65,7 +65,7 @@ func (me *argQuery[TObj, TFld]) toDbO() []q.OrderBy {
 }
 
 func apiFindById[TObj any, TFld ~string](ctx *Ctx, args *argId, ret *TObj) any {
-	if it := ById[TObj](ctx, args.ID); it != nil {
+	if it := ById[TObj](ctx, args.Id); it != nil {
 		*ret = *it
 		return ret
 	}
@@ -103,7 +103,7 @@ func apiCreateMany[TObj any, TFld ~string](ctx *Ctx, args *struct {
 }
 
 func apiDeleteOne[TObj any, TFld ~string](ctx *Ctx, args *argId, ret *retCount) any {
-	ret.Count = Delete[TObj](ctx, ColID.Equal(args.ID))
+	ret.Count = Delete[TObj](ctx, ColID.Equal(args.Id))
 	return ret
 }
 
@@ -121,7 +121,10 @@ func apiUpdateOne[TObj any, TFld ~string](ctx *Ctx, args *struct {
 	Changes                       *TObj
 	IncludingEmptyOrMissingFields bool
 }, ret *retCount) any {
-	ret.Count = Update[TObj](ctx, args.Changes, args.IncludingEmptyOrMissingFields, ColID.Equal(args.ID))
+	if args.Id <= 0 {
+		panic(Err("ExpectedIdGreater0ButGot" + str.FromInt(int(args.Id))))
+	}
+	ret.Count = Update[TObj](ctx, args.Changes, args.IncludingEmptyOrMissingFields, ColID.Equal(args.Id))
 	return ret
 }
 
