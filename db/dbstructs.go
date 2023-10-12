@@ -188,11 +188,11 @@ func (me scanner) Scan(src any) error {
 	return nil
 }
 
-func Ensure[T any](idBig bool, oldTableName string, renamesOldColToNewField map[q.C]q.F) {
+func Ensure[TObj any, TFld ~string](idBig bool, oldTableName string, renamesOldColToNewField map[q.C]q.F) {
 	if inited {
 		panic("db.Ensure called after db.Init")
 	}
-	desc := desc[T]()
+	desc := desc[TObj]()
 	ensureDescs = append(ensureDescs, desc)
 	desc.idBig, desc.mig.oldTableName, desc.mig.renamesOldColToNewField = idBig, oldTableName, renamesOldColToNewField
 	if (len(desc.cols) < 1) || (desc.cols[0] != ColID) {
@@ -202,7 +202,7 @@ func Ensure[T any](idBig bool, oldTableName string, renamesOldColToNewField map[
 	} else if len(desc.cols) < 3 {
 		panic(desc.tableName + ": no custom columns")
 	}
-	registerApiHandlers[T](desc)
+	registerApiHandlers[TObj, TFld](desc)
 	if IsDevMode {
 		codeGenDBStructs()
 	}

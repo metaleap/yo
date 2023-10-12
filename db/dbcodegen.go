@@ -112,27 +112,36 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	return false
 }
 
-func codeGenWriteEnumDecl(buf *str.Buf, desc *structDesc, name string, goTypeAliasOf string, fullName bool) {
+func codeGenWriteEnumDecl(buf *str.Buf, desc *structDesc, name string, goTypeAliasOf string, isForCols bool) {
 	buf.WriteString("type ")
 	buf.WriteString(desc.ty.Name())
 	buf.WriteString(name)
-	buf.WriteString(" = ")
+	buf.WriteString(If(isForCols, " = ", " "))
 	buf.WriteString(goTypeAliasOf)
 	buf.WriteString("\n\n")
 	buf.WriteString("const (\n")
 	for i, col_name := range desc.cols {
 		buf.WriteByte('\t')
 		buf.WriteString(desc.ty.Name())
-		if fullName {
+		if isForCols {
 			buf.WriteString(name)
 		}
 		buf.WriteString(str.Up(string(desc.fields[i][:1])))
 		buf.WriteString(string(desc.fields[i][1:]))
+		if !isForCols {
+			buf.WriteString(" ")
+			buf.WriteString(desc.ty.Name())
+			buf.WriteString(name)
+		}
 		buf.WriteString(" = ")
 		buf.WriteString(desc.ty.Name())
 		buf.WriteString(name)
 		buf.WriteString("(\"")
-		buf.WriteString(string(col_name))
+		if isForCols {
+			buf.WriteString(string(col_name))
+		} else {
+			buf.WriteString(string(desc.fields[i]))
+		}
 		buf.WriteString("\")\n")
 	}
 	buf.WriteString(")\n\n")

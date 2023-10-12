@@ -14,7 +14,7 @@ type UserAccount struct {
 }
 
 func init() {
-	yodb.Ensure[UserAccount](false, "", nil)
+	yodb.Ensure[UserAccount, UserAccountField](false, "", nil)
 }
 
 func userRegister(emailAddr string, passwordPlain string) {

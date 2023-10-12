@@ -11,11 +11,11 @@ const (
 	UserAccountColPasswordHashed = UserAccountCol("password_hashed_")
 )
 
-type UserAccountField = q.F
+type UserAccountField q.F
 
 const (
-	UserAccountId             = UserAccountField("id_")
-	UserAccountCreated        = UserAccountField("created_")
-	UserAccountEmailAddr      = UserAccountField("email_addr_")
-	UserAccountPasswordHashed = UserAccountField("password_hashed_")
+	UserAccountId             UserAccountField = UserAccountField("Id")
+	UserAccountCreated        UserAccountField = UserAccountField("Created")
+	UserAccountEmailAddr      UserAccountField = UserAccountField("EmailAddr")
+	UserAccountPasswordHashed UserAccountField = UserAccountField("passwordHashed")
 )
