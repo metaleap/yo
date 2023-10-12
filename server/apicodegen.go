@@ -86,10 +86,14 @@ func apiGenSdk() {
 	for again := true; again; {
 		again = false
 		for _, enum_name := range sl.Sorted(Keys(api.Enums)) {
-			again = apiGenSdkType(&buf, &api, enum_name, nil, api.Enums[enum_name]) || again
+			if apiGenSdkType(&buf, &api, enum_name, nil, api.Enums[enum_name]) {
+				again = true
+			}
 		}
 		for _, struct_name := range sl.Sorted(Keys(api.Types)) {
-			again = apiGenSdkType(&buf, &api, struct_name, api.Types[struct_name], nil) || again
+			if apiGenSdkType(&buf, &api, struct_name, api.Types[struct_name], nil) {
+				again = true
+			}
 		}
 	}
 	src_is_changed, src_to_write := true, []byte(buf.String())
@@ -134,6 +138,9 @@ export function yoReq_%s(payload: %s, onSuccess: (_: %s) => void, onFailed?: (er
 }
 
 func apiGenSdkType(buf *str.Buf, api *apiRefl, typeName string, structFields map[string]string, enumMembers []string) bool {
+	for str.Begins(typeName, "?") {
+		typeName = typeName[1:]
+	}
 	if api.codeGen.typesEmitted[typeName] || !api.codeGen.typesUsed[typeName] {
 		return false
 	}
@@ -145,7 +152,7 @@ func apiGenSdkType(buf *str.Buf, api *apiRefl, typeName string, structFields map
 		struct_fields := sl.Sorted(Keys(structFields))
 		for _, field_name := range struct_fields {
 			field_type := structFields[field_name]
-			_, _ = buf.WriteString(str.Fmt("\n\t%s: %s", ToIdent(field_name), apiGenSdkTypeName(api, field_type)))
+			_, _ = buf.WriteString(str.Fmt("\n\t%s%s: %s", ToIdent(field_name), If(str.Begins(field_type, "?"), "?", ""), apiGenSdkTypeName(api, field_type)))
 		}
 		_, _ = buf.WriteString("\n}\n")
 	} else {
@@ -156,6 +163,9 @@ func apiGenSdkType(buf *str.Buf, api *apiRefl, typeName string, structFields map
 }
 
 func apiGenSdkTypeName(api *apiRefl, typeName string) string {
+	for str.Begins(typeName, "?") {
+		typeName = typeName[1:]
+	}
 	api.codeGen.typesUsed[typeName] = true
 	if str.Begins(typeName, ".") {
 		switch t := typeName[1:]; t {

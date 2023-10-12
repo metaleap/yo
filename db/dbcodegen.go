@@ -59,7 +59,6 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 			panic("too many source dirs found for " + desc.ty.PkgPath() + "." + desc.ty.Name())
 		}
 		for src_dir_path = range found {
-			println(">>>>>>>" + src_dir_path + "<<<<<<<<<<<<<")
 			break
 		}
 	}
