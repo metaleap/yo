@@ -108,7 +108,7 @@ func Update[T any](ctx *Ctx, upd *T, allFields bool, where q.Query) int64 {
 	col_names, col_vals := []string{}, []any{}
 	if upd != nil {
 		ForEachField[T](upd, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
-			if allFields || !isZero {
+			if (colName != ColID) && (colName != ColCreated) && (allFields || !isZero) {
 				col_names, col_vals = append(col_names, string(colName)), append(col_vals, fieldValue)
 			}
 		})
