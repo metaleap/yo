@@ -68,6 +68,16 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	}
 
 	out_file_path := filepath.Join(src_dir_path, "ˍdbcodegen.go")
+	old_src, old_src_err := os.ReadFile(out_file_path)
+	if len(descs) == 0 {
+		if old_src_err == os.ErrNotExist {
+			return false
+		} else {
+			_ = os.Remove(out_file_path)
+			return true
+		}
+	}
+
 	var buf str.Buf
 	buf.WriteString("package ")
 	buf.WriteString(pkg_name)
@@ -78,32 +88,49 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 		// render enumerants for the field names
 		codeGenWriteEnumDecl(&buf, desc, "Field", "q.F", false)
 
-		// render querying-payload struct
-		/*
-			{ "OR": [ {"EQ":[{"F":"Id"},{"F":"EmailAddr"}]}, {"AND": [{"LT":[{"F":"Id"},{"N":123} ] }  , {"NOT": { "IN": [ {"N":321}, {"N":456}] } } ] } ] }
+		for _, method := range [][3]string{
+			{"Equal", "(other any) q.Query", "(other)"},
+			{"NotEqual", "(other any) q.Query", "(other)"},
+			{"LessThan", "(other any) q.Query", "(other)"},
+			{"GreaterThan", "(other any) q.Query", "(other)"},
+			{"LessOrEqual", "(other any) q.Query", "(other)"},
+			{"GreaterOrEqual", "(other any) q.Query", "(other)"},
+			{"In", "(set ...any) q.Query", "(set...)"},
+			{"NotIn", "(set ...any) q.Query", "(set...)"},
+			{"Asc", "() q.OrderBy", "()"},
+			{"Desc", "() q.OrderBy", "()"},
+		} {
+			buf.WriteString("func (me ")
+			buf.WriteString(desc.ty.Name())
+			buf.WriteString("Field) ")
+			buf.WriteString(method[0])
+			buf.WriteString(method[1])
+			buf.WriteString("{ return ((q.F)(me)).")
+			buf.WriteString(method[0])
+			buf.WriteString(method[2])
+			buf.WriteString(" }\n")
+		}
 
-			BizObjQueryValue: {
-					F?: "Field1" | "Field2"
-					S?: string
-					N?: number
-					B?: boolean | BizObjQueryExpr
-					V?: BizObjQueryValue
-			}
-			BizObjQueryExpr: {
-					AND:	[BizObjQueryExpr]
-					OR		[BizObjQueryExpr]
-					NOT		BizObjQueryExpr
-					EQ		BizObjQueryValue
-					IN		[BizObjQueryValue]
-			}
+		/*
+			func (me F) Equal(other any) Query          { return Equal(me, other) }
+			func (me F) NotEqual(other any) Query       { return NotEqual(me, other) }
+			func (me F) LessThan(other any) Query       { return LessThan(me, other) }
+			func (me F) GreaterThan(other any) Query    { return GreaterThan(me, other) }
+			func (me F) LessOrEqual(other any) Query    { return LessOrEqual(me, other) }
+			func (me F) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, other) }
+			func (me F) In(set ...any) Query            { return In(me, set...) }
+			func (me F) NotIn(set ...any) Query         { return NotIn(me, set...) }
+			func (me F) Asc() OrderBy                   { return OrderBy(me + " ASC") }
+			func (me F) Desc() OrderBy                  { return OrderBy(me + " DESC") }
 		*/
+
 	}
 	raw_src, err := format.Source([]byte(buf.String()))
 	if err != nil {
 		panic(err)
 	}
 
-	if old_src, _ := os.ReadFile(out_file_path); !bytes.Equal(old_src, raw_src) {
+	if !bytes.Equal(old_src, raw_src) {
 		if err = os.WriteFile(out_file_path, raw_src, os.ModePerm); err != nil {
 			panic(err)
 		}
