@@ -22,6 +22,7 @@ var foundModifiedTsFiles bool
 func init() {
 	apiGenSdkMaybe = apiGenSdk
 
+	enum_pkgs := map[string]string{}
 	WalkCodeFiles(true, true, func(path string, dirEntry fs.DirEntry) {
 		if str.Ends(path, ".ts") && (!str.Ends(path, ".d.ts")) && !foundModifiedTsFiles {
 			fileinfo_ts, err := dirEntry.Info()
@@ -51,6 +52,11 @@ func init() {
 									panic(value + "!=" + enumerant_name + " && " + value + "!=" + name)
 								}
 								apiReflAllEnums[pkg_name+"."+type_name] = append(apiReflAllEnums[pkg_name+"."+type_name], value)
+								if existing := enum_pkgs[type_name]; existing != "" && existing != pkg_name {
+									panic("enum name clash: '" + pkg_name + "." + type_name + "' vs '" + existing + "." + type_name + "'")
+								}
+								enum_pkgs[type_name] = pkg_name
+								apiReflAllEnums[type_name] = append(apiReflAllEnums[type_name], value)
 							}
 						}
 					}
