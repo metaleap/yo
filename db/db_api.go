@@ -37,17 +37,24 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 type retCount struct{ Count int64 }
 type argId struct{ ID I64 }
 type argQuery[TObj any, TFld ~string] struct {
-	Query   *ApiQueryExpr[TObj, TFld]
-	OrderBy []*ApiOrderBy[TObj, TFld]
-	Max     uint32
+	Query     *ApiQueryExpr[TObj, TFld]
+	QueryFrom *TObj
+	OrderBy   []*ApiOrderBy[TObj, TFld]
+	Max       uint32
 }
 
 func (me *argQuery[TObj, TFld]) toDbQ() q.Query {
-	if me != nil && me.Query != nil {
-		me.Query.Validate()
-		return me.Query.toDbQ()
+	if (me == nil) || ((me.QueryFrom == nil) && (me.Query == nil)) {
+		return nil
 	}
-	return nil
+	if (me.QueryFrom != nil) && (me.Query != nil) {
+		panic(Err("ExpectedOnlyEitherQueryOrQueryFromButNotBoth"))
+	}
+	if me.QueryFrom != nil {
+		return ToQuery(me.QueryFrom)
+	}
+	me.Query.Validate()
+	return me.Query.toDbQ()
 }
 func (me *argQuery[TObj, TFld]) toDbO() (ret []q.OrderBy) {
 	if me != nil {

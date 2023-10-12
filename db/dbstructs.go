@@ -127,8 +127,12 @@ func reflFieldValue(rvField reflect.Value) any {
 		return *getPtr[Text](addr)
 	case *Bytes:
 		return *getPtr[Bytes](addr)
+	case *I64:
+		return *getPtr[I64](addr)
+	case *DateTime:
+		return *getPtr[DateTime](addr)
 	default:
-		panic(str.Fmt("%T", val))
+		panic(str.Fmt("reflFieldValue:%T", val))
 	}
 }
 
@@ -211,6 +215,18 @@ func Ensure[TObj any, TFld ~string](idBig bool, oldTableName string, renamesOldC
 func Is(ty reflect.Type) (ret bool) {
 	_, ret = descs[ty]
 	return
+}
+
+func ToQuery[T any](it *T) q.Query {
+	desc, rv := desc[T](), reflect.ValueOf(it).Elem()
+	var col_eqs []q.Query
+	for i, field := range desc.fields {
+		value := reflFieldValue(rv.FieldByName(string(field)))
+		if frv := reflect.ValueOf(value); frv.IsValid() && !frv.IsZero() {
+			col_eqs = append(col_eqs, desc.cols[i].Equal(value))
+		}
+	}
+	return q.AllTrue(col_eqs...)
 }
 
 func doEnsureDbStructTables() {

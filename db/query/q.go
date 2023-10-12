@@ -55,11 +55,6 @@ func (me *orderBy[T]) Desc() bool { return me.desc }
 func (me *orderBy[T]) Col() C     { return me.col }
 func (me *orderBy[T]) Field() F   { return me.fld }
 
-func From[T any](it *T) Query {
-
-	return nil
-}
-
 type Query interface {
 	And(...Query) Query
 	Or(...Query) Query
@@ -98,7 +93,7 @@ func inOrNotIn(op string, x any, y ...any) Query {
 	return &query{op: If(((len(y) == 1) && (sub_stmt == nil)), opEq, op), operands: append([]any{x}, y...)}
 }
 func AllTrue(conds ...Query) Query {
-	return If(len(conds) == 1, conds[0], (Query)(&query{op: opAnd, conds: conds}))
+	return If((len(conds) == 0), nil, If((len(conds) == 1), conds[0], (Query)(&query{op: opAnd, conds: conds})))
 }
 func EitherOr(conds ...Query) Query {
 	return If(len(conds) == 1, conds[0], (Query)(&query{op: opOr, conds: conds}))
