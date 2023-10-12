@@ -110,20 +110,6 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 			buf.WriteString(method[2])
 			buf.WriteString(" }\n")
 		}
-
-		/*
-			func (me F) Equal(other any) Query          { return Equal(me, other) }
-			func (me F) NotEqual(other any) Query       { return NotEqual(me, other) }
-			func (me F) LessThan(other any) Query       { return LessThan(me, other) }
-			func (me F) GreaterThan(other any) Query    { return GreaterThan(me, other) }
-			func (me F) LessOrEqual(other any) Query    { return LessOrEqual(me, other) }
-			func (me F) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, other) }
-			func (me F) In(set ...any) Query            { return In(me, set...) }
-			func (me F) NotIn(set ...any) Query         { return NotIn(me, set...) }
-			func (me F) Asc() OrderBy                   { return OrderBy(me + " ASC") }
-			func (me F) Desc() OrderBy                  { return OrderBy(me + " DESC") }
-		*/
-
 	}
 	raw_src, err := format.Source([]byte(buf.String()))
 	if err != nil {

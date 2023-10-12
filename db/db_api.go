@@ -1,6 +1,7 @@
 package yodb
 
 import (
+	"reflect"
 	. "yo/ctx"
 	q "yo/db/query"
 	yoserve "yo/server"
@@ -25,6 +26,7 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 	yoserve.API["__/db/"+type_name+"/createOne"] = yoserve.Method(apiCreateOne[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/createMany"] = yoserve.Method(apiCreateMany[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/deleteOne"] = yoserve.Method(apiDeleteOne[TObj, TFld])
+	yoserve.API["__/db/"+type_name+"/deleteMany"] = yoserve.Method(apiDeleteMany[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/count"] = yoserve.Method(apiCount[TObj, TFld])
 }
 
@@ -73,6 +75,15 @@ func apiDeleteOne[TObj any, TFld ~string](ctx *Ctx, args *argId, ret *retCount) 
 	return ret
 }
 
+func apiDeleteMany[TObj any, TFld ~string](ctx *Ctx, args *argQuery[TObj, TFld], ret *retCount) any {
+	query := args.toDbQ()
+	if query == nil {
+		panic(Err("QueryRequiredButMissing"))
+	}
+	ret.Count = Delete[TObj](ctx, query)
+	return ret
+}
+
 type ApiQueryVal[TObj any, TFld ~string] struct {
 	Fld  *TFld
 	Str  *string
@@ -97,15 +108,15 @@ func (me *ApiQueryExpr[TObj, TFld]) Validate() {
 	// binary operators
 	for name, bin_op := range map[string][]ApiQueryVal[TObj, TFld]{"EQ": me.EQ, "NE": me.NE, "LT": me.LT, "LE": me.LE, "GT": me.GT, "GE": me.GE} {
 		if (len(bin_op) != 0) && (len(bin_op) != 2) {
-			panic("expected 2 operands for operator '" + name + "'")
+			panic(Err(name + "_TwoOperandsRequired"))
 		}
 		for i := range bin_op {
 			bin_op[i].Validate()
 		}
 	}
-	// IN operator
+	// the others
 	if len(me.IN) == 1 {
-		panic("expected rhs operand for 'IN' operator")
+		panic("IN_SetOperandRequired")
 	}
 	for i := range me.IN {
 		me.IN[i].Validate()
@@ -141,7 +152,12 @@ func (me *ApiQueryExpr[TObj, TFld]) toDbQ() q.Query {
 }
 
 func (me *ApiQueryVal[TObj, TFld]) Validate() {
-	num_set := 0
+	num_set, r_v := 0, reflect.ValueOf
+	for _, rv := range []reflect.Value{r_v(me.Fld), r_v(me.Str), r_v(me.Bool), r_v(me.I64), r_v(me.F64)} {
+		if !rv.IsNil() {
+			num_set++
+		}
+	}
 	if me.Fld != nil {
 		num_set++
 	}
@@ -158,7 +174,7 @@ func (me *ApiQueryVal[TObj, TFld]) Validate() {
 		num_set++
 	}
 	if num_set > 1 {
-		panic("expected only one of '.Fld', '.Str', '.Bool', '.I64', '.F64' to be set, but found multiple")
+		panic("ExpectedOneOrNoneOfFldOrStrOrBoolOrI64OrF64")
 	}
 }
 
