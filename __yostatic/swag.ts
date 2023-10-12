@@ -341,7 +341,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
     }
 
     const sendRequest = () => {
-        const time_started = new Date().getTime(), show_err = (err: any) => {
+        const show_err = (err: any) => {
             textarea_response.style.backgroundColor = '#f0d0c0'
             textarea_response.value = `${err}`
             refreshTree(method_path, null, tree_response, false)
@@ -376,6 +376,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             return
         }
 
+        let time_started: number
         const on_done = () => {
             const duration_ms = new Date().getTime() - time_started
             document.title = `${duration_ms}ms`
@@ -385,6 +386,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             refreshHistory(true, false)
             refreshAutoCompletes()
         }
+        time_started = new Date().getTime()
         yoReq(method_path, payload, (result) => {
             on_done()
             if (!is_validate_failed)
