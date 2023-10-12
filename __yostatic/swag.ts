@@ -292,14 +292,17 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                             const fake = {}
                             fake[key] = null
                             const [err_msg, _] = validate(apiRefl, itemTypeName, fake, '')
-                            if (!(last_err_msg = err_msg))
+                            if ((!err_msg) && (coll[key] || (keys.indexOf(key) >= 0)))
+                                last_err_msg = `already have '${key}', ${prompt_text}`
+                            else if (!(last_err_msg = err_msg))
                                 keys.push(key)
                         }
                         if (keys.length > 0) {
                             let item_type_name = itemTypeName.substring(1, itemTypeName.length - 1)
                             item_type_name = item_type_name.substring(item_type_name.indexOf(':') + 1)
                             for (const key of keys)
-                                coll[key] = newSampleVal(apiRefl, item_type_name, [], isForPayload)
+                                if (!coll[key])
+                                    coll[key] = newSampleVal(apiRefl, item_type_name, [], isForPayload)
                         }
                     }
                     refreshTreeNode(typeName, value, ulTree, isForPayload, path, root)
@@ -311,7 +314,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 checkbox = html.input({ 'onchange': on_change, 'type': 'checkbox', 'disabled': !isForPayload, 'checked': field_input_got }),
                 html.a({ 'class': 'label', 'style': (field_input_subs ? 'width:auto' : ''), 'onclick': () => selJsonFromTree(path + '.' + key, isForPayload) },
                     (key.startsWith('[') ? "" : ".") + key,
-                    (sub_count < 0) ? [] : [html.b({ 'class': 'count', 'onclick': on_count_click }, `(${sub_count})`)]),
+                    (sub_count < 0) ? [] : [html.b({ 'class': 'count', 'onclick': on_count_click }, `${itemTypeName.substring(0, 1)}${sub_count}×${itemTypeName.substring(itemTypeName.length - 1)}`)]),
                 field_input,
             ))
         }
@@ -354,8 +357,11 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         try {
             const method = apiRefl.Methods.find((_) => (_.Path == method_path))
             const [err_msg, _] = validate(apiRefl, method.In, payload = JSON.parse(textarea_payload.value), '')
-            if (is_validate_failed = (err_msg && err_msg !== ""))
+            if (is_validate_failed = (err_msg && err_msg !== "")) {
                 show_err(err_msg)
+                if (!confirm("failed to validate, send anyway?"))
+                    return
+            }
         } catch (err) {
             const err_msg = `${err}`
             show_err(err_msg)
