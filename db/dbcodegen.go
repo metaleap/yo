@@ -89,26 +89,26 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 		codeGenWriteEnumDecl(&buf, desc, "Field", "q.F", false)
 
 		for _, method := range [][3]string{
-			{"Equal", "(other any) q.Query", "(other)"},
-			{"NotEqual", "(other any) q.Query", "(other)"},
-			{"LessThan", "(other any) q.Query", "(other)"},
-			{"GreaterThan", "(other any) q.Query", "(other)"},
-			{"LessOrEqual", "(other any) q.Query", "(other)"},
-			{"GreaterOrEqual", "(other any) q.Query", "(other)"},
-			{"In", "(set ...any) q.Query", "(set...)"},
-			{"NotIn", "(set ...any) q.Query", "(set...)"},
-			{"Asc", "() q.OrderBy", "()"},
-			{"Desc", "() q.OrderBy", "()"},
+			{"Asc", "()q.OrderBy", "()"},
+			{"Desc", "()q.OrderBy", "()"},
+			{"In", "(set...any)q.Query", "(set...)"},
+			{"NotIn", "(set...any)q.Query", "(set...)"},
+			{"Equal", "(other any)q.Query", "(other)"},
+			{"NotEqual", "(other any)q.Query", "(other)"},
+			{"LessThan", "(other any)q.Query", "(other)"},
+			{"GreaterThan", "(other any)q.Query", "(other)"},
+			{"LessOrEqual", "(other any)q.Query", "(other)"},
+			{"GreaterOrEqual", "(other any)q.Query", "(other)"},
 		} {
-			buf.WriteString("func (me ")
+			buf.WriteString("func(me ")
 			buf.WriteString(desc.ty.Name())
 			buf.WriteString("Field) ")
 			buf.WriteString(method[0])
 			buf.WriteString(method[1])
-			buf.WriteString("{ return ((q.F)(me)).")
+			buf.WriteString("{return ((q.F)(me)).")
 			buf.WriteString(method[0])
 			buf.WriteString(method[2])
-			buf.WriteString(" }\n")
+			buf.WriteString("}\n")
 		}
 	}
 	raw_src, err := format.Source([]byte(buf.String()))

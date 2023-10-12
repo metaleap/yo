@@ -107,6 +107,7 @@ type ApiQueryExpr[TObj any, TFld ~string] struct {
 }
 
 func (me *ApiQueryExpr[TObj, TFld]) Validate() {
+	num_found := 0
 	// binary operators
 	for name, bin_op := range map[string][]ApiQueryVal[TObj, TFld]{"EQ": me.EQ, "NE": me.NE, "LT": me.LT, "LE": me.LE, "GT": me.GT, "GE": me.GE} {
 		if (len(bin_op) != 0) && (len(bin_op) != 2) {
@@ -115,21 +116,27 @@ func (me *ApiQueryExpr[TObj, TFld]) Validate() {
 		for i := range bin_op {
 			bin_op[i].Validate()
 		}
+		num_found++
 	}
 	// the others
+	for _, l := range []int{len(me.IN), len(me.AND), len(me.OR)} {
+		if l > 0 {
+			num_found++
+		}
+	}
 	if len(me.IN) == 1 {
 		panic("IN_SetOperandRequired")
 	}
 	for i := range me.IN {
 		me.IN[i].Validate()
 	}
-	for i := range me.AND {
-		me.AND[i].Validate()
-	}
-	for i := range me.OR {
-		me.OR[i].Validate()
+	for _, it := range [][]ApiQueryExpr[TObj, TFld]{me.AND, me.OR} {
+		for i := range it {
+			it[i].Validate()
+		}
 	}
 	if me.NOT != nil {
+		num_found++
 		me.NOT.Validate()
 	}
 }
@@ -161,7 +168,7 @@ func (me *ApiQueryVal[TObj, TFld]) Validate() {
 		}
 	}
 	if num_set > 1 {
-		panic("ExpectedOneOrNoneOfFldOrStrOrBoolOrI64OrF64ButGot" + str.FromInt(num_set))
+		panic("ExpectedOneOrNoneOf" + str.Join([]string{"Fld", "Str", "Bool", "I64", "F64"}, "Or") + "ButGot" + str.FromInt(num_set))
 	}
 }
 
