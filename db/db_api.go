@@ -2,11 +2,13 @@ package yodb
 
 import (
 	"reflect"
+
 	. "yo/ctx"
 	q "yo/db/query"
 	yoserve "yo/server"
 	. "yo/util"
 	"yo/util/sl"
+	"yo/util/str"
 )
 
 func init() {
@@ -158,23 +160,8 @@ func (me *ApiQueryVal[TObj, TFld]) Validate() {
 			num_set++
 		}
 	}
-	if me.Fld != nil {
-		num_set++
-	}
-	if me.Str != nil {
-		num_set++
-	}
-	if me.Bool != nil {
-		num_set++
-	}
-	if me.I64 != nil {
-		num_set++
-	}
-	if me.F64 != nil {
-		num_set++
-	}
 	if num_set > 1 {
-		panic("ExpectedOneOrNoneOfFldOrStrOrBoolOrI64OrF64")
+		panic("ExpectedOneOrNoneOfFldOrStrOrBoolOrI64OrF64ButGot" + str.FromInt(num_set))
 	}
 }
 
