@@ -48,6 +48,9 @@ func init() {
 						if name, type_name, ok := str.Cut(name_and_type, " "); ok {
 							if name, type_name = str.Trim(name), str.Trim(type_name); type_name != "" && type_name != "string" && name != type_name && str.Begins(name, type_name) {
 								enumerant_name := name[len(type_name):]
+								if str.IsLo(enumerant_name[:1]) {
+									continue
+								}
 								if (str.Lo(enumerant_name) != str.Lo(value)) && (str.Lo(name) != str.Lo(value)) {
 									panic(value + "!=" + enumerant_name + " && " + value + "!=" + name)
 								}

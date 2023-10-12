@@ -17,5 +17,5 @@ const (
 	UserAccountFieldId             UserAccountField = "Id"
 	UserAccountFieldCreated        UserAccountField = "Created"
 	UserAccountFieldEmailAddr      UserAccountField = "EmailAddr"
-	UserAccountFieldPasswordHashed UserAccountField = "passwordHashed"
+	userAccountFieldPasswordHashed UserAccountField = "passwordHashed"
 )

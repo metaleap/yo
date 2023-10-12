@@ -121,8 +121,14 @@ func codeGenWriteEnumDecl(buf *str.Buf, desc *structDesc, name string, goTypeAli
 	buf.WriteString("\n\n")
 	buf.WriteString("const (\n")
 	for i, col_name := range desc.cols {
+		field_name := desc.fields[i]
 		buf.WriteByte('\t')
-		buf.WriteString(desc.ty.Name())
+		if isForCols || !str.IsLo(string(field_name[:1])) {
+			buf.WriteString(desc.ty.Name())
+		} else {
+			buf.WriteString(str.Lo(desc.ty.Name()[:1]))
+			buf.WriteString(desc.ty.Name()[1:])
+		}
 		buf.WriteString(name)
 		buf.WriteString(str.Up(string(desc.fields[i][:1])))
 		buf.WriteString(string(desc.fields[i][1:]))
@@ -140,7 +146,7 @@ func codeGenWriteEnumDecl(buf *str.Buf, desc *structDesc, name string, goTypeAli
 			buf.WriteString("\")\n")
 		} else {
 			buf.WriteString("\"")
-			buf.WriteString(string(desc.fields[i]))
+			buf.WriteString(string(field_name))
 			buf.WriteString("\"\n")
 		}
 	}
