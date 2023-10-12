@@ -55,6 +55,19 @@ func (me *orderBy[T]) Desc() bool { return me.desc }
 func (me *orderBy[T]) Col() C     { return me.col }
 func (me *orderBy[T]) Field() F   { return me.fld }
 
+func From[T any](it *T) Query {
+
+	return nil
+}
+
+type Query interface {
+	And(...Query) Query
+	Or(...Query) Query
+	Not() Query
+	Sql(*str.Buf, func(F) C, pgx.NamedArgs)
+	String(func(F) C, pgx.NamedArgs) string
+}
+
 const (
 	opEq    = " = "
 	opNeq   = " != "
@@ -68,14 +81,6 @@ const (
 	opOr    = " OR "
 	opNot   = "NOT "
 )
-
-type Query interface {
-	And(...Query) Query
-	Or(...Query) Query
-	Not() Query
-	Sql(*str.Buf, func(F) C, pgx.NamedArgs)
-	String(func(F) C, pgx.NamedArgs) string
-}
 
 func Equal(x any, y any) Query          { return &query{op: opEq, operands: []any{x, y}} }
 func NotEqual(x any, y any) Query       { return &query{op: opNeq, operands: []any{x, y}} }
