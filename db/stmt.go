@@ -70,11 +70,11 @@ func (me *sqlStmt) limit(max int) *sqlStmt {
 	return me
 }
 
-func (me *sqlStmt) where(where q.Query, args pgx.NamedArgs) *sqlStmt {
+func (me *sqlStmt) where(where q.Query, f2c func(q.F) q.C, args pgx.NamedArgs) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	if where != nil {
 		w(" WHERE (")
-		where.Sql((*str.Buf)(me), args)
+		where.Sql((*str.Buf)(me), f2c, args)
 		w(")")
 	}
 	return me
@@ -165,12 +165,12 @@ func (me *sqlStmt) createTable(desc *structDesc) *sqlStmt {
 	return me
 }
 
-func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, renamesOldColToNewField map[q.C]string) (ret []*sqlStmt) {
+func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, renamesOldColToNewField map[q.C]q.F) (ret []*sqlStmt) {
 	if oldTableName == desc.tableName {
 		panic("invalid table rename: " + oldTableName)
 	}
 
-	cols_gone, fields_new := []q.C{}, []string{}
+	cols_gone, fields_new := []q.C{}, []q.F{}
 	for _, table_col := range curTable {
 		col_name := q.C(table_col.ColumnName)
 		if !sl.Has(desc.cols, col_name) {
@@ -184,7 +184,7 @@ func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, 
 	}
 	if renamesOldColToNewField != nil {
 		for old_col_name, new_field_name := range renamesOldColToNewField {
-			new_col_name := q.C(NameFrom(new_field_name))
+			new_col_name := q.C(NameFrom(string(new_field_name)))
 			if new_col_name == old_col_name {
 				panic("invalid column rename: " + old_col_name)
 			}
@@ -217,7 +217,7 @@ func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, 
 			w(" \n\tADD COLUMN IF NOT EXISTS ")
 			w(string(col_name))
 			w(" ")
-			field, _ := desc.ty.FieldByName(field_name)
+			field, _ := desc.ty.FieldByName(string(field_name))
 			w(sqlColTypeDeclFrom(field.Type))
 			w(",")
 		}
@@ -238,7 +238,7 @@ func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, 
 			w(" RENAME COLUMN ")
 			w(string(old_col_name))
 			w(" TO ")
-			w(NameFrom(new_field_name))
+			w(NameFrom(string(new_field_name)))
 			ret = append(ret, stmt)
 		}
 	}

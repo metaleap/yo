@@ -37,9 +37,9 @@ func ListTables(ctx *Ctx, tableName string) map[Text][]*TableColumn {
 				new(sqlStmt).sel("", false, "table_name").from("information_schema.tables").
 					where(q.C("table_type").Equal("BASE TABLE").And(
 						q.C("table_schema").NotIn("pg_catalog", "information_schema"),
-					), args),
+					), desc.fieldNameToColName, args),
 			),
-		), args).
+		), desc.fieldNameToColName, args).
 		orderBy(q.C("table_name").Asc(), q.C("ordinal_position").Desc())
 	flat_results := doSelect[TableColumn](ctx, stmt, args, If(tableName == "", 0, 1))
 	for _, result := range flat_results {

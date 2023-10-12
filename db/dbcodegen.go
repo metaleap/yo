@@ -74,22 +74,9 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	buf.WriteString("\n\nimport q \"yo/db/query\"\n\n")
 	for _, desc := range descs {
 		// render enumerants for the column names
-		buf.WriteString("type ")
-		buf.WriteString(desc.ty.Name())
-		buf.WriteString("Col = q.C\n\n")
-		buf.WriteString("const (\n")
-		for i, col_name := range desc.cols {
-			buf.WriteByte('\t')
-			buf.WriteString(desc.ty.Name())
-			buf.WriteString(str.Up(desc.fields[i][:1]))
-			buf.WriteString(desc.fields[i][1:])
-			buf.WriteString(" = ")
-			buf.WriteString(desc.ty.Name())
-			buf.WriteString("Col(\"")
-			buf.WriteString(string(col_name))
-			buf.WriteString("\")\n")
-		}
-		buf.WriteString(")\n\n")
+		codeGenWriteEnumDecl(&buf, desc, "Col", "q.C", true)
+		// render enumerants for the field names
+		codeGenWriteEnumDecl(&buf, desc, "Field", "q.F", false)
 
 		// render querying-payload struct
 		/*
@@ -125,17 +112,22 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	return false
 }
 
-func codeGenWriteEnumDecl(buf *str.Buf, desc *structDesc, name string) {
+func codeGenWriteEnumDecl(buf *str.Buf, desc *structDesc, name string, goTypeAliasOf string, fullName bool) {
 	buf.WriteString("type ")
 	buf.WriteString(desc.ty.Name())
 	buf.WriteString(name)
-	buf.WriteString(" = q.C\n\n")
+	buf.WriteString(" = ")
+	buf.WriteString(goTypeAliasOf)
+	buf.WriteString("\n\n")
 	buf.WriteString("const (\n")
 	for i, col_name := range desc.cols {
 		buf.WriteByte('\t')
 		buf.WriteString(desc.ty.Name())
-		buf.WriteString(str.Up(desc.fields[i][:1]))
-		buf.WriteString(desc.fields[i][1:])
+		if fullName {
+			buf.WriteString(name)
+		}
+		buf.WriteString(str.Up(string(desc.fields[i][:1])))
+		buf.WriteString(string(desc.fields[i][1:]))
 		buf.WriteString(" = ")
 		buf.WriteString(desc.ty.Name())
 		buf.WriteString(name)
@@ -144,5 +136,4 @@ func codeGenWriteEnumDecl(buf *str.Buf, desc *structDesc, name string) {
 		buf.WriteString("\")\n")
 	}
 	buf.WriteString(")\n\n")
-
 }

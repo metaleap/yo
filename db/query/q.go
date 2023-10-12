@@ -20,6 +20,19 @@ func (me C) NotIn(set ...any) Query         { return NotIn(me, set...) }
 func (me C) Asc() OrderBy                   { return OrderBy(me + " ASC") }
 func (me C) Desc() OrderBy                  { return OrderBy(me + " DESC") }
 
+type F string
+
+func (me F) Equal(other any) Query          { return Equal(me, other) }
+func (me F) NotEqual(other any) Query       { return NotEqual(me, other) }
+func (me F) LessThan(other any) Query       { return LessThan(me, other) }
+func (me F) GreaterThan(other any) Query    { return GreaterThan(me, other) }
+func (me F) LessOrEqual(other any) Query    { return LessOrEqual(me, other) }
+func (me F) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, other) }
+func (me F) In(set ...any) Query            { return In(me, set...) }
+func (me F) NotIn(set ...any) Query         { return NotIn(me, set...) }
+func (me F) Asc() OrderBy                   { return OrderBy(me + " ASC") }
+func (me F) Desc() OrderBy                  { return OrderBy(me + " DESC") }
+
 type A[T any] struct{ It T }
 
 func (me A[T]) Equals(x any) Query     { return Equal(me.It, x) }
@@ -46,8 +59,8 @@ type Query interface {
 	And(...Query) Query
 	Or(...Query) Query
 	Not() Query
-	Sql(*str.Buf, pgx.NamedArgs)
-	String(pgx.NamedArgs) string
+	Sql(*str.Buf, func(F) C, pgx.NamedArgs)
+	String(func(F) C, pgx.NamedArgs) string
 }
 
 func Equal(x any, y any) Query          { return &query{op: opEq, operands: []any{x, y}} }
@@ -65,8 +78,12 @@ func inOrNotIn(op string, x any, y ...any) Query {
 	sub_stmt, _ := y[0].(interface{ Sql(*str.Buf) })
 	return &query{op: If(((len(y) == 1) && (sub_stmt == nil)), opEq, op), operands: append([]any{x}, y...)}
 }
-func AllTrue(conds ...Query) Query  { return &query{op: opAnd, conds: conds} }
-func EitherOr(conds ...Query) Query { return &query{op: opOr, conds: conds} }
+func AllTrue(conds ...Query) Query {
+	return If(len(conds) == 1, conds[0], (Query)(&query{op: opAnd, conds: conds}))
+}
+func EitherOr(conds ...Query) Query {
+	return If(len(conds) == 1, conds[0], (Query)(&query{op: opOr, conds: conds}))
+}
 func Not(cond Query) Query {
 	switch q := cond.(*query); q.op {
 	case opIn:
@@ -101,21 +118,21 @@ type query struct {
 	operands []any
 }
 
-func (me *query) And(also ...Query) Query { return AllTrue(append([]Query{me}, also...)...) }
-func (me *query) Or(also ...Query) Query  { return EitherOr(append([]Query{me}, also...)...) }
-func (me *query) Not() Query              { return Not(me) }
+func (me *query) And(conds ...Query) Query { return AllTrue(append([]Query{me}, conds...)...) }
+func (me *query) Or(conds ...Query) Query  { return EitherOr(append([]Query{me}, conds...)...) }
+func (me *query) Not() Query               { return Not(me) }
 
-func (me *query) Sql(buf *str.Buf, args pgx.NamedArgs) {
-	me.sql(buf, args)
+func (me *query) Sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
+	me.sql(buf, fld2col, args)
 }
 
-func (me *query) String(args pgx.NamedArgs) string {
+func (me *query) String(fld2col func(F) C, args pgx.NamedArgs) string {
 	var buf str.Buf
-	me.Sql(&buf, args)
+	me.Sql(&buf, fld2col, args)
 	return buf.String()
 }
 
-func (me *query) sql(buf *str.Buf, args pgx.NamedArgs) {
+func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 	do_arg := func(operand any) {
 		if sub_stmt, _ := operand.(interface{ Sql(*str.Buf) }); sub_stmt != nil {
 			sub_stmt.Sql(buf)
@@ -143,7 +160,7 @@ func (me *query) sql(buf *str.Buf, args pgx.NamedArgs) {
 				buf.WriteString(string(me.op))
 			}
 			buf.WriteByte('(')
-			cond.(*query).sql(buf, args)
+			cond.(*query).sql(buf, fld2col, args)
 			buf.WriteByte(')')
 		}
 	default:
@@ -162,9 +179,11 @@ func (me *query) sql(buf *str.Buf, args pgx.NamedArgs) {
 					break
 				}
 			}
-			col_name, is_col_name := operand.(C)
-			if is_col_name {
+
+			if col_name, is := operand.(C); is {
 				buf.WriteString(string(col_name))
+			} else if fld_name, is := operand.(F); is {
+				buf.WriteString(string(fld2col(fld_name)))
 			} else {
 				do_arg(operand)
 			}

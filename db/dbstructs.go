@@ -62,14 +62,23 @@ var (
 
 type structDesc struct {
 	ty        reflect.Type
-	tableName string   // defaults to db.NameFrom(structTypeName)
-	fields    []string // struct fields marked persistish by being of a type in `okTypes`
-	cols      []q.C    // for each field above, its db.NameFrom()
-	idBig     bool     // allow up to 9223372036854775807 instead of up to 2147483647
+	tableName string // defaults to db.NameFrom(structTypeName)
+	fields    []q.F  // struct fields marked persistish by being of a type in `okTypes`
+	cols      []q.C  // for each field above, its db.NameFrom()
+	idBig     bool   // allow up to 9223372036854775807 instead of up to 2147483647
 	mig       struct {
 		oldTableName            string
-		renamesOldColToNewField map[q.C]string
+		renamesOldColToNewField map[q.C]q.F
 	}
+}
+
+func (me *structDesc) fieldNameToColName(fieldName q.F) q.C {
+	for i, field_name := range me.fields {
+		if field_name == fieldName {
+			return me.cols[i]
+		}
+	}
+	panic(fieldName)
 }
 
 func isColField(fieldType reflect.Type) bool {
@@ -89,7 +98,7 @@ func desc[T any]() (ret *structDesc) {
 				if !str.IsPrtAscii(field.Name) {
 					panic("DB-column fields' names should be ASCII")
 				}
-				ret.fields, ret.cols = append(ret.fields, field.Name), append(ret.cols, q.C(col_name))
+				ret.fields, ret.cols = append(ret.fields, q.F(field.Name)), append(ret.cols, q.C(col_name))
 			}
 		}
 	}
@@ -179,7 +188,7 @@ func (me scanner) Scan(src any) error {
 	return nil
 }
 
-func Ensure[T any](idBig bool, oldTableName string, renamesOldColToNewField map[q.C]string) {
+func Ensure[T any](idBig bool, oldTableName string, renamesOldColToNewField map[q.C]q.F) {
 	if inited {
 		panic("db.Ensure called after db.Init")
 	}

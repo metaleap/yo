@@ -5,8 +5,17 @@ import q "yo/db/query"
 type UserAccountCol = q.C
 
 const (
-	UserAccountId             = UserAccountCol("id_")
-	UserAccountCreated        = UserAccountCol("created_")
-	UserAccountEmailAddr      = UserAccountCol("email_addr_")
-	UserAccountPasswordHashed = UserAccountCol("password_hashed_")
+	UserAccountColId             = UserAccountCol("id_")
+	UserAccountColCreated        = UserAccountCol("created_")
+	UserAccountColEmailAddr      = UserAccountCol("email_addr_")
+	UserAccountColPasswordHashed = UserAccountCol("password_hashed_")
+)
+
+type UserAccountField = q.F
+
+const (
+	UserAccountId             = UserAccountField("id_")
+	UserAccountCreated        = UserAccountField("created_")
+	UserAccountEmailAddr      = UserAccountField("email_addr_")
+	UserAccountPasswordHashed = UserAccountField("password_hashed_")
 )
