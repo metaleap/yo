@@ -57,7 +57,7 @@ func (me *argQuery[TObj, TFld]) toDbQ() q.Query {
 	return me.Query.toDbQ()
 }
 func (me *argQuery[TObj, TFld]) toDbO() []q.OrderBy {
-	return sl.Map(me.OrderBy, func(it *ApiOrderBy[TObj, TFld]) q.OrderBy {
+	return sl.Conv(me.OrderBy, func(it *ApiOrderBy[TObj, TFld]) q.OrderBy {
 		fld := q.F(it.Fld)
 		return If(it.Desc, fld.Desc(), fld.Asc())
 	})
@@ -177,13 +177,13 @@ func (me *ApiQueryExpr[TObj, TFld]) Validate() {
 func (me *ApiQueryExpr[TObj, TFld]) toDbQ() q.Query {
 	switch {
 	case len(me.AND) >= 2:
-		return q.AllTrue(sl.Map(me.AND, func(it ApiQueryExpr[TObj, TFld]) q.Query { return it.toDbQ() })...)
+		return q.AllTrue(sl.Conv(me.AND, func(it ApiQueryExpr[TObj, TFld]) q.Query { return it.toDbQ() })...)
 	case len(me.OR) >= 2:
-		return q.EitherOr(sl.Map(me.OR, func(it ApiQueryExpr[TObj, TFld]) q.Query { return it.toDbQ() })...)
+		return q.EitherOr(sl.Conv(me.OR, func(it ApiQueryExpr[TObj, TFld]) q.Query { return it.toDbQ() })...)
 	case me.NOT != nil:
 		return q.Not(me.NOT.toDbQ())
 	case len(me.IN) >= 2:
-		return q.In(me.IN[0].val(), sl.Map(me.IN[1:], func(it ApiQueryVal[TObj, TFld]) any { return it.val() }))
+		return q.In(me.IN[0].val(), sl.Conv(me.IN[1:], func(it ApiQueryVal[TObj, TFld]) any { return it.val() }))
 	}
 	for bin_op, q_f := range map[*[]ApiQueryVal[TObj, TFld]]func(any, any) q.Query{&me.EQ: q.Equal, &me.NE: q.NotEqual, &me.LT: q.LessThan, &me.LE: q.LessOrEqual, &me.GT: q.GreaterThan, &me.GE: q.GreaterOrEqual} {
 		if bin_op := *bin_op; len(bin_op) == 2 {

@@ -192,7 +192,6 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             let field_input: HTMLElement, checkbox: HTMLInputElement, get_val: (_: string) => any
             const on_change = (evt: UIEvent) => {
                 const is_checkbox_change = (evt.currentTarget === checkbox)
-                console.log(is_checkbox_change, checkbox.checked)
                 let index: string | number = key, refresh_tree = false
                 if (key.startsWith('["') && key.endsWith('"]'))
                     index = key.substring(2, key.length - 2)
@@ -275,10 +274,35 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 if (field_input_got = (field_input.innerHTML !== ''))
                     field_input.style.borderStyle = 'solid'
             }
-            const on_count_click = () => {
+            const on_count_click = (evt: UIEvent) => {
                 const coll = value[key]
-                console.log("P", path, "K", key, "C", coll ? true : false, "A", Array.isArray(coll))
-                // value.push(newSampleVal(apiRefl,itemTypeName,[],isForPayload))
+                if (coll) {
+                    if (Array.isArray(coll)) {
+                        const item_type_name = itemTypeName.substring(1, itemTypeName.length - 1)
+                        coll.push(newSampleVal(apiRefl, item_type_name, [], isForPayload))
+                        refreshTreeNode(typeName, value, ulTree, isForPayload, path, root)
+                        on_change(evt)
+                    } else {
+                        const keys: string[] = []
+                        while (true) {
+                            const key = prompt("keep entering keys until done:", "")
+                            if (key === "")
+                                break
+                            if (key)
+                                keys.push(key)
+                            else
+                                return false
+                        }
+                        if (keys.length > 0) {
+                            let item_type_name = itemTypeName.substring(1, itemTypeName.length - 1)
+                            item_type_name = item_type_name.substring(item_type_name.indexOf(':') + 1)
+                            for (const key of keys)
+                                coll[key] = newSampleVal(apiRefl, item_type_name, [], isForPayload)
+                            refreshTreeNode(typeName, value, ulTree, isForPayload, path, root)
+                            on_change(evt)
+                        }
+                    }
+                }
                 return false
             }
             van.add(ulTree, html.li({ 'title': displayPath(path, key) },

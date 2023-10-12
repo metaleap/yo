@@ -112,7 +112,7 @@ func HasAllOf[TSl ~[]TEl, TEl comparable](slice TSl, of ...TEl) bool {
 	return true
 }
 
-func Map[TSl ~[]TEl, TEl any, TOut any](slice TSl, f func(TEl) TOut) (ret []TOut) {
+func Conv[TSl ~[]TEl, TEl any, TOut any](slice TSl, f func(TEl) TOut) (ret []TOut) {
 	ret = make([]TOut, len(slice))
 	for i := range slice {
 		ret[i] = f(slice[i])
