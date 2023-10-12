@@ -14,8 +14,8 @@ const (
 type UserAccountField q.F
 
 const (
-	UserAccountId             UserAccountField = UserAccountField("Id")
-	UserAccountCreated        UserAccountField = UserAccountField("Created")
-	UserAccountEmailAddr      UserAccountField = UserAccountField("EmailAddr")
-	UserAccountPasswordHashed UserAccountField = UserAccountField("passwordHashed")
+	UserAccountFieldId             UserAccountField = "Id"
+	UserAccountFieldCreated        UserAccountField = "Created"
+	UserAccountFieldEmailAddr      UserAccountField = "EmailAddr"
+	UserAccountFieldPasswordHashed UserAccountField = "passwordHashed"
 )
