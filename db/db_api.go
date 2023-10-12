@@ -26,7 +26,7 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 	type_name := desc.ty.Name()
 	yoserve.API["__/db/"+type_name+"/findById"] = yoserve.Method(apiFindById[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/findOne"] = yoserve.Method(apiFindOne[TObj, TFld])
-	yoserve.API["__/db/"+type_name+"/findMany"] = yoserve.Method(apiFindOne[TObj, TFld])
+	yoserve.API["__/db/"+type_name+"/findMany"] = yoserve.Method(apiFindMany[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/createOne"] = yoserve.Method(apiCreateOne[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/createMany"] = yoserve.Method(apiCreateMany[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/deleteOne"] = yoserve.Method(apiDeleteOne[TObj, TFld])

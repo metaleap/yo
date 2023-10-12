@@ -258,8 +258,8 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 get_val = (_: string) => (field_input as HTMLInputElement).checked
             } else if (enumExists(apiRefl, itemTypeName) && (typeof val === 'string')) {
                 const enumerants = apiRefl.Enums[itemTypeName]
-                if (enumerants && (enumerants.length > 0) && (enumerants.indexOf(val) >= 0))
-                    field_input = html.select({ 'onchange': on_change }, ...enumerants.map((_) => html.option({ 'value': _, 'selected': (_ === val) }, _)))
+                if (enumerants && (enumerants.length > 0) && ((enumerants.indexOf(val) >= 0) || (val === '')))
+                    field_input = html.select({ 'onchange': on_change }, ...[html.option({ 'value': '', 'selected': (val === '') }, "")].concat(enumerants.map((_) => html.option({ 'value': _, 'selected': (_ === val) }, _))))
                 else
                     field_input = html.input({ 'onchange': on_change, 'type': 'text', 'readOnly': !isForPayload, 'value': val })
                 get_val = (s: string) => s
@@ -411,7 +411,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
 
 function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: string[], isForPayload: boolean, methodPath?: string): any {
     switch (type_name) {
-        case 'time.Time': return new Date().toISOString()
+        case 'time.Time': return isForPayload ? null : new Date().toISOString()
         case '.bool': return isForPayload ? false : true
         case '.string': return isForPayload ? "" : "foo bar"
         case '.float32': return isForPayload ? 0.0 : 3.2
@@ -429,8 +429,8 @@ function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: s
     if (enumExists(refl, type_name)) {
         const enumerants = refl.Enums[type_name]
         if (enumerants && (enumerants.length > 0))
-            return enumerants.join('|')
-        return `(some ${type_name} enumerant)`
+            return isForPayload ? "" : enumerants.join('|')
+        return isForPayload ? "" : `(some ${type_name} enumerant)`
     }
 
     const type_struc = refl.Types[type_name]
@@ -586,7 +586,6 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
             const entries = JSON.parse(json_entries) as string[]
             if (entries.indexOf(fieldValue) < 0) {
                 entries.push(fieldValue)
-                console.log("===>", storage_key, entries)
                 localStorage.setItem(storage_key, JSON.stringify(entries))
             }
         }
@@ -657,10 +656,8 @@ function validate(apiRefl: YoReflApis, typeName: string, value: any, path: strin
     }
 
     if (enumExists(apiRefl, typeName)) {
-        if (!((is_str && value !== '') || (value === null)))
-            return [`${displayPath(path)}: must be must be non-empty string or null`, undef]
         const enumerants = apiRefl.Enums[typeName]
-        if (enumerants && (enumerants.length > 0) && (enumerants.indexOf(value) < 0))
+        if (enumerants && (enumerants.length > 0) && value && (enumerants.indexOf(value) < 0))
             return [`${displayPath(path)}: '${typeName}' has no '${value}' but has '${enumerants.join("', '")}'`, undef]
         return ["", value]
     }
@@ -687,9 +684,14 @@ function validate(apiRefl: YoReflApis, typeName: string, value: any, path: strin
             return [`${err}`, undef]
         }
 
+    const str_from = (v: any) => {
+        const ret = `${v}`
+        return (ret === '[object Object]') ? '{...}' : ret
+    }
+
     if (typeName.startsWith('[') && typeName.endsWith(']') && value) {
         if (!Array.isArray(value))
-            return [`${displayPath(path)}: must be null or ${typeName}, not ${value}`, undef]
+            return [`${displayPath(path)}: must be null or ${typeName}, not ${str_from(value)}`, undef]
         const type_name_items = typeName.substring(1, typeName.length - 1)
         for (const i in (value as [])) {
             const item = (value as [])[i]
@@ -700,7 +702,7 @@ function validate(apiRefl: YoReflApis, typeName: string, value: any, path: strin
     }
 
     if (value && (typeof value !== 'object'))
-        return [`${displayPath(path)}: must be null or ${typeName}, not ${value}`, undef]
+        return [`${displayPath(path)}: must be null or ${typeName}, not ${str_from(value)}`, undef]
 
     if (typeName.startsWith('{') && typeName.endsWith('}') && value) {
         const splits = typeName.substring(1, typeName.length - 1).split(':')

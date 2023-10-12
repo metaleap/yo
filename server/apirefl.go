@@ -118,10 +118,6 @@ func apiReflEnum(it *apiRefl, rt reflect.Type, typeIdent string) string {
 	if !str.IsPrtAscii(typeIdent) {
 		panic("not printable ASCII: '" + typeIdent + "'")
 	}
-	if typeIdent == "yo/feat_auth.UserAccountField" {
-		_ = "yofeat_auth.UserAccountField"
-		println(str.From(apiReflAllEnums))
-	}
 	if IsDevMode {
 		if found, exists := apiReflAllEnums[typeIdent]; exists {
 			it.Enums[typeIdent] = found
