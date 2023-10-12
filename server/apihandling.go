@@ -44,7 +44,7 @@ type apiMethod[TIn any, TOut any] apiHandleFunc
 func (me apiMethod[TIn, TOut]) handle() apiHandleFunc { return me }
 func (me apiMethod[TIn, TOut]) loadPayload(data []byte) (any, error) {
 	if len(data) == 0 || bytes.Equal(data, yojson.JsonNullTok) {
-		return nil, nil
+		panic(Err("PayloadExpectedButMissingOrNull"))
 	}
 	var it TIn
 	err := yojson.Unmarshal(data, &it)

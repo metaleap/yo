@@ -44,7 +44,7 @@ type argQuery[TObj any, TFld ~string] struct {
 }
 
 func (me *argQuery[TObj, TFld]) toDbQ() q.Query {
-	if (me == nil) || ((me.QueryFrom == nil) && (me.Query == nil)) {
+	if (me.QueryFrom == nil) && (me.Query == nil) {
 		return nil
 	}
 	if (me.QueryFrom != nil) && (me.Query != nil) {
@@ -56,14 +56,11 @@ func (me *argQuery[TObj, TFld]) toDbQ() q.Query {
 	me.Query.Validate()
 	return me.Query.toDbQ()
 }
-func (me *argQuery[TObj, TFld]) toDbO() (ret []q.OrderBy) {
-	if me != nil {
-		ret = sl.Map(me.OrderBy, func(it *ApiOrderBy[TObj, TFld]) q.OrderBy {
-			fld := q.F(it.Fld)
-			return If(it.Desc, fld.Desc(), fld.Asc())
-		})
-	}
-	return
+func (me *argQuery[TObj, TFld]) toDbO() []q.OrderBy {
+	return sl.Map(me.OrderBy, func(it *ApiOrderBy[TObj, TFld]) q.OrderBy {
+		fld := q.F(it.Fld)
+		return If(it.Desc, fld.Desc(), fld.Asc())
+	})
 }
 
 func apiFindById[TObj any, TFld ~string](ctx *Ctx, args *argId, ret *TObj) any {
