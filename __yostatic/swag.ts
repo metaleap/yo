@@ -275,11 +275,17 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 if (field_input_got = (field_input.innerHTML !== ''))
                     field_input.style.borderStyle = 'solid'
             }
+            const on_count_click = () => {
+                const coll = value[key]
+                console.log("P", path, "K", key, "C", coll ? true : false, "A", Array.isArray(coll))
+                // value.push(newSampleVal(apiRefl,itemTypeName,[],isForPayload))
+                return false
+            }
             van.add(ulTree, html.li({ 'title': displayPath(path, key) },
                 checkbox = html.input({ 'onchange': on_change, 'type': 'checkbox', 'disabled': !isForPayload, 'checked': field_input_got }),
                 html.a({ 'class': 'label', 'style': (field_input_subs ? 'width:auto' : ''), 'onclick': () => selJsonFromTree(path + '.' + key, isForPayload) },
                     (key.startsWith('[') ? "" : ".") + key,
-                    (sub_count < 0) ? undefined : html.b({ 'class': 'count' }, `(${sub_count})`)),
+                    (sub_count < 0) ? [] : [html.b({ 'class': 'count', 'onclick': on_count_click }, `(${sub_count})`)]),
                 field_input,
             ))
         }
