@@ -36,11 +36,9 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 type retCount struct{ Count int64 }
 type argId struct{ ID I64 }
 type argQuery[TObj any, TFld ~string] struct {
-	Query *ApiQueryExpr[TObj, TFld]
-}
-type argFind[TObj any, TFld ~string] struct {
 	Query   *ApiQueryExpr[TObj, TFld]
 	OrderBy []*ApiOrderBy[TObj, TFld]
+	Max     uint32
 }
 
 func (me *argQuery[TObj, TFld]) toDbQ() q.Query {
@@ -49,6 +47,15 @@ func (me *argQuery[TObj, TFld]) toDbQ() q.Query {
 		return me.Query.toDbQ()
 	}
 	return nil
+}
+func (me *argQuery[TObj, TFld]) toDbO() (ret []q.OrderBy) {
+	if me != nil {
+		ret = sl.Map(me.OrderBy, func(it *ApiOrderBy[TObj, TFld]) q.OrderBy {
+			fld := q.F(it.Fld)
+			return If(it.Desc, fld.Desc(), fld.Asc())
+		})
+	}
+	return
 }
 
 func apiFindById[TObj any, TFld ~string](ctx *Ctx, args *argId, ret *TObj) any {
@@ -59,8 +66,8 @@ func apiFindById[TObj any, TFld ~string](ctx *Ctx, args *argId, ret *TObj) any {
 	return nil
 }
 
-func apiFindOne[TObj any, TFld ~string](ctx *Ctx, args *argFind[TObj, TFld], ret *Return[*TObj]) any {
-	ret.Result = FindOne[TObj](ctx, args.Query.toDbQ())
+func apiFindOne[TObj any, TFld ~string](ctx *Ctx, args *argQuery[TObj, TFld], ret *Return[*TObj]) any {
+	ret.Result = FindOne[TObj](ctx, args.toDbQ(), args.toDbO()...)
 	return ret
 }
 

@@ -195,7 +195,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 if (!get_val) {
                     const sub_val = fieldInputValue(value[index], is_array)
                     if ((checkbox.checked) && ((sub_val === null) || (sub_val === undef))) {
-                        const new_val = fieldInputValue(newSampleVal(apiRefl, itemTypeName, []), is_array)
+                        const new_val = fieldInputValue(newSampleVal(apiRefl, itemTypeName, [], isForPayload), is_array)
                         if (new_val === undef)
                             checkbox.checked = false
                         else
@@ -211,7 +211,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                     else {
                         const is_new_val_check = (evt.currentTarget === checkbox)
                         const new_val = (((itemTypeName === '.bool') || (itemTypeName === '.string')) && !is_new_val_check)
-                            ? undef : fieldInputValue(newSampleVal(apiRefl, itemTypeName, []), is_array)
+                            ? undef : fieldInputValue(newSampleVal(apiRefl, itemTypeName, [], isForPayload), is_array)
                         if (new_val === undef)
                             checkbox.checked = false
                         else
@@ -409,21 +409,21 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
     }
 }
 
-function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: string[], methodPath?: string): any {
+function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: string[], isForPayload: boolean, methodPath?: string): any {
     switch (type_name) {
         case 'time.Time': return new Date().toISOString()
-        case '.bool': return true
-        case '.string': return ""
-        case '.float32': return 3.2
-        case '.float64': return 6.4
-        case '.int8': return -8
-        case '.int16': return -16
-        case '.int32': return -32
-        case '.int64': return -64
-        case '.uint8': return 8
-        case '.uint16': return 16
-        case '.uint32': return 32
-        case '.uint64': return 64
+        case '.bool': return isForPayload ? false : true
+        case '.string': return isForPayload ? "" : "foo bar"
+        case '.float32': return isForPayload ? 0.0 : 3.2
+        case '.float64': return isForPayload ? 0.0 : 6.4
+        case '.int8': return isForPayload ? 0 : -8
+        case '.int16': return isForPayload ? 0 : -16
+        case '.int32': return isForPayload ? 0 : -32
+        case '.int64': return isForPayload ? 0 : -64
+        case '.uint8': return isForPayload ? 0 : 8
+        case '.uint16': return isForPayload ? 0 : 16
+        case '.uint32': return isForPayload ? 0 : 32
+        case '.uint64': return isForPayload ? 0 : 64
     }
 
     if (enumExists(refl, type_name)) {
@@ -440,7 +440,7 @@ function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: s
             return null
         for (const field_name in type_struc) {
             const field_type_name = type_struc[field_name]
-            obj[field_name] = newSampleVal(refl, field_type_name, [type_name].concat(recurse_protection), methodPath)
+            obj[field_name] = newSampleVal(refl, field_type_name, [type_name].concat(recurse_protection), isForPayload, methodPath)
         }
         const filter_dbstruct_fields = (refl.DbStructs.indexOf(type_name) >= 0) && methodPath
             && methodPath.startsWith('__/db/') && (methodPath.endsWith('/createOne') || methodPath.endsWith('/createMany'))
@@ -450,10 +450,10 @@ function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: s
         return obj
     }
     if (type_name.startsWith('[') && type_name.endsWith(']'))
-        return [newSampleVal(refl, type_name.substring(1, type_name.length - 1), recurse_protection, methodPath)]
+        return [newSampleVal(refl, type_name.substring(1, type_name.length - 1), recurse_protection, isForPayload, methodPath)]
     if (type_name.startsWith('{') && type_name.endsWith('}') && type_name.includes(':')) {
         const ret = {}, splits = type_name.substring(1, type_name.length - 1).split(':')
-        ret[newSampleVal(refl, splits[0], recurse_protection, methodPath)] = newSampleVal(refl, splits.slice(1).join(':'), recurse_protection, methodPath)
+        ret[newSampleVal(refl, splits[0], recurse_protection, isForPayload, methodPath)] = newSampleVal(refl, splits.slice(1).join(':'), recurse_protection, isForPayload, methodPath)
         return ret
     }
     return type_name
