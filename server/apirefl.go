@@ -17,6 +17,11 @@ type apiRefl struct {
 	Types     map[string]map[string]string
 	Enums     map[string][]string
 	DbStructs []string
+
+	codeGen struct {
+		typesUsed    map[string]bool
+		typesEmitted map[string]bool
+	}
 }
 
 type apiReflMethod struct {

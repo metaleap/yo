@@ -71,6 +71,7 @@ func init() {
 
 func apiGenSdk() {
 	buf, api := str.Buf{}, apiRefl{}
+	api.codeGen.typesUsed, api.codeGen.typesEmitted = map[string]bool{}, map[string]bool{}
 	yolog.Println("  reflect...")
 	apiHandleReflReq(nil, nil, &api)
 	yolog.Println("  generate...")
@@ -79,14 +80,17 @@ func apiGenSdk() {
 		panic(err)
 	}
 	_, _ = buf.Write(b)
-	for _, enum_name := range sl.Sorted(Keys(api.Enums)) {
-		apiGenSdkType(&buf, &api, enum_name, nil, api.Enums[enum_name])
-	}
-	for _, struct_name := range sl.Sorted(Keys(api.Types)) {
-		apiGenSdkType(&buf, &api, struct_name, api.Types[struct_name], nil)
-	}
 	for _, method := range api.Methods {
 		apiGenSdkMethod(&buf, &api, &method)
+	}
+	for again := true; again; {
+		again = false
+		for _, enum_name := range sl.Sorted(Keys(api.Enums)) {
+			again = apiGenSdkType(&buf, &api, enum_name, nil, api.Enums[enum_name]) || again
+		}
+		for _, struct_name := range sl.Sorted(Keys(api.Types)) {
+			again = apiGenSdkType(&buf, &api, struct_name, api.Types[struct_name], nil) || again
+		}
 	}
 	src_is_changed, src_to_write := true, []byte(buf.String())
 	data, _ := os.ReadFile(sdkGenDstTsFilePath)
@@ -120,21 +124,26 @@ func apiGenSdk() {
 }
 
 func apiGenSdkMethod(buf *str.Buf, api *apiRefl, method *apiReflMethod) {
+	if str.Begins(method.Path, "__/") {
+		return
+	}
 	_, _ = buf.WriteString(str.Fmt(`
-export function yoReq_%s(payload: %s, onSuccess: (_: %s) => void, onFailed?: (err: any, resp?: Response, query?: {[_:string]:string}) => void): void {
-	yoReq(%s, payload, onSuccess, onFailed)
+export function yoReq_%s(payload: %s, onSuccess: (_: %s) => void, onFailed?: (err: any, resp?: Response) => void, query?: {[_:string]:string}): void {
+	yoReq(%s, payload, onSuccess, onFailed, query)
 }`, ToIdent(method.Path), apiGenSdkTypeName(api, method.In), apiGenSdkTypeName(api, method.Out), str.Q(method.Path)))
 }
 
-func apiGenSdkType(buf *str.Buf, api *apiRefl, typeName string, structFields map[string]string, enumMembers []string) {
-	switch typeName {
-	case "time.Time":
-		_, _ = buf.WriteString(str.Fmt("\nexport type %s = %s", apiGenSdkTypeName(api, typeName), apiGenSdkTypeName(api, ".string")))
-		return
+func apiGenSdkType(buf *str.Buf, api *apiRefl, typeName string, structFields map[string]string, enumMembers []string) bool {
+	if api.codeGen.typesEmitted[typeName] || !api.codeGen.typesUsed[typeName] {
+		return false
 	}
-	if structFields != nil {
+	api.codeGen.typesEmitted[typeName] = true
+	if typeName == "time.Time" {
+		_, _ = buf.WriteString(str.Fmt("\nexport type %s = %s", apiGenSdkTypeName(api, typeName), apiGenSdkTypeName(api, ".string")))
+	} else if structFields != nil {
 		_, _ = buf.WriteString(str.Fmt("\nexport type %s = {", apiGenSdkTypeName(api, typeName)))
-		for _, field_name := range sl.Sorted(Keys(structFields)) {
+		struct_fields := sl.Sorted(Keys(structFields))
+		for _, field_name := range struct_fields {
 			field_type := structFields[field_name]
 			_, _ = buf.WriteString(str.Fmt("\n\t%s: %s", ToIdent(field_name), apiGenSdkTypeName(api, field_type)))
 		}
@@ -143,9 +152,11 @@ func apiGenSdkType(buf *str.Buf, api *apiRefl, typeName string, structFields map
 		_, _ = buf.WriteString(str.Fmt("\nexport type %s = %s\n", apiGenSdkTypeName(api, typeName),
 			If(len(enumMembers) == 0, "string", "\""+str.Join(enumMembers, "\" | \"")+"\"")))
 	}
+	return true
 }
 
 func apiGenSdkTypeName(api *apiRefl, typeName string) string {
+	api.codeGen.typesUsed[typeName] = true
 	if str.Begins(typeName, ".") {
 		switch t := typeName[1:]; t {
 		case "string":

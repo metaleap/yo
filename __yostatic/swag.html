@@ -70,7 +70,7 @@
     import * as main_view from './swag.js'
 
     function loadUp() {
-        yo_sdk.yoReq____refl({}, (_) => main_view.onInit(document.body, _, yo_sdk.yoReq), () => setTimeout(loadUp, 123))
+        yo_sdk.yoReq("__/refl", {}, (_) => main_view.onInit(document.body, _, yo_sdk.yoReq), () => setTimeout(loadUp, 123))
     }
 
     loadUp()
