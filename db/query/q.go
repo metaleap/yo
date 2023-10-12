@@ -17,8 +17,8 @@ func (me C) LessOrEqual(other any) Query    { return LessOrEqual(me, other) }
 func (me C) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, other) }
 func (me C) In(set ...any) Query            { return In(me, set...) }
 func (me C) NotIn(set ...any) Query         { return NotIn(me, set...) }
-func (me C) Asc() OrderBy                   { return OrderBy(me + " ASC") }
-func (me C) Desc() OrderBy                  { return OrderBy(me + " DESC") }
+func (me C) Asc() OrderBy                   { return &orderBy[C]{col: me} }
+func (me C) Desc() OrderBy                  { return &orderBy[C]{col: me, desc: true} }
 
 type F string
 
@@ -30,8 +30,8 @@ func (me F) LessOrEqual(other any) Query    { return LessOrEqual(me, other) }
 func (me F) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, other) }
 func (me F) In(set ...any) Query            { return In(me, set...) }
 func (me F) NotIn(set ...any) Query         { return NotIn(me, set...) }
-func (me F) Asc() OrderBy                   { return OrderBy(me + " ASC") }
-func (me F) Desc() OrderBy                  { return OrderBy(me + " DESC") }
+func (me F) Asc() OrderBy                   { return &orderBy[F]{fld: me} }
+func (me F) Desc() OrderBy                  { return &orderBy[F]{fld: me, desc: true} }
 
 type A[T any] struct{ It T }
 
@@ -39,7 +39,21 @@ func (me A[T]) Equals(x any) Query     { return Equal(me.It, x) }
 func (me A[T]) In(set ...any) Query    { return In(me.It, set...) }
 func (me A[T]) NotIn(set ...any) Query { return NotIn(me.It, set...) }
 
-type OrderBy string
+type OrderBy interface {
+	Col() C
+	Field() F
+	Desc() bool
+}
+
+type orderBy[T ~string] struct {
+	col  C
+	fld  F
+	desc bool
+}
+
+func (me *orderBy[T]) Desc() bool { return me.desc }
+func (me *orderBy[T]) Col() C     { return me.col }
+func (me *orderBy[T]) Field() F   { return me.fld }
 
 const (
 	opEq    = " = "

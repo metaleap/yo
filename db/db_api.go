@@ -24,7 +24,8 @@ func apiListTables(ctx *Ctx, args *struct {
 
 func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 	type_name := desc.ty.Name()
-	yoserve.API["__/db/"+type_name+"/getById"] = yoserve.Method(apiGetById[TObj, TFld])
+	yoserve.API["__/db/"+type_name+"/findById"] = yoserve.Method(apiFindById[TObj, TFld])
+	yoserve.API["__/db/"+type_name+"/findOne"] = yoserve.Method(apiFindOne[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/createOne"] = yoserve.Method(apiCreateOne[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/createMany"] = yoserve.Method(apiCreateMany[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/deleteOne"] = yoserve.Method(apiDeleteOne[TObj, TFld])
@@ -34,7 +35,13 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 
 type retCount struct{ Count int64 }
 type argId struct{ ID I64 }
-type argQuery[TObj any, TFld ~string] struct{ Query *ApiQueryExpr[TObj, TFld] }
+type argQuery[TObj any, TFld ~string] struct {
+	Query *ApiQueryExpr[TObj, TFld]
+}
+type argFind[TObj any, TFld ~string] struct {
+	Query   *ApiQueryExpr[TObj, TFld]
+	OrderBy []*ApiOrderBy[TObj, TFld]
+}
 
 func (me *argQuery[TObj, TFld]) toDbQ() q.Query {
 	if me != nil && me.Query != nil {
@@ -44,12 +51,17 @@ func (me *argQuery[TObj, TFld]) toDbQ() q.Query {
 	return nil
 }
 
-func apiGetById[TObj any, TFld ~string](ctx *Ctx, args *argId, ret *TObj) any {
-	if it := Get[TObj](ctx, args.ID); it != nil {
+func apiFindById[TObj any, TFld ~string](ctx *Ctx, args *argId, ret *TObj) any {
+	if it := ById[TObj](ctx, args.ID); it != nil {
 		*ret = *it
 		return ret
 	}
 	return nil
+}
+
+func apiFindOne[TObj any, TFld ~string](ctx *Ctx, args *argFind[TObj, TFld], ret *Return[*TObj]) any {
+	ret.Result = FindOne[TObj](ctx, args.Query.toDbQ())
+	return ret
 }
 
 func apiCount[TObj any, TFld ~string](ctx *Ctx, args *argQuery[TObj, TFld], ret *retCount) any {
@@ -86,6 +98,10 @@ func apiDeleteMany[TObj any, TFld ~string](ctx *Ctx, args *argQuery[TObj, TFld],
 	return ret
 }
 
+type ApiOrderBy[TObj any, TFld ~string] struct {
+	Fld  TFld
+	Desc bool
+}
 type ApiQueryVal[TObj any, TFld ~string] struct {
 	Fld  *TFld
 	Str  *string

@@ -89,8 +89,8 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 		codeGenWriteEnumDecl(&buf, desc, "Field", "q.F", false)
 
 		for _, method := range [][3]string{
-			{"Asc", "()q.OrderBy", "()"},
-			{"Desc", "()q.OrderBy", "()"},
+			{"Asc", "()q.OrderBy[q.F]", "()"},
+			{"Desc", "()q.OrderBy[q.F]", "()"},
 			{"In", "(set...any)q.Query", "(set...)"},
 			{"NotIn", "(set...any)q.Query", "(set...)"},
 			{"Equal", "(other any)q.Query", "(other)"},

@@ -80,7 +80,7 @@ func (me *sqlStmt) where(where q.Query, f2c func(q.F) q.C, args pgx.NamedArgs) *
 	return me
 }
 
-func (me *sqlStmt) orderBy(orderBy ...q.OrderBy) *sqlStmt {
+func (me *sqlStmt) orderBy(f2c func(q.F) q.C, orderBy ...q.OrderBy) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	if len(orderBy) > 0 {
 		w(" ORDER BY ")
@@ -88,7 +88,12 @@ func (me *sqlStmt) orderBy(orderBy ...q.OrderBy) *sqlStmt {
 			if i > 0 {
 				w(", ")
 			}
-			w(string(o))
+			if fld := o.Field(); fld != "" {
+				w(string(f2c(fld)))
+			} else {
+				w(string(o.Col()))
+			}
+			w(If(o.Desc(), " DESC", " ASC"))
 		}
 	}
 	return me

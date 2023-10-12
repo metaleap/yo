@@ -40,7 +40,7 @@ func ListTables(ctx *Ctx, tableName string) map[Text][]*TableColumn {
 					), desc.fieldNameToColName, args),
 			),
 		), desc.fieldNameToColName, args).
-		orderBy(q.C("table_name").Asc(), q.C("ordinal_position").Desc())
+		orderBy(desc.fieldNameToColName, q.C("table_name").Asc(), q.C("ordinal_position").Desc())
 	flat_results := doSelect[TableColumn](ctx, stmt, args, If(tableName == "", 0, 1))
 	for _, result := range flat_results {
 		ret[result.tableName] = append(ret[result.tableName], result)
