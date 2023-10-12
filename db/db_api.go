@@ -26,6 +26,7 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 	type_name := desc.ty.Name()
 	yoserve.API["__/db/"+type_name+"/findById"] = yoserve.Method(apiFindById[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/findOne"] = yoserve.Method(apiFindOne[TObj, TFld])
+	yoserve.API["__/db/"+type_name+"/findMany"] = yoserve.Method(apiFindOne[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/createOne"] = yoserve.Method(apiCreateOne[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/createMany"] = yoserve.Method(apiCreateMany[TObj, TFld])
 	yoserve.API["__/db/"+type_name+"/deleteOne"] = yoserve.Method(apiDeleteOne[TObj, TFld])
@@ -68,6 +69,11 @@ func apiFindById[TObj any, TFld ~string](ctx *Ctx, args *argId, ret *TObj) any {
 
 func apiFindOne[TObj any, TFld ~string](ctx *Ctx, args *argQuery[TObj, TFld], ret *Return[*TObj]) any {
 	ret.Result = FindOne[TObj](ctx, args.toDbQ(), args.toDbO()...)
+	return ret
+}
+
+func apiFindMany[TObj any, TFld ~string](ctx *Ctx, args *argQuery[TObj, TFld], ret *Return[[]*TObj]) any {
+	ret.Result = FindMany[TObj](ctx, args.toDbQ(), int(args.Max), args.toDbO()...)
 	return ret
 }
 

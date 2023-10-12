@@ -22,14 +22,14 @@ func ById[T any](ctx *Ctx, id I64) *T {
 }
 
 func FindOne[T any](ctx *Ctx, query q.Query, orderBy ...q.OrderBy) *T {
-	results := FindAll[T](ctx, query, 1, orderBy...)
+	results := FindMany[T](ctx, query, 1, orderBy...)
 	if len(results) == 0 {
 		return nil
 	}
 	return results[0]
 }
 
-func FindAll[T any](ctx *Ctx, query q.Query, maxResults int, orderBy ...q.OrderBy) []*T {
+func FindMany[T any](ctx *Ctx, query q.Query, maxResults int, orderBy ...q.OrderBy) []*T {
 	desc, args := desc[T](), dbArgs{}
 	return doSelect[T](ctx,
 		new(sqlStmt).sel("", false, desc.cols...).from(desc.tableName).where(query, desc.fieldNameToColName, args).orderBy(desc.fieldNameToColName, orderBy...).limit(maxResults), args, maxResults)
