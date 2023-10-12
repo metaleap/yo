@@ -179,12 +179,16 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
     }
 
     const refreshTreeNode = (typeName: string, value: any, ulTree: HTMLUListElement, isForPayload: boolean, path: string, root: any) => {
+        while (typeName.startsWith('?'))
+            typeName = typeName.substring(1)
         const type_struc = apiRefl.Types[typeName], is_array = Array.isArray(value)
         let ret_count = -1
         ulTree.replaceChildren()
         if (!value)
             return ret_count
         const buildItemInput = (itemTypeName: string, key: string, val: any) => {
+            while (itemTypeName.startsWith('?'))
+                itemTypeName = itemTypeName.substring(1)
             let field_input: HTMLElement, checkbox: HTMLInputElement, get_val: (_: string) => any
             const on_change = (evt: UIEvent) => {
                 let index: string | number = key, refresh_tree = false
@@ -449,6 +453,8 @@ function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: s
                 delete obj[field_name]
         return obj
     }
+    if (type_name.startsWith('?'))
+        return isForPayload ? null : newSampleVal(refl, type_name.substring(1), recurse_protection, isForPayload, methodPath)
     if (type_name.startsWith('[') && type_name.endsWith(']'))
         return [newSampleVal(refl, type_name.substring(1, type_name.length - 1), recurse_protection, isForPayload, methodPath)]
     if (type_name.startsWith('{') && type_name.endsWith('}') && type_name.includes(':')) {
@@ -577,6 +583,8 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
         }
 
     walk(apiRefl, method.In, entry.payload, [], (path, fieldTypeName, fieldValue) => {
+        while (fieldTypeName.startsWith('?'))
+            fieldTypeName = fieldTypeName.substring(1)
         if ((fieldTypeName !== '.string') || (typeof fieldValue !== 'string') || !fieldValue)
             return
         const field_name = autoCompleteFieldName(path)
@@ -611,6 +619,9 @@ function enumExists(apiRefl: YoReflApis, type_name: string) {
 }
 
 function walk(apiRefl: YoReflApis, typeName: string, value: any, path: string[], onField: (path: string[], fieldTypeName: string, fieldValue: any) => void, callForArrsAndObjs: boolean = false) {
+    while (typeName.startsWith('?'))
+        typeName = typeName.substring(1)
+
     if (typeName.startsWith('[') && typeName.endsWith(']') && value && Array.isArray(value)) {
         const type_name_items = typeName.substring(1, typeName.length - 1)
         for (let i = 0; i < value.length; i++)
@@ -643,6 +654,9 @@ function walk(apiRefl: YoReflApis, typeName: string, value: any, path: string[],
 }
 
 function validate(apiRefl: YoReflApis, typeName: string, value: any, path: string, stringIsNoJson?: boolean): [string, any] {
+    while (typeName.startsWith('?'))
+        typeName = typeName.substring(1)
+
     const is_str = (typeof value === 'string')
     if (value === undef)
         return [`${displayPath(path)}: new bug, 'value' being 'undefined'`, undef]
@@ -746,6 +760,8 @@ function fieldInputValue(v: any, preserve: boolean) {
 function numTypeMin(typeName: string): number { return numTypeLimits(typeName)[0] }
 function numTypeMax(typeName: string): number { return numTypeLimits(typeName)[1] }
 function numTypeLimits(typeName: string): [number, number] {
+    while (typeName.startsWith('?'))
+        typeName = typeName.substring(1)
     switch (typeName) {
         case '.int8': return [-128, 127]
         case '.int16': return [-32768, 32767]

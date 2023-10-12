@@ -60,7 +60,7 @@ func apiReflType(it *apiRefl, rt reflect.Type, fldName string, parent string) st
 	}
 
 	if rt_kind == reflect.Pointer {
-		return apiReflType(it, rt.Elem(), fldName, parent)
+		return "?" + apiReflType(it, rt.Elem(), fldName, parent)
 	}
 	if rt_kind == reflect.Slice || rt_kind == reflect.Array {
 		ty_elem := apiReflType(it, rt.Elem(), fldName, parent)
