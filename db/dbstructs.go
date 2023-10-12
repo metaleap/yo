@@ -2,7 +2,6 @@ package yodb
 
 import (
 	"reflect"
-	"slices"
 	"time"
 	"unsafe"
 
@@ -11,6 +10,7 @@ import (
 	q "yo/db/query"
 	yolog "yo/log"
 	. "yo/util"
+	"yo/util/sl"
 	"yo/util/str"
 )
 
@@ -73,7 +73,7 @@ type structDesc struct {
 }
 
 func isColField(fieldType reflect.Type) bool {
-	return slices.Contains(okTypes, fieldType)
+	return sl.Has(okTypes, fieldType)
 }
 
 func desc[T any]() (ret *structDesc) {
@@ -94,7 +94,7 @@ func desc[T any]() (ret *structDesc) {
 		}
 	}
 	for i := len(ret.cols) - 1; i >= 0; i-- {
-		if slices.Index(ret.cols, ret.cols[i]) != i {
+		if sl.IdxOf(ret.cols, ret.cols[i]) != i {
 			panic("duplicate column: '" + ret.cols[i] + "'")
 		}
 	}
@@ -214,7 +214,7 @@ func doEnsureDbStructTables() {
 		cur_table := GetTable(ctx, If(is_table_rename, desc.mig.oldTableName, desc.tableName))
 		if cur_table == nil {
 			if !is_table_rename {
-				_ = doExec(ctx, new(Stmt).createTable(desc), nil)
+				_ = doExec(ctx, new(sqlStmt).createTable(desc), nil)
 			} else {
 				panic("outdated table rename: '" + desc.mig.oldTableName + "'")
 			}

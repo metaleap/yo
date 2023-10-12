@@ -2,28 +2,28 @@ package yodb
 
 import (
 	"reflect"
-	"slices"
 
 	q "yo/db/query"
 	. "yo/util"
+	"yo/util/sl"
 	"yo/util/str"
 
 	"github.com/jackc/pgx/v5"
 )
 
-type Stmt str.Buf
+type sqlStmt str.Buf
 
-func (me *Stmt) Sql(buf *str.Buf) { buf.WriteString(me.String()) }
-func (me *Stmt) String() string   { return (*str.Buf)(me).String() }
+func (me *sqlStmt) Sql(buf *str.Buf) { buf.WriteString(me.String()) }
+func (me *sqlStmt) String() string   { return (*str.Buf)(me).String() }
 
-func (me *Stmt) delete(from string) *Stmt {
+func (me *sqlStmt) delete(from string) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	w("DELETE FROM ")
 	w(from)
 	return me
 }
 
-func (me *Stmt) sel(countColName q.C, countDistinct bool, cols ...q.C) *Stmt {
+func (me *sqlStmt) sel(countColName q.C, countDistinct bool, cols ...q.C) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	w("SELECT ")
 	if countColName != "" {
@@ -51,7 +51,7 @@ func (me *Stmt) sel(countColName q.C, countDistinct bool, cols ...q.C) *Stmt {
 	return me
 }
 
-func (me *Stmt) from(from string) *Stmt {
+func (me *sqlStmt) from(from string) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	if from != "" {
 		w(" FROM ")
@@ -60,7 +60,7 @@ func (me *Stmt) from(from string) *Stmt {
 	return me
 }
 
-func (me *Stmt) limit(max int) *Stmt {
+func (me *sqlStmt) limit(max int) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	if max > 0 {
 		w(" LIMIT (")
@@ -70,7 +70,7 @@ func (me *Stmt) limit(max int) *Stmt {
 	return me
 }
 
-func (me *Stmt) where(where q.Query, args pgx.NamedArgs) *Stmt {
+func (me *sqlStmt) where(where q.Query, args pgx.NamedArgs) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	if where != nil {
 		w(" WHERE (")
@@ -80,7 +80,7 @@ func (me *Stmt) where(where q.Query, args pgx.NamedArgs) *Stmt {
 	return me
 }
 
-func (me *Stmt) orderBy(orderBy ...q.OrderBy) *Stmt {
+func (me *sqlStmt) orderBy(orderBy ...q.OrderBy) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	if len(orderBy) > 0 {
 		w(" ORDER BY ")
@@ -94,7 +94,7 @@ func (me *Stmt) orderBy(orderBy ...q.OrderBy) *Stmt {
 	return me
 }
 
-func (me *Stmt) insert(into string, numRows int, cols ...q.C) *Stmt {
+func (me *sqlStmt) insert(into string, numRows int, cols ...q.C) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	w("INSERT INTO ")
 	w(into)
@@ -141,7 +141,7 @@ func (me *Stmt) insert(into string, numRows int, cols ...q.C) *Stmt {
 	return me
 }
 
-func (me *Stmt) createTable(desc *structDesc) *Stmt {
+func (me *sqlStmt) createTable(desc *structDesc) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	w("CREATE TABLE IF NOT EXISTS ")
 	w(desc.tableName)
@@ -165,7 +165,7 @@ func (me *Stmt) createTable(desc *structDesc) *Stmt {
 	return me
 }
 
-func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, renamesOldColToNewField map[q.C]string) (ret []*Stmt) {
+func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, renamesOldColToNewField map[q.C]string) (ret []*sqlStmt) {
 	if oldTableName == desc.tableName {
 		panic("invalid table rename: " + oldTableName)
 	}
@@ -173,12 +173,12 @@ func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, 
 	cols_gone, fields_new := []q.C{}, []string{}
 	for _, table_col := range curTable {
 		col_name := q.C(table_col.ColumnName)
-		if !slices.Contains(desc.cols, col_name) {
+		if !sl.Has(desc.cols, col_name) {
 			cols_gone = append(cols_gone, col_name)
 		}
 	}
 	for i, struct_col_name := range desc.cols {
-		if !slices.ContainsFunc(curTable, func(t *TableColumn) bool { return t.ColumnName == Text(struct_col_name) }) {
+		if !sl.Any(curTable, func(t *TableColumn) bool { return t.ColumnName == Text(struct_col_name) }) {
 			fields_new = append(fields_new, desc.fields[i])
 		}
 	}
@@ -188,16 +188,16 @@ func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, 
 			if new_col_name == old_col_name {
 				panic("invalid column rename: " + old_col_name)
 			}
-			idx_old, idx_new := slices.Index(cols_gone, old_col_name), slices.Index(fields_new, new_field_name)
+			idx_old, idx_new := sl.IdxOf(cols_gone, old_col_name), sl.IdxOf(fields_new, new_field_name)
 			if idx_old < 0 || idx_new < 0 {
 				panic(str.Fmt("outdated column rename: col '%s' => field '%s'", old_col_name, new_field_name))
 			}
-			cols_gone, fields_new = slices.Delete(cols_gone, idx_old, idx_old+1), slices.Delete(fields_new, idx_new, idx_new+1)
+			cols_gone, fields_new = sl.WithoutIdx(cols_gone, idx_old, true), sl.WithoutIdx(fields_new, idx_new, true)
 		}
 	}
 
 	if oldTableName != "" {
-		stmt := new(Stmt)
+		stmt := new(sqlStmt)
 		w := (*str.Buf)(stmt).WriteString
 		w("ALTER TABLE ")
 		w(oldTableName)
@@ -208,12 +208,12 @@ func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, 
 	}
 
 	if (len(cols_gone) > 0) || (len(fields_new) > 0) {
-		stmt := new(Stmt)
+		stmt := new(sqlStmt)
 		w := (*str.Buf)(stmt).WriteString
 		w("ALTER TABLE ")
 		w(desc.tableName)
 		for _, field_name := range fields_new {
-			col_name := desc.cols[slices.Index(desc.fields, field_name)]
+			col_name := desc.cols[sl.IdxOf(desc.fields, field_name)]
 			w(" \n\tADD COLUMN IF NOT EXISTS ")
 			w(string(col_name))
 			w(" ")
@@ -231,7 +231,7 @@ func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, 
 
 	if len(renamesOldColToNewField) > 0 {
 		for old_col_name, new_field_name := range renamesOldColToNewField {
-			stmt := new(Stmt)
+			stmt := new(sqlStmt)
 			w := (*str.Buf)(stmt).WriteString
 			w("ALTER TABLE ")
 			w(desc.tableName)

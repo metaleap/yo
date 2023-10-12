@@ -11,6 +11,7 @@ import (
 
 	yolog "yo/log"
 	. "yo/util"
+	"yo/util/sl"
 	"yo/util/str"
 )
 
@@ -69,10 +70,10 @@ func apiGenSdk() {
 		panic(err)
 	}
 	_, _ = buf.Write(b)
-	for _, enum_name := range Sorted(Keys(api.Enums)) {
+	for _, enum_name := range sl.Sorted(Keys(api.Enums)) {
 		apiGenSdkType(&buf, &api, enum_name, nil, api.Enums[enum_name])
 	}
-	for _, struct_name := range Sorted(Keys(api.Types)) {
+	for _, struct_name := range sl.Sorted(Keys(api.Types)) {
 		apiGenSdkType(&buf, &api, struct_name, api.Types[struct_name], nil)
 	}
 	for _, method := range api.Methods {
@@ -124,7 +125,7 @@ func apiGenSdkType(buf *str.Buf, api *apiRefl, typeName string, structFields map
 	}
 	if structFields != nil {
 		_, _ = buf.WriteString(str.Fmt("\nexport type %s = {", apiGenSdkTypeName(api, typeName)))
-		for _, field_name := range Sorted(Keys(structFields)) {
+		for _, field_name := range sl.Sorted(Keys(structFields)) {
 			field_type := structFields[field_name]
 			_, _ = buf.WriteString(str.Fmt("\n\t%s: %s", ToIdent(field_name), apiGenSdkTypeName(api, field_type)))
 		}

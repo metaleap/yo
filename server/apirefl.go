@@ -2,10 +2,10 @@ package yoserve
 
 import (
 	"reflect"
-	"slices"
 
 	. "yo/ctx"
 	. "yo/util"
+	"yo/util/sl"
 	"yo/util/str"
 )
 
@@ -27,7 +27,7 @@ type apiReflMethod struct {
 
 func apiHandleReflReq(_ *Ctx, _ *Void, ret *apiRefl) any {
 	ret.Types, ret.Enums = map[string]map[string]string{}, map[string][]string{}
-	for _, method_path := range Sorted(Keys(API)) {
+	for _, method_path := range sl.Sorted(Keys(API)) {
 		if !str.IsPrtAscii(method_path) {
 			panic("not printable ASCII: '" + method_path + "'")
 		}
@@ -95,7 +95,7 @@ func apiReflType(it *apiRefl, rt reflect.Type, fldName string, parent string) st
 		ty_refl := map[string]string{}
 		it.Types[type_ident] = ty_refl
 		if (rt_kind == reflect.Struct) && !(ReflHasMethod(rt, "MarshalJSON") && ReflHasMethod(rt, "UnmarshalJSON")) {
-			if slices.Contains(apiReflAllDbStructs, rt) && !slices.Contains(it.DbStructs, type_ident) {
+			if sl.Has(apiReflAllDbStructs, rt) && !sl.Has(it.DbStructs, type_ident) {
 				it.DbStructs = append(it.DbStructs, type_ident)
 			}
 			for i := 0; i < rt.NumField(); i++ {

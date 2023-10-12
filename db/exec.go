@@ -32,12 +32,12 @@ func FindOne[T any](ctx *Ctx, query q.Query, orderBy ...q.OrderBy) *T {
 func FindAll[T any](ctx *Ctx, query q.Query, maxResults int, orderBy ...q.OrderBy) []*T {
 	desc, args := desc[T](), dbArgs{}
 	return doSelect[T](ctx,
-		new(Stmt).sel("", false, desc.cols...).from(desc.tableName).where(query, args).orderBy(orderBy...).limit(maxResults), args, maxResults)
+		new(sqlStmt).sel("", false, desc.cols...).from(desc.tableName).where(query, args).orderBy(orderBy...).limit(maxResults), args, maxResults)
 }
 
 func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.OrderBy, onRecord func(rec *T, enough *bool)) {
 	desc, args := desc[T](), dbArgs{}
-	doStream[T](ctx, new(Stmt).sel("", false, desc.cols...).from(desc.tableName).where(query, args).orderBy(orderBy...).limit(maxResults), onRecord, args)
+	doStream[T](ctx, new(sqlStmt).sel("", false, desc.cols...).from(desc.tableName).where(query, args).orderBy(orderBy...).limit(maxResults), onRecord, args)
 }
 
 func Count[T any](ctx *Ctx, query q.Query, max int, nonNullColumn q.C, distinct *q.C) int64 {
@@ -46,7 +46,7 @@ func Count[T any](ctx *Ctx, query q.Query, max int, nonNullColumn q.C, distinct 
 	if distinct != nil {
 		col = *distinct
 	}
-	results := doSelect[int64](ctx, new(Stmt).sel(col, distinct != nil).from(desc.tableName).limit(max).where(query, args), args, 1)
+	results := doSelect[int64](ctx, new(sqlStmt).sel(col, distinct != nil).from(desc.tableName).limit(max).where(query, args), args, 1)
 	return *results[0]
 }
 
@@ -55,7 +55,7 @@ func Delete[T any](ctx *Ctx, query q.Query) int64 {
 		panic("Delete without query")
 	}
 	desc, args := desc[T](), dbArgs{}
-	result := doExec(ctx, new(Stmt).delete(desc.tableName).where(query, args), args)
+	result := doExec(ctx, new(sqlStmt).delete(desc.tableName).where(query, args), args)
 	num_rows_affected, err := result.RowsAffected()
 	if err != nil {
 		panic(err)
@@ -74,7 +74,7 @@ func CreateOne[T any](ctx *Ctx, rec *T) I64 {
 		}
 	}
 
-	result := doSelect[int64](ctx, new(Stmt).insert(desc.tableName, 1, desc.cols[2:]...), args, 1)
+	result := doSelect[int64](ctx, new(sqlStmt).insert(desc.tableName, 1, desc.cols[2:]...), args, 1)
 	if (len(result) > 0) && (result[0] != nil) {
 		return I64(*result[0])
 	}
@@ -100,10 +100,10 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 			}
 		}
 	}
-	_ = doExec(ctx, new(Stmt).insert(desc.tableName, len(recs), desc.cols[2:]...), args)
+	_ = doExec(ctx, new(sqlStmt).insert(desc.tableName, len(recs), desc.cols[2:]...), args)
 }
 
-func doExec(ctx *Ctx, stmt *Stmt, args dbArgs) (result sql.Result) {
+func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) (result sql.Result) {
 	sql_raw := str.TrimR(stmt.String(), ",")
 	ctx.Timings.Step("dbExec: `" + sql_raw + "`")
 	exec := DB.ExecContext
@@ -119,7 +119,7 @@ func doExec(ctx *Ctx, stmt *Stmt, args dbArgs) (result sql.Result) {
 	return result
 }
 
-func doSelect[T any](ctx *Ctx, stmt *Stmt, args dbArgs, maxResults int) (ret []*T) {
+func doSelect[T any](ctx *Ctx, stmt *sqlStmt, args dbArgs, maxResults int) (ret []*T) {
 	if maxResults > 0 {
 		ret = make([]*T, 0, maxResults)
 	}
@@ -129,7 +129,7 @@ func doSelect[T any](ctx *Ctx, stmt *Stmt, args dbArgs, maxResults int) (ret []*
 	return
 }
 
-func doStream[T any](ctx *Ctx, stmt *Stmt, onRecord func(*T, *bool), args dbArgs) {
+func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbArgs) {
 	sql_raw := stmt.String()
 	ctx.Timings.Step("dbQuery: `" + sql_raw + "`")
 	query := DB.QueryContext

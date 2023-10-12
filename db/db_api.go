@@ -2,9 +2,30 @@ package yodb
 
 import (
 	. "yo/ctx"
+	q "yo/db/query"
+	yojson "yo/json"
 	yoserve "yo/server"
 	. "yo/util"
 )
+
+type ApiQueryVal struct {
+	F *string
+	S *string
+	B *bool
+	N *yojson.Num
+}
+type ApiQueryExpr struct {
+	AND []ApiQueryExpr
+	OR  []ApiQueryExpr
+	NOT *ApiQueryExpr
+	EQ  [2]ApiQueryVal
+	NEQ [2]ApiQueryVal
+	LT  [2]ApiQueryVal
+	LE  [2]ApiQueryVal
+	GT  [2]ApiQueryVal
+	GE  [2]ApiQueryVal
+	IN  []ApiQueryVal
+}
 
 func init() {
 	yoserve.API["__/db/listTables"] = yoserve.Method(apiListTables)
@@ -60,4 +81,12 @@ func apiCreateMany[T any](ctx *Ctx, args *struct {
 func apiDeleteOne[T any](ctx *Ctx, args *argId, ret *retCount) any {
 	ret.Count = Delete[T](ctx, ColID.Equal(args.ID))
 	return ret
+}
+
+func (me *ApiQueryExpr) Query() q.Query {
+	switch {
+	case len(me.AND) >= 2:
+		return q.AllTrue()
+	}
+	return nil
 }

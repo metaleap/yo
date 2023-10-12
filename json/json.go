@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 )
 
+type Num = json.Number
+
 var (
 	MarshalIndent = json.MarshalIndent
 	Unmarshal     = json.Unmarshal

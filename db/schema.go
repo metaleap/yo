@@ -30,11 +30,11 @@ func ListTables(ctx *Ctx, tableName string) map[Text][]*TableColumn {
 	}
 
 	args := dbArgs{}
-	stmt := new(Stmt).sel("", false, desc.cols...).from(desc.tableName).
+	stmt := new(sqlStmt).sel("", false, desc.cols...).from(desc.tableName).
 		where(If(tableName != "",
 			q.C("table_name").Equal(tableName),
 			q.C("table_name").In(
-				new(Stmt).sel("", false, "table_name").from("information_schema.tables").
+				new(sqlStmt).sel("", false, "table_name").from("information_schema.tables").
 					where(q.C("table_type").Equal("BASE TABLE").And(
 						q.C("table_schema").NotIn("pg_catalog", "information_schema"),
 					), args),
