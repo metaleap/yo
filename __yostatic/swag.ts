@@ -99,7 +99,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             [textarea_response, tree_response] = [textarea, tree]
         if (type_name && type_name !== '') {
             const dummy_val = newSampleVal(apiRefl, type_name, [], isForPayload ? method_path : undef)
-            textarea.value = (isForPayload ? "" : "// example of response structure:\n\n") + JSON.stringify(dummy_val, null, 2)
+            textarea.value = JSON.stringify(dummy_val, null, 2)
 
             on_textarea_maybe_modified()
             refreshTree(method_path, dummy_val, isForPayload ? tree_payload : tree_response, isForPayload)
