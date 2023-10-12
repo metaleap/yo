@@ -42,12 +42,11 @@ func Method[TIn any, TOut any](f func(*Ctx, *TIn, *TOut) any) APIMethod {
 type apiMethod[TIn any, TOut any] apiHandleFunc
 
 func (me apiMethod[TIn, TOut]) handle() apiHandleFunc { return me }
-func (me apiMethod[TIn, TOut]) loadPayload(data []byte) (any, error) {
-	if len(data) == 0 || bytes.Equal(data, yojson.JsonNullTok) {
-		panic(Err("PayloadExpectedButMissingOrNull"))
-	}
+func (me apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
 	var it TIn
-	err := yojson.Unmarshal(data, &it)
+	if len(data) > 0 && !bytes.Equal(data, yojson.JsonNullTok) {
+		err = yojson.Unmarshal(data, &it)
+	}
 	return &it, err
 }
 func (me apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {

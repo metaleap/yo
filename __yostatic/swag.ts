@@ -280,28 +280,30 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                     if (Array.isArray(coll)) {
                         const item_type_name = itemTypeName.substring(1, itemTypeName.length - 1)
                         coll.push(newSampleVal(apiRefl, item_type_name, [], isForPayload))
-                        refreshTreeNode(typeName, value, ulTree, isForPayload, path, root)
-                        on_change(evt)
                     } else {
-                        const keys: string[] = []
+                        const prompt_text = "keep entering keys until done:", keys: string[] = []
+                        let last_err_msg = ""
                         while (true) {
-                            const key = prompt("keep entering keys until done:", "")
+                            const key = prompt(last_err_msg ? last_err_msg : prompt_text, "")
                             if (key === "")
                                 break
-                            if (key)
-                                keys.push(key)
-                            else
+                            if (!key)
                                 return false
+                            const fake = {}
+                            fake[key] = null
+                            const [err_msg, _] = validate(apiRefl, itemTypeName, fake, '')
+                            if (!(last_err_msg = err_msg))
+                                keys.push(key)
                         }
                         if (keys.length > 0) {
                             let item_type_name = itemTypeName.substring(1, itemTypeName.length - 1)
                             item_type_name = item_type_name.substring(item_type_name.indexOf(':') + 1)
                             for (const key of keys)
                                 coll[key] = newSampleVal(apiRefl, item_type_name, [], isForPayload)
-                            refreshTreeNode(typeName, value, ulTree, isForPayload, path, root)
-                            on_change(evt)
                         }
                     }
+                    refreshTreeNode(typeName, value, ulTree, isForPayload, path, root)
+                    on_change(evt)
                 }
                 return false
             }
