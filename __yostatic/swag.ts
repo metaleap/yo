@@ -278,7 +278,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             }
             const on_count_click = (evt: UIEvent) => {
                 let sub_key = key
-                if (sub_key.startsWith('["') && sub_key.startsWith('"]'))
+                if (sub_key.startsWith('["') && sub_key.endsWith('"]'))
                     sub_key = sub_key.substring(2, sub_key.length - 2)
                 else if (sub_key.startsWith('[') && sub_key.endsWith(']'))
                     sub_key = sub_key.substring(1, sub_key.length - 1)
