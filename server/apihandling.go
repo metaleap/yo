@@ -76,6 +76,13 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 		ctx.HttpErr(400, err.Error()+If(IsDevMode, "\n"+string(payload_data), ""))
 		return nil, false
 	}
+	// generic input sanitizations
+	ReflWalk(reflect.ValueOf(payload), nil, func(path []any, it reflect.Value) {
+		if it.Kind() == reflect.String {
+			println("SANI:" + str.From(path))
+			ReflSet(it, str.Trim(ReflGet[string](it)))
+		}
+	})
 
 	ctx.Timings.Step("HANDLE")
 	return api.handle()(ctx, payload), true

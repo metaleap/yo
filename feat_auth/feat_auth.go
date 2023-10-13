@@ -5,7 +5,6 @@ import (
 	yodb "yo/db"
 	yoserve "yo/server"
 	. "yo/util"
-	"yo/util/str"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -24,7 +23,6 @@ func init() {
 }
 
 func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
-	emailAddr, passwordPlain = str.Trim(emailAddr), str.Trim(passwordPlain)
 	if emailAddr == "" {
 		panic(Err("UserRegisterEmailRequiredButMissing"))
 	}
@@ -36,11 +34,48 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 		panic(Err("UserRegisterEmailAddrAlreadyExists"))
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
-	if err != nil {
-		panic(err)
+	if (err != nil) || (len(hash) == 0) {
+		panic(Err("PasswordInvalid"))
 	}
 	return yodb.CreateOne[UserAccount](ctx, &UserAccount{
 		EmailAddr:      yodb.Text(emailAddr),
 		passwordHashed: hash,
 	})
+}
+
+func UserLogin(ctx *Ctx) {
+
+	/*
+	   loginEmail, loginPassword = strTrim(loginEmail), strTrim(loginPassword)
+
+	   	if loginEmail == "" {
+	   		return "", ErrorEmailRequiredButMissing
+	   	}
+
+	   	if loginPassword == "" {
+	   		return "", ErrorPasswordRequiredButMissing
+	   	}
+
+	   user, err := dbGet[User](me, User{Email: loginEmail})
+
+	   	if err != nil {
+	   		return "", err
+	   	} else if user == nil {
+
+	   		return "", ErrorAuthUserDoesNotExist
+	   	}
+
+	   	if err = bcrypt.CompareHashAndPassword(user.PasswordHashed, []byte(loginPassword)); err != nil {
+	   		return "", err
+	   	}
+
+	   	claims := &AuthJwtPayload{
+	   		StandardClaims: jwt.StandardClaims{
+	   			Subject:   user.Email,
+	   			ExpiresAt: time.Now().UTC().AddDate(0, 0, config.JwtExpiryAfterDays).Unix(),
+	   		},
+	   	}
+
+	   return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(authJwtKey)
+	*/
 }

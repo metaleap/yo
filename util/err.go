@@ -7,6 +7,7 @@ type Err string
 var errSubstrToHttpStatusCode = map[string]int{
 	"Required":      400,
 	"Expected":      400,
+	"Invalid":       400,
 	"NotFound":      404,
 	"AlreadyExists": 409,
 	"Timeout":       504,
