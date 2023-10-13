@@ -6,7 +6,6 @@ import (
 	. "yo/cfg"
 	. "yo/ctx"
 	yodb "yo/db"
-	yoserve "yo/server"
 	. "yo/util"
 	"yo/util/str"
 
@@ -30,7 +29,6 @@ type UserAccount struct {
 
 func init() {
 	yodb.Ensure[UserAccount, UserAccountField](false, "", nil)
-	yoserve.API["authRegister"] = yoserve.Method(apiUserRegister)
 }
 
 func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
