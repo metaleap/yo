@@ -15,8 +15,6 @@ import (
 	"yo/util/str"
 )
 
-const sdkGenDstTsFilePath = StaticFileDirPath + "/yo-sdk.ts"
-
 var foundModifiedTsFiles bool
 
 func init() {
@@ -70,12 +68,13 @@ func init() {
 }
 
 func apiGenSdk() {
+	const sdkGenDstTsFileRelPath = StaticFilesDirName + "/yo-sdk.ts"
 	buf, api := str.Buf{}, apiRefl{}
 	api.codeGen.typesUsed, api.codeGen.typesEmitted = map[string]bool{}, map[string]bool{}
 	yolog.Println("  reflect...")
 	apiHandleReflReq(nil, nil, &api)
 	yolog.Println("  generate...")
-	b, err := staticFileDir.ReadFile(StaticFileDirPath + "/sdkgen.ts")
+	b, err := os.ReadFile("../yo/" + sdkGenDstTsFileRelPath)
 	if err != nil {
 		panic(err)
 	}
@@ -100,7 +99,7 @@ func apiGenSdk() {
 		}
 	}
 	src_is_changed, src_to_write := true, []byte(buf.String())
-	data, _ := os.ReadFile(sdkGenDstTsFilePath)
+	data, _ := os.ReadFile(sdkGenDstTsFileRelPath)
 	src_is_changed = (len(data) == 0) || (!bytes.Equal(data, src_to_write))
 	if src_is_changed {
 		foundModifiedTsFiles = true
@@ -108,7 +107,7 @@ func apiGenSdk() {
 		if err := os.WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`), os.ModePerm); err != nil {
 			panic(err)
 		}
-		if err := os.WriteFile(sdkGenDstTsFilePath, src_to_write, os.ModePerm); err != nil {
+		if err := os.WriteFile(sdkGenDstTsFileRelPath, src_to_write, os.ModePerm); err != nil {
 			panic(err)
 		}
 	}

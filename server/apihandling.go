@@ -11,19 +11,19 @@ import (
 	"yo/util/str"
 )
 
-type APIMethods = map[string]APIMethod
+type ApiMethods = map[string]ApiMethod
 
-var API = APIMethods{}
+var API = ApiMethods{}
 
 type apiHandleFunc = func(*Ctx, any) any
 
-type APIMethod interface {
+type ApiMethod interface {
 	handle() apiHandleFunc
 	loadPayload(data []byte) (any, error)
 	reflTypes() (reflect.Type, reflect.Type)
 }
 
-func Method[TIn any, TOut any](f func(*Ctx, *TIn, *TOut) any) APIMethod {
+func Method[TIn any, TOut any](f func(*Ctx, *TIn, *TOut) any) ApiMethod {
 	var tmp_in TIn
 	var tmp_out TOut
 	if reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct {

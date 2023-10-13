@@ -1,7 +1,6 @@
 package yoserve
 
 import (
-	"embed"
 	"io/fs"
 	"net/http"
 	"os"
@@ -16,18 +15,16 @@ import (
 )
 
 var (
-	staticFileDir    *embed.FS
-	staticFileServes        = map[string]fs.FS{}
+	StaticFileServes        = map[string]fs.FS{}
 	apiGenSdkMaybe   func() = nil // overwritten by apisdkgen.go in debug build mode
 	PreServe         []func(*yoctx.Ctx)
 )
 
-const StaticFileDirPath = "__yostatic"
+const StaticFilesDirName = "__yostatic"
 
 // called from yo.Init, not user code
-func Init(staticFS *embed.FS, dbStructs []reflect.Type) (func(), func()) {
+func Init(dbStructs []reflect.Type) (func(), func()) {
 	apiReflAllDbStructs = dbStructs
-	staticFileDir = staticFS
 	API["__/refl"] = Method(apiHandleReflReq)
 	for method_path := range API {
 		if str.Trim(method_path) != method_path || method_path == "" || !str.IsPrtAscii(method_path) {
@@ -38,11 +35,7 @@ func Init(staticFS *embed.FS, dbStructs []reflect.Type) (func(), func()) {
 }
 
 func listenAndServe() {
-	if IsDevMode {
-		staticFileServes[StaticFileDirPath] = os.DirFS("../yo")
-	} else {
-		staticFileServes[StaticFileDirPath] = staticFileDir
-	}
+	StaticFileServes["__yo"] = os.DirFS("../yo/" + StaticFilesDirName)
 	yolog.Println("live @ port %d", Cfg.YO_API_HTTP_PORT)
 	panic(http.ListenAndServe(":"+str.FromInt(Cfg.YO_API_HTTP_PORT), http.HandlerFunc(handleHTTPRequest)))
 }
@@ -64,18 +57,9 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 
 	{
 		ctx.Timings.Step("check static")
-		if ctx.Http.UrlPath == str.ReSuffix(sdkGenDstTsFilePath, ".ts", ".js") {
-			ctx.HttpOnPreWriteResponse()
-			if IsDevMode {
-				http.ServeFile(rw, req, ctx.Http.UrlPath)
-			} else {
-				http.FileServer(http.FS(staticFileServes[ctx.Http.UrlPath])).ServeHTTP(rw, req)
-			}
-			return
-		}
-		for static_prefix, static_serve := range staticFileServes {
+		for static_prefix, static_serve := range StaticFileServes {
 			if static_prefix = static_prefix + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && ctx.Http.UrlPath != static_prefix {
-				req.URL.Path = str.TrimL(ctx.Http.UrlPath, "__/")
+				req.URL.Path = ctx.Http.UrlPath[len(static_prefix):]
 				ctx.HttpOnPreWriteResponse()
 				http.FileServer(http.FS(static_serve)).ServeHTTP(rw, req)
 				return
