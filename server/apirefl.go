@@ -34,12 +34,12 @@ type apiReflMethod struct {
 
 func apiHandleReflReq(_ *Ctx, _ *Void, ret *apiRefl) any {
 	ret.Types, ret.Enums = map[string]str.Dict{}, map[string][]string{}
-	for _, method_path := range sl.Sorted(Keys(API)) {
+	for _, method_path := range sl.Sorted(Keys(Api)) {
 		if !str.IsPrtAscii(method_path) {
 			panic("not printable ASCII: '" + method_path + "'")
 		}
 		method_name, method := ToIdent(method_path), apiReflMethod{Path: method_path}
-		rt_in, rt_out := API[method_path].reflTypes()
+		rt_in, rt_out := Api[method_path].reflTypes()
 		method.In, method.Out = apiReflType(ret, rt_in, "In", method_name), apiReflType(ret, rt_out, "Out", method_name)
 		if no_in, no_out := (method.In == ""), (method.Out == ""); no_in || no_out {
 			panic(method_path + ": invalid " + If(no_in, "In", "Out"))

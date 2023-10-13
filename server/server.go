@@ -14,12 +14,17 @@ import (
 	"yo/util/str"
 )
 
+type PreServe struct {
+	Name string
+	Do   func(*yoctx.Ctx)
+}
+
 var (
 	// requests to key+'/' will be served from the corresponding FS
 	StaticFileServes = map[string]fs.FS{}
 
 	// funcs are run (in no particular order) just prior to loading request payload, handling request, and serving response
-	PreServe = map[string]func(*yoctx.Ctx){}
+	PreServes = []PreServe{}
 
 	apiGenSdkMaybe func() = nil // overwritten by apisdkgen.go in debug build mode
 )
@@ -29,8 +34,8 @@ const StaticFilesDirName = "__yostatic"
 // called from yo.Init, not user code
 func Init(dbStructs []reflect.Type) (func(), func()) {
 	apiReflAllDbStructs = dbStructs
-	API["__/refl"] = Method(apiHandleReflReq)
-	for method_path := range API {
+	Api["__/refl"] = Method(apiHandleReflReq)
+	for method_path := range Api {
 		if str.Trim(method_path) != method_path || method_path == "" || !str.IsPrtAscii(method_path) {
 			panic("not a valid method path: '" + method_path + "'")
 		}
@@ -55,9 +60,9 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-	for key, pre_serve := range PreServe {
-		ctx.Timings.Step("pre:" + key)
-		pre_serve(ctx)
+	for _, pre_serve := range PreServes {
+		ctx.Timings.Step("pre:" + pre_serve.Name)
+		pre_serve.Do(ctx)
 	}
 	{
 		ctx.Timings.Step("static check")

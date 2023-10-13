@@ -19,11 +19,7 @@ func init() {
 
 func Init(apiMethods yoserve.ApiMethods) (listenAndServe func()) {
 	time.Local = time.UTC // between above `init` and now, `time` might have its own `init`-time ideas about setting `time.Local`...
-	if apiMethods != nil {
-		for k, v := range apiMethods {
-			yoserve.API[k] = v
-		}
-	}
+	yoserve.Api.Add(apiMethods)
 	yolog.Println("Load config...")
 	config.Load()
 	db_structs := yodb.Init()

@@ -3,7 +3,7 @@ package yofeat_auth
 import (
 	. "yo/cfg"
 	. "yo/ctx"
-	yoserve "yo/server"
+	. "yo/server"
 	. "yo/util"
 )
 
@@ -18,11 +18,13 @@ const (
 )
 
 func init() {
-	yoserve.API[MethodPathLogout] = yoserve.Method(apiUserLogout)
-	yoserve.API[MethodPathLogin] = yoserve.Method(apiUserLogin)
-	yoserve.API[MethodPathRegister] = yoserve.Method(apiUserRegister)
-	yoserve.API[MethodPathChangePassword] = yoserve.Method(apiChangePassword)
-	yoserve.PreServe["authCheck"] = httpCheckAndSet
+	Api.Add(ApiMethods{
+		MethodPathLogout:         Method(apiUserLogout),
+		MethodPathLogin:          Method(apiUserLogin),
+		MethodPathRegister:       Method(apiUserRegister),
+		MethodPathChangePassword: Method(apiChangePassword),
+	})
+	PreServes = append(PreServes, PreServe{Name: "authCheck", Do: httpCheckAndSet})
 }
 
 type ApiAccountPayload struct {
@@ -67,6 +69,9 @@ func apiChangePassword(ctx *Ctx, args *struct {
 }, ret *struct {
 	Did bool
 }) any {
+	if user_email_addr := ctx.GetStr(CtxKey); user_email_addr != "" && user_email_addr != args.EmailAddr {
+		panic(Err("UserChangePasswordUnauthorized"))
+	}
 	httpSetUser(ctx, "")
 	ret.Did = UserChangePassword(ctx, args.EmailAddr, args.PasswordPlain, args.PasswordNewPlain)
 	return ret
