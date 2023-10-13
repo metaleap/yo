@@ -57,7 +57,11 @@ func NewForDbTx(timeout time.Duration, newTxNowFrom *sql.DB) *Ctx {
 }
 
 func (me *Ctx) Dispose() {
-	fail := recover()
+	const catch = false // true // gotta toggle occasionally during local debug
+	var fail any
+	if catch {
+		fail = recover()
+	}
 	if err, _ := fail.(error); err == context.DeadlineExceeded {
 		fail = Err("OperationTimedOut")
 	}

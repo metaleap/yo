@@ -28,26 +28,12 @@ func ReflHasMethod(ty reflect.Type, name string) bool {
 }
 
 func ReflGet[T any](rv reflect.Value) T {
-	if rv.CanInterface() {
-		it := rv.Interface()
-		return it.(T)
-	}
 	addr := rv.UnsafeAddr()
-	switch val := reflect.New(rv.Type()).Interface().(type) {
-	case *T:
-		return *getPtr[T](addr)
-	default:
-		var none T
-		panic(str.Fmt("ReflValue: got %T instead of %T", val, none))
-	}
+	return *getPtr[T](addr)
 }
 
 func ReflSet[T any](rv reflect.Value, to T) {
-	if rv.CanSet() {
-		rv.Set(reflect.ValueOf(to))
-	} else {
-		setPtr(rv.UnsafeAddr(), to)
-	}
+	setPtr(rv.UnsafeAddr(), to)
 }
 
 func ReflWalk(rv reflect.Value, path []any, onValue func([]any, reflect.Value)) {
