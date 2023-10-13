@@ -188,6 +188,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         if (!value)
             return ret_count
         const buildItemInput = (itemTypeName: string, key: string, val: any) => {
+            const is_opt = itemTypeName.startsWith('?')
             while (itemTypeName.startsWith('?'))
                 itemTypeName = itemTypeName.substring(1)
             let field_input: HTMLElement, checkbox: HTMLInputElement, get_val: (_: string) => any
@@ -199,10 +200,9 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 else if (key.startsWith('[') && key.endsWith(']') && is_array)
                     index = parseInt(key.substring(1))
                 if (!get_val) {
-                    console.log("no get_val", is_checkbox_change)
                     const sub_val = fieldInputValue(value[index], is_array)
                     if ((checkbox.checked) && ((sub_val === null) || (sub_val === undef))) {
-                        const new_val = fieldInputValue(newSampleVal(apiRefl, itemTypeName, [], isForPayload), is_array)
+                        const new_val = fieldInputValue(newSampleVal(apiRefl, itemTypeName, [], false), is_array || is_checkbox_change || is_opt)
                         if (new_val === undef)
                             checkbox.checked = false
                         else
@@ -216,7 +216,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                     else if (is_array)
                         value[index] = null
                     else {
-                        const new_val = fieldInputValue(newSampleVal(apiRefl, itemTypeName, [], isForPayload), is_array || is_checkbox_change)
+                        const new_val = fieldInputValue(newSampleVal(apiRefl, itemTypeName, [], isForPayload), is_array || is_checkbox_change || is_opt)
                         if (new_val === undef)
                             checkbox.checked = false
                         else
@@ -475,7 +475,7 @@ function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: s
     if (enumExists(refl, type_name)) {
         const enumerants = refl.Enums[type_name]
         if (enumerants && (enumerants.length > 0))
-            return isForPayload ? "" : enumerants.join('|')
+            return isForPayload ? "" : enumerants[Math.floor(Math.random() * enumerants.length)]
         return isForPayload ? "" : `(some ${type_name} enumerant)`
     }
 
