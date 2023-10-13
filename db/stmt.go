@@ -214,7 +214,7 @@ func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, 
 			}
 			idx_old, idx_new := sl.IdxOf(cols_gone, old_col_name), sl.IdxOf(fields_new, new_field_name)
 			if idx_old < 0 || idx_new < 0 {
-				panic(str.Fmt("outdated column rename: col '%s' => field '%s'", old_col_name, new_field_name))
+				panic(str.Repl("outdated column rename: col '{col}' => field '{fld}'", str.Dict{"col": string(old_col_name), "fld": string(new_field_name)}))
 			}
 			cols_gone, fields_new = sl.WithoutIdx(cols_gone, idx_old, true), sl.WithoutIdx(fields_new, idx_new, true)
 		}

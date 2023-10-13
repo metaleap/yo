@@ -16,7 +16,7 @@ var apiReflAllDbStructs []reflect.Type
 
 type apiRefl struct {
 	Methods   []apiReflMethod
-	Types     map[string]map[string]string
+	Types     map[string]str.Dict
 	Enums     map[string][]string
 	DbStructs []string
 
@@ -33,7 +33,7 @@ type apiReflMethod struct {
 }
 
 func apiHandleReflReq(_ *Ctx, _ *Void, ret *apiRefl) any {
-	ret.Types, ret.Enums = map[string]map[string]string{}, map[string][]string{}
+	ret.Types, ret.Enums = map[string]str.Dict{}, map[string][]string{}
 	for _, method_path := range sl.Sorted(Keys(API)) {
 		if !str.IsPrtAscii(method_path) {
 			panic("not printable ASCII: '" + method_path + "'")
@@ -105,7 +105,7 @@ func apiReflType(it *apiRefl, rt reflect.Type, fldName string, parent string) st
 		return ""
 	}
 	if _, exists := it.Types[type_ident]; !exists {
-		ty_refl := map[string]string{}
+		ty_refl := str.Dict{}
 		it.Types[type_ident] = ty_refl
 		if (rt_kind == reflect.Struct) && !(ReflHasMethod(rt, "MarshalJSON") && ReflHasMethod(rt, "UnmarshalJSON")) {
 			if sl.Has(apiReflAllDbStructs, rt) && !sl.Has(it.DbStructs, type_ident) {

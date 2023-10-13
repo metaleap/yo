@@ -32,7 +32,7 @@ func codeGenDBStructs() {
 func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	var src_dir_path, pkg_name string
 	for _, desc := range descs { // find src_dir_path in which to generate `ˍcodegend.go`
-		found, needle := map[string]string{}, []byte("\ntype "+desc.ty.Name()+" struct {\n\t")
+		found, needle := str.Dict{}, []byte("\ntype "+desc.ty.Name()+" struct {\n\t")
 
 		WalkCodeFiles(
 			(str.Begins(desc.ty.PkgPath(), "yo/") || (desc.ty.PkgPath() == "yo")),

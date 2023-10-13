@@ -22,7 +22,7 @@ var foundModifiedTsFiles bool
 func init() {
 	apiGenSdkMaybe = apiGenSdk
 
-	enum_pkgs := map[string]string{}
+	enum_pkgs := str.Dict{}
 	WalkCodeFiles(true, true, func(path string, dirEntry fs.DirEntry) {
 		if str.Ends(path, ".ts") && (!str.Ends(path, ".d.ts")) && !foundModifiedTsFiles {
 			fileinfo_ts, err := dirEntry.Info()
@@ -134,13 +134,23 @@ func apiGenSdkMethod(buf *str.Buf, api *apiRefl, method *apiReflMethod) {
 	if str.Begins(method.Path, "__/") {
 		return
 	}
-	_, _ = buf.WriteString(str.Fmt(`
-export async function yoReq_%s(payload: %s, onSuccess: (_: %s) => void, onFailed?: (err: any, resp?: Response) => void, query?: {[_:string]:string}): void {
-	yoReq(%s, payload, onSuccess, onFailed, query)
-}`, ToIdent(method.Path), apiGenSdkTypeName(api, method.In), apiGenSdkTypeName(api, method.Out), str.Q(method.Path)))
+
+	repl := str.Dict{
+		"method_name":    ToIdent(method.Path),
+		"in_type_ident":  apiGenSdkTypeName(api, method.In),
+		"out_type_ident": apiGenSdkTypeName(api, method.Out),
+		"method_path":    method.Path,
+	}
+	_ = repl
+
+	_, _ = buf.WriteString(str.Repl(`
+export async function yoReq_{method_name}(payload: {in_type_ident}, query?: {[_:string]:string}): Promise<{out_type_ident}> {
+	return yoReq<{in_type_ident}, {out_type_ident}>("{method_path}", payload, query)
+}`,
+		repl))
 }
 
-func apiGenSdkType(buf *str.Buf, api *apiRefl, typeName string, structFields map[string]string, enumMembers []string) bool {
+func apiGenSdkType(buf *str.Buf, api *apiRefl, typeName string, structFields str.Dict, enumMembers []string) bool {
 	for str.Begins(typeName, "?") {
 		typeName = typeName[1:]
 	}

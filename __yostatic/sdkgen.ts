@@ -15,7 +15,7 @@ export function setReqTimeoutMilliSec(timeout: number) {
     yoReq_timeoutMilliSec = timeout
 }
 
-export async function yoReq<TIn, TOut>(methodPath: string, payload: TIn, urlQueryArgs?: { [_: string]: string }) {
+export async function yoReq<TIn, TOut>(methodPath: string, payload: TIn, urlQueryArgs?: { [_: string]: string }): Promise<TOut> {
     let uri = "/" + methodPath
     if (urlQueryArgs)
         uri += '?' + new URLSearchParams(urlQueryArgs).toString()

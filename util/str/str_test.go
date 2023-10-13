@@ -1,9 +1,11 @@
 package str
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestInterp(t *testing.T) {
-	for s, m := range map[string]map[string]string{
+	for s, m := range map[string]Dict{
 		"foo bar":                   {},
 		"foo{bar}baz":               {"bar": "BAAAR", "not_exist": "so it goes"},
 		"{oneOnly}":                 {"oneOnly": "fullStr"},
@@ -12,6 +14,6 @@ func TestInterp(t *testing.T) {
 		"{start}IsFine":             {"start": "THIS:"},
 		"ThisIs{end}":               {"end": ":FINE"},
 	} {
-		t.Log(">>>" + Interp(s, m) + "<<<")
+		t.Log(">>>" + Repl(s, m) + "<<<")
 	}
 }

@@ -8,6 +8,7 @@ import (
 )
 
 type Buf = strings.Builder
+type Dict = map[string]string
 
 var (
 	Bool    = strconv.FormatBool
@@ -36,7 +37,7 @@ func From(v any) string {
 	return Fmt("%#v", v)
 }
 
-func Replace(s string, repl map[string]string) string {
+func Replace(s string, repl Dict) string {
 	repl_old_new := make([]string, 0, len(repl)*2)
 	for k, v := range repl {
 		repl_old_new = append(repl_old_new, k, v)
@@ -117,12 +118,12 @@ func IsEmailishEnough(str string) bool {
 	return (len(str) >= 5) && (iat > 0) && (iat < len(str)-1) && (iat == IdxLast(str, '@') && (idot > iat) && (idot < len(str)-1))
 }
 
-func Interp(str string, fmt map[string]string) string {
-	if (len(fmt) == 0) || (len(str) == 0) {
+func Repl(str string, namedReplacements Dict) string {
+	if (len(namedReplacements) == 0) || (len(str) == 0) {
 		return str
 	}
 	new_len := len(str)
-	for k, v := range fmt {
+	for k, v := range namedReplacements {
 		new_len -= (len(k) + 2)
 		new_len += len(v)
 	}
@@ -139,7 +140,7 @@ func Interp(str string, fmt map[string]string) string {
 		} else if str[i] == '{' {
 			if idx := i + Idx(str[i:], '}'); idx > i {
 				name := str[i+1 : idx]
-				if repl, exists := fmt[name]; exists {
+				if repl, exists := namedReplacements[name]; exists {
 					_, _ = buf.WriteString(accum)
 					_, _ = buf.WriteString(repl)
 					skip_until = idx + 1
