@@ -277,32 +277,37 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                     field_input.style.borderStyle = 'solid'
             }
             const on_count_click = (evt: UIEvent) => {
-                const coll = value[key]
+                let sub_key = key
+                if (sub_key.startsWith('["') && sub_key.startsWith('"]'))
+                    sub_key = sub_key.substring(2, sub_key.length - 2)
+                else if (sub_key.startsWith('[') && sub_key.endsWith(']'))
+                    sub_key = sub_key.substring(1, sub_key.length - 1)
+                const coll = value[sub_key]
                 if (coll) {
                     if (Array.isArray(coll)) {
                         const item_type_name = itemTypeName.substring(1, itemTypeName.length - 1)
                         coll.push(newSampleVal(apiRefl, item_type_name, [], isForPayload))
                     } else {
-                        const prompt_text = "keep entering keys until done:", keys: string[] = []
+                        const prompt_text = "keep entering keys until done:", new_map_keys: string[] = []
                         let last_err_msg = ""
                         while (true) {
-                            const key = prompt(last_err_msg ? last_err_msg : prompt_text, "")
-                            if (key === "")
+                            const new_map_key = prompt(last_err_msg ? last_err_msg : prompt_text, "")
+                            if (new_map_key === "")
                                 break
-                            if (!key)
+                            if (!new_map_key)
                                 return false
                             const fake = {}
-                            fake[key] = null
+                            fake[new_map_key] = null
                             const [err_msg, _] = validate(apiRefl, itemTypeName, fake, '')
-                            if ((!err_msg) && (coll[key] || (keys.indexOf(key) >= 0)))
-                                last_err_msg = `already have '${key}', ${prompt_text}`
+                            if ((!err_msg) && (coll[new_map_key] || (new_map_keys.indexOf(new_map_key) >= 0)))
+                                last_err_msg = `already have '${new_map_key}', ${prompt_text}`
                             else if (!(last_err_msg = err_msg))
-                                keys.push(key)
+                                new_map_keys.push(new_map_key)
                         }
-                        if (keys.length > 0) {
+                        if (new_map_keys.length > 0) {
                             let item_type_name = itemTypeName.substring(1, itemTypeName.length - 1)
                             item_type_name = item_type_name.substring(item_type_name.indexOf(':') + 1)
-                            for (const key of keys)
+                            for (const key of new_map_keys)
                                 if (!coll[key])
                                     coll[key] = newSampleVal(apiRefl, item_type_name, [], isForPayload)
                         }
