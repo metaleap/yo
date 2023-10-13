@@ -21,6 +21,10 @@ func ById[T any](ctx *Ctx, id I64) *T {
 	return FindOne[T](ctx, ColID.Equal(id))
 }
 
+func Exists[T any](ctx *Ctx, query q.Query) bool {
+	return (FindOne[T](ctx, query) != nil)
+}
+
 func FindOne[T any](ctx *Ctx, query q.Query, orderBy ...q.OrderBy) *T {
 	results := FindMany[T](ctx, query, 1, orderBy...)
 	if len(results) == 0 {
@@ -38,6 +42,20 @@ func FindMany[T any](ctx *Ctx, query q.Query, maxResults int, orderBy ...q.Order
 func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.OrderBy, onRecord func(rec *T, enough *bool)) {
 	desc, args := desc[T](), dbArgs{}
 	doStream[T](ctx, new(sqlStmt).sel("", false, desc.cols...).from(desc.tableName).where(query, desc.fieldNameToColName, args).orderBy(desc.fieldNameToColName, orderBy...).limit(maxResults), onRecord, args)
+}
+
+func Page[T any](ctx *Ctx, query q.Query, limit int, orderBy q.OrderBy, pageTok any) (resultsPage []*T, nextPageTok any) {
+	if pageTok != nil {
+		cmp := If(orderBy.Desc(), q.LessThan, q.GreaterThan)
+		query = cmp(orderBy.Col(), pageTok).And(query)
+	}
+	resultsPage = FindMany[T](ctx, query, limit, orderBy)
+	if len(resultsPage) > 0 {
+		if nextPageTok = reflFieldValueOf(resultsPage[len(resultsPage)-1], orderBy.Field()); nextPageTok == nil && IsDevMode {
+			panic("buggy Paged call: shouldn't page on nullable field")
+		}
+	}
+	return
 }
 
 func Count[T any](ctx *Ctx, query q.Query, max int, nonNullColumn q.C, distinct *q.C) int64 {
@@ -133,13 +151,13 @@ func Update[T any](ctx *Ctx, upd *T, includingEmptyOrMissingFields bool, where q
 func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) (result sql.Result) {
 	sql_raw := str.TrimR(stmt.String(), ",")
 	ctx.Timings.Step("dbExec: `" + sql_raw + "`")
-	exec := DB.ExecContext
+	do_exec := DB.ExecContext
 	if ctx.Db.Tx != nil {
-		exec = ctx.Db.Tx.ExecContext
+		do_exec = ctx.Db.Tx.ExecContext
 	}
 	println(sql_raw)
 	var err error
-	result, err = exec(ctx, sql_raw, args)
+	result, err = do_exec(ctx, sql_raw, args)
 	if err != nil {
 		panic(err)
 	}
@@ -159,11 +177,11 @@ func doSelect[T any](ctx *Ctx, stmt *sqlStmt, args dbArgs, maxResults int) (ret 
 func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbArgs) {
 	sql_raw := stmt.String()
 	ctx.Timings.Step("dbQuery: `" + sql_raw + "`")
-	query := DB.QueryContext
+	do_query := DB.QueryContext
 	if ctx.Db.Tx != nil {
-		query = ctx.Db.Tx.QueryContext
+		do_query = ctx.Db.Tx.QueryContext
 	}
-	rows, err := query(ctx, sql_raw, args)
+	rows, err := do_query(ctx, sql_raw, args)
 	if rows != nil {
 		defer rows.Close()
 	}

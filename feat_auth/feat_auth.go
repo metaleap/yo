@@ -2,6 +2,7 @@ package yofeat_auth
 
 import (
 	yodb "yo/db"
+	. "yo/util"
 	"yo/util/str"
 )
 
@@ -20,10 +21,10 @@ func init() {
 func userRegister(emailAddr string, passwordPlain string) {
 	emailAddr, passwordPlain = str.Trim(emailAddr), str.Trim(passwordPlain)
 	if emailAddr == "" {
-		panic("ErrorEmailRequiredButMissing")
+		panic(Err("ErrorEmailRequiredButMissing"))
 	}
 	if passwordPlain == "" {
-		panic("ErrorPasswordRequiredButMissing")
+		panic(Err("ErrorPasswordRequiredButMissing"))
 	}
 
 	// exists, err := dbExists[User](me, User{Email: loginEmail})

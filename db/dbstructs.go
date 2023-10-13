@@ -115,6 +115,10 @@ type scanner struct {
 	ty  reflect.Type
 }
 
+func reflFieldValueOf[T any](it *T, fieldName q.F) any {
+	return reflFieldValue(reflect.ValueOf(it).Elem().FieldByName(string(fieldName)))
+}
+
 func reflFieldValue(rvField reflect.Value) any {
 	if rvField.CanInterface() && !IsDevMode {
 		return rvField.Interface()
