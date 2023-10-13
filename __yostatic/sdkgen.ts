@@ -48,6 +48,24 @@ export function yoReq(methodPath: string, payload: any, onSuccess?: (_?: any) =>
         }, onFailed)
 }
 
+export async function yoReqNew<TIn, TOut>(methodPath: string, payload: TIn, urlQueryArgs?: { [_: string]: string }) {
+    let uri = "/" + methodPath
+    if (urlQueryArgs)
+        uri += '?' + new URLSearchParams(urlQueryArgs).toString()
+    console.log("callAPI:", uri, payload)
+    const resp = await fetch(uri, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        cache: 'no-cache', mode: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(yoReq_timeoutMilliSec)
+    })
+    if (resp && (resp.status !== 200)) {
+        let body_text: string = '', body_err: any
+        try { body_text = await resp.text() } catch (err) { if (err) body_err = err }
+        throw ({ 'status_code': resp?.status, 'status_text': resp?.statusText, 'body_text': body_text, 'body_err': body_err })
+    }
+    const json_resp = await resp.json()
+    return json_resp as TOut
+}
+
 export type QueryOp = "EQ" | "NE" | "LT" | "LE" | "GT" | "GE" | "IN" | "AND" | "OR" | "NOT"
 
 export interface QVal {
