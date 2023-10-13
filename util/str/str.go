@@ -130,17 +130,18 @@ func Interp(str string, fmt map[string]string) string {
 	if new_len > 0 {
 		buf.Grow(new_len)
 	}
+
 	var skip_until, accum_from int
 	var accum string
-	for i := range str {
+	for i := 0; i < len(str); i++ {
 		if skip_until > i {
 			continue
 		} else if str[i] == '{' {
 			if idx := i + Idx(str[i:], '}'); idx > i {
 				name := str[i+1 : idx]
 				if repl, exists := fmt[name]; exists {
-					buf.WriteString(accum)
-					buf.WriteString(repl)
+					_, _ = buf.WriteString(accum)
+					_, _ = buf.WriteString(repl)
 					skip_until = idx + 1
 					accum_from, accum = skip_until, ""
 					continue
@@ -149,6 +150,6 @@ func Interp(str string, fmt map[string]string) string {
 		}
 		accum = str[accum_from : i+1]
 	}
-	buf.WriteString(accum)
+	_, _ = buf.WriteString(accum)
 	return buf.String()
 }
