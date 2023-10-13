@@ -62,7 +62,7 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 	})
 }
 
-func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (jwtSignedToken string) {
+func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) *jwt.Token {
 	if emailAddr == "" {
 		panic(Err("UserLoginEmailRequiredButMissing"))
 	}
@@ -82,17 +82,12 @@ func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (jwtSignedToken
 		panic(Err("UserLoginWrongPassword"))
 	}
 
-	claims := &JwtPayload{
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, &JwtPayload{
 		StandardClaims: jwt.StandardClaims{
 			Subject:   string(user_account.EmailAddr),
 			ExpiresAt: time.Now().UTC().AddDate(0, 0, Cfg.YO_AUTH_JWT_EXPIRY_DAYS).Unix(),
 		},
-	}
-	jwtSignedToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(jwtKey)
-	if err != nil {
-		panic(Err("UserLoginOkButFailedToCreateSignedToken"))
-	}
-	return
+	})
 }
 
 func UserVerify(ctx *Ctx, jwtRaw string) *JwtPayload {

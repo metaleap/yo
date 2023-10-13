@@ -79,7 +79,6 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	// generic input sanitizations
 	ReflWalk(reflect.ValueOf(payload), nil, func(path []any, it reflect.Value) {
 		if it.Kind() == reflect.String {
-			println("SANI:" + str.From(path))
 			ReflSet(it, str.Trim(ReflGet[string](it)))
 		}
 	})

@@ -144,8 +144,8 @@ func apiGenSdkMethod(buf *str.Buf, api *apiRefl, method *apiReflMethod) {
 	_ = repl
 
 	_, _ = buf.WriteString(str.Repl(`
-export async function yoReq_{method_name}(payload: {in_type_ident}, query?: {[_:string]:string}): Promise<{out_type_ident}> {
-	return yoReq<{in_type_ident}, {out_type_ident}>("{method_path}", payload, query)
+export async function req_{method_name}(payload: {in_type_ident}, query?: {[_:string]:string}): Promise<{out_type_ident}> {
+	return req<{in_type_ident}, {out_type_ident}>("{method_path}", payload, query)
 }`,
 		repl))
 }
@@ -191,11 +191,11 @@ func apiGenSdkTypeName(api *apiRefl, typeName string) string {
 		case "bool":
 			return "boolean"
 		case "int8", "int16", "int32", "int64":
-			return "Yo_i" + t[len("int"):]
+			return "I" + t[len("int"):]
 		case "uint8", "uint16", "uint32", "uint64":
-			return "Yo_u" + t[len("uint"):]
+			return "U" + t[len("uint"):]
 		case "float32", "float64":
-			return "Yo_f" + t[len("float"):]
+			return "F" + t[len("float"):]
 		default:
 			panic("no type-name gen for '" + typeName + "'")
 		}
@@ -213,5 +213,5 @@ func apiGenSdkTypeName(api *apiRefl, typeName string) string {
 		}
 		return str.Repl("{ [_:{lhs}]: {rhs} }", str.Dict{"lhs": apiGenSdkTypeName(api, key_part), "rhs": apiGenSdkTypeName(api, val_part)})
 	}
-	return "Yo_" + ToIdent(typeName[str.Idx(typeName, '.')+1:])
+	return ToIdent(typeName[str.Idx(typeName, '.')+1:])
 }

@@ -19,11 +19,12 @@ type YoReflMethod = {
     Path: string
 }
 
-export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodPath: string, payload: any, urlQueryArgs?: { [_: string]: string }) => Promise<any>) {
+export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodPath: string, payload: any, urlQueryArgs?: { [_: string]: string }) => Promise<any>, getCurUser: () => string) {
     let select_method: HTMLSelectElement, select_history: HTMLSelectElement, td_input: HTMLTableCellElement, td_output: HTMLTableCellElement,
         table: HTMLTableElement, input_querystring: HTMLInputElement, textarea_payload: HTMLTextAreaElement, textarea_response: HTMLTextAreaElement,
         tree_payload: HTMLUListElement, tree_response: HTMLUListElement, div_validate_error_msg: HTMLDivElement
     let last_textarea_payload_value = ''
+    const state_email_addr_default = '(user email addr.)', state_email_addr = van.state(getCurUser() || state_email_addr_default)
     const auto_completes: { [_: string]: HTMLDataListElement } = {}
 
     const refreshAutoCompletes = () => {
@@ -380,6 +381,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         const on_done = () => {
             const duration_ms = new Date().getTime() - time_started
             document.title = `${duration_ms}ms`
+            state_email_addr.val = getCurUser() || state_email_addr_default
         }
         if (!is_validate_failed) {
             historyStore(apiRefl, method_path, payload, query_string)
@@ -404,7 +406,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         const dialog = html.dialog({ 'style': 'width:88%' })
         van.add(parent, dialog)
         dialog.onclose = () => { dialog.remove() }
-        onInit(dialog, apiRefl, yoReq)
+        onInit(dialog, apiRefl, yoReq, getCurUser)
         dialog.showModal()
     }
 
@@ -427,7 +429,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 ),
                 html.span({ 'class': 'nobr' },
                     html.label({ 'for': ('l' + now) }, "Login:"),
-                    html.input({ 'type': 'text', 'id': ('l' + now), 'placeholder': 'user email addr.', 'disabled': true, 'value': '' }),
+                    html.input({ 'type': 'text', 'id': ('l' + now), 'placeholder': state_email_addr, 'disabled': true, 'value': '' }),
                     html.input({ 'type': 'password', 'placeholder': 'user password', 'disabled': true, 'value': '' }),
                 ),
                 html.button({ 'style': 'font-weight:bold', 'onclick': sendRequest }, 'Go!'),

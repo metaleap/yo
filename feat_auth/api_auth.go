@@ -1,18 +1,26 @@
 package yofeat_auth
 
 import (
-	"net/url"
-
 	. "yo/cfg"
 	. "yo/ctx"
 	yoserve "yo/server"
 	. "yo/util"
 )
 
+const (
+	CtxKey             = "yoUser"
+	HttpUserHeader     = "X-Yo-User"
+	HttpJwtCookieName  = "t"
+	MethodPathLogin    = "authLogin"
+	MethodPathLogout   = "authLogout"
+	MethodPathRegister = "authRegister"
+)
+
 func init() {
-	yoserve.API["authRegister"] = yoserve.Method(apiUserRegister)
-	yoserve.API["authLogin"] = yoserve.Method(apiUserLogin)
-	yoserve.PreServe = append(yoserve.PreServe, httpCheckJwtCookie)
+	yoserve.API[MethodPathLogout] = yoserve.Method(apiUserLogout)
+	yoserve.API[MethodPathLogin] = yoserve.Method(apiUserLogin)
+	yoserve.API[MethodPathRegister] = yoserve.Method(apiUserRegister)
+	yoserve.PreServe = append(yoserve.PreServe, httpCheckAndSet)
 }
 
 type ApiAccountPayload struct {
@@ -27,30 +35,44 @@ type ApiTokenPayload struct {
 func apiUserRegister(ctx *Ctx, args *ApiAccountPayload, ret *struct {
 	Id int64
 }) any {
+	if ctx.GetStr(CtxKey) != "" {
+		panic(Err("UserRegisterWhileLoggedIn"))
+	}
+	httpSetUser(ctx, "")
 	ret.Id = int64(UserRegister(ctx, args.EmailAddr, args.PasswordPlain))
 	return ret
 }
 
 func apiUserLogin(ctx *Ctx, args *ApiAccountPayload, ret *Void) any {
-	httpSetJwtCookie(ctx, UserLogin(ctx, args.EmailAddr, args.PasswordPlain))
+	httpSetUser(ctx, "")
+	jwt_token := UserLogin(ctx, args.EmailAddr, args.PasswordPlain)
+	jwt_signed, err := jwt_token.SignedString(jwtKey)
+	if err != nil {
+		panic(Err("UserLoginOkButFailedToCreateSignedToken"))
+	}
+	httpSetUser(ctx, jwt_signed)
 	return ret
 }
 
-const jwtCookieName = "t"
-
-func httpSetJwtCookie(ctx *Ctx, jwtRaw string) {
-	ctx.HttpSetCookie(jwtCookieName, url.QueryEscape(jwtRaw), Cfg.YO_AUTH_JWT_EXPIRY_DAYS)
+func apiUserLogout(ctx *Ctx, args *Void, ret *Void) any {
+	httpSetUser(ctx, "")
+	return ret
 }
 
-func httpCheckJwtCookie(ctx *Ctx) {
-	ctx.Set("user_email_addr", "")
-	jwt_raw := ctx.HttpGetCookie(jwtCookieName)
-	if jwt_raw != "" {
-		if jwt_payload := UserVerify(ctx, jwt_raw); jwt_payload != nil {
-			ctx.Set("user_email_addr", jwt_payload.StandardClaims.Subject)
+func httpSetUser(ctx *Ctx, jwtRaw string) {
+	user_email_addr := ""
+	if (jwtRaw != "") && (ctx.Http.UrlPath != MethodPathLogout) {
+		if jwt_payload := UserVerify(ctx, jwtRaw); jwt_payload == nil {
+			jwtRaw = ""
 		} else {
-			jwt_raw = ""
+			user_email_addr = jwt_payload.StandardClaims.Subject
 		}
 	}
-	httpSetJwtCookie(ctx, jwt_raw)
+	ctx.Set(CtxKey, user_email_addr)
+	ctx.Http.Resp.Header().Set(HttpUserHeader, user_email_addr)
+	ctx.HttpSetCookie(HttpJwtCookieName, jwtRaw, Cfg.YO_AUTH_JWT_EXPIRY_DAYS)
+}
+
+func httpCheckAndSet(ctx *Ctx) {
+	httpSetUser(ctx, ctx.HttpGetCookie(HttpJwtCookieName))
 }

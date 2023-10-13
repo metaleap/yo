@@ -21,9 +21,10 @@ type Ctx struct {
 	ctxDone func()
 	ctxVals map[string]any
 	Http    struct {
-		Req     *http.Request
-		Resp    http.ResponseWriter
-		UrlPath string
+		Req       *http.Request
+		Resp      http.ResponseWriter
+		UrlPath   string
+		SetCookie map[string]*http.Cookie
 	}
 	Db struct {
 		Tx *sql.Tx
@@ -41,7 +42,7 @@ func newCtx(timeout time.Duration) *Ctx {
 
 func NewForHttp(req *http.Request, resp http.ResponseWriter, timeout time.Duration) *Ctx {
 	ctx := newCtx(timeout)
-	ctx.Http.Req, ctx.Http.Resp, ctx.Http.UrlPath = req, resp, str.TrimR(str.TrimL(req.URL.Path, "/"), "/")
+	ctx.Http.Req, ctx.Http.Resp, ctx.Http.UrlPath, ctx.Http.SetCookie = req, resp, str.TrimR(str.TrimL(req.URL.Path, "/"), "/"), map[string]*http.Cookie{}
 	return ctx
 }
 
@@ -67,6 +68,7 @@ func (me *Ctx) Dispose() {
 		}
 	}
 	if me.Http.Req != nil && me.Http.Resp != nil {
+		me.httpEnsureCookiesSent()
 		if code := 500; fail != nil {
 			if err, is_app_err := fail.(Err); is_app_err {
 				code = err.HttpStatusCode()
@@ -137,21 +139,32 @@ func (me *Ctx) HttpErr(statusCode int, statusText string) {
 	http.Error(me.Http.Resp, statusText, statusCode)
 }
 
-func (me *Ctx) HttpGetCookie(cookieName string) string {
+func (me *Ctx) HttpOnPreWriteResponse() {
+	me.httpEnsureCookiesSent()
+}
+
+func (me *Ctx) httpEnsureCookiesSent() {
+	for _, cookie := range me.Http.SetCookie {
+		http.SetCookie(me.Http.Resp, cookie)
+	}
+	clear(me.Http.SetCookie)
+}
+
+func (me *Ctx) HttpGetCookie(cookieName string) (ret string) {
 	cookie, err := me.Http.Req.Cookie(cookieName)
-	if err != nil {
+	if err != nil && err != http.ErrNoCookie {
 		panic(err)
 	}
-	cookie_value, err := url.QueryUnescape(cookie.Value)
-	if err != nil {
-		panic(err)
+	if cookie != nil {
+		if ret, err = url.QueryUnescape(cookie.Value); err != nil {
+			panic(err)
+		}
 	}
-	return cookie_value
+	return
 }
 
 func (me *Ctx) HttpSetCookie(cookieName string, cookieValue string, numDays int) {
-	me.Timings.Step(str.Repl("set cookie '{name}' of length {len}", str.Dict{"name": cookieName, "len": str.FromInt(len(cookieValue))}))
-	http.SetCookie(me.Http.Resp, &http.Cookie{
+	me.Http.SetCookie[cookieName] = &http.Cookie{
 		Name:     cookieName,
 		Value:    url.QueryEscape(cookieValue),
 		MaxAge:   If(cookieValue == "", -1, int(time.Hour*24)*numDays),
@@ -159,5 +172,5 @@ func (me *Ctx) HttpSetCookie(cookieName string, cookieValue string, numDays int)
 		SameSite: http.SameSiteStrictMode,
 		Secure:   true,
 		HttpOnly: true,
-	})
+	}
 }

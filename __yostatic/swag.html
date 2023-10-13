@@ -3,7 +3,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0">
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href='data:image/svg+xml,&lt;svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22&gt;&lt;text y=%22.9em%22 font-size=%2290%22&gt;💡&lt;/text&gt;&lt;/svg&gt;'>
-    <title>/</title>
+    <title>...</title>
     <style type="text/css">
         body {
             color: #303030;
@@ -71,8 +71,9 @@
 
     async function loadUp() {
         try {
-            const refl = await yo_sdk.yoReq("__/refl",{})
-            main_view.onInit(document.body, refl, yo_sdk.yoReq)
+            const get_cur_user = () => yo_sdk.userEmailAddr
+            const refl = await yo_sdk.req("__/refl",{})
+            main_view.onInit(document.body, refl, yo_sdk.req, get_cur_user)
         } catch(err) {
             console.error(err)
             setTimeout(loadUp(123)) // rare but happens in local dev mode, despite no-cache headers, so...

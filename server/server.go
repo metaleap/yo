@@ -62,23 +62,28 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 		pre_serve(ctx)
 	}
 
-	ctx.Timings.Step("check static")
-	if ctx.Http.UrlPath == str.ReSuffix(sdkGenDstTsFilePath, ".ts", ".js") {
-		if IsDevMode {
-			http.ServeFile(rw, req, ctx.Http.UrlPath)
-		} else {
-			http.FileServer(http.FS(staticFileServes[ctx.Http.UrlPath])).ServeHTTP(rw, req)
-		}
-		return
-	}
-	for static_prefix, static_serve := range staticFileServes {
-		if static_prefix = static_prefix + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && ctx.Http.UrlPath != static_prefix {
-			req.URL.Path = str.TrimL(ctx.Http.UrlPath, "__/")
-			http.FileServer(http.FS(static_serve)).ServeHTTP(rw, req)
+	{
+		ctx.Timings.Step("check static")
+		if ctx.Http.UrlPath == str.ReSuffix(sdkGenDstTsFilePath, ".ts", ".js") {
+			ctx.HttpOnPreWriteResponse()
+			if IsDevMode {
+				http.ServeFile(rw, req, ctx.Http.UrlPath)
+			} else {
+				http.FileServer(http.FS(staticFileServes[ctx.Http.UrlPath])).ServeHTTP(rw, req)
+			}
 			return
+		}
+		for static_prefix, static_serve := range staticFileServes {
+			if static_prefix = static_prefix + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && ctx.Http.UrlPath != static_prefix {
+				req.URL.Path = str.TrimL(ctx.Http.UrlPath, "__/")
+				ctx.HttpOnPreWriteResponse()
+				http.FileServer(http.FS(static_serve)).ServeHTTP(rw, req)
+				return
+			}
 		}
 	}
 
+	// no static content was requested or served, so it's an api call
 	if result, handler_called := apiHandleRequest(ctx); handler_called {
 		ctx.Timings.Step("jsonify result")
 		resp_data, err := yojson.MarshalIndent(result, "", "  ")
@@ -89,7 +94,9 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 
 		ctx.Timings.Step("write resp")
 		rw.Header().Set("Content-Type", "application/json")
+		rw.Header().Set("X-Content-Type-Options", "nosniff")
 		rw.Header().Set("Content-Length", str.FromInt(len(resp_data)))
+		ctx.HttpOnPreWriteResponse()
 		_, _ = rw.Write(resp_data)
 	}
 }
