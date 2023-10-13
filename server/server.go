@@ -15,9 +15,13 @@ import (
 )
 
 var (
-	StaticFileServes        = map[string]fs.FS{}
-	apiGenSdkMaybe   func() = nil // overwritten by apisdkgen.go in debug build mode
-	PreServe                = map[string]func(*yoctx.Ctx){}
+	// requests to key+'/' will be served from the corresponding FS
+	StaticFileServes = map[string]fs.FS{}
+
+	// funcs are run (in no particular order) just prior to loading request payload, handling request, and serving response
+	PreServe = map[string]func(*yoctx.Ctx){}
+
+	apiGenSdkMaybe func() = nil // overwritten by apisdkgen.go in debug build mode
 )
 
 const StaticFilesDirName = "__yostatic"

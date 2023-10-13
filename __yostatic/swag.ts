@@ -199,6 +199,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 else if (key.startsWith('[') && key.endsWith(']') && is_array)
                     index = parseInt(key.substring(1))
                 if (!get_val) {
+                    console.log("no get_val", is_checkbox_change)
                     const sub_val = fieldInputValue(value[index], is_array)
                     if ((checkbox.checked) && ((sub_val === null) || (sub_val === undef))) {
                         const new_val = fieldInputValue(newSampleVal(apiRefl, itemTypeName, [], isForPayload), is_array)

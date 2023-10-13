@@ -27,6 +27,7 @@ type Ctx struct {
 		UrlPath     string
 		reqCookies  str.Dict
 		respCookies map[string]*http.Cookie
+		respWriting bool
 	}
 	Db struct {
 		Tx *sql.Tx
@@ -58,7 +59,7 @@ func NewNonHttp(timeout time.Duration) *Ctx {
 }
 
 func (me *Ctx) Dispose() {
-	const catch = true // false // gotta toggle occasionally during local debug
+	const catch = false // true // gotta toggle occasionally during local debug
 	var fail any
 	if catch {
 		fail = recover()
@@ -144,6 +145,10 @@ func (me *Ctx) HttpErr(statusCode int, statusText string) {
 }
 
 func (me *Ctx) HttpOnPreWriteResponse() {
+	if me.Http.respWriting {
+		panic("new bug: more than one call to HttpOnPreWriteResponse")
+	}
+	me.Http.respWriting = true
 	me.httpEnsureCookiesSent()
 }
 
