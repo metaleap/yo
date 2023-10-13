@@ -119,8 +119,8 @@ func reflFieldValueOf[T any](it *T, fieldName q.F) any {
 }
 
 func reflFieldValue(rvField reflect.Value) any {
-	if rvField.CanInterface() && !IsDevMode {
-		return rvField.Interface()
+	if !rvField.IsValid() {
+		return nil
 	}
 	addr := rvField.UnsafeAddr()
 	switch val := reflect.New(rvField.Type()).Interface().(type) {
@@ -243,7 +243,7 @@ func Q[T any](it *T) q.Query {
 }
 
 func doEnsureDbStructTables() {
-	ctx := yoctx.NewForDbTx(Cfg.DB_REQ_TIMEOUT, DB)
+	ctx := yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
 	defer ctx.Dispose()
 
 	for _, desc := range ensureDescs {

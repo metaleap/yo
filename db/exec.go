@@ -129,8 +129,12 @@ func Update[T any](ctx *Ctx, upd *T, includingEmptyOrMissingFields bool, where q
 	if len(col_names) == 0 {
 		panic(Err("ExpectedChangesForUpdate"))
 	}
-	if where == nil {
+	id_maybe, _ := reflFieldValueOf(upd, "Id").(I64)
+	if where == nil && id_maybe == 0 {
 		panic(Err("ExpectedQueryForUpdate"))
+	}
+	if where == nil {
+		where = q.C(ColID).Equal(id_maybe)
 	}
 	for i, col_name := range col_names {
 		args[col_name] = col_vals[i]
@@ -141,6 +145,18 @@ func Update[T any](ctx *Ctx, upd *T, includingEmptyOrMissingFields bool, where q
 		panic(err)
 	}
 	return num_rows_affected
+}
+
+func UpdateIfSameVersion[T any](ctx *Ctx, newVersion *T, oldVersion *T) {
+	panic("TODO")
+	// var conds []q.Query
+	// old, new := map[q.C]any{}, map[q.C]any{}
+	// ForEachField[T](oldVersion, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
+	// 	old[colName] = fieldValue
+	// })
+	// ForEachField[T](newVersion, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
+	// 	new[colName] = fieldValue
+	// })
 }
 
 func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {

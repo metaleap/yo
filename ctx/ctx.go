@@ -13,6 +13,7 @@ import (
 )
 
 var (
+	DB     *sql.DB
 	OnDone []func(ctx *Ctx, fail any)
 )
 
@@ -48,16 +49,16 @@ func NewForHttp(req *http.Request, resp http.ResponseWriter, timeout time.Durati
 	return ctx
 }
 
-func NewForDbTx(timeout time.Duration, newTxNowFrom *sql.DB) *Ctx {
+func NewNonHttp(timeout time.Duration) *Ctx {
 	ctx := newCtx(timeout)
-	if newTxNowFrom != nil {
-		ctx.DbTx(newTxNowFrom)
+	if DB != nil {
+		ctx.DbTx()
 	}
 	return ctx
 }
 
 func (me *Ctx) Dispose() {
-	const catch = false // true // gotta toggle occasionally during local debug
+	const catch = true // false // gotta toggle occasionally during local debug
 	var fail any
 	if catch {
 		fail = recover()
@@ -128,12 +129,12 @@ func (me *Ctx) Set(name string, value any) {
 	me.ctxVals[name] = value
 }
 
-func (me *Ctx) DbTx(db *sql.DB) {
-	if me.Db.Tx != nil {
-		panic("invalid Ctx.DbTx call: already have a Ctx.Db.Tx")
+func (me *Ctx) DbTx() {
+	if me.Db.Tx == nil {
+		return
 	}
 	var err error
-	if me.Db.Tx, err = db.BeginTx(me, nil); err != nil {
+	if me.Db.Tx, err = DB.BeginTx(me, nil); err != nil {
 		panic(err)
 	}
 }

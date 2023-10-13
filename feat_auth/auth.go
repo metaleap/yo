@@ -44,7 +44,7 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 	if len(passwordPlain) < 6 {
 		panic(Err("UserRegisterPasswordTooShort"))
 	}
-	ctx.DbTx(yodb.DB)
+	ctx.DbTx()
 	if yodb.Exists[UserAccount](ctx, UserAccountColEmailAddr.Equal(emailAddr)) {
 		panic(Err("UserRegisterEmailAddrAlreadyExists"))
 	}
@@ -62,7 +62,7 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 	})
 }
 
-func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) *jwt.Token {
+func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAccount, *jwt.Token) {
 	if emailAddr == "" {
 		panic(Err("UserLoginEmailRequiredButMissing"))
 	}
@@ -82,7 +82,7 @@ func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) *jwt.Token {
 		panic(Err("UserLoginWrongPassword"))
 	}
 
-	return jwt.NewWithClaims(jwt.SigningMethodHS256, &JwtPayload{
+	return user_account, jwt.NewWithClaims(jwt.SigningMethodHS256, &JwtPayload{
 		StandardClaims: jwt.StandardClaims{
 			Subject:   string(user_account.EmailAddr),
 			ExpiresAt: time.Now().UTC().AddDate(0, 0, Cfg.YO_AUTH_JWT_EXPIRY_DAYS).Unix(),
@@ -98,4 +98,28 @@ func UserVerify(ctx *Ctx, jwtRaw string) *JwtPayload {
 		return payload
 	}
 	return nil
+}
+
+func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, passwordNewPlain string) bool {
+	if passwordNewPlain == "" {
+		panic(Err("UserChangePasswordNewPasswordRequiredButMissing"))
+	}
+	if len(passwordNewPlain) < 6 {
+		panic(Err("UserChangePasswordNewPasswordTooShort"))
+	}
+	if passwordNewPlain == passwordOldPlain {
+		panic(Err("UserChangePasswordNewPasswordSameAsOld"))
+	}
+	ctx.DbTx()
+	user_account, _ := UserLogin(ctx, emailAddr, passwordOldPlain)
+	hash, err := bcrypt.GenerateFromPassword([]byte(passwordNewPlain), bcrypt.DefaultCost)
+	if (err != nil) || (len(hash) == 0) {
+		if err == bcrypt.ErrPasswordTooLong {
+			panic(Err("UserChangePasswordNewPasswordTooLong"))
+		} else {
+			panic(Err("UserChangePasswordNewPasswordInvalid"))
+		}
+	}
+	user_account.passwordHashed = hash
+	return (yodb.Update[UserAccount](ctx, user_account, false, nil) > 0)
 }

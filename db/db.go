@@ -11,13 +11,13 @@ import (
 	"github.com/jackc/pgx/v5/tracelog"
 
 	. "yo/cfg"
+	. "yo/ctx"
 	yolog "yo/log"
 	"yo/util/str"
 )
 
 var (
 	inited = false
-	DB     *sql.DB
 )
 
 func Init() (dbStructs []reflect.Type) {

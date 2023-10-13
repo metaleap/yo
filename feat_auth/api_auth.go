@@ -8,18 +8,20 @@ import (
 )
 
 const (
-	CtxKey             = "yoUser"
-	HttpUserHeader     = "X-Yo-User"
-	HttpJwtCookieName  = "t"
-	MethodPathLogin    = "authLogin"
-	MethodPathLogout   = "authLogout"
-	MethodPathRegister = "authRegister"
+	CtxKey                   = "yoUser"
+	HttpUserHeader           = "X-Yo-User"
+	HttpJwtCookieName        = "t"
+	MethodPathLogin          = "authLogin"
+	MethodPathLogout         = "authLogout"
+	MethodPathRegister       = "authRegister"
+	MethodPathChangePassword = "authChangePassword"
 )
 
 func init() {
 	yoserve.API[MethodPathLogout] = yoserve.Method(apiUserLogout)
 	yoserve.API[MethodPathLogin] = yoserve.Method(apiUserLogin)
 	yoserve.API[MethodPathRegister] = yoserve.Method(apiUserRegister)
+	yoserve.API[MethodPathChangePassword] = yoserve.Method(apiChangePassword)
 	yoserve.PreServe["authCheck"] = httpCheckAndSet
 }
 
@@ -45,7 +47,7 @@ func apiUserRegister(ctx *Ctx, args *ApiAccountPayload, ret *struct {
 
 func apiUserLogin(ctx *Ctx, args *ApiAccountPayload, ret *Void) any {
 	httpSetUser(ctx, "")
-	jwt_token := UserLogin(ctx, args.EmailAddr, args.PasswordPlain)
+	_, jwt_token := UserLogin(ctx, args.EmailAddr, args.PasswordPlain)
 	jwt_signed, err := jwt_token.SignedString(jwtKey)
 	if err != nil {
 		panic(Err("UserLoginOkButFailedToCreateSignedToken"))
@@ -56,6 +58,17 @@ func apiUserLogin(ctx *Ctx, args *ApiAccountPayload, ret *Void) any {
 
 func apiUserLogout(ctx *Ctx, args *Void, ret *Void) any {
 	httpSetUser(ctx, "")
+	return ret
+}
+
+func apiChangePassword(ctx *Ctx, args *struct {
+	ApiAccountPayload
+	PasswordNewPlain string
+}, ret *struct {
+	Did bool
+}) any {
+	httpSetUser(ctx, "")
+	ret.Did = UserChangePassword(ctx, args.EmailAddr, args.PasswordPlain, args.PasswordNewPlain)
 	return ret
 }
 
