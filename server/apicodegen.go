@@ -159,18 +159,22 @@ func apiGenSdkType(buf *str.Buf, api *apiRefl, typeName string, structFields str
 	}
 	api.codeGen.typesEmitted[typeName] = true
 	if typeName == "time.Time" {
-		_, _ = buf.WriteString(str.Fmt("\nexport type %s = %s", apiGenSdkTypeName(api, typeName), apiGenSdkTypeName(api, ".string")))
+		_, _ = buf.WriteString(str.Repl("\nexport type {lhs} = {rhs}",
+			str.Dict{"lhs": apiGenSdkTypeName(api, typeName), "rhs": apiGenSdkTypeName(api, ".string")}))
 	} else if structFields != nil {
-		_, _ = buf.WriteString(str.Fmt("\nexport type %s = {", apiGenSdkTypeName(api, typeName)))
+		_, _ = buf.WriteString(str.Repl("\nexport type {lhs} = {", str.Dict{"lhs": apiGenSdkTypeName(api, typeName)}))
 		struct_fields := sl.Sorted(Keys(structFields))
 		for _, field_name := range struct_fields {
 			field_type := structFields[field_name]
-			_, _ = buf.WriteString(str.Fmt("\n\t%s%s: %s", ToIdent(field_name), If(str.Begins(field_type, "?"), "?", ""), apiGenSdkTypeName(api, field_type)))
+			_, _ = buf.WriteString(str.Repl("\n\t{fld}{?}: {tfld}",
+				str.Dict{"fld": ToIdent(field_name), "?": If(str.Begins(field_type, "?"), "?", ""), "tfld": apiGenSdkTypeName(api, field_type)}))
 		}
 		_, _ = buf.WriteString("\n}\n")
 	} else {
-		_, _ = buf.WriteString(str.Fmt("\nexport type %s = %s\n", apiGenSdkTypeName(api, typeName),
-			If(len(enumMembers) == 0, "string", "\""+str.Join(enumMembers, "\" | \"")+"\"")))
+		_, _ = buf.WriteString(str.Repl("\nexport type {lhs} = {rhs}\n", str.Dict{
+			"lhs": apiGenSdkTypeName(api, typeName),
+			"rhs": If(len(enumMembers) == 0, "string", "\""+str.Join(enumMembers, "\" | \"")+"\""),
+		}))
 	}
 	return true
 }
@@ -205,9 +209,9 @@ func apiGenSdkTypeName(api *apiRefl, typeName string) string {
 			panic(typeName)
 		}
 		if _, is_enum := api.Enums[key_part]; is_enum {
-			return str.Fmt("{ [key in %s]?: %s }", apiGenSdkTypeName(api, key_part), apiGenSdkTypeName(api, val_part))
+			return str.Repl("{ [key in {lhs}]?: {rhs} }", str.Dict{"lhs": apiGenSdkTypeName(api, key_part), "rhs": apiGenSdkTypeName(api, val_part)})
 		}
-		return str.Fmt("{ [_:%s]: %s }", apiGenSdkTypeName(api, key_part), apiGenSdkTypeName(api, val_part))
+		return str.Repl("{ [_:{lhs}]: {rhs} }", str.Dict{"lhs": apiGenSdkTypeName(api, key_part), "rhs": apiGenSdkTypeName(api, val_part)})
 	}
 	return "Yo_" + ToIdent(typeName[str.Idx(typeName, '.')+1:])
 }
