@@ -93,7 +93,7 @@ func (me *Ctx) Dispose() {
 		if me.Http.Req != nil {
 			println(me.Http.Req.RequestURI, str.DurationMs(total_duration))
 			for _, step := range steps {
-				println("\t" + step.Step + ":\t" + str.DurationMs(step.Duration))
+				println("\t" + step.Step + ":\t" + str.DurationMs(step.Time))
 			}
 		}
 	}

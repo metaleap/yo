@@ -20,7 +20,7 @@ func init() {
 	yoserve.API[MethodPathLogout] = yoserve.Method(apiUserLogout)
 	yoserve.API[MethodPathLogin] = yoserve.Method(apiUserLogin)
 	yoserve.API[MethodPathRegister] = yoserve.Method(apiUserRegister)
-	yoserve.PreServe = append(yoserve.PreServe, httpCheckAndSet)
+	yoserve.PreServe["authCheck"] = httpCheckAndSet
 }
 
 type ApiAccountPayload struct {

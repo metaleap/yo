@@ -17,7 +17,7 @@ import (
 var (
 	StaticFileServes        = map[string]fs.FS{}
 	apiGenSdkMaybe   func() = nil // overwritten by apisdkgen.go in debug build mode
-	PreServe         []func(*yoctx.Ctx)
+	PreServe                = map[string]func(*yoctx.Ctx){}
 )
 
 const StaticFilesDirName = "__yostatic"
@@ -43,23 +43,24 @@ func listenAndServe() {
 func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	ctx := yoctx.NewForHttp(req, rw, Cfg.YO_API_IMPL_TIMEOUT)
 	defer ctx.Dispose()
-
-	ctx.Timings.Step("check yoFail")
-	if s := ctx.GetStr("yoFail"); s != "" {
-		code, _ := str.ToInt(s)
-		ctx.HttpErr(If(code == 0, 500, code), "forced error via query-string param 'yoFail'")
-		return
+	{
+		ctx.Timings.Step("check yoFail")
+		if s := ctx.GetStr("yoFail"); s != "" {
+			code, _ := str.ToInt(s)
+			ctx.HttpErr(If(code == 0, 500, code), "forced error via query-string param 'yoFail'")
+			return
+		}
 	}
-
-	for _, pre_serve := range PreServe {
+	for key, pre_serve := range PreServe {
+		ctx.Timings.Step("pre:" + key)
 		pre_serve(ctx)
 	}
-
 	{
-		ctx.Timings.Step("check static")
+		ctx.Timings.Step("static check")
 		for static_prefix, static_serve := range StaticFileServes {
 			if static_prefix = static_prefix + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && ctx.Http.UrlPath != static_prefix {
 				req.URL.Path = ctx.Http.UrlPath[len(static_prefix):]
+				ctx.Timings.Step("static serve")
 				ctx.HttpOnPreWriteResponse()
 				http.FileServer(http.FS(static_serve)).ServeHTTP(rw, req)
 				return
