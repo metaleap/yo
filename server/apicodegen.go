@@ -135,7 +135,7 @@ func apiGenSdkMethod(buf *str.Buf, api *apiRefl, method *apiReflMethod) {
 		return
 	}
 	_, _ = buf.WriteString(str.Fmt(`
-export function yoReq_%s(payload: %s, onSuccess: (_: %s) => void, onFailed?: (err: any, resp?: Response) => void, query?: {[_:string]:string}): void {
+export async function yoReq_%s(payload: %s, onSuccess: (_: %s) => void, onFailed?: (err: any, resp?: Response) => void, query?: {[_:string]:string}): void {
 	yoReq(%s, payload, onSuccess, onFailed, query)
 }`, ToIdent(method.Path), apiGenSdkTypeName(api, method.In), apiGenSdkTypeName(api, method.Out), str.Q(method.Path)))
 }

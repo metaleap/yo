@@ -71,11 +71,11 @@
 
     async function loadUp() {
         try {
-            const refl = await yo_sdk.yoReqNew("__/refl",{})
+            const refl = await yo_sdk.yoReq("__/refl",{})
             main_view.onInit(document.body, refl, yo_sdk.yoReq)
         } catch(err) {
             console.error(err)
-            setTimeout(loadUp(123))
+            setTimeout(loadUp(123)) // rare but happens in local dev mode, despite no-cache headers, so...
         }
     }
 

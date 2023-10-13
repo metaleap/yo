@@ -79,7 +79,7 @@ func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (jwtSignedToken
 
 	err := bcrypt.CompareHashAndPassword(user_account.passwordHashed, []byte(passwordPlain))
 	if err != nil {
-		panic(Err("UserLoginPasswordInvalid"))
+		panic(Err("UserLoginWrongPassword"))
 	}
 
 	claims := &JwtPayload{

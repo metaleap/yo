@@ -11,44 +11,11 @@ export type Yo_f64 = number
 
 export let yoReq_timeoutMilliSec = 1234
 
-let yoReq_OnFailed = (err: any, resp?: Response) => {
-    console.error(err, resp)
-}
-
 export function setReqTimeoutMilliSec(timeout: number) {
     yoReq_timeoutMilliSec = timeout
 }
 
-export function setOnFailed(onFailed: (err: any, resp?: Response) => void) {
-    yoReq_OnFailed = onFailed
-}
-
-export function yoReq(methodPath: string, payload: any, onSuccess?: (_?: any) => void, onFailed?: (err: any, resp?: Response) => void, query?: { [_: string]: string }) {
-    let uri = "/" + methodPath
-    if (query)
-        uri += '?' + new URLSearchParams(query).toString()
-    console.log("callAPI:", uri, payload)
-    if (!onFailed)
-        onFailed = yoReq_OnFailed
-    fetch(uri, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-        cache: 'no-cache', mode: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(yoReq_timeoutMilliSec)
-    })
-        .catch(onFailed)
-        .then((resp: Response) => {
-            if ((!resp) || (!resp.body) || (resp.status !== 200))
-                return onFailed({ 'status_code': resp?.status, 'status_text': resp?.statusText }, resp)
-            else
-                resp.json()
-                    .catch((err) => onFailed(err, resp))
-                    .then((resp_json) => {
-                        if (onSuccess)
-                            onSuccess(resp_json)
-                    }, (err) => onFailed(err, resp))
-        }, onFailed)
-}
-
-export async function yoReqNew<TIn, TOut>(methodPath: string, payload: TIn, urlQueryArgs?: { [_: string]: string }) {
+export async function yoReq<TIn, TOut>(methodPath: string, payload: TIn, urlQueryArgs?: { [_: string]: string }) {
     let uri = "/" + methodPath
     if (urlQueryArgs)
         uri += '?' + new URLSearchParams(urlQueryArgs).toString()
@@ -60,7 +27,7 @@ export async function yoReqNew<TIn, TOut>(methodPath: string, payload: TIn, urlQ
     if (resp && (resp.status !== 200)) {
         let body_text: string = '', body_err: any
         try { body_text = await resp.text() } catch (err) { if (err) body_err = err }
-        throw ({ 'status_code': resp?.status, 'status_text': resp?.statusText, 'body_text': body_text, 'body_err': body_err })
+        throw ({ 'status_code': resp?.status, 'status_text': resp?.statusText, 'body_text': body_text.trim(), 'body_err': body_err })
     }
     const json_resp = await resp.json()
     return json_resp as TOut

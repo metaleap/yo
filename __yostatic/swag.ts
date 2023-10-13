@@ -19,7 +19,7 @@ type YoReflMethod = {
     Path: string
 }
 
-export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodPath: string, payload: any, onSuccess?: (_?: any) => void, onFailed?: (err: any, resp?: any) => void, query?: { [_: string]: string }) => void) {
+export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodPath: string, payload: any, urlQueryArgs?: { [_: string]: string }) => Promise<any>) {
     let select_method: HTMLSelectElement, select_history: HTMLSelectElement, td_input: HTMLTableCellElement, td_output: HTMLTableCellElement,
         table: HTMLTableElement, input_querystring: HTMLInputElement, textarea_payload: HTMLTextAreaElement, textarea_response: HTMLTextAreaElement,
         tree_payload: HTMLUListElement, tree_response: HTMLUListElement, div_validate_error_msg: HTMLDivElement
@@ -340,7 +340,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         return ret_count
     }
 
-    const sendRequest = () => {
+    const sendRequest = async () => {
         const show_err = (err: any) => {
             textarea_response.style.backgroundColor = '#f0d0c0'
             textarea_response.value = `${err}`
@@ -386,19 +386,18 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             refreshHistory(true, false)
             refreshAutoCompletes()
         }
-        time_started = new Date().getTime()
-        yoReq(method_path, payload, (result) => {
+        try {
+            time_started = new Date().getTime()
+            const result = await yoReq(method_path, payload)
             on_done()
             if (!is_validate_failed)
                 textarea_response.style.backgroundColor = '#c0f0c0'
             textarea_response.value = JSON.stringify(result, null, 2)
             refreshTree(method_path, result, tree_response, false)
-        }, (err, resp?: Response) => {
+        } catch (err) {
             on_done()
             show_err(JSON.stringify(err, null, 2))
-            if (resp)
-                resp.text().then((response_text) => textarea_response.value += ("\n" + response_text))
-        }, query_string)
+        }
     }
 
     const openInNewDialog = () => {

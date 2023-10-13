@@ -3,6 +3,7 @@ package yofeat_auth
 import (
 	. "yo/ctx"
 	yoserve "yo/server"
+	. "yo/util"
 )
 
 func init() {
@@ -26,7 +27,8 @@ func apiUserRegister(ctx *Ctx, args *ApiAccountPayload, ret *struct {
 	return ret
 }
 
-func apiUserLogin(ctx *Ctx, args *ApiAccountPayload, ret *ApiTokenPayload) any {
-	ret.JwtSignedToken = UserLogin(ctx, args.EmailAddr, args.PasswordPlain)
+func apiUserLogin(ctx *Ctx, args *ApiAccountPayload, ret *Void) any {
+	_ = UserLogin(ctx, args.EmailAddr, args.PasswordPlain)
+	// TODO: set cookie
 	return ret
 }
