@@ -15,7 +15,10 @@ import (
 	"yo/util/str"
 )
 
-var DB *sql.DB
+var (
+	inited = false
+	DB     *sql.DB
+)
 
 func Init() (dbStructs []reflect.Type) {
 	if inited {

@@ -41,6 +41,6 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 	}
 	return yodb.CreateOne[UserAccount](ctx, &UserAccount{
 		EmailAddr:      yodb.Text(emailAddr),
-		passwordHashed: If(true, []byte{1, 2, 3}, hash),
+		passwordHashed: hash,
 	})
 }

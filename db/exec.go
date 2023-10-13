@@ -71,14 +71,11 @@ func Count[T any](ctx *Ctx, query q.Query, max int, nonNullColumn q.C, distinct 
 func CreateOne[T any](ctx *Ctx, rec *T) I64 {
 	desc := desc[T]()
 	args := make(dbArgs, len(desc.cols)-2)
-	rv := reflect.ValueOf(rec).Elem()
-	for i, col_name := range desc.cols {
-		if i >= 2 { // skip 'id' and 'created'
-			field := rv.Field(i)
-			args["A"+string(col_name)] = reflFieldValue(field)
+	ForEachField[T](rec, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
+		if (colName != ColID) && (colName != ColCreated) {
+			args["A"+string(colName)] = fieldValue
 		}
-	}
-
+	})
 	result := doSelect[int64](ctx, new(sqlStmt).insert(desc.tableName, 1, desc.cols[2:]...), args, 1)
 	if (len(result) > 0) && (result[0] != nil) {
 		return I64(*result[0])
@@ -97,13 +94,11 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 	desc := desc[T]()
 	args := make(dbArgs, len(recs)*(len(desc.cols)-2))
 	for j, rec := range recs {
-		rv := reflect.ValueOf(rec).Elem()
-		for i, col_name := range desc.cols {
-			if i >= 2 { // skip 'id' and 'created'
-				field := rv.Field(i)
-				args["A"+string(col_name)+str.FromInt(j)] = reflFieldValue(field)
+		ForEachField[T](rec, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
+			if (colName != ColID) && (colName != ColCreated) {
+				args["A"+string(colName)+str.FromInt(j)] = fieldValue
 			}
-		}
+		})
 	}
 	_ = doExec(ctx, new(sqlStmt).insert(desc.tableName, len(recs), desc.cols[2:]...), args)
 }
@@ -148,7 +143,7 @@ func Update[T any](ctx *Ctx, upd *T, includingEmptyOrMissingFields bool, where q
 	return num_rows_affected
 }
 
-func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) (result sql.Result) {
+func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {
 	sql_raw := str.TrimR(stmt.String(), ",")
 	ctx.Timings.Step("dbExec: `" + sql_raw + "`")
 	do_exec := DB.ExecContext
@@ -156,8 +151,8 @@ func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) (result sql.Result) {
 		do_exec = ctx.Db.Tx.ExecContext
 	}
 	println(sql_raw)
-	var err error
-	result, err = do_exec(ctx, sql_raw, args)
+	dbArgsCleanUpForPgx(args)
+	result, err := do_exec(ctx, sql_raw, args)
 	if err != nil {
 		panic(err)
 	}
@@ -181,6 +176,8 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 	if ctx.Db.Tx != nil {
 		do_query = ctx.Db.Tx.QueryContext
 	}
+
+	dbArgsCleanUpForPgx(args)
 	rows, err := do_query(ctx, sql_raw, args)
 	if rows != nil {
 		defer rows.Close()
@@ -218,5 +215,13 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 	}
 	if err = rows.Err(); err != nil {
 		panic(err)
+	}
+}
+
+func dbArgsCleanUpForPgx(args dbArgs) {
+	for k, v := range args {
+		if b, is := v.(Bytes); is {
+			args[k] = ([]byte)(b)
+		}
 	}
 }

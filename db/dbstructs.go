@@ -34,7 +34,6 @@ type Text string
 type DateTime *time.Time
 
 var (
-	inited      = false
 	tyBool      = reflect.TypeOf(Bool(false))
 	tyBytes     = reflect.TypeOf(Bytes(nil))
 	tyI8        = reflect.TypeOf(I8(0))
