@@ -8,9 +8,10 @@ import (
 )
 
 const (
-	CtxKey                   = "yoUser"
-	HttpUserHeader           = "X-Yo-User"
-	HttpJwtCookieName        = "t"
+	CtxKey            = "yoUser"
+	HttpUserHeader    = "X-Yo-User"
+	HttpJwtCookieName = "t"
+
 	MethodPathLogin          = "authLogin"
 	MethodPathLogout         = "authLogout"
 	MethodPathRegister       = "authRegister"
