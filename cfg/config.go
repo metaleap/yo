@@ -11,10 +11,11 @@ import (
 )
 
 var Cfg struct {
-	YO_API_HTTP_PORT    int
-	YO_API_IMPL_TIMEOUT time.Duration
-	DB_REQ_TIMEOUT      time.Duration
-	DATABASE_URL        string
+	YO_API_HTTP_PORT        int
+	YO_API_IMPL_TIMEOUT     time.Duration
+	YO_AUTH_JWT_EXPIRY_DAYS int
+	DB_REQ_TIMEOUT          time.Duration
+	DATABASE_URL            string
 }
 
 func Load() {

@@ -1,7 +1,9 @@
 package yoserve
 
 import (
+	"cmp"
 	"reflect"
+	"slices"
 
 	. "yo/ctx"
 	. "yo/util"
@@ -44,6 +46,12 @@ func apiHandleReflReq(_ *Ctx, _ *Void, ret *apiRefl) any {
 		}
 		ret.Methods = append(ret.Methods, method)
 	}
+	slices.SortFunc(ret.Methods, func(a apiReflMethod, b apiReflMethod) int {
+		if str.Begins(a.Path, "__") != str.Begins(b.Path, "__") { // bring those `__/` internal APIs to the end of the ret.Methods
+			return cmp.Compare(b.Path, a.Path)
+		}
+		return cmp.Compare(a.Path, b.Path)
+	})
 	return ret
 }
 

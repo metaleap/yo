@@ -1,13 +1,24 @@
 package yofeat_auth
 
 import (
+	"time"
+
+	. "yo/cfg"
 	. "yo/ctx"
 	yodb "yo/db"
 	yoserve "yo/server"
 	. "yo/util"
+	"yo/util/str"
 
+	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
 )
+
+var jwtKey = []byte("my_secret_key")
+
+type JwtPayload struct {
+	jwt.StandardClaims
+}
 
 type UserAccount struct {
 	Id      yodb.I64
@@ -26,8 +37,14 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 	if emailAddr == "" {
 		panic(Err("UserRegisterEmailRequiredButMissing"))
 	}
+	if !str.IsEmailishEnough(emailAddr) {
+		panic(Err("UserRegisterEmailInvalid"))
+	}
 	if passwordPlain == "" {
 		panic(Err("UserRegisterPasswordRequiredButMissing"))
+	}
+	if len(passwordPlain) < 6 {
+		panic(Err("UserRegisterPasswordTooShort"))
 	}
 	ctx.DbTx(yodb.DB)
 	if yodb.Exists[UserAccount](ctx, UserAccountColEmailAddr.Equal(emailAddr)) {
@@ -35,7 +52,11 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
 	if (err != nil) || (len(hash) == 0) {
-		panic(Err("PasswordInvalid"))
+		if err == bcrypt.ErrPasswordTooLong {
+			panic(Err("UserRegisterPasswordTooLong"))
+		} else {
+			panic(Err("UserRegisterPasswordInvalid"))
+		}
 	}
 	return yodb.CreateOne[UserAccount](ctx, &UserAccount{
 		EmailAddr:      yodb.Text(emailAddr),
@@ -43,39 +64,35 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 	})
 }
 
-func UserLogin(ctx *Ctx) {
+func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (jwtSignedToken string) {
+	if emailAddr == "" {
+		panic(Err("UserLoginEmailRequiredButMissing"))
+	}
+	if !str.IsEmailishEnough(emailAddr) { // saves a DB hit I guess =)
+		panic(Err("UserLoginEmailInvalid"))
+	}
+	if passwordPlain == "" {
+		panic(Err("UserLoginPasswordRequiredButMissing"))
+	}
+	user_account := yodb.FindOne[UserAccount](ctx, UserAccountColEmailAddr.Equal(emailAddr))
+	if user_account == nil {
+		panic(Err("UserLoginAccountDoesNotExist"))
+	}
 
-	/*
-	   loginEmail, loginPassword = strTrim(loginEmail), strTrim(loginPassword)
+	err := bcrypt.CompareHashAndPassword(user_account.passwordHashed, []byte(passwordPlain))
+	if err != nil {
+		panic(Err("UserLoginPasswordInvalid"))
+	}
 
-	   	if loginEmail == "" {
-	   		return "", ErrorEmailRequiredButMissing
-	   	}
-
-	   	if loginPassword == "" {
-	   		return "", ErrorPasswordRequiredButMissing
-	   	}
-
-	   user, err := dbGet[User](me, User{Email: loginEmail})
-
-	   	if err != nil {
-	   		return "", err
-	   	} else if user == nil {
-
-	   		return "", ErrorAuthUserDoesNotExist
-	   	}
-
-	   	if err = bcrypt.CompareHashAndPassword(user.PasswordHashed, []byte(loginPassword)); err != nil {
-	   		return "", err
-	   	}
-
-	   	claims := &AuthJwtPayload{
-	   		StandardClaims: jwt.StandardClaims{
-	   			Subject:   user.Email,
-	   			ExpiresAt: time.Now().UTC().AddDate(0, 0, config.JwtExpiryAfterDays).Unix(),
-	   		},
-	   	}
-
-	   return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(authJwtKey)
-	*/
+	claims := &JwtPayload{
+		StandardClaims: jwt.StandardClaims{
+			Subject:   string(user_account.EmailAddr),
+			ExpiresAt: time.Now().UTC().AddDate(0, 0, Cfg.YO_AUTH_JWT_EXPIRY_DAYS).Unix(),
+		},
+	}
+	jwtSignedToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(jwtKey)
+	if err != nil {
+		panic(Err("UserLoginOkButFailedToCreateSignedToken"))
+	}
+	return
 }
