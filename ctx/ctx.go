@@ -62,6 +62,9 @@ func (me *Ctx) DbTx(db *sql.DB) {
 
 func (me *Ctx) Dispose() {
 	fail := recover()
+	if err, _ := fail.(error); err == context.DeadlineExceeded {
+		fail = Err("OperationTimedOut")
+	}
 	if me.Db.Tx != nil {
 		if fail == nil {
 			fail = me.Db.Tx.Commit()

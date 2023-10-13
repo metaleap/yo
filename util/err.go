@@ -5,10 +5,12 @@ import "yo/util/str"
 type Err string
 
 var errSubstrToHttpStatusCode = map[string]int{
-	"AlreadyExists": 409,
-	"NotFound":      404,
 	"Required":      400,
 	"Expected":      400,
+	"NotFound":      404,
+	"AlreadyExists": 409,
+	"Timeout":       504,
+	"TimedOut":      504,
 }
 
 func (me Err) Error() string { return string(me) }

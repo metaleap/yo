@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"time"
 
+	. "yo/util"
 	"yo/util/str"
 )
 
@@ -17,6 +18,13 @@ var Cfg struct {
 }
 
 func Load() {
+	if IsDevMode {
+		defer func() { // for prolonged debugging/breakpoint staring sessions:
+			Cfg.DB_REQ_TIMEOUT = time.Minute
+			Cfg.YO_API_IMPL_TIMEOUT = 22 * time.Minute
+		}()
+	}
+
 	// Setenv from .env file if any
 	env_file_data, err := os.ReadFile(".env")
 	if err != nil {

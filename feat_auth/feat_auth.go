@@ -1,9 +1,13 @@
 package yofeat_auth
 
 import (
+	. "yo/ctx"
 	yodb "yo/db"
+	yoserve "yo/server"
 	. "yo/util"
 	"yo/util/str"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserAccount struct {
@@ -16,28 +20,27 @@ type UserAccount struct {
 
 func init() {
 	yodb.Ensure[UserAccount, UserAccountField](false, "", nil)
+	yoserve.API["authRegister"] = yoserve.Method(apiUserRegister)
 }
 
-func userRegister(emailAddr string, passwordPlain string) {
+func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 	emailAddr, passwordPlain = str.Trim(emailAddr), str.Trim(passwordPlain)
 	if emailAddr == "" {
-		panic(Err("ErrorEmailRequiredButMissing"))
+		panic(Err("UserRegisterEmailRequiredButMissing"))
 	}
 	if passwordPlain == "" {
-		panic(Err("ErrorPasswordRequiredButMissing"))
+		panic(Err("UserRegisterPasswordRequiredButMissing"))
 	}
-
-	// exists, err := dbExists[User](me, User{Email: loginEmail})
-	// if err != nil {
-	// 	return err
-	// } else if exists {
-	// 	return ErrorSignupUserAlreadyExists
-	// }
-	// var hash []byte
-	// if hash, err = bcrypt.GenerateFromPassword([]byte(loginPassword), bcrypt.DefaultCost); err != nil {
-	// 	return err
-	// }
-	// new_user := &User{Email: loginEmail, PasswordHashed: hash}
-	// if err = dbCreate[User](me, new_user); err == nil {
-	// }
+	ctx.DbTx(yodb.DB)
+	if yodb.Exists[UserAccount](ctx, UserAccountColEmailAddr.Equal(emailAddr)) {
+		panic(Err("UserRegisterEmailAddrAlreadyExists"))
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
+	if err != nil {
+		panic(err)
+	}
+	return yodb.CreateOne[UserAccount](ctx, &UserAccount{
+		EmailAddr:      yodb.Text(emailAddr),
+		passwordHashed: If(true, []byte{1, 2, 3}, hash),
+	})
 }
