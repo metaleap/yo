@@ -94,3 +94,13 @@ func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (jwtSignedToken
 	}
 	return
 }
+
+func UserVerify(ctx *Ctx, jwtRaw string) *JwtPayload {
+	token, _ := jwt.ParseWithClaims(jwtRaw, &JwtPayload{}, func(token *jwt.Token) (any, error) {
+		return []byte(jwtKey), nil
+	})
+	if payload, is := token.Claims.(*JwtPayload); is && payload.Subject != "" {
+		return payload
+	}
+	return nil
+}

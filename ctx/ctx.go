@@ -12,6 +12,10 @@ import (
 	"yo/util/str"
 )
 
+var (
+	OnDone []func(ctx *Ctx, fail any)
+)
+
 type Ctx struct {
 	context.Context
 	ctxDone func()
@@ -69,6 +73,9 @@ func (me *Ctx) Dispose() {
 			}
 			me.HttpErr(code, str.Fmt("%v", fail))
 		}
+	}
+	for _, on_done := range OnDone {
+		on_done(me, fail)
 	}
 	if me.ctxDone != nil {
 		me.ctxDone()
@@ -143,6 +150,7 @@ func (me *Ctx) HttpGetCookie(cookieName string) string {
 }
 
 func (me *Ctx) HttpSetCookie(cookieName string, cookieValue string, numDays int) {
+	me.Timings.Step(str.Repl("set cookie '{name}' of length {len}", str.Dict{"name": cookieName, "len": str.FromInt(len(cookieValue))}))
 	http.SetCookie(me.Http.Resp, &http.Cookie{
 		Name:     cookieName,
 		Value:    url.QueryEscape(cookieValue),

@@ -19,7 +19,7 @@ var (
 	staticFileDir    *embed.FS
 	staticFileServes        = map[string]fs.FS{}
 	apiGenSdkMaybe   func() = nil // overwritten by apisdkgen.go in debug build mode
-	PreServe         []func()
+	PreServe         []func(*yoctx.Ctx)
 )
 
 const StaticFileDirPath = "__yostatic"
@@ -59,7 +59,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	for _, pre_serve := range PreServe {
-		pre_serve()
+		pre_serve(ctx)
 	}
 
 	ctx.Timings.Step("check static")
