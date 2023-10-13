@@ -1,6 +1,9 @@
 package yofeat_auth
 
 import (
+	"net/url"
+
+	. "yo/cfg"
 	. "yo/ctx"
 	yoserve "yo/server"
 	. "yo/util"
@@ -28,7 +31,50 @@ func apiUserRegister(ctx *Ctx, args *ApiAccountPayload, ret *struct {
 }
 
 func apiUserLogin(ctx *Ctx, args *ApiAccountPayload, ret *Void) any {
-	_ = UserLogin(ctx, args.EmailAddr, args.PasswordPlain)
-	// TODO: set cookie
+	httpSetJwtCookie(ctx, UserLogin(ctx, args.EmailAddr, args.PasswordPlain))
 	return ret
 }
+
+const jwtCookieName = "t"
+
+func httpSetJwtCookie(ctx *Ctx, jwtRaw string) {
+	ctx.HttpSetCookie(jwtCookieName, url.QueryEscape(jwtRaw), Cfg.YO_AUTH_JWT_EXPIRY_DAYS)
+}
+
+func httpCheckJwtCookie(ctx *Ctx) {
+
+}
+
+/*
+
+var httpEnsureAuthorized = HandlerFunc(func(ctx *Ctx) {
+	req_path := ctx.ReqPath()
+	if strBegins(req_path, "_/api/auth/") {
+		return
+	}
+	_, err := ctx.httpAuthCheckAndSetCtxVals()
+	if strBegins(req_path, "_/api/") && err != nil {
+		ctx.httpErr(401, err)
+	}
+})
+
+func (me *Ctx) httpAuthCheckAndSetCtxVals() (*AuthJwtPayload, error) {
+	me.gCtx.Set("user_logged_in", false)
+
+	jwtRaw, err := me.gCtx.Cookie(authJwtCookie)
+	if err != nil { // http.ErrNoCookie
+		return nil, err
+	}
+	token, err := jwt.ParseWithClaims(jwtRaw, &AuthJwtPayload{}, func(token *jwt.Token) (any, error) {
+		return []byte(authJwtKey), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	payload := token.Claims.(*AuthJwtPayload)
+	me.gCtx.Set("user_logged_in", true)
+	me.gCtx.Set("user_email", payload.StandardClaims.Subject)
+	me.httpAuthSetCookie(jwtRaw)
+	return payload, nil
+}
+*/

@@ -15,12 +15,14 @@ import (
 	"yo/util/str"
 )
 
-var staticFileDir *embed.FS
-var staticFileServes = map[string]fs.FS{}
+var (
+	staticFileDir    *embed.FS
+	staticFileServes        = map[string]fs.FS{}
+	apiGenSdkMaybe   func() = nil // overwritten by apisdkgen.go in debug build mode
+	PreServe         []func()
+)
 
 const StaticFileDirPath = "__yostatic"
-
-var apiGenSdkMaybe func() = nil // overwritten by apisdkgen.go in debug build mode
 
 // called from yo.Init, not user code
 func Init(staticFS *embed.FS, dbStructs []reflect.Type) (func(), func()) {
@@ -54,6 +56,10 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 		code, _ := str.ToInt(s)
 		ctx.HttpErr(If(code == 0, 500, code), "forced error via query-string param 'yoFail'")
 		return
+	}
+
+	for _, pre_serve := range PreServe {
+		pre_serve()
 	}
 
 	ctx.Timings.Step("check static")

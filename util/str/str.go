@@ -118,6 +118,15 @@ func IsEmailishEnough(str string) bool {
 	return (len(str) >= 5) && (iat > 0) && (iat < len(str)-1) && (iat == IdxLast(str, '@') && (idot > iat) && (idot < len(str)-1))
 }
 
+func IsAmong(str string, set ...string) bool {
+	for i := range set {
+		if set[i] == str {
+			return true
+		}
+	}
+	return false
+}
+
 func Repl(str string, namedReplacements Dict) string {
 	if (len(namedReplacements) == 0) || (len(str) == 0) {
 		return str

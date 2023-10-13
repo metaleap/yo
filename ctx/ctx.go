@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"net/url"
 	"time"
 
 	yodiag "yo/diag"
@@ -14,6 +15,7 @@ import (
 type Ctx struct {
 	context.Context
 	ctxDone func()
+	ctxVals map[string]any
 	Http    struct {
 		Req     *http.Request
 		Resp    http.ResponseWriter
@@ -26,10 +28,7 @@ type Ctx struct {
 }
 
 func newCtx(timeout time.Duration) *Ctx {
-	ctx := Ctx{
-		Timings: yodiag.NewTimings("init ctx", !IsDevMode),
-		Context: context.Background(),
-	}
+	ctx := Ctx{Timings: yodiag.NewTimings("init ctx", !IsDevMode), Context: context.Background(), ctxVals: map[string]any{}}
 	if timeout > 0 {
 		ctx.Context, ctx.ctxDone = context.WithTimeout(ctx.Context, timeout)
 	}
@@ -48,16 +47,6 @@ func NewForDbTx(timeout time.Duration, newTxNowFrom *sql.DB) *Ctx {
 		ctx.DbTx(newTxNowFrom)
 	}
 	return ctx
-}
-
-func (me *Ctx) DbTx(db *sql.DB) {
-	if me.Db.Tx != nil {
-		panic("invalid Ctx.DbTx call: already have a Ctx.Db.Tx")
-	}
-	var err error
-	if me.Db.Tx, err = db.BeginTx(me, nil); err != nil {
-		panic(err)
-	}
 }
 
 func (me *Ctx) Dispose() {
@@ -95,13 +84,24 @@ func (me *Ctx) Dispose() {
 	}
 }
 
-func (me *Ctx) HttpErr(statusCode int, statusText string) {
-	http.Error(me.Http.Resp, statusText, statusCode)
+// context.Context impl/override
+func (me *Ctx) Value(key any) any {
+	if k, _ := key.(string); k != "" {
+		return me.Get(k)
+	}
+	return me.Context.Value(key)
 }
 
 func (me *Ctx) Get(name string) any {
-	if s := me.Http.Req.URL.Query().Get(name); s != "" {
-		return s
+	if value, got := me.ctxVals[name]; got {
+		return value
+	}
+	if me.Http.Req != nil {
+		if s := me.Http.Req.URL.Query().Get(name); s != "" {
+			return s
+		} else if s := me.HttpGetCookie(name); s != "" {
+			return s
+		}
 	}
 	return me.Context.Value(name)
 }
@@ -110,4 +110,46 @@ func (me *Ctx) GetStr(name string) (ret string) {
 	any := me.Get(name)
 	ret, _ = any.(string)
 	return
+}
+
+func (me *Ctx) Set(name string, value any) {
+	me.ctxVals[name] = value
+}
+
+func (me *Ctx) DbTx(db *sql.DB) {
+	if me.Db.Tx != nil {
+		panic("invalid Ctx.DbTx call: already have a Ctx.Db.Tx")
+	}
+	var err error
+	if me.Db.Tx, err = db.BeginTx(me, nil); err != nil {
+		panic(err)
+	}
+}
+
+func (me *Ctx) HttpErr(statusCode int, statusText string) {
+	http.Error(me.Http.Resp, statusText, statusCode)
+}
+
+func (me *Ctx) HttpGetCookie(cookieName string) string {
+	cookie, err := me.Http.Req.Cookie(cookieName)
+	if err != nil {
+		panic(err)
+	}
+	cookie_value, err := url.QueryUnescape(cookie.Value)
+	if err != nil {
+		panic(err)
+	}
+	return cookie_value
+}
+
+func (me *Ctx) HttpSetCookie(cookieName string, cookieValue string, numDays int) {
+	http.SetCookie(me.Http.Resp, &http.Cookie{
+		Name:     cookieName,
+		Value:    url.QueryEscape(cookieValue),
+		MaxAge:   If(cookieValue == "", -1, int(time.Hour*24)*numDays),
+		Path:     "/",
+		SameSite: http.SameSiteStrictMode,
+		Secure:   true,
+		HttpOnly: true,
+	})
 }
