@@ -13,6 +13,7 @@ import (
 	. "yo/cfg"
 	. "yo/ctx"
 	yolog "yo/log"
+	. "yo/util"
 	"yo/util/str"
 )
 
@@ -24,6 +25,10 @@ func Init() (dbStructs []reflect.Type) {
 	if inited {
 		panic("db.Init called twice?")
 	}
+	if IsDevMode {
+		codeGenDBStructs()
+	}
+
 	conn_cfg, err := pgx.ParseConfig(Cfg.DATABASE_URL)
 	if err != nil {
 		panic(err)

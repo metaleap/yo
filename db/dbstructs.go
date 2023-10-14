@@ -64,7 +64,7 @@ type structDesc struct {
 	tableName string // defaults to db.NameFrom(structTypeName)
 	fields    []q.F  // struct fields marked persistish by being of a type in `okTypes`
 	cols      []q.C  // for each field above, its db.NameFrom()
-	idBig     bool   // allow up to 9223372036854775807 instead of up to 2147483647
+	idBigInt  bool   // allow up to 9223372036854775807 instead of up to 2147483647
 	mig       struct {
 		oldTableName            string
 		renamesOldColToNewField map[q.C]q.F
@@ -195,24 +195,21 @@ func (me scanner) Scan(src any) error {
 	return nil
 }
 
-func Ensure[TObj any, TFld ~string](idBig bool, oldTableName string, renamesOldColToNewField map[q.C]q.F) {
+func Ensure[TObj any, TFld ~string](idBigInt bool, oldTableName string, renamesOldColToNewField map[q.C]q.F) {
 	if inited {
 		panic("db.Ensure called after db.Init")
 	}
 	desc := desc[TObj]()
 	ensureDescs = append(ensureDescs, desc)
-	desc.idBig, desc.mig.oldTableName, desc.mig.renamesOldColToNewField = idBig, oldTableName, renamesOldColToNewField
+	desc.idBigInt, desc.mig.oldTableName, desc.mig.renamesOldColToNewField = idBigInt, oldTableName, renamesOldColToNewField
 	if (len(desc.cols) < 1) || (desc.cols[0] != ColID) {
-		panic(desc.tableName + ": first column must be '" + string(ColID) + "', not '" + string(desc.cols[0]) + "'")
+		panic(desc.tableName + ": first column must be '" + string(ColID))
 	} else if (len(desc.cols) < 2) || (desc.cols[1] != ColCreated) {
-		panic(desc.tableName + ": second column must be '" + string(ColCreated) + "', not '" + string(desc.cols[1]) + "'")
+		panic(desc.tableName + ": second column must be '" + string(ColCreated))
 	} else if len(desc.cols) < 3 {
 		panic(desc.tableName + ": no custom columns")
 	}
 	registerApiHandlers[TObj, TFld](desc)
-	if IsDevMode {
-		codeGenDBStructs()
-	}
 }
 
 func Is(ty reflect.Type) (ret bool) {

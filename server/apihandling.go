@@ -11,15 +11,15 @@ import (
 	"yo/util/str"
 )
 
+var api = ApiMethods{}
+
 type ApiMethods map[string]ApiMethod
 
-func (me ApiMethods) Add(all ApiMethods) {
+func Add(all ApiMethods) {
 	for k, v := range all {
-		me[k] = v
+		api[k] = v
 	}
 }
-
-var Api = ApiMethods{}
 
 type apiHandleFunc = func(*Ctx, any) any
 
@@ -29,7 +29,7 @@ type ApiMethod interface {
 	reflTypes() (reflect.Type, reflect.Type)
 }
 
-func Method[TIn any, TOut any](f func(*Ctx, *TIn, *TOut) any) ApiMethod {
+func Api[TIn any, TOut any](f func(*Ctx, *TIn, *TOut) any) ApiMethod {
 	var tmp_in TIn
 	var tmp_out TOut
 	if reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct {
@@ -63,7 +63,7 @@ func (me apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
 
 func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	ctx.Timings.Step("handler lookup")
-	api := Api[ctx.Http.UrlPath]
+	api := api[ctx.Http.UrlPath]
 	if api == nil {
 		ctx.HttpErr(404, "Not Found")
 		return nil, false

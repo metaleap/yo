@@ -34,8 +34,10 @@ const StaticFilesDirName = "__yostatic"
 // called from yo.Init, not user code
 func Init(dbStructs []reflect.Type) (func(), func()) {
 	apiReflAllDbStructs = dbStructs
-	Api["__/refl"] = Method(apiHandleReflReq)
-	for method_path := range Api {
+	Add(ApiMethods{
+		"__/refl": Api(apiHandleReflReq),
+	})
+	for method_path := range api {
 		if str.Trim(method_path) != method_path || method_path == "" || !str.IsPrtAscii(method_path) {
 			panic("not a valid method path: '" + method_path + "'")
 		}

@@ -12,7 +12,9 @@ import (
 )
 
 func init() {
-	yoserve.Api["__/db/listTables"] = yoserve.Method(apiListTables)
+	yoserve.Add(yoserve.ApiMethods{
+		"__/db/listTables": yoserve.Api(apiListTables),
+	})
 }
 
 func apiListTables(ctx *Ctx, args *struct {
@@ -24,17 +26,17 @@ func apiListTables(ctx *Ctx, args *struct {
 
 func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 	type_name := desc.ty.Name()
-	yoserve.Api.Add(yoserve.ApiMethods{
-		"__/db/" + type_name + "/findById":   yoserve.Method(apiFindById[TObj, TFld]),
-		"__/db/" + type_name + "/findOne":    yoserve.Method(apiFindOne[TObj, TFld]),
-		"__/db/" + type_name + "/findMany":   yoserve.Method(apiFindMany[TObj, TFld]),
-		"__/db/" + type_name + "/createOne":  yoserve.Method(apiCreateOne[TObj, TFld]),
-		"__/db/" + type_name + "/createMany": yoserve.Method(apiCreateMany[TObj, TFld]),
-		"__/db/" + type_name + "/deleteOne":  yoserve.Method(apiDeleteOne[TObj, TFld]),
-		"__/db/" + type_name + "/deleteMany": yoserve.Method(apiDeleteMany[TObj, TFld]),
-		"__/db/" + type_name + "/updateOne":  yoserve.Method(apiUpdateOne[TObj, TFld]),
-		"__/db/" + type_name + "/updateMany": yoserve.Method(apiUpdateMany[TObj, TFld]),
-		"__/db/" + type_name + "/count":      yoserve.Method(apiCount[TObj, TFld]),
+	yoserve.Add(yoserve.ApiMethods{
+		"__/db/" + type_name + "/findById":   yoserve.Api(apiFindById[TObj, TFld]),
+		"__/db/" + type_name + "/findOne":    yoserve.Api(apiFindOne[TObj, TFld]),
+		"__/db/" + type_name + "/findMany":   yoserve.Api(apiFindMany[TObj, TFld]),
+		"__/db/" + type_name + "/createOne":  yoserve.Api(apiCreateOne[TObj, TFld]),
+		"__/db/" + type_name + "/createMany": yoserve.Api(apiCreateMany[TObj, TFld]),
+		"__/db/" + type_name + "/deleteOne":  yoserve.Api(apiDeleteOne[TObj, TFld]),
+		"__/db/" + type_name + "/deleteMany": yoserve.Api(apiDeleteMany[TObj, TFld]),
+		"__/db/" + type_name + "/updateOne":  yoserve.Api(apiUpdateOne[TObj, TFld]),
+		"__/db/" + type_name + "/updateMany": yoserve.Api(apiUpdateMany[TObj, TFld]),
+		"__/db/" + type_name + "/count":      yoserve.Api(apiCount[TObj, TFld]),
 	})
 }
 

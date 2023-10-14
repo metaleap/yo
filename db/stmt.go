@@ -178,7 +178,7 @@ func (me *sqlStmt) createTable(desc *structDesc) *sqlStmt {
 		w(" ")
 		switch col_name {
 		case ColID:
-			w(If(desc.idBig, "bigserial PRIMARY KEY", " serial PRIMARY KEY"))
+			w(If(desc.idBigInt, "bigserial PRIMARY KEY", " serial PRIMARY KEY"))
 		case ColCreated:
 			w("timestamp without time zone NOT NULL DEFAULT (current_timestamp)")
 		default:

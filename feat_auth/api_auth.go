@@ -3,7 +3,7 @@ package yofeat_auth
 import (
 	. "yo/cfg"
 	. "yo/ctx"
-	. "yo/server"
+	yoserve "yo/server"
 	. "yo/util"
 )
 
@@ -19,13 +19,13 @@ const (
 )
 
 func init() {
-	Api.Add(ApiMethods{
-		MethodPathLogout:         Method(apiUserLogout),
-		MethodPathLogin:          Method(apiUserLogin),
-		MethodPathRegister:       Method(apiUserRegister),
-		MethodPathChangePassword: Method(apiChangePassword),
+	yoserve.Add(yoserve.ApiMethods{
+		MethodPathLogout:         yoserve.Api(apiUserLogout),
+		MethodPathLogin:          yoserve.Api(apiUserLogin),
+		MethodPathRegister:       yoserve.Api(apiUserRegister),
+		MethodPathChangePassword: yoserve.Api(apiChangePassword),
 	})
-	PreServes = append(PreServes, PreServe{Name: "authCheck", Do: httpCheckAndSet})
+	yoserve.PreServes = append(yoserve.PreServes, yoserve.PreServe{Name: "authCheck", Do: httpCheckAndSet})
 }
 
 type ApiAccountPayload struct {
@@ -80,7 +80,7 @@ func apiChangePassword(ctx *Ctx, args *struct {
 
 func httpSetUser(ctx *Ctx, jwtRaw string) {
 	user_email_addr := ""
-	if (jwtRaw != "") && (ctx.Http.UrlPath != MethodPathLogout) {
+	if jwtRaw != "" {
 		if jwt_payload := UserVerify(ctx, jwtRaw); jwt_payload == nil {
 			jwtRaw = ""
 		} else {
