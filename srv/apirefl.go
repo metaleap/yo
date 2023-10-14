@@ -58,9 +58,8 @@ func apiHandleReflReq(this *ApiCtx[Void, apiRefl]) {
 
 func apiReflErrs(method ApiMethod, methodRefl apiReflMethod) (ret map[Err]int) {
 	ret = map[Err]int{}
-	name_prefix := Err(str.Up0(methodRefl.Path))
-	for _, err := range method.errs() {
-		ret[name_prefix+err] = err.HttpStatusCode()
+	for _, err := range method.knownErrs() {
+		ret[err] = err.HttpStatusCode()
 	}
 	return
 }

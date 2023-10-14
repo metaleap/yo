@@ -16,16 +16,21 @@ var api = ApiMethods{}
 type ApiMethods map[string]ApiMethod
 
 func Apis(all ApiMethods) {
-	for k, v := range all {
-		api[k] = v
+	for method_path, method := range all {
+		if api[method_path] != nil {
+			panic("already a method registered for path '" + method_path + "'")
+		}
+		method.init(method_path)
+		api[method_path] = method
 	}
 }
 
 type apiHandleFunc func(*Ctx, any) any
 
 type ApiMethod interface {
-	errs() []Err
-	handle() apiHandleFunc
+	init(string)
+	handler() apiHandleFunc
+	knownErrs() []Err
 	loadPayload(data []byte) (any, error)
 	reflTypes() (reflect.Type, reflect.Type)
 	ApiPkgInfo
@@ -47,40 +52,50 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, know
 	if reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct {
 		panic(str.Fmt("in/out types must be structs, got in:%T, out:%T", tmp_in, tmp_out))
 	}
-	return apiMethod[TIn, TOut]{knownErrs: knownErrs, PkgInfo: pkgInfo, apiHandleFunc: func(ctx *Ctx, in any) any {
-		ctx.Http.ApiErrs = knownErrs
+	var ret *apiMethod[TIn, TOut]
+	ret = &apiMethod[TIn, TOut]{errs: knownErrs, PkgInfo: pkgInfo, handleFunc: func(ctx *Ctx, in any) any {
+		ctx.Http.ApiErrs = ret.errs // *must* be that field, *not* the `knownErrs` local!
 		var output TOut
 		api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
 		f(api_ctx)
 		return api_ctx.Ret
 	}}
+	return ret
 }
 
 type apiMethod[TIn any, TOut any] struct {
-	apiHandleFunc apiHandleFunc
-	knownErrs     []Err
-	PkgInfo       ApiPkgInfo
+	methodPath string
+	handleFunc apiHandleFunc
+	errs       []Err
+	PkgInfo    ApiPkgInfo
 }
 
-func (me apiMethod[TIn, TOut]) errs() []Err           { return me.knownErrs }
-func (me apiMethod[TIn, TOut]) handle() apiHandleFunc { return me.apiHandleFunc }
-func (me apiMethod[TIn, TOut]) PkgName() string {
+func (me *apiMethod[TIn, TOut]) knownErrs() []Err       { return me.errs }
+func (me *apiMethod[TIn, TOut]) handler() apiHandleFunc { return me.handleFunc }
+func (me *apiMethod[TIn, TOut]) PkgName() string {
 	if me.PkgInfo != nil {
 		return me.PkgInfo.PkgName()
 	}
 	return ""
 }
-func (apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
+func (*apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
 	var it TIn
 	if len(data) > 0 && !bytes.Equal(data, yojson.JsonNullTok) {
 		err = yojson.Unmarshal(data, &it)
 	}
 	return &it, err
 }
-func (apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
+func (*apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
 	var tmp_in TIn
 	var tmp_out TOut
 	return reflect.ValueOf(tmp_in).Type(), reflect.ValueOf(tmp_out).Type()
+}
+func (me *apiMethod[TIn, TOut]) init(methodPath string) {
+	me.methodPath = methodPath
+	err_name_prefix := Err(str.Up0(methodPath))
+	for i, err := range me.errs {
+		me.errs[i] = err_name_prefix + err
+	}
 }
 
 func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
@@ -114,5 +129,5 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	})
 
 	ctx.Timings.Step("HANDLE")
-	return api.handle()(ctx, payload), true
+	return api.handler()(ctx, payload), true
 }

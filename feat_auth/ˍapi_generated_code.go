@@ -11,11 +11,11 @@ func (apiPkgInfo) PkgName() string { return "yoauth" }
 
 var PkgInfo = apiPkgInfo{}
 
-const ErrAuthRegisterEmailInvalid util.Err = "AuthRegisterEmailInvalid"
 const ErrAuthRegisterEmailAddrAlreadyExists util.Err = "AuthRegisterEmailAddrAlreadyExists"
-const ErrAuthRegisterPasswordRequiredButMissing util.Err = "AuthRegisterPasswordRequiredButMissing"
-const ErrAuthRegisterPasswordTooShort util.Err = "AuthRegisterPasswordTooShort"
-const ErrAuthRegisterPasswordTooLong util.Err = "AuthRegisterPasswordTooLong"
-const ErrAuthRegisterPasswordInvalid util.Err = "AuthRegisterPasswordInvalid"
-const ErrAuthRegisterWhileLoggedIn util.Err = "AuthRegisterWhileLoggedIn"
+const ErrAuthRegisterEmailInvalid util.Err = "AuthRegisterEmailInvalid"
 const ErrAuthRegisterEmailRequiredButMissing util.Err = "AuthRegisterEmailRequiredButMissing"
+const ErrAuthRegisterPasswordInvalid util.Err = "AuthRegisterPasswordInvalid"
+const ErrAuthRegisterPasswordRequiredButMissing util.Err = "AuthRegisterPasswordRequiredButMissing"
+const ErrAuthRegisterPasswordTooLong util.Err = "AuthRegisterPasswordTooLong"
+const ErrAuthRegisterPasswordTooShort util.Err = "AuthRegisterPasswordTooShort"
+const ErrAuthRegisterWhileLoggedIn util.Err = "AuthRegisterWhileLoggedIn"

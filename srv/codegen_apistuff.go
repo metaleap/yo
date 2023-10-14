@@ -106,7 +106,7 @@ func codegenGo(apiRefl *apiRefl) {
 		buf.WriteString("var PkgInfo = apiPkgInfo{}\n")
 
 		for method_path := range pkg_methods {
-			for err := range apiRefl.KnownErrs[method_path] {
+			for _, err := range sl.Sorted(Keys(apiRefl.KnownErrs[method_path])) {
 				buf.WriteString("const Err" + string(err) + " util.Err = \"" + string(err) + "\"\n")
 			}
 		}
