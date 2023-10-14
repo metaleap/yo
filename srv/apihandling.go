@@ -31,7 +31,7 @@ type apiHandleFunc func(*Ctx, any) any
 type ApiMethod interface {
 	init(string)
 	handler() apiHandleFunc
-	knownErrs() []Err
+	KnownErrs() []Err
 	loadPayload(data []byte) (any, error)
 	reflTypes() (reflect.Type, reflect.Type)
 	ApiPkgInfo
@@ -54,17 +54,18 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, know
 		panic(str.Fmt("in/out types must be structs, got in:%T, out:%T", tmp_in, tmp_out))
 	}
 	var ret *apiMethod[TIn, TOut]
-	ret = &apiMethod[TIn, TOut]{
+	method := apiMethod[TIn, TOut]{
 		PkgInfo:  pkgInfo,
 		errsOwn:  sl.Where(knownErrs, func(it Err) bool { return it[0] != ':' }),
 		errsDeps: sl.Conv(sl.Where(knownErrs, func(it Err) bool { return it[0] == ':' }), func(it Err) string { return string(it)[1:] }),
 		handleFunc: func(ctx *Ctx, in any) any {
-			ctx.Http.ApiErrs = ret.errsOwn // *must* be that field, *not* the `knownErrs` local!
+			ctx.Http.ApiErrs = ret
 			var output TOut
 			api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
 			f(api_ctx)
 			return api_ctx.Ret
 		}}
+	ret = &method
 	return ret
 }
 
@@ -82,10 +83,10 @@ func (me *apiMethod[TIn, TOut]) PkgName() string {
 	}
 	return ""
 }
-func (me *apiMethod[TIn, TOut]) knownErrs() (ret []Err) {
+func (me *apiMethod[TIn, TOut]) KnownErrs() (ret []Err) {
 	ret = me.errsOwn
 	for _, err_dep := range me.errsDeps {
-		ret = append(ret, api[err_dep].knownErrs()...)
+		ret = append(ret, api[err_dep].KnownErrs()...)
 	}
 	return ret
 }

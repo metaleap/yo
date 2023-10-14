@@ -19,6 +19,10 @@ var (
 	OnDone []func(ctx *Ctx, fail any)
 )
 
+type Errs interface {
+	KnownErrs() []Err
+}
+
 type Ctx struct {
 	context.Context
 	ctxDone func()
@@ -27,7 +31,7 @@ type Ctx struct {
 		Req         *http.Request
 		Resp        http.ResponseWriter
 		UrlPath     string
-		ApiErrs     []Err
+		ApiErrs     Errs
 		reqCookies  str.Dict
 		respCookies map[string]*http.Cookie
 		respWriting bool
@@ -82,10 +86,12 @@ func (me *Ctx) Dispose() {
 		me.httpEnsureCookiesSent()
 		if code := 500; fail != nil {
 			if err, is_app_err := fail.(Err); is_app_err {
-				if IsDevMode && len(me.Http.ApiErrs) > 0 && err != err_timeout && !sl.Has(me.Http.ApiErrs, err) {
-					os.Stderr.WriteString("\n\nunexpected/undocumented Err thrown: " + string(err) + ", add it to " + str.From(me.Http.ApiErrs) + "\n\n")
-					os.Stderr.Sync()
-					os.Exit(1)
+				if IsDevMode && me.Http.ApiErrs != nil && err != err_timeout {
+					if known_errs := me.Http.ApiErrs.KnownErrs(); (len(known_errs) > 0) && !sl.Has(known_errs, err) {
+						os.Stderr.WriteString("\n\nunexpected/undocumented Err thrown: " + string(err) + ", add it to " + str.From(me.Http.ApiErrs) + "\n\n")
+						os.Stderr.Sync()
+						os.Exit(1)
+					}
 				}
 				code = err.HttpStatusCode()
 			}

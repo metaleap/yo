@@ -59,7 +59,7 @@ func apiHandleReflReq(this *ApiCtx[Void, apiRefl]) {
 
 func apiReflErrs(method ApiMethod, methodRefl apiReflMethod) (ret map[Err]int) {
 	ret = map[Err]int{}
-	for _, err := range method.knownErrs() {
+	for _, err := range method.KnownErrs() {
 		ret[err] = err.HttpStatusCode()
 	}
 	return
