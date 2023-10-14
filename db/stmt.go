@@ -194,11 +194,19 @@ func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, 
 		panic("invalid table rename: " + oldTableName)
 	}
 
-	cols_gone, fields_new := []q.C{}, []q.F{}
+	cols_gone, fields_new, col_type_changes := []q.C{}, []q.F{}, []q.C{}
 	for _, table_col := range curTable {
 		col_name := q.C(table_col.ColumnName)
+		if (col_name == ColID) || (col_name == ColCreated) {
+			continue
+		}
 		if !sl.Has(desc.cols, col_name) {
 			cols_gone = append(cols_gone, col_name)
+		} else if field, ok := desc.ty.FieldByName(string(desc.fields[sl.IdxWhere(desc.cols, func(it q.C) bool { return (it == col_name) })])); !ok {
+			panic("impossible")
+		} else if sql_type_name := sqlColTypeFrom(field.Type); sql_type_name != string(table_col.DataType) {
+			col_type_changes = append(col_type_changes, col_name)
+			panic(string(col_name) + "<<<oldDT:" + string(table_col.DataType) + ">>>newDT:" + sql_type_name)
 		}
 	}
 	for i, struct_col_name := range desc.cols {
@@ -231,7 +239,7 @@ func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, 
 		ret = append(ret, stmt)
 	}
 
-	if (len(cols_gone) > 0) || (len(fields_new) > 0) {
+	if (len(cols_gone) > 0) || (len(fields_new) > 0) || (len(col_type_changes) > 0) {
 		stmt := new(sqlStmt)
 		w := (*str.Buf)(stmt).WriteString
 		w("ALTER TABLE ")
