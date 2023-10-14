@@ -1,9 +1,9 @@
-package yofeat_auth
+package yoauth
 
 import (
 	. "yo/cfg"
 	. "yo/ctx"
-	. "yo/server"
+	. "yo/srv"
 	. "yo/util"
 )
 
@@ -20,10 +20,10 @@ const (
 
 func init() {
 	Apis(ApiMethods{
-		MethodPathLogin:          Api(apiUserLogin, "FooFail", "BarFail", "BazFail"),
-		MethodPathLogout:         Api(apiUserLogout),
-		MethodPathRegister:       Api(apiUserRegister),
-		MethodPathChangePassword: Api(apiChangePassword),
+		MethodPathLogin:          Api(apiUserLogin, PkgInfo, "FooFail", "BarFail", "BazFail"),
+		MethodPathLogout:         Api(apiUserLogout, PkgInfo),
+		MethodPathRegister:       Api(apiUserRegister, PkgInfo),
+		MethodPathChangePassword: Api(apiChangePassword, PkgInfo),
 	})
 	PreServes = append(PreServes, PreServe{Name: "authCheck", Do: httpCheckAndSet})
 }

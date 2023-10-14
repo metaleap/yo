@@ -1,4 +1,4 @@
-package yoserve
+package yosrv
 
 import (
 	"bytes"
@@ -21,13 +21,14 @@ func Apis(all ApiMethods) {
 	}
 }
 
-type apiHandleFunc = func(*Ctx, any) any
+type apiHandleFunc func(*Ctx, any) any
 
 type ApiMethod interface {
 	errs() []Err
 	handle() apiHandleFunc
 	loadPayload(data []byte) (any, error)
 	reflTypes() (reflect.Type, reflect.Type)
+	ApiPkgInfo
 }
 
 type ApiCtx[TIn any, TOut any] struct {
@@ -36,13 +37,17 @@ type ApiCtx[TIn any, TOut any] struct {
 	Ret  *TOut
 }
 
-func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), knownErrs ...Err) ApiMethod {
+type ApiPkgInfo interface {
+	PkgName() string
+}
+
+func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, knownErrs ...Err) ApiMethod {
 	var tmp_in TIn
 	var tmp_out TOut
 	if reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct {
 		panic(str.Fmt("in/out types must be structs, got in:%T, out:%T", tmp_in, tmp_out))
 	}
-	return apiMethod[TIn, TOut]{knownErrs: knownErrs, apiHandleFunc: func(ctx *Ctx, in any) any {
+	return apiMethod[TIn, TOut]{knownErrs: knownErrs, ApiPkgInfo: pkgInfo, apiHandleFunc: func(ctx *Ctx, in any) any {
 		ctx.Http.ApiErrs = knownErrs
 		var output TOut
 		api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
@@ -54,6 +59,7 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), knownErrs ...Err) ApiMet
 type apiMethod[TIn any, TOut any] struct {
 	apiHandleFunc apiHandleFunc
 	knownErrs     []Err
+	ApiPkgInfo
 }
 
 func (me apiMethod[TIn, TOut]) errs() []Err           { return me.knownErrs }

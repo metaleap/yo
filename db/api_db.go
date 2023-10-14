@@ -4,7 +4,7 @@ import (
 	"reflect"
 
 	q "yo/db/query"
-	. "yo/server"
+	. "yo/srv"
 	. "yo/util"
 	"yo/util/sl"
 	"yo/util/str"
@@ -12,7 +12,7 @@ import (
 
 func init() {
 	Apis(ApiMethods{
-		"__/db/listTables": Api(apiListTables),
+		"__/db/listTables": Api(apiListTables, PkgInfo),
 	})
 }
 
@@ -25,16 +25,16 @@ func apiListTables(this *ApiCtx[struct {
 func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 	type_name := desc.ty.Name()
 	Apis(ApiMethods{
-		"__/db/" + type_name + "/findById":   Api(apiFindById[TObj, TFld]),
-		"__/db/" + type_name + "/findOne":    Api(apiFindOne[TObj, TFld]),
-		"__/db/" + type_name + "/findMany":   Api(apiFindMany[TObj, TFld]),
-		"__/db/" + type_name + "/createOne":  Api(apiCreateOne[TObj, TFld]),
-		"__/db/" + type_name + "/createMany": Api(apiCreateMany[TObj, TFld]),
-		"__/db/" + type_name + "/deleteOne":  Api(apiDeleteOne[TObj, TFld]),
-		"__/db/" + type_name + "/deleteMany": Api(apiDeleteMany[TObj, TFld]),
-		"__/db/" + type_name + "/updateOne":  Api(apiUpdateOne[TObj, TFld]),
-		"__/db/" + type_name + "/updateMany": Api(apiUpdateMany[TObj, TFld]),
-		"__/db/" + type_name + "/count":      Api(apiCount[TObj, TFld]),
+		"__/db/" + type_name + "/findById":   Api(apiFindById[TObj, TFld], PkgInfo),
+		"__/db/" + type_name + "/findOne":    Api(apiFindOne[TObj, TFld], PkgInfo),
+		"__/db/" + type_name + "/findMany":   Api(apiFindMany[TObj, TFld], PkgInfo),
+		"__/db/" + type_name + "/createOne":  Api(apiCreateOne[TObj, TFld], PkgInfo),
+		"__/db/" + type_name + "/createMany": Api(apiCreateMany[TObj, TFld], PkgInfo),
+		"__/db/" + type_name + "/deleteOne":  Api(apiDeleteOne[TObj, TFld], PkgInfo),
+		"__/db/" + type_name + "/deleteMany": Api(apiDeleteMany[TObj, TFld], PkgInfo),
+		"__/db/" + type_name + "/updateOne":  Api(apiUpdateOne[TObj, TFld], PkgInfo),
+		"__/db/" + type_name + "/updateMany": Api(apiUpdateMany[TObj, TFld], PkgInfo),
+		"__/db/" + type_name + "/count":      Api(apiCount[TObj, TFld], PkgInfo),
 	})
 }
 

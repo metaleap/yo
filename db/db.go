@@ -13,19 +13,19 @@ import (
 	. "yo/cfg"
 	. "yo/ctx"
 	yolog "yo/log"
-	. "yo/util"
 	"yo/util/str"
 )
 
 var (
-	inited = false
+	inited                  = false
+	codeGenDBStructs func() = nil
 )
 
-func InitAndConnectAndMigrate() (dbStructs []reflect.Type) {
+func InitAndConnectAndMigrateAndMaybeCodegen() (dbStructs []reflect.Type) {
 	if inited {
 		panic("db.Init called twice?")
 	}
-	if IsDevMode {
+	if codeGenDBStructs != nil {
 		codeGenDBStructs()
 	}
 

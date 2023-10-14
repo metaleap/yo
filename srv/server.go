@@ -1,4 +1,4 @@
-package yoserve
+package yosrv
 
 import (
 	"io/fs"
@@ -26,23 +26,27 @@ var (
 	// funcs are run (in no particular order) just prior to loading request payload, handling request, and serving response
 	PreServes = []PreServe{}
 
-	apiGenSdkMaybe func() = nil // overwritten by apisdkgen.go in debug build mode
+	apiCodegenMaybe func() = nil // overwritten by apisdkgen.go in debug build mode
 )
 
 const StaticFilesDirName = "__yostatic"
 
 // called from yo.Init, not user code
-func Init(dbStructs []reflect.Type) (func(), func()) {
+func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
 	apiReflAllDbStructs = dbStructs
 	Apis(ApiMethods{
-		"__/refl": Api(apiHandleReflReq),
+		"__/refl": Api(apiHandleReflReq, nil),
 	})
 	for method_path := range api {
 		if str.Trim(method_path) != method_path || method_path == "" || !str.IsPrtAscii(method_path) {
 			panic("not a valid method path: '" + method_path + "'")
 		}
 	}
-	return apiGenSdkMaybe, listenAndServe
+	if apiCodegenMaybe != nil {
+		yolog.Println("API codegen...")
+		apiCodegenMaybe()
+	}
+	return listenAndServe
 }
 
 func listenAndServe() {

@@ -1,4 +1,4 @@
-package yofeat_auth
+package yoauth
 
 import (
 	"time"
