@@ -9,18 +9,24 @@ import (
 	"yo/util/sl"
 )
 
-const errBinOpPrefix = "ExpectedTwoOperandsFor"
+const (
+	errBinOpPrefix = "ExpectedTwoOperandsFor"
+
+	ErrSetQuery    = "Query"
+	ErrSetDbUpdate = "DbUpdate"
+	ErrSetDbDelete = "DbDelete"
+)
 
 func init() {
-	KnownErrSets["Query"] = append([]Err{
+	KnownErrSets[ErrSetQuery] = append([]Err{
 		Err("ExpectedOnlyEitherQueryOrQueryFromButNotBoth"),
 		Err("ExpectedSetOperandFor" + opIn),
 		Err("ExpectedOneOrNoneButNotMultipleOfFldOrStrOrBoolOrInt"),
 	}, sl.Conv([]string{opAnd, opOr, opNot, opIn, opEq, opNe, opGt, opGe, opLt, opLe}, func(it string) Err {
 		return Err(errBinOpPrefix + it)
 	})...)
-	KnownErrSets["DbDelete"] = []Err{"ExpectedQueryForDelete"}
-	KnownErrSets["DbUpdate"] = []Err{"ExpectedChangesForUpdate", "ExpectedQueryForUpdate"}
+	KnownErrSets[ErrSetDbDelete] = []Err{"ExpectedQueryForDelete"}
+	KnownErrSets[ErrSetDbUpdate] = []Err{"ExpectedChangesForUpdate", "ExpectedQueryForUpdate"}
 	Apis(ApiMethods{
 		"__/db/listTables": Api(apiListTables, PkgInfo),
 	})
@@ -37,15 +43,15 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 
 	Apis(ApiMethods{
 		"__/db/" + type_name + "/findById":   Api(apiFindById[TObj, TFld], PkgInfo),
-		"__/db/" + type_name + "/findOne":    Api(apiFindOne[TObj, TFld], PkgInfo, ":Query"),
-		"__/db/" + type_name + "/findMany":   Api(apiFindMany[TObj, TFld], PkgInfo, ":Query"),
+		"__/db/" + type_name + "/findOne":    Api(apiFindOne[TObj, TFld], PkgInfo, ":"+ErrSetQuery),
+		"__/db/" + type_name + "/findMany":   Api(apiFindMany[TObj, TFld], PkgInfo, ":"+ErrSetQuery),
 		"__/db/" + type_name + "/createOne":  Api(apiCreateOne[TObj, TFld], PkgInfo),
 		"__/db/" + type_name + "/createMany": Api(apiCreateMany[TObj, TFld], PkgInfo),
-		"__/db/" + type_name + "/deleteOne":  Api(apiDeleteOne[TObj, TFld], PkgInfo, ":DbDelete"),
-		"__/db/" + type_name + "/deleteMany": Api(apiDeleteMany[TObj, TFld], PkgInfo, ":Query", ":DbDelete"),
-		"__/db/" + type_name + "/updateOne":  Api(apiUpdateOne[TObj, TFld], PkgInfo, ":DbUpdate", "ExpectedIdGreater0"),
-		"__/db/" + type_name + "/updateMany": Api(apiUpdateMany[TObj, TFld], PkgInfo, ":Query", ":DbUpdate"),
-		"__/db/" + type_name + "/count":      Api(apiCount[TObj, TFld], PkgInfo, ":Query"),
+		"__/db/" + type_name + "/deleteOne":  Api(apiDeleteOne[TObj, TFld], PkgInfo, ":"+ErrSetDbDelete),
+		"__/db/" + type_name + "/deleteMany": Api(apiDeleteMany[TObj, TFld], PkgInfo, ":"+ErrSetQuery, ":"+ErrSetDbDelete),
+		"__/db/" + type_name + "/updateOne":  Api(apiUpdateOne[TObj, TFld], PkgInfo, ":"+ErrSetDbUpdate, "ExpectedIdGreater0"),
+		"__/db/" + type_name + "/updateMany": Api(apiUpdateMany[TObj, TFld], PkgInfo, ":"+ErrSetQuery, ":"+ErrSetDbUpdate),
+		"__/db/" + type_name + "/count":      Api(apiCount[TObj, TFld], PkgInfo, ":"+ErrSetQuery),
 	})
 }
 
@@ -175,7 +181,7 @@ func (me *ApiQueryExpr[TObj, TFld]) Validate() {
 	// binary operators
 	for name, bin_op := range map[string][]ApiQueryVal[TObj, TFld]{opEq: me.EQ, opNe: me.NE, opLt: me.LT, opLe: me.LE, opGt: me.GT, opGe: me.GE} {
 		if (len(bin_op) != 0) && (len(bin_op) != 2) {
-			panic(Err("Query_" + errBinOpPrefix + name))
+			panic(Err(ErrSetQuery + "_" + errBinOpPrefix + name))
 		}
 		for i := range bin_op {
 			bin_op[i].Validate()
