@@ -15,6 +15,9 @@ type sqlStmt str.Buf
 
 func (me *sqlStmt) Sql(buf *str.Buf) { buf.WriteString(me.String()) }
 func (me *sqlStmt) String() string   { return (*str.Buf)(me).String() }
+func (me *sqlStmt) Eval(any, func(q.C) q.F) reflect.Value {
+	panic("sqlStmt does not impl `q.Operand.Eval`")
+}
 
 func (me *sqlStmt) delete(from string) *sqlStmt {
 	w := (*str.Buf)(me).WriteString

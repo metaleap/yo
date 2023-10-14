@@ -1,6 +1,8 @@
 package q
 
 import (
+	"reflect"
+
 	. "yo/util"
 	"yo/util/sl"
 	"yo/util/str"
@@ -10,48 +12,56 @@ import (
 
 type C string
 
-func (me C) Equal(other any) Query          { return Equal(me, other) }
-func (me C) NotEqual(other any) Query       { return NotEqual(me, other) }
-func (me C) LessThan(other any) Query       { return LessThan(me, other) }
-func (me C) GreaterThan(other any) Query    { return GreaterThan(me, other) }
-func (me C) LessOrEqual(other any) Query    { return LessOrEqual(me, other) }
-func (me C) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, other) }
-func (me C) In(set ...any) Query            { return In(me, set...) }
-func (me C) NotIn(set ...any) Query         { return NotIn(me, set...) }
-func (me C) Asc() OrderBy                   { return &orderBy[C]{col: me} }
-func (me C) Desc() OrderBy                  { return &orderBy[C]{col: me, desc: true} }
+func (me C) Equal(other Operand) Query                 { return Equal(me, other) }
+func (me C) NotEqual(other Operand) Query              { return NotEqual(me, other) }
+func (me C) LessThan(other Operand) Query              { return LessThan(me, other) }
+func (me C) GreaterThan(other Operand) Query           { return GreaterThan(me, other) }
+func (me C) LessOrEqual(other Operand) Query           { return LessOrEqual(me, other) }
+func (me C) GreaterOrEqual(other Operand) Query        { return GreaterOrEqual(me, other) }
+func (me C) In(set ...Operand) Query                   { return In(me, set...) }
+func (me C) NotIn(set ...Operand) Query                { return NotIn(me, set...) }
+func (me C) Asc() OrderBy                              { return &orderBy[C]{col: me} }
+func (me C) Desc() OrderBy                             { return &orderBy[C]{col: me, desc: true} }
+func (me C) Eval(obj any, c2f func(C) F) reflect.Value { return c2f(me).Eval(obj, c2f) }
 
 type F string
 
-func (me F) Equal(other any) Query          { return Equal(me, other) }
-func (me F) NotEqual(other any) Query       { return NotEqual(me, other) }
-func (me F) LessThan(other any) Query       { return LessThan(me, other) }
-func (me F) GreaterThan(other any) Query    { return GreaterThan(me, other) }
-func (me F) LessOrEqual(other any) Query    { return LessOrEqual(me, other) }
-func (me F) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, other) }
-func (me F) In(set ...any) Query            { return In(me, set...) }
-func (me F) NotIn(set ...any) Query         { return NotIn(me, set...) }
-func (me F) Asc() OrderBy                   { return &orderBy[F]{fld: me} }
-func (me F) Desc() OrderBy                  { return &orderBy[F]{fld: me, desc: true} }
-
-type Lit[T any] struct{ Value T }
-
-func (me Lit[T]) Equal(other T) Query          { return Equal(me, other) }
-func (me Lit[T]) NotEqual(other T) Query       { return NotEqual(me, other) }
-func (me Lit[T]) LessThan(other T) Query       { return LessThan(me, other) }
-func (me Lit[T]) GreaterThan(other T) Query    { return GreaterThan(me, other) }
-func (me Lit[T]) LessOrEqual(other T) Query    { return LessOrEqual(me, other) }
-func (me Lit[T]) GreaterOrEqual(other T) Query { return GreaterOrEqual(me, other) }
-func (me Lit[T]) In(set ...T) Query            { return In(me, sl.Conv(set, func(it T) any { return it })...) }
-func (me Lit[T]) NotIn(set ...T) Query {
-	return NotIn(me, sl.Conv(set, func(it T) any { return it })...)
+func (me F) Equal(other Operand) Query          { return Equal(me, other) }
+func (me F) NotEqual(other Operand) Query       { return NotEqual(me, other) }
+func (me F) LessThan(other Operand) Query       { return LessThan(me, other) }
+func (me F) GreaterThan(other Operand) Query    { return GreaterThan(me, other) }
+func (me F) LessOrEqual(other Operand) Query    { return LessOrEqual(me, other) }
+func (me F) GreaterOrEqual(other Operand) Query { return GreaterOrEqual(me, other) }
+func (me F) In(set ...Operand) Query            { return In(me, set...) }
+func (me F) NotIn(set ...Operand) Query         { return NotIn(me, set...) }
+func (me F) Asc() OrderBy                       { return &orderBy[F]{fld: me} }
+func (me F) Desc() OrderBy                      { return &orderBy[F]{fld: me, desc: true} }
+func (me F) Eval(obj any, _ func(C) F) reflect.Value {
+	return reflect.ValueOf(obj).FieldByName(string(me))
 }
 
-type A[T any] struct{ It T }
+type V[T any] struct{ Value T }
 
-func (me A[T]) Equals(x any) Query     { return Equal(me.It, x) }
-func (me A[T]) In(set ...any) Query    { return In(me.It, set...) }
-func (me A[T]) NotIn(set ...any) Query { return NotIn(me.It, set...) }
+func Lit[T any](value T) V[T]                      { return V[T]{Value: value} }
+func (me V[T]) Equal(other Operand) Query          { return Equal(me, other) }
+func (me V[T]) NotEqual(other Operand) Query       { return NotEqual(me, other) }
+func (me V[T]) LessThan(other Operand) Query       { return LessThan(me, other) }
+func (me V[T]) GreaterThan(other Operand) Query    { return GreaterThan(me, other) }
+func (me V[T]) LessOrEqual(other Operand) Query    { return LessOrEqual(me, other) }
+func (me V[T]) GreaterOrEqual(other Operand) Query { return GreaterOrEqual(me, other) }
+func (me V[T]) In(set ...Operand) Query {
+	return In(me, sl.Conv(set, func(it Operand) Operand { return it })...)
+}
+func (me V[T]) NotIn(set ...Operand) Query {
+	return NotIn(me, sl.Conv(set, func(it Operand) Operand { return it })...)
+}
+func (me V[T]) Eval(any, func(C) F) reflect.Value { return reflect.ValueOf(me.Value) }
+
+type A[T Operand] struct{ It T }
+
+func (me A[T]) Equals(x Operand) Query     { return Equal(me.It, x) }
+func (me A[T]) In(set ...Operand) Query    { return In(me.It, set...) }
+func (me A[T]) NotIn(set ...Operand) Query { return NotIn(me.It, set...) }
 
 type OrderBy interface {
 	Col() C
@@ -75,6 +85,7 @@ type Query interface {
 	Not() Query
 	Sql(*str.Buf, func(F) C, pgx.NamedArgs)
 	String(func(F) C, pgx.NamedArgs) string
+	Eval(any, func(C) F) Query
 }
 
 const (
@@ -91,20 +102,20 @@ const (
 	opNot   = "NOT "
 )
 
-func Equal(x any, y any) Query          { return &query{op: opEq, operands: []any{x, y}} }
-func NotEqual(x any, y any) Query       { return &query{op: opNeq, operands: []any{x, y}} }
-func LessThan(x any, y any) Query       { return &query{op: opLt, operands: []any{x, y}} }
-func LessOrEqual(x any, y any) Query    { return &query{op: opLeq, operands: []any{x, y}} }
-func GreaterThan(x any, y any) Query    { return &query{op: opGt, operands: []any{x, y}} }
-func GreaterOrEqual(x any, y any) Query { return &query{op: opGeq, operands: []any{x, y}} }
-func In(x any, y ...any) Query          { return inOrNotIn(opIn, x, y...) }
-func NotIn(x any, y ...any) Query       { return inOrNotIn(opNotIn, x, y...) }
-func inOrNotIn(op string, x any, y ...any) Query {
+func Equal(x Operand, y Operand) Query          { return &query{op: opEq, operands: []Operand{x, y}} }
+func NotEqual(x Operand, y Operand) Query       { return &query{op: opNeq, operands: []Operand{x, y}} }
+func LessThan(x Operand, y Operand) Query       { return &query{op: opLt, operands: []Operand{x, y}} }
+func LessOrEqual(x Operand, y Operand) Query    { return &query{op: opLeq, operands: []Operand{x, y}} }
+func GreaterThan(x Operand, y Operand) Query    { return &query{op: opGt, operands: []Operand{x, y}} }
+func GreaterOrEqual(x Operand, y Operand) Query { return &query{op: opGeq, operands: []Operand{x, y}} }
+func In(x Operand, y ...Operand) Query          { return inOrNotIn(opIn, x, y...) }
+func NotIn(x Operand, y ...Operand) Query       { return inOrNotIn(opNotIn, x, y...) }
+func inOrNotIn(op string, x Operand, y ...Operand) Query {
 	if len(y) == 0 {
 		panic(str.Trim(str.Trim(op) + ": empty set"))
 	}
 	sub_stmt, _ := y[0].(interface{ Sql(*str.Buf) })
-	return &query{op: If(((len(y) == 1) && (sub_stmt == nil)), opEq, op), operands: append([]any{x}, y...)}
+	return &query{op: If(((len(y) == 1) && (sub_stmt == nil)), opEq, op), operands: append([]Operand{x}, y...)}
 }
 func AllTrue(conds ...Query) Query {
 	return If((len(conds) == 0), nil, If((len(conds) == 1), conds[0], (Query)(&query{op: opAnd, conds: conds})))
@@ -140,10 +151,14 @@ func q() *query {
 	return &query{}
 }
 
+type Operand interface {
+	Eval(any, func(C) F) reflect.Value
+}
+
 type query struct {
 	op       string
 	conds    []Query
-	operands []any
+	operands []Operand
 }
 
 func (me *query) And(conds ...Query) Query { return AllTrue(append([]Query{me}, conds...)...) }
@@ -218,4 +233,40 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 		}
 	}
 	buf.WriteByte(')')
+}
+
+func (me *query) Eval(obj any, c2f func(C) F) (failed Query) {
+	switch me.op {
+	case opAnd:
+		_ = sl.All(me.conds, func(it Query) bool {
+			maybe_failed := it.Eval(obj, c2f)
+			failed = If((maybe_failed == nil), failed, maybe_failed)
+			return (maybe_failed == nil)
+		})
+	case opOr:
+		if sl.Any(me.conds, func(it Query) bool {
+			maybe_failed := it.Eval(obj, c2f)
+			failed = If((maybe_failed == nil), failed, maybe_failed)
+			return (maybe_failed == nil)
+		}) {
+			failed = nil
+		}
+	case opNot:
+		return If((me.conds[0].Eval(obj, c2f) == nil), me, nil)
+	case opIn:
+		in_set := sl.Has(sl.Conv(me.operands, func(it Operand) reflect.Value { return it.Eval(obj, c2f) }), me.operands[0].Eval(obj, c2f))
+		return If(in_set, nil, me)
+	case opNotIn:
+		in_set := sl.Has(sl.Conv(me.operands, func(it Operand) reflect.Value { return it.Eval(obj, c2f) }), me.operands[0].Eval(obj, c2f))
+		return If(in_set, me, nil)
+	case opEq:
+		eq := reflect.DeepEqual(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f))
+		return If(eq, nil, me)
+	case opNeq:
+		eq := reflect.DeepEqual(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f))
+		return If(eq, me, nil)
+	default:
+		panic(me.op)
+	}
+	return nil
 }

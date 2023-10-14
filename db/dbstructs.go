@@ -233,7 +233,7 @@ func Q[T any](it *T) q.Query {
 	var col_eqs []q.Query
 	ForEachField(it, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
 		if !isZero {
-			col_eqs = append(col_eqs, colName.Equal(fieldValue))
+			col_eqs = append(col_eqs, colName.Equal(q.Lit(fieldValue)))
 		}
 	})
 	return q.AllTrue(col_eqs...)

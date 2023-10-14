@@ -18,7 +18,7 @@ func ById[T any](ctx *Ctx, id I64) *T {
 	if id <= 0 {
 		return nil
 	}
-	return FindOne[T](ctx, ColID.Equal(id))
+	return FindOne[T](ctx, ColID.Equal(q.Lit(id)))
 }
 
 func Exists[T any](ctx *Ctx, query q.Query) bool {
@@ -46,8 +46,8 @@ func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.OrderBy, o
 
 func Page[T any](ctx *Ctx, query q.Query, limit int, orderBy q.OrderBy, pageTok any) (resultsPage []*T, nextPageTok any) {
 	if pageTok != nil {
-		cmp := If(orderBy.Desc(), q.LessThan, q.GreaterThan)
-		query = cmp(orderBy.Col(), pageTok).And(query)
+		lt_or_gt := If(orderBy.Desc(), q.LessThan, q.GreaterThan)
+		query = lt_or_gt(orderBy.Col(), q.Lit(pageTok)).And(query)
 	}
 	resultsPage = FindMany[T](ctx, query, limit, orderBy)
 	if len(resultsPage) > 0 {
@@ -134,7 +134,7 @@ func Update[T any](ctx *Ctx, upd *T, includingEmptyOrMissingFields bool, where q
 		panic(ErrDbUpdate_ExpectedQueryForUpdate)
 	}
 	if where == nil {
-		where = q.C(ColID).Equal(id_maybe)
+		where = q.C(ColID).Equal(q.Lit(id_maybe))
 	}
 	for i, col_name := range col_names {
 		args[col_name] = col_vals[i]
