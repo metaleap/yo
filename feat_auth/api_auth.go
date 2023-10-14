@@ -23,9 +23,11 @@ func init() {
 		MethodPathLogin:          Api(apiUserLogin, PkgInfo, "OkButFailedToCreateSignedToken", "EmailRequiredButMissing", "EmailInvalid", "PasswordRequiredButMissing", "AccountDoesNotExist", "WrongPassword"),
 		MethodPathLogout:         Api(apiUserLogout, PkgInfo),
 		MethodPathRegister:       Api(apiUserRegister, PkgInfo, "WhileLoggedIn", "EmailRequiredButMissing", "EmailInvalid", "EmailAddrAlreadyExists", "PasswordRequiredButMissing", "PasswordTooShort", "PasswordTooLong", "PasswordInvalid"),
-		MethodPathChangePassword: Api(apiChangePassword, PkgInfo),
+		MethodPathChangePassword: Api(apiChangePassword, PkgInfo, "Forbidden", "NewPasswordRequiredButMissing", "NewPasswordTooShort", "NewPasswordSameAsOld", "NewPasswordTooLong", "NewPasswordInvalid", "ChangesNotStored"),
 	})
-	PreServes = append(PreServes, PreServe{Name: "authCheck", Do: httpCheckAndSet})
+	PreServes = append(PreServes, PreServe{Name: "authCheck", Do: func(ctx *Ctx) {
+		httpSetUser(ctx, ctx.HttpGetCookie(HttpJwtCookieName))
+	}})
 }
 
 type ApiAccountPayload struct {
@@ -64,14 +66,14 @@ func apiUserLogout(ctx *ApiCtx[Void, Void]) {
 func apiChangePassword(this *ApiCtx[struct {
 	ApiAccountPayload
 	PasswordNewPlain string
-}, struct {
-	Did bool
-}]) {
+}, Void]) {
 	if user_email_addr := this.Ctx.GetStr(CtxKey); user_email_addr != "" && user_email_addr != this.Args.EmailAddr {
-		panic(Err("UserChangePasswordUnauthorized"))
+		panic(ErrAuthChangePasswordForbidden)
 	}
 	httpSetUser(this.Ctx, "")
-	this.Ret.Did = UserChangePassword(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.PasswordNewPlain)
+	if !UserChangePassword(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.PasswordNewPlain) {
+		panic(ErrAuthChangePasswordChangesNotStored)
+	}
 }
 
 func httpSetUser(ctx *Ctx, jwtRaw string) {
@@ -86,8 +88,4 @@ func httpSetUser(ctx *Ctx, jwtRaw string) {
 	ctx.Set(CtxKey, user_email_addr)
 	ctx.Http.Resp.Header().Set(HttpUserHeader, user_email_addr)
 	ctx.HttpSetCookie(HttpJwtCookieName, jwtRaw, Cfg.YO_AUTH_JWT_EXPIRY_DAYS)
-}
-
-func httpCheckAndSet(ctx *Ctx) {
-	httpSetUser(ctx, ctx.HttpGetCookie(HttpJwtCookieName))
 }

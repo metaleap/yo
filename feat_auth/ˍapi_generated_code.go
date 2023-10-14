@@ -11,6 +11,13 @@ func (apiPkgInfo) PkgName() string { return "yoauth" }
 
 var PkgInfo = apiPkgInfo{}
 
+const ErrAuthChangePasswordChangesNotStored util.Err = "AuthChangePasswordChangesNotStored"
+const ErrAuthChangePasswordForbidden util.Err = "AuthChangePasswordForbidden"
+const ErrAuthChangePasswordNewPasswordInvalid util.Err = "AuthChangePasswordNewPasswordInvalid"
+const ErrAuthChangePasswordNewPasswordRequiredButMissing util.Err = "AuthChangePasswordNewPasswordRequiredButMissing"
+const ErrAuthChangePasswordNewPasswordSameAsOld util.Err = "AuthChangePasswordNewPasswordSameAsOld"
+const ErrAuthChangePasswordNewPasswordTooLong util.Err = "AuthChangePasswordNewPasswordTooLong"
+const ErrAuthChangePasswordNewPasswordTooShort util.Err = "AuthChangePasswordNewPasswordTooShort"
 const ErrAuthLoginAccountDoesNotExist util.Err = "AuthLoginAccountDoesNotExist"
 const ErrAuthLoginEmailInvalid util.Err = "AuthLoginEmailInvalid"
 const ErrAuthLoginEmailRequiredButMissing util.Err = "AuthLoginEmailRequiredButMissing"

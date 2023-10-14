@@ -16,6 +16,8 @@ var errSubstrToHttpStatusCode = map[string]int{
 	"TooBig":   400,
 
 	"WrongPassword": 401,
+	"Unauthorized":  403,
+	"Forbidden":     403,
 	"NotFound":      404,
 	"AlreadyExists": 409,
 

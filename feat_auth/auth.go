@@ -6,7 +6,6 @@ import (
 	. "yo/cfg"
 	. "yo/ctx"
 	yodb "yo/db"
-	. "yo/util"
 	"yo/util/str"
 
 	"github.com/golang-jwt/jwt"
@@ -104,24 +103,24 @@ func UserVerify(ctx *Ctx, jwtRaw string) *JwtPayload {
 
 func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, passwordNewPlain string) bool {
 	if passwordNewPlain == "" {
-		panic(Err("UserChangePasswordNewPasswordRequiredButMissing"))
+		panic(ErrAuthChangePasswordNewPasswordRequiredButMissing)
 	}
 	if len(passwordNewPlain) < 6 {
-		panic(Err("UserChangePasswordNewPasswordTooShort"))
+		panic(ErrAuthChangePasswordNewPasswordTooShort)
 	}
 	if passwordNewPlain == passwordOldPlain {
-		panic(Err("UserChangePasswordNewPasswordSameAsOld"))
+		panic(ErrAuthChangePasswordNewPasswordSameAsOld)
 	}
 	ctx.DbTx()
 	user_account, _ := UserLogin(ctx, emailAddr, passwordOldPlain)
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordNewPlain), bcrypt.DefaultCost)
 	if (err != nil) || (len(hash) == 0) {
 		if err == bcrypt.ErrPasswordTooLong {
-			panic(Err("UserChangePasswordNewPasswordTooLong"))
+			panic(ErrAuthChangePasswordNewPasswordTooLong)
 		} else {
-			panic(Err("UserChangePasswordNewPasswordInvalid"))
+			panic(ErrAuthChangePasswordNewPasswordInvalid)
 		}
 	}
 	user_account.passwordHashed = hash
-	return (yodb.Update[UserAccount](ctx, user_account, false, nil) > 0)
+	return (yodb.Update[UserAccount](ctx, user_account, false, nil)) > 0
 }
