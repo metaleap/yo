@@ -22,9 +22,6 @@ func Apis(all ApiMethods) {
 			panic("already a method registered for path '" + method_path + "'")
 		}
 		api[method_path] = method
-	}
-	// init must be separate loop due to knownError cross-method references
-	for method_path, method := range all {
 		method.init(method_path)
 	}
 }
@@ -60,7 +57,7 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, know
 	ret = &apiMethod[TIn, TOut]{
 		PkgInfo:  pkgInfo,
 		errsOwn:  sl.Where(knownErrs, func(it Err) bool { return it[0] != ':' }),
-		errsDeps: sl.Where(sl.Conv(knownErrs, Err.Error), func(it string) bool { return it[0] != ':' }),
+		errsDeps: sl.Conv(sl.Where(knownErrs, func(it Err) bool { return it[0] == ':' }), func(it Err) string { return string(it)[1:] }),
 		handleFunc: func(ctx *Ctx, in any) any {
 			ctx.Http.ApiErrs = ret.errsOwn // *must* be that field, *not* the `knownErrs` local!
 			var output TOut
@@ -78,13 +75,19 @@ type apiMethod[TIn any, TOut any] struct {
 	PkgInfo    ApiPkgInfo
 }
 
-func (me *apiMethod[TIn, TOut]) knownErrs() []Err       { return me.errsOwn }
 func (me *apiMethod[TIn, TOut]) handler() apiHandleFunc { return me.handleFunc }
 func (me *apiMethod[TIn, TOut]) PkgName() string {
 	if me.PkgInfo != nil {
 		return me.PkgInfo.PkgName()
 	}
 	return ""
+}
+func (me *apiMethod[TIn, TOut]) knownErrs() (ret []Err) {
+	ret = me.errsOwn
+	for _, err_dep := range me.errsDeps {
+		ret = append(ret, api[err_dep].knownErrs()...)
+	}
+	return ret
 }
 func (*apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
 	var it TIn

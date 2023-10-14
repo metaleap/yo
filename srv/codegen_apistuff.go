@@ -105,9 +105,13 @@ func codegenGo(apiRefl *apiRefl) {
 		buf.WriteString("func (apiPkgInfo) PkgName() string { return \"" + pkg_name + "\" }\n")
 		buf.WriteString("var PkgInfo = apiPkgInfo{}\n")
 
+		err_emitted := map[Err]bool{}
 		for _, method_path := range sl.Sorted(Keys(pkg_methods)) {
 			for _, err := range sl.Sorted(Keys(apiRefl.KnownErrs[method_path])) {
-				buf.WriteString("const Err" + string(err) + " util.Err = \"" + string(err) + "\"\n")
+				if !err_emitted[err] {
+					err_emitted[err] = true
+					buf.WriteString("const Err" + string(err) + " util.Err = \"" + string(err) + "\"\n")
+				}
 			}
 		}
 
@@ -204,7 +208,7 @@ func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiRefl, method *apiReflMethod) {
 		"method_path":    method.Path,
 		"enum_type_name": ts_enum_type_name,
 		"known_errs": If((len(method_errs) == 0), "[]",
-			("['" + str.Join(sl.Conv(method_errs, Err.Error), "','") + "']")),
+			("['" + str.Join(sl.Conv(method_errs, Err.String), "','") + "']")),
 	}
 
 	if len(method_errs) == 0 {

@@ -25,8 +25,8 @@ var errSubstrToHttpStatusCode = map[string]int{
 	"TimedOut": 504,
 }
 
-func (me Err) Error() string { return string(me) }
-
+func (me Err) Error() string  { return string(me) }
+func (me Err) String() string { return string(me) }
 func (me Err) HttpStatusCode() int {
 	for substr, code := range errSubstrToHttpStatusCode {
 		if str.Has(string(me), substr) {
