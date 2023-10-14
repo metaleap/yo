@@ -134,7 +134,7 @@ func codegenGo(apiRefl *apiRefl) {
 func codegenTsSdk(apiRefl *apiRefl) {
 	const sdkGenDstTsFileRelPath = StaticFilesDirName + "/yo-sdk.ts"
 	buf := str.Buf{}
-	apiRefl.codeGen.typesUsed, apiRefl.codeGen.typesEmitted = map[string]bool{}, map[string]bool{}
+	apiRefl.codeGen.typesUsed, apiRefl.codeGen.typesEmitted, apiRefl.codeGen.strLits = map[string]bool{}, map[string]bool{}, str.Dict{}
 
 	yolog.Println("  generate *.ts...")
 	b, err := os.ReadFile("../yo/" + sdkGenDstTsFileRelPath)
@@ -145,7 +145,6 @@ func codegenTsSdk(apiRefl *apiRefl) {
 	for _, method := range apiRefl.Methods {
 		codegenTsSdkMethod(&buf, apiRefl, &method)
 	}
-
 	for again := true; again; {
 		again = false
 		for _, enum_name := range sl.Sorted(Keys(apiRefl.Enums)) {
@@ -162,7 +161,12 @@ func codegenTsSdk(apiRefl *apiRefl) {
 			}
 		}
 	}
-	src_is_changed, src_to_write := true, []byte(buf.String())
+	var buf_prepend str.Buf
+	for value, name := range apiRefl.codeGen.strLits {
+		buf_prepend.WriteString("const " + name + ": string = " + str.Q(value) + "\n")
+	}
+
+	src_is_changed, src_to_write := true, []byte(buf_prepend.String()+buf.String())
 	data, _ := os.ReadFile(sdkGenDstTsFileRelPath)
 	src_is_changed = (len(data) == 0) || (!bytes.Equal(data, src_to_write))
 	if src_is_changed {
@@ -208,7 +212,7 @@ func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiRefl, method *apiReflMethod) {
 		"method_path":    method.Path,
 		"enum_type_name": ts_enum_type_name,
 		"known_errs": If((len(method_errs) == 0), "[]",
-			("['" + str.Join(sl.Conv(method_errs, Err.String), "','") + "']")),
+			("['" + str.Join(sl.Conv(method_errs, Err.String), "', '") + "']")),
 	}
 
 	if len(method_errs) == 0 {
@@ -299,4 +303,12 @@ func codegenTsSdkTypeName(apiRefl *apiRefl, typeName string) string {
 		return str.Repl("{ [_:{lhs}]: {rhs} }", str.Dict{"lhs": codegenTsSdkTypeName(apiRefl, key_part), "rhs": codegenTsSdkTypeName(apiRefl, val_part)})
 	}
 	return ToIdent(typeName[str.Idx(typeName, '.')+1:])
+}
+
+func (me *apiRefl) strLit(value string) (name string) {
+	if name = me.codeGen.strLits[value]; name == "" {
+		name = "s" + str.Base36(len(me.codeGen.strLits))
+		me.codeGen.strLits[value] = name
+	}
+	return
 }

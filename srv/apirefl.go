@@ -21,6 +21,7 @@ type apiRefl struct {
 	KnownErrs map[string]map[Err]int
 
 	codeGen struct {
+		strLits      str.Dict
 		typesUsed    map[string]bool
 		typesEmitted map[string]bool
 	}
@@ -117,7 +118,7 @@ func apiReflType(it *apiRefl, rt reflect.Type, fldName string, parent string) st
 		ty_refl := str.Dict{}
 		it.Types[type_ident] = ty_refl
 		if (rt_kind == reflect.Struct) && !(ReflHasMethod(rt, "MarshalJSON") && ReflHasMethod(rt, "UnmarshalJSON")) {
-			if sl.Has(apiReflAllDbStructs, rt) && !sl.Has(it.DbStructs, type_ident) {
+			if sl.Has(apiReflAllDbStructs, rt) && !str.In(type_ident, it.DbStructs...) {
 				it.DbStructs = append(it.DbStructs, type_ident)
 			}
 			var do_field func(field reflect.StructField)

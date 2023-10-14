@@ -11,31 +11,31 @@ type Buf = strings.Builder
 type Dict = map[string]string
 
 var (
-	Bool    = strconv.FormatBool
-	Has     = strings.Contains
-	Begins  = strings.HasPrefix
-	Ends    = strings.HasSuffix
-	Trim    = strings.TrimSpace
-	TrimL   = strings.TrimPrefix
-	TrimR   = strings.TrimSuffix
-	Idx     = strings.IndexByte
-	IdxLast = strings.LastIndexByte
-	Join    = strings.Join
-	Split   = strings.Split
-	Cut     = strings.Cut
-	FromInt = strconv.Itoa
-	ToInt   = strconv.Atoi
-	FromI64 = strconv.FormatInt
-	ToI64   = strconv.ParseInt
-	Fmt     = fmt.Sprintf
-	Q       = strconv.Quote
-	Lo      = strings.ToLower
-	Up      = strings.ToUpper
+	Has      = strings.Contains
+	Begins   = strings.HasPrefix
+	Ends     = strings.HasSuffix
+	Trim     = strings.TrimSpace
+	TrimL    = strings.TrimPrefix
+	TrimR    = strings.TrimSuffix
+	Idx      = strings.IndexByte
+	IdxLast  = strings.LastIndexByte
+	Join     = strings.Join
+	Split    = strings.Split
+	Cut      = strings.Cut
+	FromInt  = strconv.Itoa
+	FromBool = strconv.FormatBool
+	FromI64  = strconv.FormatInt
+	ToInt    = strconv.Atoi
+	ToI64    = strconv.ParseInt
+	Fmt      = fmt.Sprintf
+	Q        = strconv.Quote
+	Lo       = strings.ToLower
+	Up       = strings.ToUpper
 )
 
-func From(v any) string {
-	return Fmt("%#v", v)
-}
+func From(v any) string                    { return Fmt("%#v", v) }
+func FromFloat(f float64, prec int) string { return strconv.FormatFloat(f, 'f', prec, 64) }
+func Base36(i int) string                  { return FromI64(int64(i), 36) }
 
 func Replace(s string, repl Dict) string {
 	repl_old_new := make([]string, 0, len(repl)*2)
@@ -56,10 +56,6 @@ func ReSuffix(s string, oldSuffix string, newSuffix string) string {
 func DurationMs(nanos int64) string {
 	ms := float64(nanos) * 0.000001
 	return FromFloat(ms, 2) + "ms"
-}
-
-func FromFloat(f float64, prec int) string {
-	return strconv.FormatFloat(f, 'f', prec, 64)
 }
 
 func IsLo(s string) bool {
@@ -135,7 +131,7 @@ func IsEmailishEnough(str string) bool {
 	return (len(str) >= 5) && (iat > 0) && (iat < len(str)-1) && (iat == IdxLast(str, '@') && (idot > iat) && (idot < len(str)-1))
 }
 
-func IsAmong(str string, set ...string) bool {
+func In(str string, set ...string) bool {
 	for i := range set {
 		if set[i] == str {
 			return true
