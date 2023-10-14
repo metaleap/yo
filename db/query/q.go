@@ -37,7 +37,7 @@ func (me F) NotIn(set ...Operand) Query         { return NotIn(me, set...) }
 func (me F) Asc() OrderBy                       { return &orderBy[F]{fld: me} }
 func (me F) Desc() OrderBy                      { return &orderBy[F]{fld: me, desc: true} }
 func (me F) Eval(obj any, _ func(C) F) reflect.Value {
-	return reflect.ValueOf(obj).FieldByName(string(me))
+	return reflect.ValueOf(obj).Elem().FieldByName(string(me))
 }
 
 type V[T any] struct{ Value T }
@@ -263,8 +263,16 @@ func (me *query) Eval(obj any, c2f func(C) F) (failed Query) {
 		eq := reflect.DeepEqual(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f))
 		return If(eq, nil, me)
 	case opNeq:
-		eq := reflect.DeepEqual(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f))
+		eq := reflect.DeepEqual(me.operands[0].Eval(obj, c2f).Interface(), me.operands[1].Eval(obj, c2f).Interface())
 		return If(eq, me, nil)
+	case opGt:
+		return If(ReflGt(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f)), nil, me)
+	case opGeq:
+		return If(ReflGe(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f)), nil, me)
+	case opLt:
+		return If(ReflLt(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f)), nil, me)
+	case opLeq:
+		return If(ReflLe(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f)), nil, me)
 	default:
 		panic(me.op)
 	}

@@ -66,3 +66,50 @@ func ReflWalk(rv reflect.Value, path []any, skipMaps bool, onValue func(path []a
 		panic("unhandled reflect.Kind at " + str.From(path) + ": " + rv_kind.String())
 	}
 }
+
+func ReflGt(lhs reflect.Value, rhs reflect.Value) bool {
+	return (lhs.Kind() == rhs.Kind()) && !ReflLe(lhs, rhs)
+}
+
+func ReflGe(lhs reflect.Value, rhs reflect.Value) bool {
+	return (lhs.Kind() == rhs.Kind()) && (ReflGt(lhs, rhs) || reflect.DeepEqual(lhs.Interface(), rhs.Interface()))
+}
+
+func ReflLe(lhs reflect.Value, rhs reflect.Value) bool {
+	return (lhs.Kind() == rhs.Kind()) && (ReflLt(lhs, rhs) || reflect.DeepEqual(lhs.Interface(), rhs.Interface()))
+}
+
+func ReflLt(lhs reflect.Value, rhs reflect.Value) bool {
+	if lhs.Kind() != rhs.Kind() {
+		return false
+	}
+	lv, rv := lhs.Interface(), rhs.Interface()
+	switch lv := lv.(type) {
+	case uint8:
+		return lv < rv.(uint8)
+	case uint16:
+		return lv < rv.(uint16)
+	case uint32:
+		return lv < rv.(uint32)
+	case uint64:
+		return lv < rv.(uint64)
+	case uint:
+		return lv < rv.(uint)
+	case int8:
+		return lv < rv.(int8)
+	case int16:
+		return lv < rv.(int16)
+	case int32:
+		return lv < rv.(int32)
+	case int64:
+		return lv < rv.(int64)
+	case int:
+		return lv < rv.(int)
+	case float32:
+		return lv < rv.(float32)
+	case float64:
+		return lv < rv.(float64)
+	default:
+		return lv.(string) < rv.(string)
+	}
+}
