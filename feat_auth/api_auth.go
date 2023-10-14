@@ -20,8 +20,8 @@ const (
 
 func init() {
 	Apis(ApiMethods{
+		MethodPathLogin:          Api(apiUserLogin, Err("Foo")),
 		MethodPathLogout:         Api(apiUserLogout),
-		MethodPathLogin:          Api(apiUserLogin),
 		MethodPathRegister:       Api(apiUserRegister),
 		MethodPathChangePassword: Api(apiChangePassword),
 	})

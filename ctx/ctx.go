@@ -9,6 +9,7 @@ import (
 
 	yodiag "yo/diag"
 	. "yo/util"
+	"yo/util/sl"
 	"yo/util/str"
 )
 
@@ -25,6 +26,7 @@ type Ctx struct {
 		Req         *http.Request
 		Resp        http.ResponseWriter
 		UrlPath     string
+		ApiErrs     []Err
 		reqCookies  str.Dict
 		respCookies map[string]*http.Cookie
 		respWriting bool
@@ -59,13 +61,13 @@ func NewNonHttp(timeout time.Duration) *Ctx {
 }
 
 func (me *Ctx) Dispose() {
-	const catch = false // true // gotta toggle occasionally during local debug
 	var fail any
-	if catch {
+	if (!IsDevMode) || true { // gotta toggle occasionally during local debug
 		fail = recover()
 	}
+	err_timeout := Err("OperationTimedOut")
 	if err, _ := fail.(error); err == context.DeadlineExceeded {
-		fail = Err("OperationTimedOut")
+		fail = err_timeout
 	}
 	if me.Db.Tx != nil {
 		if fail == nil {
@@ -79,6 +81,9 @@ func (me *Ctx) Dispose() {
 		me.httpEnsureCookiesSent()
 		if code := 500; fail != nil {
 			if err, is_app_err := fail.(Err); is_app_err {
+				if IsDevMode && len(me.Http.ApiErrs) > 0 && err != err_timeout && !sl.Has(me.Http.ApiErrs, err) {
+					panic("unexpected/undocumented Err thrown: " + err)
+				}
 				code = err.HttpStatusCode()
 			}
 			me.HttpErr(code, str.Fmt("%v", fail))

@@ -35,35 +35,35 @@ type ApiCtx[TIn any, TOut any] struct {
 	Ret  *TOut
 }
 
-func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut])) ApiMethod {
+func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), errs ...Err) ApiMethod {
 	var tmp_in TIn
 	var tmp_out TOut
 	if reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct {
 		panic(str.Fmt("in/out types must be structs, got in:%T, out:%T", tmp_in, tmp_out))
 	}
-	return apiMethod[TIn, TOut](func(ctx *Ctx, in any) any {
+	return apiMethod[TIn, TOut]{errs: errs, apiHandleFunc: func(ctx *Ctx, in any) any {
+		ctx.Http.ApiErrs = errs
 		var output TOut
-		var input *TIn
-		if in != nil { // could shorten to `input, _ := in.(*TIn)` but want to panic below in case of new bugs
-			input = in.(*TIn)
-		}
-		api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: input, Ret: &output}
+		api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
 		f(api_ctx)
 		return api_ctx.Ret
-	})
+	}}
 }
 
-type apiMethod[TIn any, TOut any] apiHandleFunc
+type apiMethod[TIn any, TOut any] struct {
+	apiHandleFunc apiHandleFunc
+	errs          []Err
+}
 
-func (me apiMethod[TIn, TOut]) handle() apiHandleFunc { return me }
-func (me apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
+func (me apiMethod[TIn, TOut]) handle() apiHandleFunc { return me.apiHandleFunc }
+func (apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
 	var it TIn
 	if len(data) > 0 && !bytes.Equal(data, yojson.JsonNullTok) {
 		err = yojson.Unmarshal(data, &it)
 	}
 	return &it, err
 }
-func (me apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
+func (apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
 	var tmp_in TIn
 	var tmp_out TOut
 	return reflect.ValueOf(tmp_in).Type(), reflect.ValueOf(tmp_out).Type()
