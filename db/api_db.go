@@ -3,21 +3,20 @@ package yodb
 import (
 	"reflect"
 
-	. "yo/ctx"
 	q "yo/db/query"
-	yoserve "yo/server"
+	. "yo/server"
 	. "yo/util"
 	"yo/util/sl"
 	"yo/util/str"
 )
 
 func init() {
-	yoserve.Add(yoserve.ApiMethods{
-		"__/db/listTables": yoserve.Api(apiListTables),
+	Apis(ApiMethods{
+		"__/db/listTables": Api(apiListTables),
 	})
 }
 
-func apiListTables(this *yoserve.ApiCtx[struct {
+func apiListTables(this *ApiCtx[struct {
 	Name string
 }, Return[map[Text][]*TableColumn]]) {
 	this.Ret.Result = ListTables(this.Ctx, this.Args.Name)
@@ -25,17 +24,17 @@ func apiListTables(this *yoserve.ApiCtx[struct {
 
 func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 	type_name := desc.ty.Name()
-	yoserve.Add(yoserve.ApiMethods{
-		"__/db/" + type_name + "/findById":   yoserve.Api(apiFindById[TObj, TFld]),
-		"__/db/" + type_name + "/findOne":    yoserve.Api(apiFindOne[TObj, TFld]),
-		"__/db/" + type_name + "/findMany":   yoserve.Api(apiFindMany[TObj, TFld]),
-		"__/db/" + type_name + "/createOne":  yoserve.Api(apiCreateOne[TObj, TFld]),
-		"__/db/" + type_name + "/createMany": yoserve.Api(apiCreateMany[TObj, TFld]),
-		"__/db/" + type_name + "/deleteOne":  yoserve.Api(apiDeleteOne[TObj, TFld]),
-		"__/db/" + type_name + "/deleteMany": yoserve.Api(apiDeleteMany[TObj, TFld]),
-		"__/db/" + type_name + "/updateOne":  yoserve.Api(apiUpdateOne[TObj, TFld]),
-		"__/db/" + type_name + "/updateMany": yoserve.Api(apiUpdateMany[TObj, TFld]),
-		"__/db/" + type_name + "/count":      yoserve.Api(apiCount[TObj, TFld]),
+	Apis(ApiMethods{
+		"__/db/" + type_name + "/findById":   Api(apiFindById[TObj, TFld]),
+		"__/db/" + type_name + "/findOne":    Api(apiFindOne[TObj, TFld]),
+		"__/db/" + type_name + "/findMany":   Api(apiFindMany[TObj, TFld]),
+		"__/db/" + type_name + "/createOne":  Api(apiCreateOne[TObj, TFld]),
+		"__/db/" + type_name + "/createMany": Api(apiCreateMany[TObj, TFld]),
+		"__/db/" + type_name + "/deleteOne":  Api(apiDeleteOne[TObj, TFld]),
+		"__/db/" + type_name + "/deleteMany": Api(apiDeleteMany[TObj, TFld]),
+		"__/db/" + type_name + "/updateOne":  Api(apiUpdateOne[TObj, TFld]),
+		"__/db/" + type_name + "/updateMany": Api(apiUpdateMany[TObj, TFld]),
+		"__/db/" + type_name + "/count":      Api(apiCount[TObj, TFld]),
 	})
 }
 
@@ -68,73 +67,60 @@ func (me *argQuery[TObj, TFld]) toDbO() []q.OrderBy {
 	})
 }
 
-func apiFindById[TObj any, TFld ~string](ctx *Ctx, args *argId, ret *TObj) any {
-	if it := ById[TObj](ctx, args.Id); it != nil {
-		*ret = *it
-		return ret
-	}
-	return nil
+func apiFindById[TObj any, TFld ~string](this *ApiCtx[argId, TObj]) {
+	this.Ret = ById[TObj](this.Ctx, this.Args.Id)
 }
 
-func apiFindOne[TObj any, TFld ~string](ctx *Ctx, args *argQuery[TObj, TFld], ret *Return[*TObj]) any {
-	ret.Result = FindOne[TObj](ctx, args.toDbQ(), args.toDbO()...)
-	return ret
+func apiFindOne[TObj any, TFld ~string](this *ApiCtx[argQuery[TObj, TFld], Return[*TObj]]) {
+	this.Ret.Result = FindOne[TObj](this.Ctx, this.Args.toDbQ(), this.Args.toDbO()...)
 }
 
-func apiFindMany[TObj any, TFld ~string](ctx *Ctx, args *argQuery[TObj, TFld], ret *Return[[]*TObj]) any {
-	ret.Result = FindMany[TObj](ctx, args.toDbQ(), int(args.Max), args.toDbO()...)
-	return ret
+func apiFindMany[TObj any, TFld ~string](this *ApiCtx[argQuery[TObj, TFld], Return[[]*TObj]]) {
+	this.Ret.Result = FindMany[TObj](this.Ctx, this.Args.toDbQ(), int(this.Args.Max), this.Args.toDbO()...)
 }
 
-func apiCount[TObj any, TFld ~string](ctx *Ctx, args *argQuery[TObj, TFld], ret *retCount) any {
-	ret.Count = Count[TObj](ctx, args.toDbQ(), 0, "", nil)
-	return ret
+func apiCount[TObj any, TFld ~string](this *ApiCtx[argQuery[TObj, TFld], retCount]) {
+	this.Ret.Count = Count[TObj](this.Ctx, this.Args.toDbQ(), 0, "", nil)
 }
 
-func apiCreateOne[TObj any, TFld ~string](ctx *Ctx, args *TObj, ret *struct {
+func apiCreateOne[TObj any, TFld ~string](this *ApiCtx[TObj, struct {
 	ID int64
-}) any {
-	id := CreateOne[TObj](ctx, args)
-	ret.ID = int64(id)
-	return ret
+}]) {
+	id := CreateOne[TObj](this.Ctx, this.Args)
+	this.Ret.ID = int64(id)
 }
 
-func apiCreateMany[TObj any, TFld ~string](ctx *Ctx, args *struct {
+func apiCreateMany[TObj any, TFld ~string](this *ApiCtx[struct {
 	Items []*TObj
-}, ret *Void) any {
-	CreateMany[TObj](ctx, args.Items...)
-	return ret
+}, Void]) {
+	CreateMany[TObj](this.Ctx, this.Args.Items...)
 }
 
-func apiDeleteOne[TObj any, TFld ~string](ctx *Ctx, args *argId, ret *retCount) any {
-	ret.Count = Delete[TObj](ctx, ColID.Equal(args.Id))
-	return ret
+func apiDeleteOne[TObj any, TFld ~string](this *ApiCtx[argId, retCount]) {
+	this.Ret.Count = Delete[TObj](this.Ctx, ColID.Equal(this.Args.Id))
 }
 
-func apiDeleteMany[TObj any, TFld ~string](ctx *Ctx, args *argQuery[TObj, TFld], ret *retCount) any {
-	ret.Count = Delete[TObj](ctx, args.toDbQ())
-	return ret
+func apiDeleteMany[TObj any, TFld ~string](this *ApiCtx[argQuery[TObj, TFld], retCount]) {
+	this.Ret.Count = Delete[TObj](this.Ctx, this.Args.toDbQ())
 }
 
-func apiUpdateOne[TObj any, TFld ~string](ctx *Ctx, args *struct {
+func apiUpdateOne[TObj any, TFld ~string](this *ApiCtx[struct {
 	argId
 	Changes                       *TObj
 	IncludingEmptyOrMissingFields bool
-}, ret *retCount) any {
-	if args.Id <= 0 {
-		panic(Err("ExpectedIdGreater0ButGot" + str.FromInt(int(args.Id))))
+}, retCount]) {
+	if this.Args.Id <= 0 {
+		panic(Err("ExpectedIdGreater0ButGot" + str.FromInt(int(this.Args.Id))))
 	}
-	ret.Count = Update[TObj](ctx, args.Changes, args.IncludingEmptyOrMissingFields, ColID.Equal(args.Id))
-	return ret
+	this.Ret.Count = Update[TObj](this.Ctx, this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, ColID.Equal(this.Args.Id))
 }
 
-func apiUpdateMany[TObj any, TFld ~string](ctx *Ctx, args *struct {
+func apiUpdateMany[TObj any, TFld ~string](this *ApiCtx[struct {
 	argQuery[TObj, TFld]
 	Changes                       *TObj
 	IncludingEmptyOrMissingFields bool
-}, ret *retCount) any {
-	ret.Count = Update[TObj](ctx, args.Changes, args.IncludingEmptyOrMissingFields, args.toDbQ())
-	return ret
+}, retCount]) {
+	this.Ret.Count = Update[TObj](this.Ctx, this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, this.Args.toDbQ())
 }
 
 type ApiOrderBy[TObj any, TFld ~string] struct {

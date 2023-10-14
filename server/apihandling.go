@@ -15,7 +15,7 @@ var api = ApiMethods{}
 
 type ApiMethods map[string]ApiMethod
 
-func Add(all ApiMethods) {
+func Apis(all ApiMethods) {
 	for k, v := range all {
 		api[k] = v
 	}

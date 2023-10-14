@@ -3,7 +3,7 @@ package yofeat_auth
 import (
 	. "yo/cfg"
 	. "yo/ctx"
-	yoserve "yo/server"
+	. "yo/server"
 	. "yo/util"
 )
 
@@ -19,13 +19,13 @@ const (
 )
 
 func init() {
-	yoserve.Add(yoserve.ApiMethods{
-		MethodPathLogout:         yoserve.Api(apiUserLogout),
-		MethodPathLogin:          yoserve.Api(apiUserLogin),
-		MethodPathRegister:       yoserve.Api(apiUserRegister),
-		MethodPathChangePassword: yoserve.Api(apiChangePassword),
+	Apis(ApiMethods{
+		MethodPathLogout:         Api(apiUserLogout),
+		MethodPathLogin:          Api(apiUserLogin),
+		MethodPathRegister:       Api(apiUserRegister),
+		MethodPathChangePassword: Api(apiChangePassword),
 	})
-	yoserve.PreServes = append(yoserve.PreServes, yoserve.PreServe{Name: "authCheck", Do: httpCheckAndSet})
+	PreServes = append(PreServes, PreServe{Name: "authCheck", Do: httpCheckAndSet})
 }
 
 type ApiAccountPayload struct {
@@ -37,7 +37,7 @@ type ApiTokenPayload struct {
 	JwtSignedToken string
 }
 
-func apiUserRegister(this *yoserve.ApiCtx[ApiAccountPayload, struct {
+func apiUserRegister(this *ApiCtx[ApiAccountPayload, struct {
 	Id int64
 }]) {
 	if this.Ctx.GetStr(CtxKey) != "" {
@@ -47,7 +47,7 @@ func apiUserRegister(this *yoserve.ApiCtx[ApiAccountPayload, struct {
 	this.Ret.Id = int64(UserRegister(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain))
 }
 
-func apiUserLogin(this *yoserve.ApiCtx[ApiAccountPayload, Void]) {
+func apiUserLogin(this *ApiCtx[ApiAccountPayload, Void]) {
 	httpSetUser(this.Ctx, "")
 	_, jwt_token := UserLogin(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain)
 	jwt_signed, err := jwt_token.SignedString(jwtKey)
@@ -57,11 +57,11 @@ func apiUserLogin(this *yoserve.ApiCtx[ApiAccountPayload, Void]) {
 	httpSetUser(this.Ctx, jwt_signed)
 }
 
-func apiUserLogout(ctx *yoserve.ApiCtx[Void, Void]) {
+func apiUserLogout(ctx *ApiCtx[Void, Void]) {
 	httpSetUser(ctx.Ctx, "")
 }
 
-func apiChangePassword(this *yoserve.ApiCtx[struct {
+func apiChangePassword(this *ApiCtx[struct {
 	ApiAccountPayload
 	PasswordNewPlain string
 }, struct {

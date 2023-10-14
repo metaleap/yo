@@ -34,7 +34,7 @@ const StaticFilesDirName = "__yostatic"
 // called from yo.Init, not user code
 func Init(dbStructs []reflect.Type) (func(), func()) {
 	apiReflAllDbStructs = dbStructs
-	Add(ApiMethods{
+	Apis(ApiMethods{
 		"__/refl": Api(apiHandleReflReq),
 	})
 	for method_path := range api {

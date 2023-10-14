@@ -21,7 +21,7 @@ var (
 	inited = false
 )
 
-func Init() (dbStructs []reflect.Type) {
+func InitAndConnectAndMigrate() (dbStructs []reflect.Type) {
 	if inited {
 		panic("db.Init called twice?")
 	}
