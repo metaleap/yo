@@ -137,10 +137,11 @@ func codegenTsSdk(apiRefl *apiRefl) {
 	if err != nil {
 		panic(err)
 	}
-	_, _ = buf.Write(b)
+	buf.Write(b)
 	for _, method := range apiRefl.Methods {
 		codegenTsSdkMethod(&buf, apiRefl, &method)
 	}
+
 	for again := true; again; {
 		again = false
 		for _, enum_name := range sl.Sorted(Keys(apiRefl.Enums)) {
@@ -202,11 +203,40 @@ func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiRefl, method *apiReflMethod) {
 	}
 	_ = repl
 
-	_, _ = buf.WriteString(str.Repl(`
+	buf.WriteString(str.Repl(`
 export async function req_{method_name}(payload: {in_type_ident}, query?: {[_:string]:string}): Promise<{out_type_ident}> {
 	return req<{in_type_ident}, {out_type_ident}>("{method_path}", payload, query)
 }`,
 		repl))
+
+	if method_errs := apiRefl.KnownErrs[method.Path]; len(method_errs) > 0 {
+		method_name := str.Up0(method.Path)
+		ts_enum_type_name, ts_err_type_name := method_name+"Err", "Err"+method_name
+		buf.WriteString("\nexport type " + ts_enum_type_name)
+		for i, err := range sl.Sorted(Keys(method_errs)) {
+			buf.WriteString(If(i == 0, " = ", " | ") + "\"" + string(err) + "\"")
+		}
+		buf.WriteString(`
+export class ` + ts_err_type_name + ` extends Error {
+	knownErr: ` + ts_enum_type_name + `
+	constructor(err: ` + ts_enum_type_name + `) {
+		super(err)
+		this.knownErr = err
+	}
+}
+`,
+		)
+		/*
+		   export type AuthLoginErr = "Foo" | "Bar" | "Baz"
+		   export class ErrAuthLogin extends Error {
+		   	err: AuthLoginErr
+		   	constructor(err: AuthLoginErr) {
+		   		super(err)
+		   		this.err = err
+		   	}
+		   }
+		*/
+	}
 }
 
 func codegenTsSdkType(buf *str.Buf, apiRefl *apiRefl, typeName string, structFields str.Dict, enumMembers []string) bool {
@@ -218,19 +248,19 @@ func codegenTsSdkType(buf *str.Buf, apiRefl *apiRefl, typeName string, structFie
 	}
 	apiRefl.codeGen.typesEmitted[typeName] = true
 	if typeName == "time.Time" {
-		_, _ = buf.WriteString(str.Repl("\nexport type {lhs} = {rhs}",
+		buf.WriteString(str.Repl("\nexport type {lhs} = {rhs}",
 			str.Dict{"lhs": codegenTsSdkTypeName(apiRefl, typeName), "rhs": codegenTsSdkTypeName(apiRefl, ".string")}))
 	} else if structFields != nil {
-		_, _ = buf.WriteString(str.Repl("\nexport type {lhs} = {", str.Dict{"lhs": codegenTsSdkTypeName(apiRefl, typeName)}))
+		buf.WriteString(str.Repl("\nexport type {lhs} = {", str.Dict{"lhs": codegenTsSdkTypeName(apiRefl, typeName)}))
 		struct_fields := sl.Sorted(Keys(structFields))
 		for _, field_name := range struct_fields {
 			field_type := structFields[field_name]
-			_, _ = buf.WriteString(str.Repl("\n\t{fld}{?}: {tfld}",
+			buf.WriteString(str.Repl("\n\t{fld}{?}: {tfld}",
 				str.Dict{"fld": ToIdent(field_name), "?": If(str.Begins(field_type, "?"), "?", ""), "tfld": codegenTsSdkTypeName(apiRefl, field_type)}))
 		}
-		_, _ = buf.WriteString("\n}\n")
+		buf.WriteString("\n}\n")
 	} else {
-		_, _ = buf.WriteString(str.Repl("\nexport type {lhs} = {rhs}\n", str.Dict{
+		buf.WriteString(str.Repl("\nexport type {lhs} = {rhs}\n", str.Dict{
 			"lhs": codegenTsSdkTypeName(apiRefl, typeName),
 			"rhs": If(len(enumMembers) == 0, "string", "\""+str.Join(enumMembers, "\" | \"")+"\""),
 		}))
