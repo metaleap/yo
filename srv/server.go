@@ -26,25 +26,23 @@ var (
 	// funcs are run (in no particular order) just prior to loading request payload, handling request, and serving response
 	PreServes = []PreServe{}
 
-	apiCodegenMaybe func() = nil // overwritten by apisdkgen.go in debug build mode
+	codegenMaybe func() = nil // overwritten by apisdkgen.go in debug build mode
 )
 
 const StaticFilesDirName = "__yostatic"
 
-// called from yo.Init, not user code
 func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
 	apiReflAllDbStructs = dbStructs
 	Apis(ApiMethods{
 		"__/refl": Api(apiHandleReflReq, nil),
 	})
 	for method_path := range api {
-		if str.Trim(method_path) != method_path || method_path == "" || !str.IsPrtAscii(method_path) {
+		if (str.Trim(method_path) != method_path) || (method_path == "") || !str.IsPrtAscii(method_path) {
 			panic("not a valid method path: '" + method_path + "'")
 		}
 	}
-	if apiCodegenMaybe != nil {
-		yolog.Println("API codegen...")
-		apiCodegenMaybe()
+	if codegenMaybe != nil {
+		codegenMaybe()
 	}
 	return listenAndServe
 }

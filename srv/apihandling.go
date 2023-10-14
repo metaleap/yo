@@ -47,7 +47,7 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, know
 	if reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct {
 		panic(str.Fmt("in/out types must be structs, got in:%T, out:%T", tmp_in, tmp_out))
 	}
-	return apiMethod[TIn, TOut]{knownErrs: knownErrs, ApiPkgInfo: pkgInfo, apiHandleFunc: func(ctx *Ctx, in any) any {
+	return apiMethod[TIn, TOut]{knownErrs: knownErrs, PkgInfo: pkgInfo, apiHandleFunc: func(ctx *Ctx, in any) any {
 		ctx.Http.ApiErrs = knownErrs
 		var output TOut
 		api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
@@ -59,11 +59,17 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, know
 type apiMethod[TIn any, TOut any] struct {
 	apiHandleFunc apiHandleFunc
 	knownErrs     []Err
-	ApiPkgInfo
+	PkgInfo       ApiPkgInfo
 }
 
 func (me apiMethod[TIn, TOut]) errs() []Err           { return me.knownErrs }
 func (me apiMethod[TIn, TOut]) handle() apiHandleFunc { return me.apiHandleFunc }
+func (me apiMethod[TIn, TOut]) PkgName() string {
+	if me.PkgInfo != nil {
+		return me.PkgInfo.PkgName()
+	}
+	return ""
+}
 func (apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
 	var it TIn
 	if len(data) > 0 && !bytes.Equal(data, yojson.JsonNullTok) {
