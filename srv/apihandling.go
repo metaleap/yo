@@ -64,7 +64,6 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, know
 }
 
 type apiMethod[TIn any, TOut any] struct {
-	methodPath string
 	handleFunc apiHandleFunc
 	errs       []Err
 	PkgInfo    ApiPkgInfo
@@ -91,8 +90,8 @@ func (*apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
 	return reflect.ValueOf(tmp_in).Type(), reflect.ValueOf(tmp_out).Type()
 }
 func (me *apiMethod[TIn, TOut]) init(methodPath string) {
-	me.methodPath = methodPath
-	err_name_prefix := Err(str.Up0(methodPath))
+	method_name := ToIdent(methodPath)
+	err_name_prefix := Err(str.Up0(method_name))
 	for i, err := range me.errs {
 		me.errs[i] = err_name_prefix + err
 	}

@@ -195,27 +195,43 @@ func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiRefl, method *apiReflMethod) {
 		return
 	}
 
+	method_name, method_errs := str.Up0(ToIdent(method.Path)), sl.Sorted(Keys(apiRefl.KnownErrs[method.Path]))
+	ts_enum_type_name, ts_err_type_name := method_name+"Err", "Err"+method_name
 	repl := str.Dict{
-		"method_name":    ToIdent(method.Path),
+		"method_name":    method_name,
 		"in_type_ident":  codegenTsSdkTypeName(apiRefl, method.In),
 		"out_type_ident": codegenTsSdkTypeName(apiRefl, method.Out),
 		"method_path":    method.Path,
+		"err_type_name":  ts_err_type_name,
+		"enum_type_name": ts_enum_type_name,
+		"known_errs": If((len(method_errs) == 0), "[]",
+			("['" + str.Join(sl.Conv(method_errs, Err.Error), "','") + "']")),
 	}
-	_ = repl
 
-	buf.WriteString(str.Repl(`
-export async function req_{method_name}(payload: {in_type_ident}, query?: {[_:string]:string}): Promise<{out_type_ident}> {
+	if len(method_errs) == 0 {
+		buf.WriteString(str.Repl(`
+export async function call{method_name}(payload: {in_type_ident}, query?: {[_:string]:string}): Promise<{out_type_ident}> {
 	return req<{in_type_ident}, {out_type_ident}>("{method_path}", payload, query)
-}`,
-		repl))
+}
+`, repl))
 
-	if method_errs := apiRefl.KnownErrs[method.Path]; len(method_errs) > 0 {
-		method_name := str.Up0(method.Path)
-		ts_enum_type_name, ts_err_type_name := method_name+"Err", "Err"+method_name
-		buf.WriteString("\nexport type " + ts_enum_type_name)
-		for i, err := range sl.Sorted(Keys(method_errs)) {
-			buf.WriteString(If(i == 0, " = ", " | ") + "\"" + string(err) + "\"")
+	} else {
+		buf.WriteString(str.Repl(`
+export const errs{method_name} = {known_errs} as const
+export async function call{method_name}(payload: {in_type_ident}, query?: {[_:string]:string}): Promise<{out_type_ident}> {
+	try {
+		return req<{in_type_ident}, {out_type_ident}>("{method_path}", payload, query)
+	} catch(err) {
+		if (err && err['body_text'] && (errs{method_name}.indexOf(err.body_text) >= 0)) {
+			throw(new {err_type_name}(err.body_text as {enum_type_name}))
 		}
+		throw(err)
+	}
+}
+`, repl))
+		buf.WriteString(str.Repl(`
+export type {enum_type_name} = typeof errs{method_name}[number]
+`, repl))
 		buf.WriteString(`
 export class ` + ts_err_type_name + ` extends Error {
 	knownErr: ` + ts_enum_type_name + `
@@ -224,18 +240,7 @@ export class ` + ts_err_type_name + ` extends Error {
 		this.knownErr = err
 	}
 }
-`,
-		)
-		/*
-		   export type AuthLoginErr = "Foo" | "Bar" | "Baz"
-		   export class ErrAuthLogin extends Error {
-		   	err: AuthLoginErr
-		   	constructor(err: AuthLoginErr) {
-		   		super(err)
-		   		this.err = err
-		   	}
-		   }
-		*/
+`)
 	}
 }
 
