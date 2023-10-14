@@ -218,7 +218,7 @@ func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiRefl, method *apiReflMethod) {
 	if len(method_errs) == 0 {
 		buf.WriteString(str.Repl(`
 export async function call{method_name}(payload: {in_type_ident}, query?: {[_:string]:string}): Promise<{out_type_ident}> {
-	return req<{in_type_ident}, {out_type_ident}>("{method_path}", payload, query)
+	return req<{in_type_ident}, {out_type_ident}>('{method_path}', payload, query)
 }
 `, repl))
 
@@ -228,7 +228,7 @@ export const errs{method_name} = {known_errs} as const
 export type {enum_type_name} = typeof errs{method_name}[number]
 export async function call{method_name}(payload: {in_type_ident}, query?: {[_:string]:string}): Promise<{out_type_ident}> {
 	try {
-		return req<{in_type_ident}, {out_type_ident}>("{method_path}", payload, query)
+		return req<{in_type_ident}, {out_type_ident}>('{method_path}', payload, query)
 	} catch(err) {
 		if (err && err['body_text'] && (errs{method_name}.indexOf(err.body_text) >= 0))
 			throw(new Err<{enum_type_name}>(err.body_text as {enum_type_name}))
@@ -262,7 +262,7 @@ func codegenTsSdkType(buf *str.Buf, apiRefl *apiRefl, typeName string, structFie
 	} else {
 		buf.WriteString(str.Repl("\nexport type {lhs} = {rhs}\n", str.Dict{
 			"lhs": codegenTsSdkTypeName(apiRefl, typeName),
-			"rhs": If(len(enumMembers) == 0, "string", "\""+str.Join(enumMembers, "\" | \"")+"\""),
+			"rhs": If(len(enumMembers) == 0, "string", "'"+str.Join(enumMembers, "' | '")+"'"),
 		}))
 	}
 	return true

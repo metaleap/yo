@@ -17,10 +17,10 @@ export function setReqTimeoutMilliSec(timeout: number) {
 }
 
 export async function req<TIn, TOut>(methodPath: string, payload: TIn, urlQueryArgs?: { [_: string]: string }): Promise<TOut> {
-    let uri = "/" + methodPath
+    let uri = '/' + methodPath
     if (urlQueryArgs)
         uri += '?' + new URLSearchParams(urlQueryArgs).toString()
-    console.log("callAPI:", uri, payload)
+    console.log('callAPI:', uri, payload)
     const resp = await fetch(uri, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         cache: 'no-cache', mode: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(reqTimeoutMilliSec)
@@ -30,7 +30,7 @@ export async function req<TIn, TOut>(methodPath: string, payload: TIn, urlQueryA
         try { body_text = await resp.text() } catch (err) { if (err) body_err = err }
         throw ({ 'status_code': resp?.status, 'status_text': resp?.statusText, 'body_text': body_text.trim(), 'body_err': body_err })
     }
-    userEmailAddr = resp?.headers?.get("X-Yo-User") ?? ''
+    userEmailAddr = resp?.headers?.get('X-Yo-User') ?? ''
     const json_resp = await resp.json()
     return json_resp as TOut
 }
@@ -43,7 +43,7 @@ export class Err<T extends string> extends Error {
     }
 }
 
-type QueryOperator = "EQ" | "NE" | "LT" | "LE" | "GT" | "GE" | "IN" | "AND" | "OR" | "NOT"
+type QueryOperator = 'EQ' | 'NE' | 'LT' | 'LE' | 'GT' | 'GE' | 'IN' | 'AND' | 'OR' | 'NOT'
 
 export interface QueryVal {
     __yoQLitValue?: any,
@@ -61,9 +61,9 @@ export class QueryExpr {
     not(): QueryExpr { return qNot(this as QueryExpr) }
     toApiQueryExpr(): object {
         const ret = {}
-        if (this.__yoQOp === "NOT")
-            ret["NOT"] = this.__yoQConds[0].toApiQueryExpr()
-        else if ((this.__yoQOp === "AND") || (this.__yoQOp === "OR"))
+        if (this.__yoQOp === 'NOT')
+            ret['NOT'] = this.__yoQConds[0].toApiQueryExpr()
+        else if ((this.__yoQOp === 'AND') || (this.__yoQOp === 'OR'))
             ret[this.__yoQOp] = this.__yoQConds.map((_) => _.toApiQueryExpr())
         else
             ret[this.__yoQOp] = this.__yoQOperands.map((_) => _.toApiQueryExpr())
@@ -102,17 +102,17 @@ export class QFld<T extends string> {
     greaterThan(other: QueryVal): QueryExpr { return qGreaterThan(this, other) }
     greaterOrEqual(other: QueryVal): QueryExpr { return qGreaterOrEqual(this, other) }
     in(...set: QueryVal[]): QueryExpr { return qIn(this, ...set) }
-    toApiQueryExpr(): object { return { "Fld": this.__yoQFieldName } }
+    toApiQueryExpr(): object { return { 'Fld': this.__yoQFieldName } }
 }
 
-function qAll(...conds: QueryExpr[]): QueryExpr { return { __yoQOp: "AND", __yoQConds: conds } as QueryExpr }
-function qAny(...conds: QueryExpr[]): QueryExpr { return { __yoQOp: "OR", __yoQConds: conds } as QueryExpr }
-function qNot(cond: QueryExpr): QueryExpr { return { __yoQOp: "NOT", __yoQConds: [cond] } as QueryExpr }
+function qAll(...conds: QueryExpr[]): QueryExpr { return { __yoQOp: 'AND', __yoQConds: conds } as QueryExpr }
+function qAny(...conds: QueryExpr[]): QueryExpr { return { __yoQOp: 'OR', __yoQConds: conds } as QueryExpr }
+function qNot(cond: QueryExpr): QueryExpr { return { __yoQOp: 'NOT', __yoQConds: [cond] } as QueryExpr }
 
-function qEqual(x: QueryVal, y: QueryVal): QueryExpr { return { __yoQOp: "EQ", __yoQOperands: [x, y] } as QueryExpr }
-function qNotEqual(x: QueryVal, y: QueryVal): QueryExpr { return { __yoQOp: "NE", __yoQOperands: [x, y] } as QueryExpr }
-function qLessThan(x: QueryVal, y: QueryVal): QueryExpr { return { __yoQOp: "LT", __yoQOperands: [x, y] } as QueryExpr }
-function qLessOrEqual(x: QueryVal, y: QueryVal): QueryExpr { return { __yoQOp: "LE", __yoQOperands: [x, y] } as QueryExpr }
-function qGreaterThan(x: QueryVal, y: QueryVal): QueryExpr { return { __yoQOp: "GT", __yoQOperands: [x, y] } as QueryExpr }
-function qGreaterOrEqual(x: QueryVal, y: QueryVal): QueryExpr { return { __yoQOp: "GE", __yoQOperands: [x, y] } as QueryExpr }
-function qIn(x: QueryVal, ...set: QueryVal[]): QueryExpr { return { __yoQOp: "IN", __yoQOperands: [x].concat(set) } as QueryExpr }
+function qEqual(x: QueryVal, y: QueryVal): QueryExpr { return { __yoQOp: 'EQ', __yoQOperands: [x, y] } as QueryExpr }
+function qNotEqual(x: QueryVal, y: QueryVal): QueryExpr { return { __yoQOp: 'NE', __yoQOperands: [x, y] } as QueryExpr }
+function qLessThan(x: QueryVal, y: QueryVal): QueryExpr { return { __yoQOp: 'LT', __yoQOperands: [x, y] } as QueryExpr }
+function qLessOrEqual(x: QueryVal, y: QueryVal): QueryExpr { return { __yoQOp: 'LE', __yoQOperands: [x, y] } as QueryExpr }
+function qGreaterThan(x: QueryVal, y: QueryVal): QueryExpr { return { __yoQOp: 'GT', __yoQOperands: [x, y] } as QueryExpr }
+function qGreaterOrEqual(x: QueryVal, y: QueryVal): QueryExpr { return { __yoQOp: 'GE', __yoQOperands: [x, y] } as QueryExpr }
+function qIn(x: QueryVal, ...set: QueryVal[]): QueryExpr { return { __yoQOp: 'IN', __yoQOperands: [x].concat(set) } as QueryExpr }
