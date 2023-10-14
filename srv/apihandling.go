@@ -8,6 +8,7 @@ import (
 	. "yo/ctx"
 	yojson "yo/json"
 	. "yo/util"
+	"yo/util/sl"
 	"yo/util/str"
 )
 
@@ -20,8 +21,11 @@ func Apis(all ApiMethods) {
 		if api[method_path] != nil {
 			panic("already a method registered for path '" + method_path + "'")
 		}
-		method.init(method_path)
 		api[method_path] = method
+	}
+	// init must be separate loop due to knownError cross-method references
+	for method_path, method := range all {
+		method.init(method_path)
 	}
 }
 
@@ -53,23 +57,28 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, know
 		panic(str.Fmt("in/out types must be structs, got in:%T, out:%T", tmp_in, tmp_out))
 	}
 	var ret *apiMethod[TIn, TOut]
-	ret = &apiMethod[TIn, TOut]{errs: knownErrs, PkgInfo: pkgInfo, handleFunc: func(ctx *Ctx, in any) any {
-		ctx.Http.ApiErrs = ret.errs // *must* be that field, *not* the `knownErrs` local!
-		var output TOut
-		api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
-		f(api_ctx)
-		return api_ctx.Ret
-	}}
+	ret = &apiMethod[TIn, TOut]{
+		PkgInfo:  pkgInfo,
+		errsOwn:  sl.Where(knownErrs, func(it Err) bool { return it[0] != ':' }),
+		errsDeps: sl.Where(sl.Conv(knownErrs, Err.Error), func(it string) bool { return it[0] != ':' }),
+		handleFunc: func(ctx *Ctx, in any) any {
+			ctx.Http.ApiErrs = ret.errsOwn // *must* be that field, *not* the `knownErrs` local!
+			var output TOut
+			api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
+			f(api_ctx)
+			return api_ctx.Ret
+		}}
 	return ret
 }
 
 type apiMethod[TIn any, TOut any] struct {
 	handleFunc apiHandleFunc
-	errs       []Err
+	errsOwn    []Err
+	errsDeps   []string // methodPath refs to other methods
 	PkgInfo    ApiPkgInfo
 }
 
-func (me *apiMethod[TIn, TOut]) knownErrs() []Err       { return me.errs }
+func (me *apiMethod[TIn, TOut]) knownErrs() []Err       { return me.errsOwn }
 func (me *apiMethod[TIn, TOut]) handler() apiHandleFunc { return me.handleFunc }
 func (me *apiMethod[TIn, TOut]) PkgName() string {
 	if me.PkgInfo != nil {
@@ -92,8 +101,8 @@ func (*apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
 func (me *apiMethod[TIn, TOut]) init(methodPath string) {
 	method_name := ToIdent(methodPath)
 	err_name_prefix := Err(str.Up0(method_name))
-	for i, err := range me.errs {
-		me.errs[i] = err_name_prefix + err
+	for i, err := range me.errsOwn {
+		me.errsOwn[i] = err_name_prefix + err
 	}
 }
 
