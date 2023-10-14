@@ -17,11 +17,10 @@ func init() {
 	})
 }
 
-func apiListTables(ctx *Ctx, args *struct {
+func apiListTables(this *yoserve.ApiCtx[struct {
 	Name string
-}, ret *Return[map[Text][]*TableColumn]) any {
-	ret.Result = ListTables(ctx, args.Name)
-	return ret
+}, Return[map[Text][]*TableColumn]]) {
+	this.Ret.Result = ListTables(this.Ctx, this.Args.Name)
 }
 
 func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {

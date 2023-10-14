@@ -37,45 +37,41 @@ type ApiTokenPayload struct {
 	JwtSignedToken string
 }
 
-func apiUserRegister(ctx *Ctx, args *ApiAccountPayload, ret *struct {
+func apiUserRegister(this *yoserve.ApiCtx[ApiAccountPayload, struct {
 	Id int64
-}) any {
-	if ctx.GetStr(CtxKey) != "" {
+}]) {
+	if this.Ctx.GetStr(CtxKey) != "" {
 		panic(Err("UserRegisterWhileLoggedIn"))
 	}
-	httpSetUser(ctx, "")
-	ret.Id = int64(UserRegister(ctx, args.EmailAddr, args.PasswordPlain))
-	return ret
+	httpSetUser(this.Ctx, "")
+	this.Ret.Id = int64(UserRegister(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain))
 }
 
-func apiUserLogin(ctx *Ctx, args *ApiAccountPayload, ret *Void) any {
-	httpSetUser(ctx, "")
-	_, jwt_token := UserLogin(ctx, args.EmailAddr, args.PasswordPlain)
+func apiUserLogin(this *yoserve.ApiCtx[ApiAccountPayload, Void]) {
+	httpSetUser(this.Ctx, "")
+	_, jwt_token := UserLogin(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain)
 	jwt_signed, err := jwt_token.SignedString(jwtKey)
 	if err != nil {
 		panic(Err("UserLoginOkButFailedToCreateSignedToken"))
 	}
-	httpSetUser(ctx, jwt_signed)
-	return ret
+	httpSetUser(this.Ctx, jwt_signed)
 }
 
-func apiUserLogout(ctx *Ctx, args *Void, ret *Void) any {
-	httpSetUser(ctx, "")
-	return ret
+func apiUserLogout(ctx *yoserve.ApiCtx[Void, Void]) {
+	httpSetUser(ctx.Ctx, "")
 }
 
-func apiChangePassword(ctx *Ctx, args *struct {
+func apiChangePassword(this *yoserve.ApiCtx[struct {
 	ApiAccountPayload
 	PasswordNewPlain string
-}, ret *struct {
+}, struct {
 	Did bool
-}) any {
-	if user_email_addr := ctx.GetStr(CtxKey); user_email_addr != "" && user_email_addr != args.EmailAddr {
+}]) {
+	if user_email_addr := this.Ctx.GetStr(CtxKey); user_email_addr != "" && user_email_addr != this.Args.EmailAddr {
 		panic(Err("UserChangePasswordUnauthorized"))
 	}
-	httpSetUser(ctx, "")
-	ret.Did = UserChangePassword(ctx, args.EmailAddr, args.PasswordPlain, args.PasswordNewPlain)
-	return ret
+	httpSetUser(this.Ctx, "")
+	this.Ret.Did = UserChangePassword(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.PasswordNewPlain)
 }
 
 func httpSetUser(ctx *Ctx, jwtRaw string) {

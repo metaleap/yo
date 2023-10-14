@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"slices"
 
-	. "yo/ctx"
 	. "yo/util"
 	"yo/util/sl"
 	"yo/util/str"
@@ -32,27 +31,26 @@ type apiReflMethod struct {
 	Out  string
 }
 
-func apiHandleReflReq(_ *Ctx, _ *Void, ret *apiRefl) any {
-	ret.Types, ret.Enums = map[string]str.Dict{}, map[string][]string{}
+func apiHandleReflReq(this *ApiCtx[Void, apiRefl]) {
+	this.Ret.Types, this.Ret.Enums = map[string]str.Dict{}, map[string][]string{}
 	for _, method_path := range sl.Sorted(Keys(api)) {
 		if !str.IsPrtAscii(method_path) {
 			panic("not printable ASCII: '" + method_path + "'")
 		}
 		method_name, method := ToIdent(method_path), apiReflMethod{Path: method_path}
 		rt_in, rt_out := api[method_path].reflTypes()
-		method.In, method.Out = apiReflType(ret, rt_in, "In", method_name), apiReflType(ret, rt_out, "Out", method_name)
+		method.In, method.Out = apiReflType(this.Ret, rt_in, "In", method_name), apiReflType(this.Ret, rt_out, "Out", method_name)
 		if no_in, no_out := (method.In == ""), (method.Out == ""); no_in || no_out {
 			panic(method_path + ": invalid " + If(no_in, "In", "Out"))
 		}
-		ret.Methods = append(ret.Methods, method)
+		this.Ret.Methods = append(this.Ret.Methods, method)
 	}
-	slices.SortFunc(ret.Methods, func(a apiReflMethod, b apiReflMethod) int {
-		if str.Begins(a.Path, "__") != str.Begins(b.Path, "__") { // bring those `__/` internal APIs to the end of the ret.Methods
+	slices.SortFunc(this.Ret.Methods, func(a apiReflMethod, b apiReflMethod) int {
+		if str.Begins(a.Path, "__") != str.Begins(b.Path, "__") { // bring those `__/` internal APIs to the end of the this.Ret.Methods
 			return cmp.Compare(b.Path, a.Path)
 		}
 		return cmp.Compare(a.Path, b.Path)
 	})
-	return ret
 }
 
 func apiReflType(it *apiRefl, rt reflect.Type, fldName string, parent string) string {

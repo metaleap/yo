@@ -29,7 +29,13 @@ type ApiMethod interface {
 	reflTypes() (reflect.Type, reflect.Type)
 }
 
-func Api[TIn any, TOut any](f func(*Ctx, *TIn, *TOut) any) ApiMethod {
+type ApiCtx[TIn any, TOut any] struct {
+	Ctx  *Ctx
+	Args *TIn
+	Ret  *TOut
+}
+
+func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut])) ApiMethod {
 	var tmp_in TIn
 	var tmp_out TOut
 	if reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct {
@@ -41,7 +47,9 @@ func Api[TIn any, TOut any](f func(*Ctx, *TIn, *TOut) any) ApiMethod {
 		if in != nil { // could shorten to `input, _ := in.(*TIn)` but want to panic below in case of new bugs
 			input = in.(*TIn)
 		}
-		return f(ctx, input, &output)
+		api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: input, Ret: &output}
+		f(api_ctx)
+		return api_ctx.Ret
 	})
 }
 
