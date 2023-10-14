@@ -35,6 +35,14 @@ export async function req<TIn, TOut>(methodPath: string, payload: TIn, urlQueryA
     return json_resp as TOut
 }
 
+export class Err<T extends string> extends Error {
+    knownErr: T
+    constructor(err: T) {
+        super()
+        this.knownErr = err
+    }
+}
+
 type QueryOperator = "EQ" | "NE" | "LT" | "LE" | "GT" | "GE" | "IN" | "AND" | "OR" | "NOT"
 
 export interface QueryVal {
