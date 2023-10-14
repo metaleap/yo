@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	yoctx "yo/ctx"
 	yolog "yo/log"
 	. "yo/util"
 	"yo/util/sl"
@@ -108,7 +109,7 @@ func codegenGo(apiRefl *apiRefl) {
 		err_emitted := map[Err]bool{}
 		for _, method_path := range sl.Sorted(Keys(pkg_methods)) {
 			for _, err := range sl.Sorted(Keys(apiRefl.KnownErrs[method_path])) {
-				if !err_emitted[err] {
+				if (err != yoctx.ErrTimedOut) && !err_emitted[err] {
 					err_emitted[err] = true
 					buf.WriteString("const Err" + string(err) + " util.Err = \"" + string(err) + "\"\n")
 				}
@@ -211,19 +212,10 @@ func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiRefl, method *apiReflMethod) {
 		"out_type_ident": codegenTsSdkTypeName(apiRefl, method.Out),
 		"method_path":    method.Path,
 		"enum_type_name": ts_enum_type_name,
-		"known_errs": If((len(method_errs) == 0), "[]",
-			("['" + str.Join(sl.Conv(method_errs, Err.String), "', '") + "']")),
+		"known_errs":     "['" + str.Join(sl.Conv(method_errs, Err.String), "', '") + "']",
 	}
 
-	if len(method_errs) == 0 {
-		buf.WriteString(str.Repl(`
-export async function call{method_name}(payload: {in_type_ident}, query?: {[_:string]:string}): Promise<{out_type_ident}> {
-	return req<{in_type_ident}, {out_type_ident}>('{method_path}', payload, query)
-}
-`, repl))
-
-	} else {
-		buf.WriteString(str.Repl(`
+	buf.WriteString(str.Repl(`
 export const errs{method_name} = {known_errs} as const
 export type {enum_type_name} = typeof errs{method_name}[number]
 export async function call{method_name}(payload: {in_type_ident}, query?: {[_:string]:string}): Promise<{out_type_ident}> {
@@ -236,7 +228,6 @@ export async function call{method_name}(payload: {in_type_ident}, query?: {[_:st
 	}
 }
 `, repl))
-	}
 }
 
 func codegenTsSdkType(buf *str.Buf, apiRefl *apiRefl, typeName string, structFields str.Dict, enumMembers []string) bool {

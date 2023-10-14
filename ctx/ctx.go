@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	DB     *sql.DB
-	OnDone []func(ctx *Ctx, fail any)
+	ErrTimedOut = Err("TimedOut")
+	DB          *sql.DB
+	OnDone      []func(ctx *Ctx, fail any)
 )
 
 type Errs interface {
@@ -70,9 +71,8 @@ func (me *Ctx) Dispose() {
 	if (!IsDevMode) || true { // gotta toggle occasionally during local debug
 		fail = recover()
 	}
-	err_timeout := Err("OperationTimedOut")
 	if err, _ := fail.(error); err == context.DeadlineExceeded {
-		fail = err_timeout
+		fail = ErrTimedOut
 	}
 	if me.Db.Tx != nil {
 		if fail == nil {
@@ -86,7 +86,7 @@ func (me *Ctx) Dispose() {
 		me.httpEnsureCookiesSent()
 		if code := 500; fail != nil {
 			if err, is_app_err := fail.(Err); is_app_err {
-				if IsDevMode && me.Http.ApiErrs != nil && err != err_timeout {
+				if IsDevMode && me.Http.ApiErrs != nil {
 					if known_errs := me.Http.ApiErrs.KnownErrs(); (len(known_errs) > 0) && !sl.Has(known_errs, err) {
 						os.Stderr.WriteString("\n\nunexpected/undocumented Err thrown: " + string(err) + ", add it to " + str.From(me.Http.ApiErrs) + "\n\n")
 						os.Stderr.Sync()

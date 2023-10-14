@@ -84,11 +84,11 @@ func (me *apiMethod[TIn, TOut]) PkgName() string {
 	return ""
 }
 func (me *apiMethod[TIn, TOut]) KnownErrs() (ret []Err) {
-	ret = me.errsOwn
+	ret = append(me.errsOwn, ErrTimedOut)
 	for _, err_dep := range me.errsDeps {
 		ret = append(ret, api[err_dep].KnownErrs()...)
 	}
-	return ret
+	return
 }
 func (*apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
 	var it TIn
