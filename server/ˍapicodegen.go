@@ -4,6 +4,9 @@ package yoserve
 
 import (
 	"bytes"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -22,7 +25,16 @@ func init() {
 
 	enum_pkgs := str.Dict{}
 	WalkCodeFiles(true, true, func(path string, dirEntry fs.DirEntry) {
-		if str.Ends(path, ".ts") && (!str.Ends(path, ".d.ts")) && !foundModifiedTsFiles {
+		if dirEntry.IsDir() {
+			file_set := token.FileSet{}
+			if pkgs, err := parser.ParseDir(&file_set, path, nil, parser.AllErrors); err == nil {
+				for _, pkg := range pkgs {
+					analyzeGoPkg(path, pkg, &file_set)
+				}
+			}
+		}
+
+		if (!dirEntry.IsDir()) && str.Ends(path, ".ts") && (!str.Ends(path, ".d.ts")) && !foundModifiedTsFiles {
 			fileinfo_ts, err := dirEntry.Info()
 			if err != nil || fileinfo_ts == nil {
 				panic(err)
@@ -65,6 +77,40 @@ func init() {
 			}
 		}
 	})
+}
+
+type walker struct {
+}
+
+func (me *walker) Visit(node ast.Node) ast.Visitor {
+	switch it := node.(type) {
+	case *ast.CallExpr:
+		if (it.Fun == nil) || (len(it.Args) != 1) {
+			return me
+		}
+		switch fn := it.Fun.(type) {
+		case *ast.Ident:
+			if fn.Name == "panic" {
+			}
+		case *ast.SelectorExpr:
+			if x, _ := fn.X.(*ast.Ident); (x != nil) && (x.String() == "yoserve") && (fn.Sel.Name == "Add") {
+				println(x.String() + "." + fn.Sel.String())
+			}
+		default:
+			// if (len(it.Args) == 1) && (it.Fun != nil) {
+			// 	println(str.From(it.Fun))
+			// }
+		}
+	default:
+		// println(str.Fmt("%T", it))
+	}
+	return me
+}
+
+func analyzeGoPkg(dirPath string, pkg *ast.Package, fileSet *token.FileSet) {
+	w := &walker{}
+	ast.Walk(w, pkg)
+	println(pkg.Name, "A", w.numAdds, "P", w.numPanics)
 }
 
 func apiGenSdk() {
