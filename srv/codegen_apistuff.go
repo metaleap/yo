@@ -105,7 +105,7 @@ func codegenGo(apiRefl *apiRefl) {
 		buf.WriteString("func (apiPkgInfo) PkgName() string { return \"" + pkg_name + "\" }\n")
 		buf.WriteString("var PkgInfo = apiPkgInfo{}\n")
 
-		for method_path := range pkg_methods {
+		for _, method_path := range sl.Sorted(Keys(pkg_methods)) {
 			for _, err := range sl.Sorted(Keys(apiRefl.KnownErrs[method_path])) {
 				buf.WriteString("const Err" + string(err) + " util.Err = \"" + string(err) + "\"\n")
 			}
@@ -118,7 +118,7 @@ func codegenGo(apiRefl *apiRefl) {
 
 		src_old, _ := os.ReadFile(out_file_path)
 		if !bytes.Equal(src_old, src_raw) {
-			os.WriteFile(out_file_path, src_raw, os.ModePerm)
+			_ = os.WriteFile(out_file_path, src_raw, os.ModePerm)
 			did_write_files = true
 		}
 	}

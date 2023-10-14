@@ -11,6 +11,12 @@ func (apiPkgInfo) PkgName() string { return "yoauth" }
 
 var PkgInfo = apiPkgInfo{}
 
+const ErrAuthLoginAccountDoesNotExist util.Err = "AuthLoginAccountDoesNotExist"
+const ErrAuthLoginEmailInvalid util.Err = "AuthLoginEmailInvalid"
+const ErrAuthLoginEmailRequiredButMissing util.Err = "AuthLoginEmailRequiredButMissing"
+const ErrAuthLoginOkButFailedToCreateSignedToken util.Err = "AuthLoginOkButFailedToCreateSignedToken"
+const ErrAuthLoginPasswordRequiredButMissing util.Err = "AuthLoginPasswordRequiredButMissing"
+const ErrAuthLoginWrongPassword util.Err = "AuthLoginWrongPassword"
 const ErrAuthRegisterEmailAddrAlreadyExists util.Err = "AuthRegisterEmailAddrAlreadyExists"
 const ErrAuthRegisterEmailInvalid util.Err = "AuthRegisterEmailInvalid"
 const ErrAuthRegisterEmailRequiredButMissing util.Err = "AuthRegisterEmailRequiredButMissing"

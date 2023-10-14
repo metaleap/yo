@@ -20,7 +20,7 @@ const (
 
 func init() {
 	Apis(ApiMethods{
-		MethodPathLogin:          Api(apiUserLogin, PkgInfo),
+		MethodPathLogin:          Api(apiUserLogin, PkgInfo, "OkButFailedToCreateSignedToken", "EmailRequiredButMissing", "EmailInvalid", "PasswordRequiredButMissing", "AccountDoesNotExist", "WrongPassword"),
 		MethodPathLogout:         Api(apiUserLogout, PkgInfo),
 		MethodPathRegister:       Api(apiUserRegister, PkgInfo, "WhileLoggedIn", "EmailRequiredButMissing", "EmailInvalid", "EmailAddrAlreadyExists", "PasswordRequiredButMissing", "PasswordTooShort", "PasswordTooLong", "PasswordInvalid"),
 		MethodPathChangePassword: Api(apiChangePassword, PkgInfo),
@@ -52,7 +52,7 @@ func apiUserLogin(this *ApiCtx[ApiAccountPayload, Void]) {
 	_, jwt_token := UserLogin(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain)
 	jwt_signed, err := jwt_token.SignedString(jwtKey)
 	if err != nil {
-		panic(Err("UserLoginOkButFailedToCreateSignedToken"))
+		panic(ErrAuthLoginOkButFailedToCreateSignedToken)
 	}
 	httpSetUser(this.Ctx, jwt_signed)
 }
