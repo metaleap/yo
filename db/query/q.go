@@ -2,6 +2,7 @@ package q
 
 import (
 	. "yo/util"
+	"yo/util/sl"
 	"yo/util/str"
 
 	"github.com/jackc/pgx/v5"
@@ -32,6 +33,19 @@ func (me F) In(set ...any) Query            { return In(me, set...) }
 func (me F) NotIn(set ...any) Query         { return NotIn(me, set...) }
 func (me F) Asc() OrderBy                   { return &orderBy[F]{fld: me} }
 func (me F) Desc() OrderBy                  { return &orderBy[F]{fld: me, desc: true} }
+
+type Lit[T any] struct{ Value T }
+
+func (me Lit[T]) Equal(other T) Query          { return Equal(me, other) }
+func (me Lit[T]) NotEqual(other T) Query       { return NotEqual(me, other) }
+func (me Lit[T]) LessThan(other T) Query       { return LessThan(me, other) }
+func (me Lit[T]) GreaterThan(other T) Query    { return GreaterThan(me, other) }
+func (me Lit[T]) LessOrEqual(other T) Query    { return LessOrEqual(me, other) }
+func (me Lit[T]) GreaterOrEqual(other T) Query { return GreaterOrEqual(me, other) }
+func (me Lit[T]) In(set ...T) Query            { return In(me, sl.Conv(set, func(it T) any { return it })...) }
+func (me Lit[T]) NotIn(set ...T) Query {
+	return NotIn(me, sl.Conv(set, func(it T) any { return it })...)
+}
 
 type A[T any] struct{ It T }
 
@@ -87,7 +101,7 @@ func In(x any, y ...any) Query          { return inOrNotIn(opIn, x, y...) }
 func NotIn(x any, y ...any) Query       { return inOrNotIn(opNotIn, x, y...) }
 func inOrNotIn(op string, x any, y ...any) Query {
 	if len(y) == 0 {
-		panic(str.Trim(op + "+empty set"))
+		panic(str.Trim(str.Trim(op) + ": empty set"))
 	}
 	sub_stmt, _ := y[0].(interface{ Sql(*str.Buf) })
 	return &query{op: If(((len(y) == 1) && (sub_stmt == nil)), opEq, op), operands: append([]any{x}, y...)}
