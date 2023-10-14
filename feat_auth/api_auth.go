@@ -43,7 +43,7 @@ func apiUserRegister(this *ApiCtx[ApiAccountPayload, struct {
 	Id int64
 }]) {
 	if this.Ctx.GetStr(CtxKey) != "" {
-		panic(ErrAuthRegisterWhileLoggedIn)
+		panic(ErrAuthRegister_WhileLoggedIn)
 	}
 	httpSetUser(this.Ctx, "")
 	this.Ret.Id = int64(UserRegister(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain))
@@ -54,7 +54,7 @@ func apiUserLogin(this *ApiCtx[ApiAccountPayload, Void]) {
 	_, jwt_token := UserLogin(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain)
 	jwt_signed, err := jwt_token.SignedString(jwtKey)
 	if err != nil {
-		panic(ErrAuthLoginOkButFailedToCreateSignedToken)
+		panic(ErrAuthLogin_OkButFailedToCreateSignedToken)
 	}
 	httpSetUser(this.Ctx, jwt_signed)
 }
@@ -68,11 +68,11 @@ func apiChangePassword(this *ApiCtx[struct {
 	PasswordNewPlain string
 }, Void]) {
 	if user_email_addr := this.Ctx.GetStr(CtxKey); user_email_addr != "" && user_email_addr != this.Args.EmailAddr {
-		panic(ErrAuthChangePasswordForbidden)
+		panic(ErrAuthChangePassword_Forbidden)
 	}
 	httpSetUser(this.Ctx, "")
 	if !UserChangePassword(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.PasswordNewPlain) {
-		panic(ErrAuthChangePasswordChangesNotStored)
+		panic(ErrAuthChangePassword_ChangesNotStored)
 	}
 }
 

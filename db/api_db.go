@@ -7,10 +7,20 @@ import (
 	. "yo/srv"
 	. "yo/util"
 	"yo/util/sl"
-	"yo/util/str"
 )
 
+const errBinOpPrefix = "ExpectedTwoOperandsFor"
+
 func init() {
+	KnownErrSets["Query"] = append([]Err{
+		Err("ExpectedOnlyEitherQueryOrQueryFromButNotBoth"),
+		Err("ExpectedSetOperandFor" + opIn),
+		Err("ExpectedOneOrNoneButNotMultipleOfFldOrStrOrBoolOrInt"),
+	}, sl.Conv([]string{opAnd, opOr, opNot, opIn, opEq, opNe, opGt, opGe, opLt, opLe}, func(it string) Err {
+		return Err(errBinOpPrefix + it)
+	})...)
+	KnownErrSets["DbDelete"] = []Err{"ExpectedQueryForDelete"}
+	KnownErrSets["DbUpdate"] = []Err{"ExpectedChangesForUpdate", "ExpectedQueryForUpdate"}
 	Apis(ApiMethods{
 		"__/db/listTables": Api(apiListTables, PkgInfo),
 	})
@@ -24,17 +34,18 @@ func apiListTables(this *ApiCtx[struct {
 
 func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 	type_name := desc.ty.Name()
+
 	Apis(ApiMethods{
 		"__/db/" + type_name + "/findById":   Api(apiFindById[TObj, TFld], PkgInfo),
-		"__/db/" + type_name + "/findOne":    Api(apiFindOne[TObj, TFld], PkgInfo),
-		"__/db/" + type_name + "/findMany":   Api(apiFindMany[TObj, TFld], PkgInfo),
+		"__/db/" + type_name + "/findOne":    Api(apiFindOne[TObj, TFld], PkgInfo, ":Query"),
+		"__/db/" + type_name + "/findMany":   Api(apiFindMany[TObj, TFld], PkgInfo, ":Query"),
 		"__/db/" + type_name + "/createOne":  Api(apiCreateOne[TObj, TFld], PkgInfo),
 		"__/db/" + type_name + "/createMany": Api(apiCreateMany[TObj, TFld], PkgInfo),
-		"__/db/" + type_name + "/deleteOne":  Api(apiDeleteOne[TObj, TFld], PkgInfo),
-		"__/db/" + type_name + "/deleteMany": Api(apiDeleteMany[TObj, TFld], PkgInfo),
-		"__/db/" + type_name + "/updateOne":  Api(apiUpdateOne[TObj, TFld], PkgInfo),
-		"__/db/" + type_name + "/updateMany": Api(apiUpdateMany[TObj, TFld], PkgInfo),
-		"__/db/" + type_name + "/count":      Api(apiCount[TObj, TFld], PkgInfo),
+		"__/db/" + type_name + "/deleteOne":  Api(apiDeleteOne[TObj, TFld], PkgInfo, ":DbDelete"),
+		"__/db/" + type_name + "/deleteMany": Api(apiDeleteMany[TObj, TFld], PkgInfo, ":Query", ":DbDelete"),
+		"__/db/" + type_name + "/updateOne":  Api(apiUpdateOne[TObj, TFld], PkgInfo, ":DbUpdate", "ExpectedIdGreater0"),
+		"__/db/" + type_name + "/updateMany": Api(apiUpdateMany[TObj, TFld], PkgInfo, ":Query", ":DbUpdate"),
+		"__/db/" + type_name + "/count":      Api(apiCount[TObj, TFld], PkgInfo, ":Query"),
 	})
 }
 
@@ -52,7 +63,7 @@ func (me *argQuery[TObj, TFld]) toDbQ() q.Query {
 		return nil
 	}
 	if (me.QueryFrom != nil) && (me.Query != nil) {
-		panic(Err("ExpectedOnlyEitherQueryOrQueryFromButNotBoth"))
+		panic(ErrQuery_ExpectedOnlyEitherQueryOrQueryFromButNotBoth)
 	}
 	if me.QueryFrom != nil {
 		return Q[TObj](me.QueryFrom)
@@ -110,7 +121,7 @@ func apiUpdateOne[TObj any, TFld ~string](this *ApiCtx[struct {
 	IncludingEmptyOrMissingFields bool
 }, retCount]) {
 	if this.Args.Id <= 0 {
-		panic(Err("ExpectedIdGreater0ButGot" + str.FromInt(int(this.Args.Id))))
+		panic(Err___db_UserAccount_updateOne_ExpectedIdGreater0)
 	}
 	this.Ret.Count = Update[TObj](this.Ctx, this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, ColID.Equal(this.Args.Id))
 }
@@ -146,12 +157,25 @@ type ApiQueryExpr[TObj any, TFld ~string] struct {
 	IN  []ApiQueryVal[TObj, TFld]
 }
 
+const ( // must be in sync with the `ApiQueryExpr` field names
+	opAnd = "AND"
+	opOr  = "OR"
+	opNot = "NOT"
+	opIn  = "IN"
+	opEq  = "EQ"
+	opNe  = "NE"
+	opLt  = "LT"
+	opLe  = "LE"
+	opGt  = "GT"
+	opGe  = "GE"
+)
+
 func (me *ApiQueryExpr[TObj, TFld]) Validate() {
 	num_found := 0
 	// binary operators
-	for name, bin_op := range map[string][]ApiQueryVal[TObj, TFld]{"EQ": me.EQ, "NE": me.NE, "LT": me.LT, "LE": me.LE, "GT": me.GT, "GE": me.GE} {
+	for name, bin_op := range map[string][]ApiQueryVal[TObj, TFld]{opEq: me.EQ, opNe: me.NE, opLt: me.LT, opLe: me.LE, opGt: me.GT, opGe: me.GE} {
 		if (len(bin_op) != 0) && (len(bin_op) != 2) {
-			panic(Err(name + "_TwoOperandsRequired"))
+			panic(Err("Query_" + errBinOpPrefix + name))
 		}
 		for i := range bin_op {
 			bin_op[i].Validate()
@@ -165,7 +189,7 @@ func (me *ApiQueryExpr[TObj, TFld]) Validate() {
 		}
 	}
 	if len(me.IN) == 1 {
-		panic("IN_SetOperandRequired")
+		panic(ErrQuery_ExpectedSetOperandForIN)
 	}
 	for i := range me.IN {
 		me.IN[i].Validate()
@@ -208,7 +232,7 @@ func (me *ApiQueryVal[TObj, TFld]) Validate() {
 		}
 	}
 	if num_set > 1 {
-		panic("ExpectedOneOrNoneOf" + str.Join([]string{"Fld", "Str", "Bool", "I64", "F64"}, "Or") + "ButGot" + str.FromInt(num_set))
+		panic(ErrQuery_ExpectedOneOrNoneButNotMultipleOfFldOrStrOrBoolOrInt)
 	}
 }
 

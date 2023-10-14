@@ -32,27 +32,27 @@ func init() {
 
 func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 	if emailAddr == "" {
-		panic(ErrAuthRegisterEmailRequiredButMissing)
+		panic(ErrAuthRegister_EmailRequiredButMissing)
 	}
 	if !str.IsEmailishEnough(emailAddr) {
-		panic(ErrAuthRegisterEmailInvalid)
+		panic(ErrAuthRegister_EmailInvalid)
 	}
 	if passwordPlain == "" {
-		panic(ErrAuthRegisterPasswordRequiredButMissing)
+		panic(ErrAuthRegister_PasswordRequiredButMissing)
 	}
 	if len(passwordPlain) < 6 {
-		panic(ErrAuthRegisterPasswordTooShort)
+		panic(ErrAuthRegister_PasswordTooShort)
 	}
 	ctx.DbTx()
 	if yodb.Exists[UserAccount](ctx, UserAccountColEmailAddr.Equal(emailAddr)) {
-		panic(ErrAuthRegisterEmailAddrAlreadyExists)
+		panic(ErrAuthRegister_EmailAddrAlreadyExists)
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
 	if (err != nil) || (len(hash) == 0) {
 		if err == bcrypt.ErrPasswordTooLong {
-			panic(ErrAuthRegisterPasswordTooLong)
+			panic(ErrAuthRegister_PasswordTooLong)
 		} else {
-			panic(ErrAuthRegisterPasswordInvalid)
+			panic(ErrAuthRegister_PasswordInvalid)
 		}
 	}
 	return yodb.CreateOne[UserAccount](ctx, &UserAccount{
@@ -63,22 +63,22 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 
 func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAccount, *jwt.Token) {
 	if emailAddr == "" {
-		panic(ErrAuthLoginEmailRequiredButMissing)
+		panic(ErrAuthLogin_EmailRequiredButMissing)
 	}
 	if !str.IsEmailishEnough(emailAddr) { // saves a DB hit I guess =)
-		panic(ErrAuthLoginEmailInvalid)
+		panic(ErrAuthLogin_EmailInvalid)
 	}
 	if passwordPlain == "" {
-		panic(ErrAuthLoginPasswordRequiredButMissing)
+		panic(ErrAuthLogin_PasswordRequiredButMissing)
 	}
 	user_account := yodb.FindOne[UserAccount](ctx, UserAccountColEmailAddr.Equal(emailAddr))
 	if user_account == nil {
-		panic(ErrAuthLoginAccountDoesNotExist)
+		panic(ErrAuthLogin_AccountDoesNotExist)
 	}
 
 	err := bcrypt.CompareHashAndPassword(user_account.passwordHashed, []byte(passwordPlain))
 	if err != nil {
-		panic(ErrAuthLoginWrongPassword)
+		panic(ErrAuthLogin_WrongPassword)
 	}
 
 	return user_account, jwt.NewWithClaims(jwt.SigningMethodHS256, &JwtPayload{
@@ -103,22 +103,22 @@ func UserVerify(ctx *Ctx, jwtRaw string) *JwtPayload {
 
 func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, passwordNewPlain string) bool {
 	if passwordNewPlain == "" {
-		panic(ErrAuthChangePasswordNewPasswordRequiredButMissing)
+		panic(ErrAuthChangePassword_NewPasswordRequiredButMissing)
 	}
 	if len(passwordNewPlain) < 6 {
-		panic(ErrAuthChangePasswordNewPasswordTooShort)
+		panic(ErrAuthChangePassword_NewPasswordTooShort)
 	}
 	if passwordNewPlain == passwordOldPlain {
-		panic(ErrAuthChangePasswordNewPasswordSameAsOld)
+		panic(ErrAuthChangePassword_NewPasswordSameAsOld)
 	}
 	ctx.DbTx()
 	user_account, _ := UserLogin(ctx, emailAddr, passwordOldPlain)
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordNewPlain), bcrypt.DefaultCost)
 	if (err != nil) || (len(hash) == 0) {
 		if err == bcrypt.ErrPasswordTooLong {
-			panic(ErrAuthChangePasswordNewPasswordTooLong)
+			panic(ErrAuthChangePassword_NewPasswordTooLong)
 		} else {
-			panic(ErrAuthChangePasswordNewPasswordInvalid)
+			panic(ErrAuthChangePassword_NewPasswordInvalid)
 		}
 	}
 	user_account.passwordHashed = hash

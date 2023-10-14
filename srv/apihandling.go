@@ -12,7 +12,12 @@ import (
 	"yo/util/str"
 )
 
-var api = ApiMethods{}
+var (
+	api          = ApiMethods{}
+	KnownErrSets = map[string][]Err{
+		"": {ErrTimedOut},
+	}
+)
 
 type ApiMethods map[string]ApiMethod
 
@@ -84,9 +89,13 @@ func (me *apiMethod[TIn, TOut]) PkgName() string {
 	return ""
 }
 func (me *apiMethod[TIn, TOut]) KnownErrs() (ret []Err) {
-	ret = append(me.errsOwn, ErrTimedOut)
+	ret = append(me.errsOwn, KnownErrSets[""]...)
 	for _, err_dep := range me.errsDeps {
-		ret = append(ret, api[err_dep].KnownErrs()...)
+		if method := api[err_dep]; method != nil {
+			ret = append(ret, api[err_dep].KnownErrs()...)
+		} else {
+			ret = append(ret, sl.Conv(KnownErrSets[err_dep], func(it Err) Err { return Err(err_dep+"_") + it })...)
+		}
 	}
 	return
 }
@@ -104,7 +113,7 @@ func (*apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
 }
 func (me *apiMethod[TIn, TOut]) init(methodPath string) {
 	method_name := ToIdent(methodPath)
-	err_name_prefix := Err(str.Up0(method_name))
+	err_name_prefix := Err(str.Up0(method_name)) + "_"
 	for i, err := range me.errsOwn {
 		me.errsOwn[i] = err_name_prefix + err
 	}

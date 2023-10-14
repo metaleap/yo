@@ -105,7 +105,7 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 
 func Delete[T any](ctx *Ctx, where q.Query) int64 {
 	if where == nil {
-		panic(Err("ExpectedQueryForDelete"))
+		panic(ErrDbDelete_ExpectedQueryForDelete)
 	}
 	desc, args := desc[T](), dbArgs{}
 	result := doExec(ctx, new(sqlStmt).delete(desc.tableName).where(where, desc.fieldNameToColName, args), args)
@@ -127,11 +127,11 @@ func Update[T any](ctx *Ctx, upd *T, includingEmptyOrMissingFields bool, where q
 		})
 	}
 	if len(col_names) == 0 {
-		panic(Err("ExpectedChangesForUpdate"))
+		panic(ErrDbUpdate_ExpectedChangesForUpdate)
 	}
 	id_maybe, _ := reflFieldValueOf(upd, "Id").(I64)
 	if where == nil && id_maybe == 0 {
-		panic(Err("ExpectedQueryForUpdate"))
+		panic(ErrDbUpdate_ExpectedQueryForUpdate)
 	}
 	if where == nil {
 		where = q.C(ColID).Equal(id_maybe)

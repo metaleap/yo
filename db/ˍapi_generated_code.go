@@ -10,3 +10,21 @@ type apiPkgInfo util.Void
 func (apiPkgInfo) PkgName() string { return "yodb" }
 
 var PkgInfo = apiPkgInfo{}
+
+const ErrQuery_ExpectedOneOrNoneButNotMultipleOfFldOrStrOrBoolOrInt util.Err = "Query_ExpectedOneOrNoneButNotMultipleOfFldOrStrOrBoolOrInt"
+const ErrQuery_ExpectedOnlyEitherQueryOrQueryFromButNotBoth util.Err = "Query_ExpectedOnlyEitherQueryOrQueryFromButNotBoth"
+const ErrQuery_ExpectedSetOperandForIN util.Err = "Query_ExpectedSetOperandForIN"
+const ErrQuery_ExpectedTwoOperandsForAND util.Err = "Query_ExpectedTwoOperandsForAND"
+const ErrQuery_ExpectedTwoOperandsForEQ util.Err = "Query_ExpectedTwoOperandsForEQ"
+const ErrQuery_ExpectedTwoOperandsForGE util.Err = "Query_ExpectedTwoOperandsForGE"
+const ErrQuery_ExpectedTwoOperandsForGT util.Err = "Query_ExpectedTwoOperandsForGT"
+const ErrQuery_ExpectedTwoOperandsForIN util.Err = "Query_ExpectedTwoOperandsForIN"
+const ErrQuery_ExpectedTwoOperandsForLE util.Err = "Query_ExpectedTwoOperandsForLE"
+const ErrQuery_ExpectedTwoOperandsForLT util.Err = "Query_ExpectedTwoOperandsForLT"
+const ErrQuery_ExpectedTwoOperandsForNE util.Err = "Query_ExpectedTwoOperandsForNE"
+const ErrQuery_ExpectedTwoOperandsForNOT util.Err = "Query_ExpectedTwoOperandsForNOT"
+const ErrQuery_ExpectedTwoOperandsForOR util.Err = "Query_ExpectedTwoOperandsForOR"
+const ErrDbDelete_ExpectedQueryForDelete util.Err = "DbDelete_ExpectedQueryForDelete"
+const ErrDbUpdate_ExpectedChangesForUpdate util.Err = "DbUpdate_ExpectedChangesForUpdate"
+const ErrDbUpdate_ExpectedQueryForUpdate util.Err = "DbUpdate_ExpectedQueryForUpdate"
+const Err___db_UserAccount_updateOne_ExpectedIdGreater0 util.Err = "___db_UserAccount_updateOne_ExpectedIdGreater0"
