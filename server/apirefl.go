@@ -18,6 +18,7 @@ type apiRefl struct {
 	Types     map[string]str.Dict
 	Enums     map[string][]string
 	DbStructs []string
+	Errs      map[string]map[Err]int
 
 	codeGen struct {
 		typesUsed    map[string]bool
@@ -32,7 +33,7 @@ type apiReflMethod struct {
 }
 
 func apiHandleReflReq(this *ApiCtx[Void, apiRefl]) {
-	this.Ret.Types, this.Ret.Enums = map[string]str.Dict{}, map[string][]string{}
+	this.Ret.Types, this.Ret.Enums, this.Ret.Errs = map[string]str.Dict{}, map[string][]string{}, map[string]map[Err]int{}
 	for _, method_path := range sl.Sorted(Keys(api)) {
 		if !str.IsPrtAscii(method_path) {
 			panic("not printable ASCII: '" + method_path + "'")
@@ -44,6 +45,7 @@ func apiHandleReflReq(this *ApiCtx[Void, apiRefl]) {
 			panic(method_path + ": invalid " + If(no_in, "In", "Out"))
 		}
 		this.Ret.Methods = append(this.Ret.Methods, method)
+		this.Ret.Errs[method.Path] = apiReflErrs(api[method_path], method)
 	}
 	slices.SortFunc(this.Ret.Methods, func(a apiReflMethod, b apiReflMethod) int {
 		if str.Begins(a.Path, "__") != str.Begins(b.Path, "__") { // bring those `__/` internal APIs to the end of the this.Ret.Methods
@@ -51,6 +53,14 @@ func apiHandleReflReq(this *ApiCtx[Void, apiRefl]) {
 		}
 		return cmp.Compare(a.Path, b.Path)
 	})
+}
+
+func apiReflErrs(method ApiMethod, methodRefl apiReflMethod) (ret map[Err]int) {
+	ret = map[Err]int{}
+	for _, err := range method.errs() {
+		ret[err] = err.HttpStatusCode()
+	}
+	return
 }
 
 func apiReflType(it *apiRefl, rt reflect.Type, fldName string, parent string) string {

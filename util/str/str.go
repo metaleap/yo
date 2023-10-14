@@ -45,6 +45,10 @@ func Replace(s string, repl Dict) string {
 	return strings.NewReplacer(repl_old_new...).Replace(s)
 }
 
+func RePrefix(s string, oldPrefix string, newPrefix string) string {
+	return newPrefix + TrimL(s, oldPrefix)
+}
+
 func ReSuffix(s string, oldSuffix string, newSuffix string) string {
 	return TrimR(s, oldSuffix) + newSuffix
 }
@@ -69,9 +73,6 @@ func IsLo(s string) bool {
 
 func IsUp(s string) bool {
 	for _, r := range s {
-		if Begins(s, "Ä") {
-			println(s, r, unicode.IsUpper(r))
-		}
 		if !unicode.IsUpper(r) {
 			return false
 		}
@@ -86,6 +87,22 @@ func IsPrtAscii(s string) bool {
 		}
 	}
 	return true
+}
+
+// ascii only
+func Lo0(s string) string {
+	if (s == "") || !((s[0] >= 'A') && (s[0] <= 'Z')) {
+		return s
+	}
+	return Lo(s[:1]) + s[1:]
+}
+
+// ascii only
+func Up0(s string) string {
+	if (s == "") || ((s[0] >= 'A') && (s[0] <= 'Z')) {
+		return s
+	}
+	return Up(s[:1]) + s[1:]
 }
 
 func Sub(s string, runeIdx int, runesLen int) string {

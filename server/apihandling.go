@@ -24,6 +24,7 @@ func Apis(all ApiMethods) {
 type apiHandleFunc = func(*Ctx, any) any
 
 type ApiMethod interface {
+	errs() []Err
 	handle() apiHandleFunc
 	loadPayload(data []byte) (any, error)
 	reflTypes() (reflect.Type, reflect.Type)
@@ -35,14 +36,14 @@ type ApiCtx[TIn any, TOut any] struct {
 	Ret  *TOut
 }
 
-func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), errs ...Err) ApiMethod {
+func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), knownErrs ...Err) ApiMethod {
 	var tmp_in TIn
 	var tmp_out TOut
 	if reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct {
 		panic(str.Fmt("in/out types must be structs, got in:%T, out:%T", tmp_in, tmp_out))
 	}
-	return apiMethod[TIn, TOut]{errs: errs, apiHandleFunc: func(ctx *Ctx, in any) any {
-		ctx.Http.ApiErrs = errs
+	return apiMethod[TIn, TOut]{knownErrs: knownErrs, apiHandleFunc: func(ctx *Ctx, in any) any {
+		ctx.Http.ApiErrs = knownErrs
 		var output TOut
 		api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
 		f(api_ctx)
@@ -52,9 +53,10 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), errs ...Err) ApiMethod {
 
 type apiMethod[TIn any, TOut any] struct {
 	apiHandleFunc apiHandleFunc
-	errs          []Err
+	knownErrs     []Err
 }
 
+func (me apiMethod[TIn, TOut]) errs() []Err           { return me.knownErrs }
 func (me apiMethod[TIn, TOut]) handle() apiHandleFunc { return me.apiHandleFunc }
 func (apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
 	var it TIn
