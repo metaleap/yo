@@ -45,7 +45,7 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 		panic(ErrAuthRegister_PasswordTooShort)
 	}
 	ctx.DbTx()
-	if yodb.Exists[UserAccount](ctx, UserAccountColEmailAddr.Equal(q.Lit(emailAddr))) {
+	if yodb.Exists[UserAccount](ctx, UserAccountColEmailAddr.Equal(q.L(emailAddr))) {
 		panic(ErrAuthRegister_EmailAddrAlreadyExists)
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
@@ -72,7 +72,7 @@ func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAccount, 
 	if passwordPlain == "" {
 		panic(ErrAuthLogin_PasswordRequiredButMissing)
 	}
-	user_account := yodb.FindOne[UserAccount](ctx, UserAccountColEmailAddr.Equal(q.Lit(emailAddr)))
+	user_account := yodb.FindOne[UserAccount](ctx, UserAccountColEmailAddr.Equal(q.L(emailAddr)))
 	if user_account == nil {
 		panic(ErrAuthLogin_AccountDoesNotExist)
 	}

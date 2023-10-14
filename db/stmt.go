@@ -13,11 +13,17 @@ import (
 
 type sqlStmt str.Buf
 
-func (me *sqlStmt) Sql(buf *str.Buf) { buf.WriteString(me.String()) }
-func (me *sqlStmt) String() string   { return (*str.Buf)(me).String() }
-func (me *sqlStmt) Eval(any, func(q.C) q.F) reflect.Value {
-	panic("sqlStmt does not impl `q.Operand.Eval`")
-}
+func (me *sqlStmt) Sql(buf *str.Buf)                       { buf.WriteString(me.String()) }
+func (me *sqlStmt) String() string                         { return (*str.Buf)(me).String() }
+func (me *sqlStmt) Eval(any, func(q.C) q.F) reflect.Value  { panic("not a `q.Operand`") }
+func (me *sqlStmt) Equal(other q.Operand) q.Query          { panic("not a `q.Operand`") }
+func (me *sqlStmt) NotEqual(other q.Operand) q.Query       { panic("not a `q.Operand`") }
+func (me *sqlStmt) LessThan(other q.Operand) q.Query       { panic("not a `q.Operand`") }
+func (me *sqlStmt) GreaterThan(other q.Operand) q.Query    { panic("not a `q.Operand`") }
+func (me *sqlStmt) LessOrEqual(other q.Operand) q.Query    { panic("not a `q.Operand`") }
+func (me *sqlStmt) GreaterOrEqual(other q.Operand) q.Query { panic("not a `q.Operand`") }
+func (me *sqlStmt) In(set ...q.Operand) q.Query            { panic("not a `q.Operand`") }
+func (me *sqlStmt) NotIn(set ...q.Operand) q.Query         { panic("not a `q.Operand`") }
 
 func (me *sqlStmt) delete(from string) *sqlStmt {
 	w := (*str.Buf)(me).WriteString

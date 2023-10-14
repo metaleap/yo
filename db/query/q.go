@@ -42,7 +42,7 @@ func (me F) Eval(obj any, _ func(C) F) reflect.Value {
 
 type V[T any] struct{ Value T }
 
-func Lit[T any](value T) V[T]                      { return V[T]{Value: value} }
+func L[T any](value T) Operand                     { return V[T]{Value: value} }
 func (me V[T]) Equal(other Operand) Query          { return Equal(me, other) }
 func (me V[T]) NotEqual(other Operand) Query       { return NotEqual(me, other) }
 func (me V[T]) LessThan(other Operand) Query       { return LessThan(me, other) }
@@ -57,11 +57,36 @@ func (me V[T]) NotIn(set ...Operand) Query {
 }
 func (me V[T]) Eval(any, func(C) F) reflect.Value { return reflect.ValueOf(me.Value) }
 
-type A[T Operand] struct{ It T }
+type fn string
 
-func (me A[T]) Equals(x Operand) Query     { return Equal(me.It, x) }
-func (me A[T]) In(set ...Operand) Query    { return In(me.It, set...) }
-func (me A[T]) NotIn(set ...Operand) Query { return NotIn(me.It, set...) }
+const (
+	FnStrLen fn = "octet_length"
+)
+
+type fun struct {
+	Fn   fn
+	Args []Operand
+}
+
+func Fn(f fn, args ...Operand) Operand {
+	return &fun{Fn: f, Args: args}
+}
+func (me *fun) Equal(other Operand) Query          { return Equal(me, other) }
+func (me *fun) NotEqual(other Operand) Query       { return NotEqual(me, other) }
+func (me *fun) LessThan(other Operand) Query       { return LessThan(me, other) }
+func (me *fun) GreaterThan(other Operand) Query    { return GreaterThan(me, other) }
+func (me *fun) LessOrEqual(other Operand) Query    { return LessOrEqual(me, other) }
+func (me *fun) GreaterOrEqual(other Operand) Query { return GreaterOrEqual(me, other) }
+func (me *fun) In(set ...Operand) Query            { return In(me, set...) }
+func (me *fun) NotIn(set ...Operand) Query         { return NotIn(me, set...) }
+func (me *fun) Eval(obj any, c2f func(C) F) reflect.Value {
+	switch me.Fn {
+	case FnStrLen:
+		return reflect.ValueOf(len(me.Args[0].Eval(obj, c2f).Interface().(string)))
+	default:
+		panic(me.Fn)
+	}
+}
 
 type OrderBy interface {
 	Col() C
@@ -153,6 +178,14 @@ func q() *query {
 
 type Operand interface {
 	Eval(any, func(C) F) reflect.Value
+	Equal(other Operand) Query
+	NotEqual(other Operand) Query
+	LessThan(other Operand) Query
+	GreaterThan(other Operand) Query
+	LessOrEqual(other Operand) Query
+	GreaterOrEqual(other Operand) Query
+	In(set ...Operand) Query
+	NotIn(set ...Operand) Query
 }
 
 type query struct {
@@ -176,9 +209,20 @@ func (me *query) String(fld2col func(F) C, args pgx.NamedArgs) string {
 }
 
 func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
-	do_arg := func(operand any) {
+	var do_arg func(operand Operand)
+	do_arg = func(operand Operand) {
 		if sub_stmt, _ := operand.(interface{ Sql(*str.Buf) }); sub_stmt != nil {
 			sub_stmt.Sql(buf)
+		} else if fn, _ := operand.(*fun); fn != nil {
+			buf.WriteString(string(fn.Fn))
+			buf.WriteByte('(')
+			for i, arg := range fn.Args {
+				if i > 0 {
+					buf.WriteByte(',')
+				}
+				do_arg(arg)
+			}
+			buf.WriteByte(')')
 		} else {
 			arg_name := "@A" + str.FromInt(len(args))
 			args[arg_name[1:]] = operand
@@ -240,39 +284,39 @@ func (me *query) Eval(obj any, c2f func(C) F) (failed Query) {
 	case opAnd:
 		_ = sl.All(me.conds, func(it Query) bool {
 			maybe_failed := it.Eval(obj, c2f)
-			failed = If((maybe_failed == nil), failed, maybe_failed)
+			failed = If[Query]((maybe_failed == nil), failed, maybe_failed)
 			return (maybe_failed == nil)
 		})
 	case opOr:
 		if sl.Any(me.conds, func(it Query) bool {
 			maybe_failed := it.Eval(obj, c2f)
-			failed = If((maybe_failed == nil), failed, maybe_failed)
+			failed = If[Query]((maybe_failed == nil), failed, maybe_failed)
 			return (maybe_failed == nil)
 		}) {
 			failed = nil
 		}
 	case opNot:
-		return If((me.conds[0].Eval(obj, c2f) == nil), me, nil)
+		return If[Query]((me.conds[0].Eval(obj, c2f) == nil), me, nil)
 	case opIn:
 		in_set := sl.Has(sl.Conv(me.operands, func(it Operand) reflect.Value { return it.Eval(obj, c2f) }), me.operands[0].Eval(obj, c2f))
-		return If(in_set, nil, me)
+		return If[Query](in_set, nil, me)
 	case opNotIn:
 		in_set := sl.Has(sl.Conv(me.operands, func(it Operand) reflect.Value { return it.Eval(obj, c2f) }), me.operands[0].Eval(obj, c2f))
-		return If(in_set, me, nil)
+		return If[Query](in_set, me, nil)
 	case opEq:
-		eq := reflect.DeepEqual(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f))
-		return If(eq, nil, me)
+		eq := reflect.DeepEqual(me.operands[0].Eval(obj, c2f).Interface(), me.operands[1].Eval(obj, c2f).Interface())
+		return If[Query](eq, nil, me)
 	case opNeq:
 		eq := reflect.DeepEqual(me.operands[0].Eval(obj, c2f).Interface(), me.operands[1].Eval(obj, c2f).Interface())
-		return If(eq, me, nil)
+		return If[Query](eq, me, nil)
 	case opGt:
-		return If(ReflGt(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f)), nil, me)
+		return If[Query](ReflGt(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f)), nil, me)
 	case opGeq:
-		return If(ReflGe(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f)), nil, me)
+		return If[Query](ReflGe(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f)), nil, me)
 	case opLt:
-		return If(ReflLt(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f)), nil, me)
+		return If[Query](ReflLt(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f)), nil, me)
 	case opLeq:
-		return If(ReflLe(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f)), nil, me)
+		return If[Query](ReflLe(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f)), nil, me)
 	default:
 		panic(me.op)
 	}
