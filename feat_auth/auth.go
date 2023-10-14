@@ -33,27 +33,27 @@ func init() {
 
 func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 	if emailAddr == "" {
-		panic(Err("UserRegisterEmailRequiredButMissing"))
+		panic(ErrAuthRegisterEmailRequiredButMissing)
 	}
 	if !str.IsEmailishEnough(emailAddr) {
-		panic(Err("UserRegisterEmailInvalid"))
+		panic(ErrAuthRegisterEmailInvalid)
 	}
 	if passwordPlain == "" {
-		panic(Err("UserRegisterPasswordRequiredButMissing"))
+		panic(ErrAuthRegisterPasswordRequiredButMissing)
 	}
 	if len(passwordPlain) < 6 {
-		panic(Err("UserRegisterPasswordTooShort"))
+		panic(ErrAuthRegisterPasswordTooShort)
 	}
 	ctx.DbTx()
 	if yodb.Exists[UserAccount](ctx, UserAccountColEmailAddr.Equal(emailAddr)) {
-		panic(Err("UserRegisterEmailAddrAlreadyExists"))
+		panic(ErrAuthRegisterEmailAddrAlreadyExists)
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
 	if (err != nil) || (len(hash) == 0) {
 		if err == bcrypt.ErrPasswordTooLong {
-			panic(Err("UserRegisterPasswordTooLong"))
+			panic(ErrAuthRegisterPasswordTooLong)
 		} else {
-			panic(Err("UserRegisterPasswordInvalid"))
+			panic(ErrAuthRegisterPasswordInvalid)
 		}
 	}
 	return yodb.CreateOne[UserAccount](ctx, &UserAccount{
@@ -94,8 +94,10 @@ func UserVerify(ctx *Ctx, jwtRaw string) *JwtPayload {
 	token, _ := jwt.ParseWithClaims(jwtRaw, &JwtPayload{}, func(token *jwt.Token) (any, error) {
 		return []byte(jwtKey), nil
 	})
-	if payload, is := token.Claims.(*JwtPayload); is && payload.Subject != "" {
-		return payload
+	if (token != nil) && (token.Claims != nil) {
+		if payload, is := token.Claims.(*JwtPayload); is && (payload.Subject != "") {
+			return payload
+		}
 	}
 	return nil
 }

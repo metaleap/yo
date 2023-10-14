@@ -5,12 +5,17 @@ import (
 	util "yo/util"
 )
 
-type apiPkgInfo struct{}
+type apiPkgInfo util.Void
 
 func (apiPkgInfo) PkgName() string { return "yoauth" }
 
 var PkgInfo = apiPkgInfo{}
 
-const ErrAuthLoginBazFail util.Err = "AuthLoginBazFail"
-const ErrAuthLoginFooFail util.Err = "AuthLoginFooFail"
-const ErrAuthLoginBarFail util.Err = "AuthLoginBarFail"
+const ErrAuthRegisterEmailInvalid util.Err = "AuthRegisterEmailInvalid"
+const ErrAuthRegisterEmailAddrAlreadyExists util.Err = "AuthRegisterEmailAddrAlreadyExists"
+const ErrAuthRegisterPasswordRequiredButMissing util.Err = "AuthRegisterPasswordRequiredButMissing"
+const ErrAuthRegisterPasswordTooShort util.Err = "AuthRegisterPasswordTooShort"
+const ErrAuthRegisterPasswordTooLong util.Err = "AuthRegisterPasswordTooLong"
+const ErrAuthRegisterPasswordInvalid util.Err = "AuthRegisterPasswordInvalid"
+const ErrAuthRegisterWhileLoggedIn util.Err = "AuthRegisterWhileLoggedIn"
+const ErrAuthRegisterEmailRequiredButMissing util.Err = "AuthRegisterEmailRequiredButMissing"

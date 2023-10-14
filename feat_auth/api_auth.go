@@ -20,9 +20,9 @@ const (
 
 func init() {
 	Apis(ApiMethods{
-		MethodPathLogin:          Api(apiUserLogin, PkgInfo, "FooFail", "BarFail", "BazFail"),
+		MethodPathLogin:          Api(apiUserLogin, PkgInfo),
 		MethodPathLogout:         Api(apiUserLogout, PkgInfo),
-		MethodPathRegister:       Api(apiUserRegister, PkgInfo),
+		MethodPathRegister:       Api(apiUserRegister, PkgInfo, "WhileLoggedIn", "EmailRequiredButMissing", "EmailInvalid", "EmailAddrAlreadyExists", "PasswordRequiredButMissing", "PasswordTooShort", "PasswordTooLong", "PasswordInvalid"),
 		MethodPathChangePassword: Api(apiChangePassword, PkgInfo),
 	})
 	PreServes = append(PreServes, PreServe{Name: "authCheck", Do: httpCheckAndSet})
@@ -41,7 +41,7 @@ func apiUserRegister(this *ApiCtx[ApiAccountPayload, struct {
 	Id int64
 }]) {
 	if this.Ctx.GetStr(CtxKey) != "" {
-		panic(Err("UserRegisterWhileLoggedIn"))
+		panic(ErrAuthRegisterWhileLoggedIn)
 	}
 	httpSetUser(this.Ctx, "")
 	this.Ret.Id = int64(UserRegister(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain))

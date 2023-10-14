@@ -5,7 +5,7 @@ import (
 	util "yo/util"
 )
 
-type apiPkgInfo struct{}
+type apiPkgInfo util.Void
 
 func (apiPkgInfo) PkgName() string { return "yodb" }
 
