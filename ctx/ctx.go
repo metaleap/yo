@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	yodiag "yo/diag"
@@ -82,7 +83,9 @@ func (me *Ctx) Dispose() {
 		if code := 500; fail != nil {
 			if err, is_app_err := fail.(Err); is_app_err {
 				if IsDevMode && len(me.Http.ApiErrs) > 0 && err != err_timeout && !sl.Has(me.Http.ApiErrs, err) {
-					panic("unexpected/undocumented Err thrown: " + err)
+					os.Stderr.WriteString("\n\nunexpected/undocumented Err thrown: " + string(err) + ", add it to " + str.From(me.Http.ApiErrs) + "\n\n")
+					os.Stderr.Sync()
+					os.Exit(1)
 				}
 				code = err.HttpStatusCode()
 			}
