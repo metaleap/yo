@@ -161,7 +161,9 @@ func UpdateIfSameVersion[T any](ctx *Ctx, newVersion *T, oldVersion *T) {
 
 func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {
 	sql_raw := str.TrimR(stmt.String(), ",")
-	ctx.Timings.Step("dbExec: `" + sql_raw + "`")
+	if ctx.Timings.Step("dbExec:"); IsDevMode {
+		println(sql_raw + "\n\t" + str.From(args))
+	}
 	do_exec := DB.ExecContext
 	if ctx.Db.Tx != nil {
 		do_exec = ctx.Db.Tx.ExecContext
@@ -187,7 +189,9 @@ func doSelect[T any](ctx *Ctx, stmt *sqlStmt, args dbArgs, maxResults int) (ret 
 
 func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbArgs) {
 	sql_raw := stmt.String()
-	ctx.Timings.Step("dbQuery: `" + sql_raw + "`")
+	if ctx.Timings.Step("dbQuery:"); IsDevMode {
+		println(sql_raw + "\n\t" + str.From(args))
+	}
 	do_query := DB.QueryContext
 	if ctx.Db.Tx != nil {
 		do_query = ctx.Db.Tx.QueryContext

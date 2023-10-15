@@ -148,11 +148,11 @@ func setPtr[T any](at uintptr, value T) {
 	*it = value
 }
 
-func (me scanner) Scan(src any) error {
-	if src == nil {
+func (me scanner) Scan(it any) error {
+	if it == nil {
 		return nil
 	}
-	switch it := src.(type) {
+	switch it := it.(type) {
 	case bool:
 		setPtr(me.ptr, it)
 	case float64:

@@ -14,7 +14,7 @@ type TableColumn struct {
 	ColumnName      Text
 	OrdinalPosition U8
 	ColumnDefault   Text
-	IsNullable      Bool
+	IsNullable      Text
 	DataType        Text
 }
 
