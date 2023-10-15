@@ -43,7 +43,6 @@ type ApiMethod interface {
 	KnownErrs() []Err
 	ApiPkgInfo
 	CouldFailWith(...Err) ApiMethod
-	FailsIf(map[Err]q.Query) ApiMethod
 }
 
 type ApiCtx[TIn any, TOut any] struct {
@@ -56,14 +55,14 @@ type ApiPkgInfo interface {
 	PkgName() string
 }
 
-func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo) ApiMethod {
+func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, failIfs ...Fails) ApiMethod {
 	var tmp_in TIn
 	var tmp_out TOut
 	if reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct {
 		panic(str.Fmt("in/out types must be structs, got in:%T, out:%T", tmp_in, tmp_out))
 	}
 	var ret *apiMethod[TIn, TOut]
-	method := apiMethod[TIn, TOut]{PkgInfo: pkgInfo, failIfs: map[Err]q.Query{}, handleFunc: func(ctx *Ctx, in any) any {
+	method := apiMethod[TIn, TOut]{PkgInfo: pkgInfo, failIfs: failIfs, handleFunc: func(ctx *Ctx, in any) any {
 		ctx.Http.ApiErrs = ret
 		var output TOut
 		api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
@@ -74,11 +73,16 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo) ApiM
 	return ret
 }
 
+type Fails struct {
+	Err Err
+	If  q.Query
+}
+
 type apiMethod[TIn any, TOut any] struct {
 	handleFunc apiHandleFunc
 	errsOwn    []Err
 	errsDeps   []string // methodPath refs to other methods
-	failIfs    map[Err]q.Query
+	failIfs    []Fails
 	PkgInfo    ApiPkgInfo
 }
 
@@ -108,9 +112,9 @@ func (*apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
 	return &it, err
 }
 func (me *apiMethod[TIn, TOut]) validatePayload(it any) (q.Query, Err) {
-	for err, rule := range me.failIfs {
-		if failed_condition := rule.Eval(it, nil); failed_condition == nil {
-			return failed_condition, err
+	for _, check := range me.failIfs {
+		if failed_condition := check.If.Eval(it, nil); failed_condition == nil {
+			return failed_condition, check.Err
 		}
 	}
 	return nil, ""
@@ -131,15 +135,6 @@ func (me *apiMethod[TIn, TOut]) CouldFailWith(knownErrs ...Err) ApiMethod {
 	errs_own := sl.Where(knownErrs, func(it Err) bool { return it[0] != ':' })
 	errs_deps := sl.To(sl.Where(knownErrs, func(it Err) bool { return it[0] == ':' }), func(it Err) string { return string(it)[1:] })
 	me.errsOwn, me.errsDeps = sl.With(me.errsOwn, errs_own...), sl.With(me.errsDeps, errs_deps...)
-	return me
-}
-func (me *apiMethod[TIn, TOut]) FailsIf(failsIf map[Err]q.Query) ApiMethod {
-	for err, rule := range failsIf {
-		if me.failIfs[err] != nil {
-			panic("buggy FailIf call: already have a condition for err '" + string(err) + "'")
-		}
-		me.failIfs[err], me.errsOwn = rule, sl.With(me.errsOwn, err)
-	}
 	return me
 }
 

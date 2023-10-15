@@ -26,13 +26,11 @@ func init() {
 	Apis(ApiMethods{
 		MethodPathLogout: Api(apiUserLogout, PkgInfo),
 
-		MethodPathLogin: Api(apiUserLogin, PkgInfo).
-			FailsIf(map[Err]q.Query{
-				"EmailRequiredButMissing":    AuthLoginEmailAddr.StrLen().Equal(q.L(0)),
-				"PasswordRequiredButMissing": AuthLoginPasswordPlain.StrLen().Equal(q.L(0)),
-				"EmailInvalid":               q.Check(str.IsEmailishEnough, AuthLoginEmailAddr).Equal(q.L(false)),
-			}).
-			CouldFailWith("OkButFailedToCreateSignedToken", "EmailInvalid", "AccountDoesNotExist", "WrongPassword"),
+		MethodPathLogin: Api(apiUserLogin, PkgInfo,
+			Fails{Err: "EmailRequiredButMissing", If: AuthLoginEmailAddr.StrLen().Equal(q.L(0))},
+			Fails{Err: "PasswordRequiredButMissing", If: AuthLoginPasswordPlain.StrLen().Equal(q.L(0))},
+			Fails{Err: "EmailInvalid", If: q.Check(str.IsEmailishEnough, AuthLoginEmailAddr).Equal(q.L(false))},
+		).CouldFailWith("OkButFailedToCreateSignedToken", "EmailInvalid", "AccountDoesNotExist", "WrongPassword"),
 
 		MethodPathRegister: Api(apiUserRegister, PkgInfo).
 			CouldFailWith("WhileLoggedIn", "EmailRequiredButMissing", "EmailInvalid", "EmailAddrAlreadyExists", "PasswordRequiredButMissing", "PasswordTooShort", "PasswordTooLong", "PasswordInvalid"),
