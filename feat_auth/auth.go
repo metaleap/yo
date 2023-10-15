@@ -63,15 +63,10 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 }
 
 func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAccount, *jwt.Token) {
-	// if emailAddr == "" {
-	// 	panic(ErrAuthLogin_EmailRequiredButMissing)
+	// if !str.IsEmailishEnough(emailAddr) { // saves a DB hit I guess =)
+	// 	panic(ErrAuthLogin_EmailInvalid)
 	// }
-	if !str.IsEmailishEnough(emailAddr) { // saves a DB hit I guess =)
-		panic(ErrAuthLogin_EmailInvalid)
-	}
-	if passwordPlain == "" {
-		panic(ErrAuthLogin_PasswordRequiredButMissing)
-	}
+
 	user_account := yodb.FindOne[UserAccount](ctx, UserAccountColEmailAddr.Equal(q.L(emailAddr)))
 	if user_account == nil {
 		panic(ErrAuthLogin_AccountDoesNotExist)

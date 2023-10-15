@@ -65,10 +65,16 @@ func (me fn) Of(args ...Operand) Operand { return Fn(me, args...) }
 type fun struct {
 	Fn   fn
 	Args []Operand
+	Alt  func(...any) any
 }
 
 func Fn(f fn, args ...Operand) Operand {
 	return &fun{Fn: f, Args: args}
+}
+func Check[TArg any, TRet any](fn func(TArg) TRet, arg Operand) Operand {
+	ret := Fn("", arg).(*fun)
+	ret.Alt = func(args ...any) any { return fn(args[0].(TArg)) }
+	return ret
 }
 func (me *fun) Equal(other Operand) Query          { return Equal(me, other) }
 func (me *fun) NotEqual(other Operand) Query       { return NotEqual(me, other) }
@@ -79,6 +85,9 @@ func (me *fun) GreaterOrEqual(other Operand) Query { return GreaterOrEqual(me, o
 func (me *fun) In(set ...Operand) Query            { return In(me, set...) }
 func (me *fun) NotIn(set ...Operand) Query         { return NotIn(me, set...) }
 func (me *fun) Eval(obj any, c2f func(C) F) reflect.Value {
+	if me.Alt != nil {
+		return reflect.ValueOf(me.Alt(sl.To(me.Args, func(it Operand) any { return it.Eval(obj, c2f).Interface() })...))
+	}
 	switch me.Fn {
 	case FnStrLen:
 		str := me.Args[0].Eval(obj, c2f).Interface().(string)

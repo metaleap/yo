@@ -6,6 +6,7 @@ import (
 	q "yo/db/query"
 	. "yo/srv"
 	. "yo/util"
+	"yo/util/str"
 
 	yodb "yo/db"
 )
@@ -27,9 +28,11 @@ func init() {
 
 		MethodPathLogin: Api(apiUserLogin, PkgInfo).
 			FailsIf(map[Err]q.Query{
-				"EmailRequiredButMissing": AuthLoginEmailAddr.StrLen().Equal(q.L(0)),
+				"EmailRequiredButMissing":    AuthLoginEmailAddr.StrLen().Equal(q.L(0)),
+				"PasswordRequiredButMissing": AuthLoginPasswordPlain.StrLen().Equal(q.L(0)),
+				"EmailInvalid":               q.Check(str.IsEmailishEnough, AuthLoginEmailAddr).Equal(q.L(false)),
 			}).
-			CouldFailWith("OkButFailedToCreateSignedToken", "EmailInvalid", "PasswordRequiredButMissing", "AccountDoesNotExist", "WrongPassword"),
+			CouldFailWith("OkButFailedToCreateSignedToken", "EmailInvalid", "AccountDoesNotExist", "WrongPassword"),
 
 		MethodPathRegister: Api(apiUserRegister, PkgInfo).
 			CouldFailWith("WhileLoggedIn", "EmailRequiredButMissing", "EmailInvalid", "EmailAddrAlreadyExists", "PasswordRequiredButMissing", "PasswordTooShort", "PasswordTooLong", "PasswordInvalid"),
