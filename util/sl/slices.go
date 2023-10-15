@@ -169,6 +169,14 @@ func With[TSlice ~[]TItem, TItem comparable](slice TSlice, items ...TItem) TSlic
 	return append(slice, items[append_from:]...)
 }
 
+func Ptrs[TSlice ~[]TItem, TItem any](slice TSlice) (ret []*TItem) {
+	ret = make([]*TItem, len(slice))
+	for i := range slice {
+		ret[i] = &slice[i]
+	}
+	return
+}
+
 type Slice[T any] []T
 
 func Of[T any](items ...T) Slice[T] {

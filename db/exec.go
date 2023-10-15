@@ -93,8 +93,8 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 	}
 	desc := desc[T]()
 	args := make(dbArgs, len(recs)*(len(desc.cols)-2))
-	for j, rec := range recs {
-		ForEachField[T](rec, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
+	for j := range recs {
+		ForEachField[T](recs[j], func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
 			if (colName != ColID) && (colName != ColCreated) {
 				args["A"+string(colName)+str.FromInt(j)] = fieldValue
 			}

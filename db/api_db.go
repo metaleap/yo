@@ -115,9 +115,9 @@ func apiCreateOne[TObj any, TFld ~string](this *ApiCtx[TObj, struct {
 }
 
 func apiCreateMany[TObj any, TFld ~string](this *ApiCtx[struct {
-	Items []*TObj
+	Items []TObj
 }, Void]) {
-	CreateMany[TObj](this.Ctx, this.Args.Items...)
+	CreateMany[TObj](this.Ctx, sl.Ptrs(this.Args.Items)...)
 }
 
 func apiDeleteOne[TObj any, TFld ~string](this *ApiCtx[argId, retCount]) {
@@ -130,21 +130,21 @@ func apiDeleteMany[TObj any, TFld ~string](this *ApiCtx[argQuery[TObj, TFld], re
 
 func apiUpdateOne[TObj any, TFld ~string](this *ApiCtx[struct {
 	argId
-	Changes                       *TObj
+	Changes                       TObj
 	IncludingEmptyOrMissingFields bool
 }, retCount]) {
 	if this.Args.Id <= 0 {
 		panic(Err___db_UserAccount_updateOne_ExpectedIdGreater0)
 	}
-	this.Ret.Count = Update[TObj](this.Ctx, this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, ColID.Equal(this.Args.Id))
+	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, ColID.Equal(this.Args.Id))
 }
 
 func apiUpdateMany[TObj any, TFld ~string](this *ApiCtx[struct {
 	argQuery[TObj, TFld]
-	Changes                       *TObj
+	Changes                       TObj
 	IncludingEmptyOrMissingFields bool
 }, retCount]) {
-	this.Ret.Count = Update[TObj](this.Ctx, this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, this.Args.toDbQ())
+	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, this.Args.toDbQ())
 }
 
 type ApiOrderBy[TObj any, TFld ~string] struct {
