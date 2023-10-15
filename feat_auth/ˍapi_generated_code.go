@@ -20,6 +20,7 @@ const ErrAuthChangePassword_NewPasswordRequiredButMissing util.Err = "AuthChange
 const ErrAuthChangePassword_NewPasswordSameAsOld util.Err = "AuthChangePassword_NewPasswordSameAsOld"
 const ErrAuthChangePassword_NewPasswordTooLong util.Err = "AuthChangePassword_NewPasswordTooLong"
 const ErrAuthChangePassword_NewPasswordTooShort util.Err = "AuthChangePassword_NewPasswordTooShort"
+const ErrAuthChangePassword_OldPasswordRequiredButMissing util.Err = "AuthChangePassword_OldPasswordRequiredButMissing"
 const ErrAuthLogin_AccountDoesNotExist util.Err = "AuthLogin_AccountDoesNotExist"
 const ErrAuthLogin_EmailInvalid util.Err = "AuthLogin_EmailInvalid"
 const ErrAuthLogin_EmailRequiredButMissing util.Err = "AuthLogin_EmailRequiredButMissing"

@@ -34,6 +34,7 @@ func (me UserAccountField) GreaterThan(a1 interface{}) q.Query { return ((q.F)(m
 func (me UserAccountField) In(a1 ...interface{}) q.Query       { return ((q.F)(me)).In(a1...) }
 func (me UserAccountField) LessOrEqual(a1 interface{}) q.Query { return ((q.F)(me)).LessOrEqual(a1) }
 func (me UserAccountField) LessThan(a1 interface{}) q.Query    { return ((q.F)(me)).LessThan(a1) }
+func (me UserAccountField) Not() q.Query                       { return ((q.F)(me)).Not() }
 func (me UserAccountField) NotEqual(a1 interface{}) q.Query    { return ((q.F)(me)).NotEqual(a1) }
 func (me UserAccountField) NotIn(a1 ...interface{}) q.Query    { return ((q.F)(me)).NotIn(a1...) }
 func (me UserAccountField) StrLen(a1 ...interface{}) q.Operand { return ((q.F)(me)).StrLen(a1...) }

@@ -37,6 +37,7 @@ func (me C) LessThan(other any) Query        { return LessThan(me, other) }
 func (me C) GreaterThan(other any) Query     { return GreaterThan(me, other) }
 func (me C) LessOrEqual(other any) Query     { return LessOrEqual(me, other) }
 func (me C) GreaterOrEqual(other any) Query  { return GreaterOrEqual(me, other) }
+func (me C) Not() Query                      { return me.Equal(false) }
 func (me C) In(set ...any) Query             { return In(me, set...) }
 func (me C) NotIn(set ...any) Query          { return NotIn(me, set...) }
 func (me C) Asc() OrderBy                    { return &orderBy[C]{col: me} }
@@ -51,6 +52,7 @@ func (me F) LessThan(other any) Query       { return LessThan(me, other) }
 func (me F) GreaterThan(other any) Query    { return GreaterThan(me, other) }
 func (me F) LessOrEqual(other any) Query    { return LessOrEqual(me, other) }
 func (me F) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, other) }
+func (me F) Not() Query                     { return me.Equal(false) }
 func (me F) In(set ...any) Query            { return In(me, set...) }
 func (me F) NotIn(set ...any) Query         { return NotIn(me, set...) }
 func (me F) Asc() OrderBy                   { return &orderBy[F]{fld: me} }
@@ -67,6 +69,7 @@ func (me V) LessThan(other any) Query       { return LessThan(me, other) }
 func (me V) GreaterThan(other any) Query    { return GreaterThan(me, other) }
 func (me V) LessOrEqual(other any) Query    { return LessOrEqual(me, other) }
 func (me V) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, other) }
+func (me V) Not() Query                     { return me.Equal(false) }
 func (me V) In(set ...any) Query            { return In(me, set...) }
 func (me V) NotIn(set ...any) Query         { return NotIn(me, set...) }
 func (me V) Eval(any, func(C) F) any        { return me.Value }
@@ -100,6 +103,7 @@ func (me *fun) LessThan(other any) Query       { return LessThan(me, other) }
 func (me *fun) GreaterThan(other any) Query    { return GreaterThan(me, other) }
 func (me *fun) LessOrEqual(other any) Query    { return LessOrEqual(me, other) }
 func (me *fun) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, other) }
+func (me *fun) Not() Query                     { return me.Equal(false) }
 func (me *fun) In(set ...any) Query            { return In(me, set...) }
 func (me *fun) NotIn(set ...any) Query         { return NotIn(me, set...) }
 func (me *fun) Eval(obj any, c2f func(C) F) any {
@@ -225,6 +229,7 @@ type Operand interface {
 	GreaterThan(other any) Query
 	LessOrEqual(other any) Query
 	GreaterOrEqual(other any) Query
+	Not() Query
 	In(set ...any) Query
 	NotIn(set ...any) Query
 }

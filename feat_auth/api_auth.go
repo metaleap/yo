@@ -23,7 +23,7 @@ const (
 )
 
 var (
-	CheckIsEmailishEnough = q.Via(str.IsEmailishEnough)
+	isEmailishEnough = q.Via(str.IsEmailishEnough)
 )
 
 func init() {
@@ -33,12 +33,12 @@ func init() {
 		MethodPathLogin: Api(apiUserLogin, PkgInfo,
 			Fails{Err: "EmailRequiredButMissing", If: AuthRegisterEmailAddr.Equal("")},
 			Fails{Err: "PasswordRequiredButMissing", If: AuthLoginPasswordPlain.Equal("")},
-			Fails{Err: "EmailInvalid", If: CheckIsEmailishEnough(AuthLoginEmailAddr).Equal(false)},
+			Fails{Err: "EmailInvalid", If: isEmailishEnough(AuthLoginEmailAddr).Not()},
 		).CouldFailWith("OkButFailedToCreateSignedToken", "AccountDoesNotExist", "WrongPassword"),
 
 		MethodPathRegister: Api(apiUserRegister, PkgInfo,
 			Fails{Err: "EmailRequiredButMissing", If: AuthRegisterEmailAddr.Equal("")},
-			Fails{Err: "EmailInvalid", If: CheckIsEmailishEnough(AuthRegisterEmailAddr).Equal(false)},
+			Fails{Err: "EmailInvalid", If: isEmailishEnough(AuthRegisterEmailAddr).Not()},
 			Fails{Err: "PasswordRequiredButMissing", If: AuthRegisterPasswordPlain.Equal("")},
 			Fails{Err: "PasswordTooShort", If: AuthRegisterPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 			Fails{Err: "PasswordTooLong", If: AuthRegisterPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
@@ -46,7 +46,7 @@ func init() {
 
 		MethodPathChangePassword: Api(apiChangePassword, PkgInfo,
 			Fails{Err: "EmailRequiredButMissing", If: AuthChangePasswordEmailAddr.Equal("")},
-			Fails{Err: "EmailInvalid", If: CheckIsEmailishEnough(AuthChangePasswordEmailAddr).Equal(false)},
+			Fails{Err: "EmailInvalid", If: isEmailishEnough(AuthChangePasswordEmailAddr).Not()},
 			Fails{Err: "OldPasswordRequiredButMissing", If: AuthChangePasswordPasswordPlain.Equal("")},
 			Fails{Err: "NewPasswordRequiredButMissing", If: AuthChangePasswordPasswordNewPlain.Equal("")},
 			Fails{Err: "NewPasswordSameAsOld", If: AuthChangePasswordPasswordNewPlain.Equal(AuthChangePasswordPasswordPlain)},

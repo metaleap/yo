@@ -14,15 +14,16 @@ type sqlStmt str.Buf
 
 func (me *sqlStmt) Sql(buf *str.Buf)                      { buf.WriteString(me.String()) }
 func (me *sqlStmt) String() string                        { return (*str.Buf)(me).String() }
-func (me *sqlStmt) Eval(any, func(q.C) q.F) reflect.Value { panic("not a `q.Operand`") }
-func (me *sqlStmt) Equal(other any) q.Query               { panic("not a `q.Operand`") }
-func (me *sqlStmt) NotEqual(other any) q.Query            { panic("not a `q.Operand`") }
-func (me *sqlStmt) LessThan(other any) q.Query            { panic("not a `q.Operand`") }
-func (me *sqlStmt) GreaterThan(other any) q.Query         { panic("not a `q.Operand`") }
-func (me *sqlStmt) LessOrEqual(other any) q.Query         { panic("not a `q.Operand`") }
-func (me *sqlStmt) GreaterOrEqual(other any) q.Query      { panic("not a `q.Operand`") }
-func (me *sqlStmt) In(set ...any) q.Query                 { panic("not a `q.Operand`") }
-func (me *sqlStmt) NotIn(set ...any) q.Query              { panic("not a `q.Operand`") }
+func (me *sqlStmt) Eval(any, func(q.C) q.F) reflect.Value { panic("*sqlStmt isn't a full `q.Operand`") }
+func (me *sqlStmt) Equal(other any) q.Query               { panic("*sqlStmt isn't a full `q.Operand`") }
+func (me *sqlStmt) NotEqual(other any) q.Query            { panic("*sqlStmt isn't a full `q.Operand`") }
+func (me *sqlStmt) LessThan(other any) q.Query            { panic("*sqlStmt isn't a full `q.Operand`") }
+func (me *sqlStmt) GreaterThan(other any) q.Query         { panic("*sqlStmt isn't a full `q.Operand`") }
+func (me *sqlStmt) LessOrEqual(other any) q.Query         { panic("*sqlStmt isn't a full `q.Operand`") }
+func (me *sqlStmt) GreaterOrEqual(other any) q.Query      { panic("*sqlStmt isn't a full `q.Operand`") }
+func (me *sqlStmt) Not() q.Query                          { panic("*sqlStmt isn't a full `q.Operand`") }
+func (me *sqlStmt) In(set ...any) q.Query                 { panic("*sqlStmt isn't a full `q.Operand`") }
+func (me *sqlStmt) NotIn(set ...any) q.Query              { panic("*sqlStmt isn't a full `q.Operand`") }
 
 func (me *sqlStmt) delete(from string) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
