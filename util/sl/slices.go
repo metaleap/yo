@@ -112,7 +112,7 @@ func HasAllOf[TSl ~[]TEl, TEl comparable](slice TSl, of ...TEl) bool {
 	return true
 }
 
-func Conv[TSl ~[]TEl, TEl any, TOut any](slice TSl, f func(TEl) TOut) (ret []TOut) {
+func To[TSl ~[]TEl, TEl any, TOut any](slice TSl, f func(TEl) TOut) (ret []TOut) {
 	ret = make([]TOut, len(slice))
 	for i := range slice {
 		ret[i] = f(slice[i])
@@ -155,4 +155,18 @@ func Where[TSl ~[]TEl, TEl any](slice TSl, pred func(TEl) bool) (ret TSl) {
 		}
 	}
 	return
+}
+
+type Slice[T any] []T
+
+func Of[T any](items ...T) Slice[T] {
+	return items
+}
+
+func (me Slice[T]) Any(pred func(T) bool) bool       { return Any(me, pred) }
+func (me Slice[T]) All(pred func(T) bool) bool       { return All(me, pred) }
+func (me Slice[T]) Idx(pred func(T) bool) int        { return IdxWhere(me, pred) }
+func (me Slice[T]) Where(pred func(T) bool) Slice[T] { return Where(me, pred) }
+func (me Slice[T]) Without(pred func(T) bool) Slice[T] {
+	return Where(me, func(it T) bool { return !pred(it) })
 }

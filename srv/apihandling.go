@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	. "yo/ctx"
+	q "yo/db/query"
 	yojson "yo/json"
 	. "yo/util"
 	"yo/util/sl"
@@ -36,10 +37,12 @@ type apiHandleFunc func(*Ctx, any) any
 type ApiMethod interface {
 	init(string)
 	handler() apiHandleFunc
-	KnownErrs() []Err
 	loadPayload(data []byte) (any, error)
 	reflTypes() (reflect.Type, reflect.Type)
+	KnownErrs() []Err
 	ApiPkgInfo
+	WithKnownErrs(...Err) ApiMethod
+	Ensuring(rules ...q.Query) ApiMethod
 }
 
 type ApiCtx[TIn any, TOut any] struct {
@@ -52,7 +55,7 @@ type ApiPkgInfo interface {
 	PkgName() string
 }
 
-func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, knownErrs ...Err) ApiMethod {
+func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo) ApiMethod {
 	var tmp_in TIn
 	var tmp_out TOut
 	if reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct {
@@ -60,9 +63,7 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, know
 	}
 	var ret *apiMethod[TIn, TOut]
 	method := apiMethod[TIn, TOut]{
-		PkgInfo:  pkgInfo,
-		errsOwn:  sl.Where(knownErrs, func(it Err) bool { return it[0] != ':' }),
-		errsDeps: sl.Conv(sl.Where(knownErrs, func(it Err) bool { return it[0] == ':' }), func(it Err) string { return string(it)[1:] }),
+		PkgInfo: pkgInfo,
 		handleFunc: func(ctx *Ctx, in any) any {
 			ctx.Http.ApiErrs = ret
 			var output TOut
@@ -78,6 +79,7 @@ type apiMethod[TIn any, TOut any] struct {
 	handleFunc apiHandleFunc
 	errsOwn    []Err
 	errsDeps   []string // methodPath refs to other methods
+	inputRules []q.Query
 	PkgInfo    ApiPkgInfo
 }
 
@@ -94,7 +96,7 @@ func (me *apiMethod[TIn, TOut]) KnownErrs() (ret []Err) {
 		if method := api[err_dep]; method != nil {
 			ret = append(ret, api[err_dep].KnownErrs()...)
 		} else {
-			ret = append(ret, sl.Conv(KnownErrSets[err_dep], func(it Err) Err { return Err(err_dep+"_") + it })...)
+			ret = append(ret, sl.To(KnownErrSets[err_dep], func(it Err) Err { return Err(err_dep+"_") + it })...)
 		}
 	}
 	return
@@ -117,6 +119,16 @@ func (me *apiMethod[TIn, TOut]) init(methodPath string) {
 	for i, err := range me.errsOwn {
 		me.errsOwn[i] = err_name_prefix + err
 	}
+}
+func (me *apiMethod[TIn, TOut]) WithKnownErrs(knownErrs ...Err) ApiMethod {
+	errs_own := sl.Where(knownErrs, func(it Err) bool { return it[0] != ':' })
+	errs_deps := sl.To(sl.Where(knownErrs, func(it Err) bool { return it[0] == ':' }), func(it Err) string { return string(it)[1:] })
+	me.errsOwn, me.errsDeps = append(me.errsOwn, errs_own...), append(me.errsDeps, errs_deps...)
+	return me
+}
+func (me *apiMethod[TIn, TOut]) Ensuring(rules ...q.Query) ApiMethod {
+	me.inputRules = append(me.inputRules, rules...)
+	return me
 }
 
 func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {

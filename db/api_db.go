@@ -22,7 +22,7 @@ func init() {
 		Err("ExpectedOnlyEitherQueryOrQueryFromButNotBoth"),
 		Err("ExpectedSetOperandFor" + opIn),
 		Err("ExpectedOneOrNoneButNotMultipleOfFldOrStrOrBoolOrInt"),
-	}, sl.Conv([]string{opAnd, opOr, opNot, opIn, opEq, opNe, opGt, opGe, opLt, opLe}, func(it string) Err {
+	}, sl.To([]string{opAnd, opOr, opNot, opIn, opEq, opNe, opGt, opGe, opLt, opLe}, func(it string) Err {
 		return Err(errBinOpPrefix + it)
 	})...)
 	KnownErrSets[ErrSetDbDelete] = []Err{"ExpectedQueryForDelete"}
@@ -42,16 +42,16 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 	type_name := desc.ty.Name()
 
 	Apis(ApiMethods{
-		"__/db/" + type_name + "/findById":   Api(apiFindById[TObj, TFld], PkgInfo),
-		"__/db/" + type_name + "/findOne":    Api(apiFindOne[TObj, TFld], PkgInfo, ":"+ErrSetQuery),
-		"__/db/" + type_name + "/findMany":   Api(apiFindMany[TObj, TFld], PkgInfo, ":"+ErrSetQuery),
 		"__/db/" + type_name + "/createOne":  Api(apiCreateOne[TObj, TFld], PkgInfo),
 		"__/db/" + type_name + "/createMany": Api(apiCreateMany[TObj, TFld], PkgInfo),
-		"__/db/" + type_name + "/deleteOne":  Api(apiDeleteOne[TObj, TFld], PkgInfo, ":"+ErrSetDbDelete),
-		"__/db/" + type_name + "/deleteMany": Api(apiDeleteMany[TObj, TFld], PkgInfo, ":"+ErrSetQuery, ":"+ErrSetDbDelete),
-		"__/db/" + type_name + "/updateOne":  Api(apiUpdateOne[TObj, TFld], PkgInfo, ":"+ErrSetDbUpdate, "ExpectedIdGreater0"),
-		"__/db/" + type_name + "/updateMany": Api(apiUpdateMany[TObj, TFld], PkgInfo, ":"+ErrSetQuery, ":"+ErrSetDbUpdate),
-		"__/db/" + type_name + "/count":      Api(apiCount[TObj, TFld], PkgInfo, ":"+ErrSetQuery),
+		"__/db/" + type_name + "/count":      Api(apiCount[TObj, TFld], PkgInfo).WithKnownErrs(":" + ErrSetQuery),
+		"__/db/" + type_name + "/findById":   Api(apiFindById[TObj, TFld], PkgInfo),
+		"__/db/" + type_name + "/findOne":    Api(apiFindOne[TObj, TFld], PkgInfo).WithKnownErrs(":" + ErrSetQuery),
+		"__/db/" + type_name + "/findMany":   Api(apiFindMany[TObj, TFld], PkgInfo).WithKnownErrs(":" + ErrSetQuery),
+		"__/db/" + type_name + "/deleteOne":  Api(apiDeleteOne[TObj, TFld], PkgInfo).WithKnownErrs(":" + ErrSetDbDelete),
+		"__/db/" + type_name + "/deleteMany": Api(apiDeleteMany[TObj, TFld], PkgInfo).WithKnownErrs(":"+ErrSetQuery, ":"+ErrSetDbDelete),
+		"__/db/" + type_name + "/updateOne":  Api(apiUpdateOne[TObj, TFld], PkgInfo).WithKnownErrs(":"+ErrSetDbUpdate, "ExpectedIdGreater0"),
+		"__/db/" + type_name + "/updateMany": Api(apiUpdateMany[TObj, TFld], PkgInfo).WithKnownErrs(":"+ErrSetQuery, ":"+ErrSetDbUpdate),
 	})
 }
 
@@ -78,7 +78,7 @@ func (me *argQuery[TObj, TFld]) toDbQ() q.Query {
 	return me.Query.toDbQ()
 }
 func (me *argQuery[TObj, TFld]) toDbO() []q.OrderBy {
-	return sl.Conv(me.OrderBy, func(it *ApiOrderBy[TObj, TFld]) q.OrderBy {
+	return sl.To(me.OrderBy, func(it *ApiOrderBy[TObj, TFld]) q.OrderBy {
 		fld := q.F(it.Fld)
 		return If(it.Desc, fld.Desc(), fld.Asc())
 	})
@@ -214,13 +214,13 @@ func (me *ApiQueryExpr[TObj, TFld]) Validate() {
 func (me *ApiQueryExpr[TObj, TFld]) toDbQ() q.Query {
 	switch {
 	case len(me.AND) >= 2:
-		return q.AllTrue(sl.Conv(me.AND, func(it ApiQueryExpr[TObj, TFld]) q.Query { return it.toDbQ() })...)
+		return q.AllTrue(sl.To(me.AND, func(it ApiQueryExpr[TObj, TFld]) q.Query { return it.toDbQ() })...)
 	case len(me.OR) >= 2:
-		return q.EitherOr(sl.Conv(me.OR, func(it ApiQueryExpr[TObj, TFld]) q.Query { return it.toDbQ() })...)
+		return q.EitherOr(sl.To(me.OR, func(it ApiQueryExpr[TObj, TFld]) q.Query { return it.toDbQ() })...)
 	case me.NOT != nil:
 		return q.Not(me.NOT.toDbQ())
 	case len(me.IN) >= 2:
-		return q.In(q.L(me.IN[0].val()), sl.Conv(me.IN[1:], func(it ApiQueryVal[TObj, TFld]) q.Operand { return q.L(it.val()) })...)
+		return q.In(q.L(me.IN[0].val()), sl.To(me.IN[1:], func(it ApiQueryVal[TObj, TFld]) q.Operand { return q.L(it.val()) })...)
 	}
 	for bin_op, q_f := range map[*[]ApiQueryVal[TObj, TFld]]func(q.Operand, q.Operand) q.Query{&me.EQ: q.Equal, &me.NE: q.NotEqual, &me.LT: q.LessThan, &me.LE: q.LessOrEqual, &me.GT: q.GreaterThan, &me.GE: q.GreaterOrEqual} {
 		if bin_op := *bin_op; len(bin_op) == 2 {

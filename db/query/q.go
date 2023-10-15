@@ -49,13 +49,9 @@ func (me V[T]) LessThan(other Operand) Query       { return LessThan(me, other) 
 func (me V[T]) GreaterThan(other Operand) Query    { return GreaterThan(me, other) }
 func (me V[T]) LessOrEqual(other Operand) Query    { return LessOrEqual(me, other) }
 func (me V[T]) GreaterOrEqual(other Operand) Query { return GreaterOrEqual(me, other) }
-func (me V[T]) In(set ...Operand) Query {
-	return In(me, sl.Conv(set, func(it Operand) Operand { return it })...)
-}
-func (me V[T]) NotIn(set ...Operand) Query {
-	return NotIn(me, sl.Conv(set, func(it Operand) Operand { return it })...)
-}
-func (me V[T]) Eval(any, func(C) F) reflect.Value { return reflect.ValueOf(me.Value) }
+func (me V[T]) In(set ...Operand) Query            { return In(me, set...) }
+func (me V[T]) NotIn(set ...Operand) Query         { return NotIn(me, set...) }
+func (me V[T]) Eval(any, func(C) F) reflect.Value  { return reflect.ValueOf(me.Value) }
 
 type fn string
 
@@ -298,10 +294,10 @@ func (me *query) Eval(obj any, c2f func(C) F) (failed Query) {
 	case opNot:
 		return If[Query]((me.conds[0].Eval(obj, c2f) == nil), me, nil)
 	case opIn:
-		in_set := sl.Has(sl.Conv(me.operands, func(it Operand) reflect.Value { return it.Eval(obj, c2f) }), me.operands[0].Eval(obj, c2f))
+		in_set := sl.Has(sl.To(me.operands, func(it Operand) reflect.Value { return it.Eval(obj, c2f) }), me.operands[0].Eval(obj, c2f))
 		return If[Query](in_set, nil, me)
 	case opNotIn:
-		in_set := sl.Has(sl.Conv(me.operands, func(it Operand) reflect.Value { return it.Eval(obj, c2f) }), me.operands[0].Eval(obj, c2f))
+		in_set := sl.Has(sl.To(me.operands, func(it Operand) reflect.Value { return it.Eval(obj, c2f) }), me.operands[0].Eval(obj, c2f))
 		return If[Query](in_set, me, nil)
 	case opEq:
 		eq := reflect.DeepEqual(me.operands[0].Eval(obj, c2f).Interface(), me.operands[1].Eval(obj, c2f).Interface())

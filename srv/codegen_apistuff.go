@@ -212,7 +212,7 @@ func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiRefl, method *apiReflMethod) {
 		"out_type_ident": codegenTsSdkTypeName(apiRefl, method.Out),
 		"method_path":    method.Path,
 		"enum_type_name": ts_enum_type_name,
-		"known_errs":     "['" + str.Join(sl.Conv(method_errs, Err.String), "', '") + "']",
+		"known_errs":     "['" + str.Join(sl.To(method_errs, Err.String), "', '") + "']",
 	}
 
 	buf.WriteString(str.Repl(`

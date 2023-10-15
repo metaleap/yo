@@ -3,6 +3,7 @@ package yoauth
 import (
 	. "yo/cfg"
 	. "yo/ctx"
+	q "yo/db/query"
 	. "yo/srv"
 	. "yo/util"
 
@@ -22,10 +23,16 @@ const (
 
 func init() {
 	Apis(ApiMethods{
-		MethodPathLogin:          Api(apiUserLogin, PkgInfo, "OkButFailedToCreateSignedToken", "EmailRequiredButMissing", "EmailInvalid", "PasswordRequiredButMissing", "AccountDoesNotExist", "WrongPassword"),
-		MethodPathLogout:         Api(apiUserLogout, PkgInfo),
-		MethodPathRegister:       Api(apiUserRegister, PkgInfo, "WhileLoggedIn", "EmailRequiredButMissing", "EmailInvalid", "EmailAddrAlreadyExists", "PasswordRequiredButMissing", "PasswordTooShort", "PasswordTooLong", "PasswordInvalid"),
-		MethodPathChangePassword: Api(apiChangePassword, PkgInfo, ":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "Forbidden", "NewPasswordRequiredButMissing", "NewPasswordTooShort", "NewPasswordSameAsOld", "NewPasswordTooLong", "NewPasswordInvalid", "ChangesNotStored"),
+		MethodPathLogout: Api(apiUserLogout, PkgInfo),
+		MethodPathLogin: Api(apiUserLogin, PkgInfo).
+			Ensuring(
+				q.Fn(q.FnStrLen, q.F("EmailAddr")).GreaterThan(q.L(0)),
+			).
+			WithKnownErrs("OkButFailedToCreateSignedToken", "EmailRequiredButMissing", "EmailInvalid", "PasswordRequiredButMissing", "AccountDoesNotExist", "WrongPassword"),
+		MethodPathRegister: Api(apiUserRegister, PkgInfo).
+			WithKnownErrs("WhileLoggedIn", "EmailRequiredButMissing", "EmailInvalid", "EmailAddrAlreadyExists", "PasswordRequiredButMissing", "PasswordTooShort", "PasswordTooLong", "PasswordInvalid"),
+		MethodPathChangePassword: Api(apiChangePassword, PkgInfo).
+			WithKnownErrs(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "Forbidden", "NewPasswordRequiredButMissing", "NewPasswordTooShort", "NewPasswordSameAsOld", "NewPasswordTooLong", "NewPasswordInvalid", "ChangesNotStored"),
 	})
 	PreServes = append(PreServes, PreServe{Name: "authCheck", Do: func(ctx *Ctx) {
 		httpSetUser(ctx, ctx.HttpGetCookie(HttpJwtCookieName))
