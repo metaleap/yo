@@ -62,7 +62,7 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, fail
 		panic(str.Fmt("in/out types must be structs, got in:%T, out:%T", tmp_in, tmp_out))
 	}
 	var ret *apiMethod[TIn, TOut]
-	method := apiMethod[TIn, TOut]{PkgInfo: pkgInfo, failIfs: failIfs, handleFunc: func(ctx *Ctx, in any) any {
+	method := apiMethod[TIn, TOut]{PkgInfo: pkgInfo, handleFunc: func(ctx *Ctx, in any) any {
 		ctx.Http.ApiErrs = ret
 		var output TOut
 		api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
@@ -70,6 +70,13 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, fail
 		return api_ctx.Ret
 	}}
 	ret = &method
+	for _, fail := range failIfs {
+		ret.errsOwn = sl.With(ret.errsOwn, fail.Err)
+		if sl.IdxWhere(ret.failIfs, func(it Fails) bool { return (it.Err == fail.Err) }) > 0 {
+			panic("duplicate Err '" + string(fail.Err) + "' in `failIfs`")
+		}
+		ret.failIfs = append(ret.failIfs, fail)
+	}
 	return ret
 }
 

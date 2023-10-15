@@ -30,7 +30,7 @@ func init() {
 			Fails{Err: "EmailRequiredButMissing", If: AuthLoginEmailAddr.StrLen().Equal(q.L(0))},
 			Fails{Err: "PasswordRequiredButMissing", If: AuthLoginPasswordPlain.StrLen().Equal(q.L(0))},
 			Fails{Err: "EmailInvalid", If: q.Check(str.IsEmailishEnough, AuthLoginEmailAddr).Equal(q.L(false))},
-		).CouldFailWith("OkButFailedToCreateSignedToken", "EmailInvalid", "AccountDoesNotExist", "WrongPassword"),
+		).CouldFailWith("OkButFailedToCreateSignedToken", "AccountDoesNotExist", "WrongPassword"),
 
 		MethodPathRegister: Api(apiUserRegister, PkgInfo).
 			CouldFailWith("WhileLoggedIn", "EmailRequiredButMissing", "EmailInvalid", "EmailAddrAlreadyExists", "PasswordRequiredButMissing", "PasswordTooShort", "PasswordTooLong", "PasswordInvalid"),
