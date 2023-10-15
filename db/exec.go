@@ -168,7 +168,6 @@ func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {
 	if ctx.Db.Tx != nil {
 		do_exec = ctx.Db.Tx.ExecContext
 	}
-	println(sql_raw)
 	dbArgsCleanUpForPgx(args)
 	result, err := do_exec(ctx, sql_raw, args)
 	if err != nil {

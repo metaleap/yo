@@ -248,22 +248,17 @@ func (me *query) String(fld2col func(F) C, args pgx.NamedArgs) string {
 func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 	var do_arg func(operand Operand)
 	do_arg = func(operand Operand) {
-		idx := str.FromInt(len(args))
 		if sub_stmt, _ := operand.(interface{ Sql(*str.Buf) }); sub_stmt != nil {
-			println(idx, "STMT")
 			sub_stmt.Sql(buf)
 		} else if col_name, is := operand.(C); is {
-			println(idx, "COL")
 			buf.WriteString(string(col_name))
 		} else if fld_name, is := operand.(F); is {
-			println(idx, "FLD")
 			buf.WriteString(string(fld2col(fld_name)))
 		} else if v, is := operand.(V); is {
 			arg_name := "@A" + str.FromInt(len(args))
 			args[arg_name[1:]] = v.Value
 			buf.WriteString(arg_name)
 		} else if fn, _ := operand.(*fun); fn != nil {
-			println(idx, "FUN")
 			buf.WriteString(string(fn.Fn))
 			buf.WriteByte('(')
 			for i, arg := range fn.Args {
