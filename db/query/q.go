@@ -87,10 +87,12 @@ type fun struct {
 func Fn(f fn, args ...any) Operand {
 	return &fun{Fn: f, Args: operandsFrom(args...)}
 }
-func Via[TArg any, TRet any](fn func(TArg) TRet, arg any) Operand {
-	ret := Fn("", arg).(*fun)
-	ret.Alt = func(args ...any) any { return fn(args[0].(TArg)) }
-	return ret
+func Via[TArg any, TRet any](fn func(TArg) TRet) func(any) Operand {
+	return func(arg any) Operand {
+		ret := Fn("", arg).(*fun)
+		ret.Alt = func(args ...any) any { return fn(args[0].(TArg)) }
+		return ret
+	}
 }
 func (me *fun) Equal(other any) Query          { return Equal(me, other) }
 func (me *fun) NotEqual(other any) Query       { return NotEqual(me, other) }

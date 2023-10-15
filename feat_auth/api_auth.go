@@ -22,6 +22,10 @@ const (
 	MethodPathChangePassword = "authChangePassword"
 )
 
+var (
+	CheckIsEmailishEnough = q.Via(str.IsEmailishEnough)
+)
+
 func init() {
 	Apis(ApiMethods{
 		MethodPathLogout: Api(apiUserLogout, PkgInfo),
@@ -29,12 +33,12 @@ func init() {
 		MethodPathLogin: Api(apiUserLogin, PkgInfo,
 			Fails{Err: "EmailRequiredButMissing", If: AuthRegisterEmailAddr.Equal("")},
 			Fails{Err: "PasswordRequiredButMissing", If: AuthLoginPasswordPlain.Equal("")},
-			Fails{Err: "EmailInvalid", If: q.Via(str.IsEmailishEnough, AuthLoginEmailAddr).Equal(false)},
+			Fails{Err: "EmailInvalid", If: CheckIsEmailishEnough(AuthLoginEmailAddr).Equal(false)},
 		).CouldFailWith("OkButFailedToCreateSignedToken", "AccountDoesNotExist", "WrongPassword"),
 
 		MethodPathRegister: Api(apiUserRegister, PkgInfo,
 			Fails{Err: "EmailRequiredButMissing", If: AuthRegisterEmailAddr.Equal("")},
-			Fails{Err: "EmailInvalid", If: q.Via(str.IsEmailishEnough, AuthRegisterEmailAddr).Equal(false)},
+			Fails{Err: "EmailInvalid", If: CheckIsEmailishEnough(AuthRegisterEmailAddr).Equal(false)},
 			Fails{Err: "PasswordRequiredButMissing", If: AuthRegisterPasswordPlain.Equal("")},
 			Fails{Err: "PasswordTooShort", If: AuthRegisterPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 			Fails{Err: "PasswordTooLong", If: AuthRegisterPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
@@ -42,7 +46,7 @@ func init() {
 
 		MethodPathChangePassword: Api(apiChangePassword, PkgInfo,
 			Fails{Err: "EmailRequiredButMissing", If: AuthChangePasswordEmailAddr.Equal("")},
-			Fails{Err: "EmailInvalid", If: q.Via(str.IsEmailishEnough, AuthChangePasswordEmailAddr).Equal(false)},
+			Fails{Err: "EmailInvalid", If: CheckIsEmailishEnough(AuthChangePasswordEmailAddr).Equal(false)},
 			Fails{Err: "OldPasswordRequiredButMissing", If: AuthChangePasswordPasswordPlain.Equal("")},
 			Fails{Err: "NewPasswordRequiredButMissing", If: AuthChangePasswordPasswordNewPlain.Equal("")},
 			Fails{Err: "NewPasswordSameAsOld", If: AuthChangePasswordPasswordNewPlain.Equal(AuthChangePasswordPasswordPlain)},
