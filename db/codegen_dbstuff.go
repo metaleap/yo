@@ -26,7 +26,7 @@ func init() {
 				pkg_path := desc.ty.PkgPath()
 				by_pkg_path[pkg_path] = append(by_pkg_path[pkg_path], desc)
 			}
-			did_code_gen := false
+			did_code_gen := codeGenQueryFns()
 			for pkg_path, descs := range by_pkg_path {
 				did_code_gen = (codeGenDBStructsFor(pkg_path, descs)) || did_code_gen
 			}
@@ -99,49 +99,11 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 
 		for i, rt_fld := 0, reflect.TypeOf(q.F("")); i < rt_fld.NumMethod(); i++ {
 			if method := rt_fld.Method(i); (method.Name[0] >= 'A') && (method.Name[0] <= 'Z') {
-				// println(">>>>>>>" + method.Name + "<<<<<<<<<")
-				// for j, rtf := 0, method.Func.Type(); j < rtf.NumIn(); j++ {
-				// 	println("\t" + rtf.In(j).Name() + ": " + rtf.In(j).String())
-				// }
-				buf.WriteString("func(me ")
-				buf.WriteString(desc.ty.Name())
-				buf.WriteString("Field) ")
-				buf.WriteString(method.Name)
-				buf.WriteByte('(')
-				for j, rt_fn := 1, method.Func.Type(); j < rt_fn.NumIn(); j++ {
-					buf.WriteByte('a')
-					buf.WriteString(str.FromInt(j))
-					buf.WriteByte(' ')
-					if rt_arg := rt_fn.In(j); (j == (rt_fn.NumIn() - 1)) && rt_fn.IsVariadic() {
-						buf.WriteString("...")
-						buf.WriteString(rt_arg.Elem().String())
-					} else {
-						buf.WriteString(rt_arg.String())
-					}
-					buf.WriteByte(',')
-				}
-				buf.WriteByte(')')
-				buf.WriteByte('(')
-				for j, rt_fn := 0, method.Func.Type(); j < rt_fn.NumOut(); j++ {
-					buf.WriteString(rt_fn.Out(j).String())
-				}
-				buf.WriteByte(')')
-				buf.WriteString("{return ((q.F)(me)).")
-				buf.WriteString(method.Name)
-				buf.WriteByte('(')
-				for j, rt_fn := 1, method.Func.Type(); j < rt_fn.NumIn(); j++ {
-					buf.WriteByte('a')
-					buf.WriteString(str.FromInt(j))
-					if (j == (rt_fn.NumIn() - 1)) && rt_fn.IsVariadic() {
-						buf.WriteString("...")
-					}
-					buf.WriteByte(',')
-				}
-				buf.WriteByte(')')
-				buf.WriteString("}\n")
+				codeGenCloneMethod(&buf, desc, &method)
 			}
 		}
 	}
+
 	raw_src, err := format.Source([]byte(buf.String()))
 	if err != nil {
 		panic(err)
@@ -154,6 +116,49 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 		return true
 	}
 	return false
+}
+
+func codeGenQueryFns() bool {
+	return false
+}
+
+func codeGenCloneMethod(buf *str.Buf, desc *structDesc, method *reflect.Method) {
+	buf.WriteString("func(me ")
+	buf.WriteString(desc.ty.Name())
+	buf.WriteString("Field) ")
+	buf.WriteString(method.Name)
+	buf.WriteByte('(')
+	for j, rt_fn := 1, method.Func.Type(); j < rt_fn.NumIn(); j++ {
+		buf.WriteByte('a')
+		buf.WriteString(str.FromInt(j))
+		buf.WriteByte(' ')
+		if rt_arg := rt_fn.In(j); (j == (rt_fn.NumIn() - 1)) && rt_fn.IsVariadic() {
+			buf.WriteString("...")
+			buf.WriteString(rt_arg.Elem().String())
+		} else {
+			buf.WriteString(rt_arg.String())
+		}
+		buf.WriteByte(',')
+	}
+	buf.WriteByte(')')
+	buf.WriteByte('(')
+	for j, rt_fn := 0, method.Func.Type(); j < rt_fn.NumOut(); j++ {
+		buf.WriteString(rt_fn.Out(j).String())
+	}
+	buf.WriteByte(')')
+	buf.WriteString("{return ((q.F)(me)).")
+	buf.WriteString(method.Name)
+	buf.WriteByte('(')
+	for j, rt_fn := 1, method.Func.Type(); j < rt_fn.NumIn(); j++ {
+		buf.WriteByte('a')
+		buf.WriteString(str.FromInt(j))
+		if (j == (rt_fn.NumIn() - 1)) && rt_fn.IsVariadic() {
+			buf.WriteString("...")
+		}
+		buf.WriteByte(',')
+	}
+	buf.WriteByte(')')
+	buf.WriteString("}\n")
 }
 
 func codeGenWriteEnumDecl(buf *str.Buf, desc *structDesc, name string, goTypeAliasOf string, isForCols bool) {
