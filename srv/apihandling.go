@@ -147,7 +147,7 @@ func (me *apiMethod[TIn, TOut]) validatePayload(it any) (q.Query, Err) {
 	do_check := func(method ApiMethod, check *Fails) (q.Query, Err) {
 		method_name := method.methodNameUp0()
 		err_name_prefix := str.Up0(method_name) + "_"
-		if failed_condition := check.If.Eval(it, nil); failed_condition == nil {
+		if failed_condition := check.If.Not().Eval(it, nil); failed_condition != nil {
 			return failed_condition, Err(err_name_prefix) + check.Err
 		}
 		return nil, ""

@@ -91,7 +91,7 @@ func apiChangePassword(this *ApiCtx[struct {
 	ApiAccountPayload
 	PasswordNewPlain string
 }, Void]) {
-	if user_email_addr := this.Ctx.GetStr(CtxKey); user_email_addr != "" && user_email_addr != this.Args.EmailAddr {
+	if user_email_addr := this.Ctx.GetStr(CtxKey); user_email_addr != this.Args.EmailAddr {
 		panic(ErrAuthChangePassword_Forbidden)
 	}
 	httpSetUser(this.Ctx, "")
