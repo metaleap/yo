@@ -14,7 +14,7 @@ import (
 	"yo/util/str"
 )
 
-const doErrCatchInDevMode = true // gotta toggle occasionally during local debug
+const doErrCatchInDevMode = false // gotta toggle occasionally during local debug
 
 var (
 	ErrTimedOut = Err("TimedOut")
