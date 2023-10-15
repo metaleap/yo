@@ -74,6 +74,11 @@ func (me *sqlStmt) createTable(desc *structDesc) *sqlStmt {
 	return me
 }
 
+var sqlDtAltNames = map[string]Text{
+	"int2": "smallint",
+	"int4": "integer",
+}
+
 func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, renamesOldColToNewField map[q.C]q.F) (ret []*sqlStmt) {
 	if oldTableName == desc.tableName {
 		panic("invalid table rename: " + oldTableName)
@@ -89,7 +94,7 @@ func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, 
 			cols_gone = append(cols_gone, col_name)
 		} else if field, ok := desc.ty.FieldByName(string(desc.fields[sl.IdxWhere(desc.cols, func(it q.C) bool { return (it == col_name) })])); !ok {
 			panic("impossible")
-		} else if sql_type_name := sqlColTypeFrom(field.Type); sql_type_name != string(table_col.DataType) {
+		} else if sql_type_name := sqlColTypeFrom(field.Type); sql_type_name != string(table_col.DataType) && sqlDtAltNames[sql_type_name] != table_col.DataType {
 			col_type_changes = append(col_type_changes, col_name)
 			panic(string(col_name) + "<<<oldDT:" + string(table_col.DataType) + ">>>newDT:" + sql_type_name)
 		}

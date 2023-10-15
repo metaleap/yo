@@ -10,13 +10,15 @@ import (
 	"reflect"
 
 	q "yo/db/query"
+	yolog "yo/log"
 	. "yo/util"
 	"yo/util/str"
 )
 
 func init() {
 	if IsDevMode {
-		codeGenDBStructs = func() {
+		codeGenDBStuff = func() {
+			yolog.Println("codegen (db stuff)...")
 			if !IsDevMode {
 				return
 			}

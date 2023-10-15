@@ -42,7 +42,8 @@ type Ctx struct {
 	Db struct {
 		Tx *sql.Tx
 	}
-	Timings yodiag.Timings
+	Timings    yodiag.Timings
+	DbgNoCatch bool
 }
 
 func newCtx(timeout time.Duration) *Ctx {
@@ -60,6 +61,12 @@ func NewForHttp(req *http.Request, resp http.ResponseWriter, timeout time.Durati
 	return ctx
 }
 
+func NewDebugNoCatch(timeout time.Duration) *Ctx {
+	ctx := newCtx(timeout)
+	ctx.DbgNoCatch = true
+	return ctx
+}
+
 func NewNonHttp(timeout time.Duration) *Ctx {
 	ctx := newCtx(timeout)
 	if DB != nil {
@@ -70,7 +77,7 @@ func NewNonHttp(timeout time.Duration) *Ctx {
 
 func (me *Ctx) Dispose() {
 	var fail any
-	if (!IsDevMode) || doErrCatchInDevMode {
+	if (!IsDevMode) || (doErrCatchInDevMode && !me.DbgNoCatch) {
 		fail = recover()
 	}
 	if err, _ := fail.(error); err == context.DeadlineExceeded {

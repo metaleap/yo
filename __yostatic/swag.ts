@@ -99,7 +99,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         else
             [textarea_response, tree_response] = [textarea, tree]
         if (type_name && type_name !== '') {
-            const dummy_val = newSampleVal(apiRefl, type_name, [], isForPayload ? method_path : undef)
+            const dummy_val = newSampleVal(apiRefl, type_name, [], isForPayload, true, isForPayload ? method_path : undef)
             textarea.value = JSON.stringify(dummy_val, null, 2)
 
             on_textarea_maybe_modified()
@@ -202,7 +202,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 if (!get_val) {
                     const sub_val = fieldInputValue(value[index], is_array)
                     if ((checkbox.checked) && ((sub_val === null) || (sub_val === undef))) {
-                        const new_val = fieldInputValue(newSampleVal(apiRefl, itemTypeName, [], false), is_array || is_checkbox_change || is_opt)
+                        const new_val = fieldInputValue(newSampleVal(apiRefl, itemTypeName, [], false, false), is_array || is_checkbox_change || is_opt)
                         if (new_val === undef)
                             checkbox.checked = false
                         else
@@ -216,7 +216,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                     else if (is_array)
                         value[index] = null
                     else {
-                        const new_val = fieldInputValue(newSampleVal(apiRefl, itemTypeName, [], isForPayload), is_array || is_checkbox_change || is_opt)
+                        const new_val = fieldInputValue(newSampleVal(apiRefl, itemTypeName, [], isForPayload, false), is_array || is_checkbox_change || is_opt)
                         if (new_val === undef)
                             checkbox.checked = false
                         else
@@ -245,7 +245,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 if (refresh_tree)
                     refreshTreeNode(typeName, value, ulTree, isForPayload, path, root)
             }
-            if ((itemTypeName === 'time.Time') && (typeof val === 'string') && (val.length >= 16) && !Number.isNaN(Date.parse(val))) {
+            if (isDtType(itemTypeName) && (typeof val === 'string') && (val.length >= 16) && !Number.isNaN(Date.parse(val))) {
                 field_input = html.input({ 'onchange': on_change, 'type': 'datetime-local', 'readOnly': !isForPayload, 'value': val.substring(0, 16) /* must be YYYY-MM-DDThh:mm */ })
                 get_val = (s: string) => new Date(Date.parse(s)).toISOString()
             } else if (['.int8', '.int16', '.int32', '.int64', '.uint8', '.uint16', '.uint32', '.uint64'].some((_) => (_ === itemTypeName))
@@ -286,7 +286,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                 if (coll) {
                     if (Array.isArray(coll)) {
                         const item_type_name = itemTypeName.substring(1, itemTypeName.length - 1)
-                        coll.push(newSampleVal(apiRefl, item_type_name, [], isForPayload))
+                        coll.push(newSampleVal(apiRefl, item_type_name, [], isForPayload, false))
                     } else {
                         const prompt_text = "keep entering keys until done:", new_map_keys: string[] = []
                         let last_err_msg = ""
@@ -309,7 +309,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                             item_type_name = item_type_name.substring(item_type_name.indexOf(':') + 1)
                             for (const key of new_map_keys)
                                 if (!coll[key])
-                                    coll[key] = newSampleVal(apiRefl, item_type_name, [], isForPayload)
+                                    coll[key] = newSampleVal(apiRefl, item_type_name, [], isForPayload, false)
                         }
                     }
                     refreshTreeNode(typeName, value, ulTree, isForPayload, path, root)
@@ -396,7 +396,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         }
         try {
             time_started = new Date().getTime()
-            const result = await yoReq(method_path, payload)
+            const result = await yoReq(method_path, payload, query_string)
             on_done()
             if (!is_validate_failed)
                 textarea_response.style.backgroundColor = '#c0f0c0'
@@ -460,9 +460,9 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
     }
 }
 
-function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: string[], isForPayload: boolean, methodPath?: string): any {
+function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: string[], isForPayload: boolean, isRootVal: boolean, methodPath?: string): any {
     switch (type_name) {
-        case 'time.Time': return isForPayload ? null : new Date().toISOString()
+        case 'time.Time': case 'yo/db.DateTime': return isForPayload ? null : new Date().toISOString()
         case '.bool': return isForPayload ? false : true
         case '.string': return isForPayload ? "" : "foo bar"
         case '.float32': return isForPayload ? 0.0 : 3.2
@@ -484,6 +484,7 @@ function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: s
         return isForPayload ? "" : `(some ${type_name} enumerant)`
     }
 
+    const is_db_create = methodPath && methodPath.startsWith('__/db/') && (methodPath.endsWith('/createOne') || methodPath.endsWith('/createMany'))
     const type_struc = refl.Types[type_name]
     if (type_struc) {
         const obj = {}
@@ -491,22 +492,22 @@ function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: s
             return null
         for (const field_name in type_struc) {
             const field_type_name = type_struc[field_name]
-            obj[field_name] = newSampleVal(refl, field_type_name, [type_name].concat(recurse_protection), isForPayload, methodPath)
+            obj[field_name] = newSampleVal(refl, field_type_name, [type_name].concat(recurse_protection), isForPayload, isRootVal, methodPath)
         }
-        const filter_dbstruct_fields = (refl.DbStructs.indexOf(type_name) >= 0) && methodPath
-            && methodPath.startsWith('__/db/') && (methodPath.endsWith('/createOne') || methodPath.endsWith('/createMany'))
+        console.log(type_name, refl.DbStructs.indexOf(type_name))
+        const filter_dbstruct_fields = (refl.DbStructs.indexOf(type_name) >= 0) && is_db_create
         if (filter_dbstruct_fields)
-            for (const field_name of ['ID', 'Created'])
+            for (const field_name of ['ID', 'Id', 'Created'])
                 delete obj[field_name]
         return obj
     }
     if (type_name.startsWith('?'))
-        return isForPayload ? null : newSampleVal(refl, type_name.substring(1), recurse_protection, isForPayload, methodPath)
+        return (isForPayload && !isRootVal) ? null : newSampleVal(refl, type_name.substring(1), recurse_protection, isForPayload, isRootVal, methodPath)
     if (type_name.startsWith('[') && type_name.endsWith(']'))
-        return [newSampleVal(refl, type_name.substring(1, type_name.length - 1), recurse_protection, isForPayload, methodPath)]
+        return [newSampleVal(refl, type_name.substring(1, type_name.length - 1), recurse_protection, isForPayload, false, methodPath)]
     if (type_name.startsWith('{') && type_name.endsWith('}') && type_name.includes(':')) {
         const ret = {}, splits = type_name.substring(1, type_name.length - 1).split(':')
-        ret[newSampleVal(refl, splits[0], recurse_protection, isForPayload, methodPath)] = newSampleVal(refl, splits.slice(1).join(':'), recurse_protection, isForPayload, methodPath)
+        ret[newSampleVal(refl, splits[0], recurse_protection, isForPayload, false, methodPath)] = newSampleVal(refl, splits.slice(1).join(':'), recurse_protection, isForPayload, false, methodPath)
         return ret
     }
     return type_name
@@ -708,7 +709,7 @@ function validate(apiRefl: YoReflApis, typeName: string, value: any, path: strin
     if (value === undef)
         return [`${displayPath(path)}: new bug, 'value' being 'undefined'`, undef]
 
-    if (typeName === 'time.Time') {
+    if (isDtType(typeName)) {
         if (!((is_str && value !== '') || (value === null)))
             return [`${displayPath(path)}: must be non-empty string or null`, undef]
         else if (is_str && value && Number.isNaN(Date.parse(value.toString())))
@@ -820,4 +821,7 @@ function numTypeLimits(typeName: string): [number, number] {
         case '.uint64': return [0, 9007199254740991] // JS limits, not i64 limits
     }
     return [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER] // JS limits: +-9007199254740991
+}
+function isDtType(typeName: string): boolean {
+    return (typeName === 'time.Time') || (typeName === 'yo/db.DateTime')
 }

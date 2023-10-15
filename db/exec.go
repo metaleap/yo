@@ -3,6 +3,7 @@ package yodb
 import (
 	"database/sql"
 	"reflect"
+	"time"
 
 	. "yo/ctx"
 	q "yo/db/query"
@@ -241,6 +242,10 @@ func dbArgsCleanUpForPgx(args dbArgs) {
 	for k, v := range args {
 		if b, is := v.(Bytes); is {
 			args[k] = ([]byte)(b)
+		} else if _, is := v.(DateTime); is {
+			panic("non-pointer DateTime")
+		} else if dt, is := v.(*DateTime); is {
+			args[k] = (*time.Time)(dt)
 		}
 	}
 }

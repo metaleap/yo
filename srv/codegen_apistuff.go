@@ -26,13 +26,10 @@ var (
 
 func init() {
 	codegenMaybe = func() {
-		yolog.Println("API codegen...")
-		yolog.Println("  reflect...")
+		yolog.Println("codegen (api stuff)...")
 		api_refl := apiRefl{}
 		apiHandleReflReq(&ApiCtx[Void, apiRefl]{Args: &Void{}, Ret: &api_refl})
-		yolog.Println("  codegen Go...")
 		codegenGo(&api_refl)
-		yolog.Println("  codegen TS...")
 		codegenTsSdk(&api_refl)
 	}
 	enum_pkgs := str.Dict{}
@@ -147,7 +144,6 @@ func codegenTsSdk(apiRefl *apiRefl) {
 	buf := str.Buf{}
 	apiRefl.codeGen.typesUsed, apiRefl.codeGen.typesEmitted, apiRefl.codeGen.strLits = map[string]bool{}, map[string]bool{}, str.Dict{}
 
-	yolog.Println("    generate *.ts...")
 	buf.Write(ReadFile(("../yo/" + sdkGenDstTsFileRelPath)))
 	for _, method := range apiRefl.Methods {
 		codegenTsSdkMethod(&buf, apiRefl, &method)
@@ -178,7 +174,6 @@ func codegenTsSdk(apiRefl *apiRefl) {
 	src_is_changed = (len(data) == 0) || (!bytes.Equal(data, src_to_write))
 	if src_is_changed {
 		foundModifiedTsFiles = true
-		yolog.Println("    writing files...")
 		WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`))
 		WriteFile(sdkGenDstTsFileRelPath, src_to_write)
 	}
@@ -240,7 +235,7 @@ func codegenTsSdkType(buf *str.Buf, apiRefl *apiRefl, typeName string, structFie
 		return false
 	}
 	apiRefl.codeGen.typesEmitted[typeName] = true
-	if typeName == "time.Time" {
+	if (typeName == "time.Time") || (typeName == "yo/db.DateTime") {
 		buf.WriteString(str.Repl("\nexport type {lhs} = {rhs}",
 			str.Dict{"lhs": codegenTsSdkTypeName(apiRefl, typeName), "rhs": codegenTsSdkTypeName(apiRefl, ".string")}))
 	} else if structFields != nil {

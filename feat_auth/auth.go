@@ -19,7 +19,7 @@ type JwtPayload struct {
 
 type UserAccount struct {
 	Id      yodb.I64
-	Created yodb.DateTime
+	Created *yodb.DateTime
 
 	EmailAddr      yodb.Text
 	passwordHashed yodb.Bytes

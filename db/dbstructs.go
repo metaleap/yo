@@ -31,12 +31,7 @@ type U8 uint8
 type F32 float32
 type F64 float64
 type Text string
-type DateTime *time.Time
-
-type Struct struct {
-	Id      I64
-	Created DateTime
-}
+type DateTime time.Time
 
 var (
 	tyBool      = reflect.TypeOf(Bool(false))
@@ -51,7 +46,7 @@ var (
 	tyF32       = reflect.TypeOf(F32(0))
 	tyF64       = reflect.TypeOf(F64(0))
 	tyText      = reflect.TypeOf(Text(""))
-	tyTimestamp = reflect.TypeOf(DateTime(nil))
+	tyTimestamp = reflect.TypeOf(&DateTime{})
 	okTypes     = []reflect.Type{
 		tyBool,
 		tyBytes,
@@ -97,12 +92,12 @@ func desc[T any]() (ret *structDesc) {
 		descs[ty] = ret
 		for i, l := 0, ty.NumField(); i < l; i++ {
 			field := ty.Field(i)
-			col_name := NameFrom(field.Name)
+			col_name := q.C(NameFrom(field.Name))
 			if isColField(field.Type) {
 				if !str.IsPrtAscii(field.Name) {
 					panic("DB-column fields' names should be ASCII")
 				}
-				ret.fields, ret.cols = append(ret.fields, q.F(field.Name)), append(ret.cols, q.C(col_name))
+				ret.fields, ret.cols = append(ret.fields, q.F(field.Name)), append(ret.cols, col_name)
 			}
 		}
 	}
@@ -135,10 +130,22 @@ func reflFieldValue(rvField reflect.Value) any {
 		return *getPtr[Text](addr)
 	case *Bytes:
 		return *getPtr[Bytes](addr)
+	case *I8:
+		return *getPtr[I8](addr)
+	case *I16:
+		return *getPtr[I16](addr)
+	case *I32:
+		return *getPtr[I32](addr)
 	case *I64:
 		return *getPtr[I64](addr)
-	case *DateTime:
-		return *getPtr[DateTime](addr)
+	case *U8:
+		return *getPtr[U8](addr)
+	case *U16:
+		return *getPtr[U16](addr)
+	case *U32:
+		return *getPtr[U32](addr)
+	case **DateTime:
+		return *getPtr[*DateTime](addr)
 	default:
 		panic(str.Fmt("reflFieldValue:%T", val))
 	}
@@ -191,9 +198,8 @@ func (me scanner) Scan(it any) error {
 	case string:
 		setPtr(me.ptr, it)
 	case time.Time:
-		ptr_dt := new(time.Time)
-		*ptr_dt = it
-		setPtr(me.ptr, ptr_dt)
+		dup := (DateTime)(it)
+		setPtr(me.ptr, &dup)
 	default:
 		panic(it)
 	}
@@ -245,10 +251,10 @@ func Q[T any](it *T) q.Query {
 }
 
 func doEnsureDbStructTables() {
-	ctx := yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
-	defer ctx.Dispose()
-
 	for _, desc := range ensureDescs {
+		ctx := yoctx.NewDebugNoCatch(Cfg.DB_REQ_TIMEOUT) // yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
+		defer ctx.Dispose()
+		ctx.DbTx()
 		yolog.Println("db.Mig: " + desc.tableName)
 		is_table_rename := (desc.mig.oldTableName != "")
 		cur_table := GetTable(ctx, If(is_table_rename, desc.mig.oldTableName, desc.tableName))
@@ -264,4 +270,12 @@ func doEnsureDbStructTables() {
 			}
 		}
 	}
+}
+
+func (me *DateTime) UnmarshalJSON(data []byte) error {
+	return ((*time.Time)(me)).UnmarshalJSON(data)
+}
+
+func (me *DateTime) MarshalJSON() ([]byte, error) {
+	return ((*time.Time)(me)).MarshalJSON()
 }
