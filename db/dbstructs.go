@@ -33,6 +33,11 @@ type F64 float64
 type Text string
 type DateTime *time.Time
 
+type Struct struct {
+	Id      I64
+	Created DateTime
+}
+
 var (
 	tyBool      = reflect.TypeOf(Bool(false))
 	tyBytes     = reflect.TypeOf(Bytes(nil))
