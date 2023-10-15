@@ -20,7 +20,7 @@ var Cfg struct {
 	DATABASE_URL            string
 }
 
-func Load() {
+func init() {
 	if IsDevMode {
 		defer func() { // for prolonged debugging/breakpoint staring sessions:
 			Cfg.DB_REQ_TIMEOUT = time.Minute
