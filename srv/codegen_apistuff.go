@@ -30,7 +30,9 @@ func init() {
 		yolog.Println("  reflect...")
 		api_refl := apiRefl{}
 		apiHandleReflReq(&ApiCtx[Void, apiRefl]{Args: &Void{}, Ret: &api_refl})
+		yolog.Println("  codegen Go...")
 		codegenGo(&api_refl)
+		yolog.Println("  codegen TS...")
 		codegenTsSdk(&api_refl)
 	}
 	enum_pkgs := str.Dict{}
@@ -145,7 +147,7 @@ func codegenTsSdk(apiRefl *apiRefl) {
 	buf := str.Buf{}
 	apiRefl.codeGen.typesUsed, apiRefl.codeGen.typesEmitted, apiRefl.codeGen.strLits = map[string]bool{}, map[string]bool{}, str.Dict{}
 
-	yolog.Println("  generate *.ts...")
+	yolog.Println("    generate *.ts...")
 	buf.Write(ReadFile(("../yo/" + sdkGenDstTsFileRelPath)))
 	for _, method := range apiRefl.Methods {
 		codegenTsSdkMethod(&buf, apiRefl, &method)
@@ -176,12 +178,12 @@ func codegenTsSdk(apiRefl *apiRefl) {
 	src_is_changed = (len(data) == 0) || (!bytes.Equal(data, src_to_write))
 	if src_is_changed {
 		foundModifiedTsFiles = true
-		yolog.Println("  writing files...")
+		yolog.Println("    writing files...")
 		WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`))
 		WriteFile(sdkGenDstTsFileRelPath, src_to_write)
 	}
 	if foundModifiedTsFiles {
-		yolog.Println("  2x tsc...")
+		yolog.Println("    2x tsc...")
 		var work sync.WaitGroup
 		work.Add(2)
 		for _, dir_path := range []string{"", "../yo"} {
