@@ -59,6 +59,8 @@ const (
 	FnStrLen fn = "octet_length"
 )
 
+func (me fn) Of(args ...Operand) Operand { return Fn(me, args...) }
+
 type fun struct {
 	Fn   fn
 	Args []Operand

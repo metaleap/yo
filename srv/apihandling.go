@@ -42,7 +42,7 @@ type ApiMethod interface {
 	KnownErrs() []Err
 	ApiPkgInfo
 	WithKnownErrs(...Err) ApiMethod
-	Ensuring(rules ...q.Query) ApiMethod
+	FailIf(rule q.Query, err Err) ApiMethod
 }
 
 type ApiCtx[TIn any, TOut any] struct {
@@ -62,15 +62,13 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo) ApiM
 		panic(str.Fmt("in/out types must be structs, got in:%T, out:%T", tmp_in, tmp_out))
 	}
 	var ret *apiMethod[TIn, TOut]
-	method := apiMethod[TIn, TOut]{
-		PkgInfo: pkgInfo,
-		handleFunc: func(ctx *Ctx, in any) any {
-			ctx.Http.ApiErrs = ret
-			var output TOut
-			api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
-			f(api_ctx)
-			return api_ctx.Ret
-		}}
+	method := apiMethod[TIn, TOut]{PkgInfo: pkgInfo, failIfs: map[Err]q.Query{}, handleFunc: func(ctx *Ctx, in any) any {
+		ctx.Http.ApiErrs = ret
+		var output TOut
+		api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
+		f(api_ctx)
+		return api_ctx.Ret
+	}}
 	ret = &method
 	return ret
 }
@@ -79,7 +77,7 @@ type apiMethod[TIn any, TOut any] struct {
 	handleFunc apiHandleFunc
 	errsOwn    []Err
 	errsDeps   []string // methodPath refs to other methods
-	inputRules []q.Query
+	failIfs    map[Err]q.Query
 	PkgInfo    ApiPkgInfo
 }
 
@@ -126,8 +124,11 @@ func (me *apiMethod[TIn, TOut]) WithKnownErrs(knownErrs ...Err) ApiMethod {
 	me.errsOwn, me.errsDeps = append(me.errsOwn, errs_own...), append(me.errsDeps, errs_deps...)
 	return me
 }
-func (me *apiMethod[TIn, TOut]) Ensuring(rules ...q.Query) ApiMethod {
-	me.inputRules = append(me.inputRules, rules...)
+func (me *apiMethod[TIn, TOut]) FailIf(rule q.Query, err Err) ApiMethod {
+	if me.failIfs[err] != nil {
+		panic("buggy FailIf call: already have a condition for err '" + string(err) + "'")
+	}
+	me.failIfs[err] = rule
 	return me
 }
 

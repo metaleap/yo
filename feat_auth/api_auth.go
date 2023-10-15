@@ -25,9 +25,8 @@ func init() {
 	Apis(ApiMethods{
 		MethodPathLogout: Api(apiUserLogout, PkgInfo),
 		MethodPathLogin: Api(apiUserLogin, PkgInfo).
-			Ensuring(
-				q.Fn(q.FnStrLen, q.F("EmailAddr")).GreaterThan(q.L(0)),
-			).
+			FailIf(q.FnStrLen.Of(q.F("EmailAddr")).Equal(q.L(0)),
+				"EmailRequiredButMissing").
 			WithKnownErrs("OkButFailedToCreateSignedToken", "EmailRequiredButMissing", "EmailInvalid", "PasswordRequiredButMissing", "AccountDoesNotExist", "WrongPassword"),
 		MethodPathRegister: Api(apiUserRegister, PkgInfo).
 			WithKnownErrs("WhileLoggedIn", "EmailRequiredButMissing", "EmailInvalid", "EmailAddrAlreadyExists", "PasswordRequiredButMissing", "PasswordTooShort", "PasswordTooLong", "PasswordInvalid"),
