@@ -13,6 +13,8 @@ import (
 	"yo/util/str"
 )
 
+const QueryArgValidateOnly = "yoValidateOnly"
+
 var (
 	api          = ApiMethods{}
 	KnownErrSets = map[string][]Err{
@@ -180,7 +182,7 @@ func (me *apiMethod[TIn, TOut]) CouldFailWith(knownErrs ...Err) ApiMethod {
 	return me
 }
 
-func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
+func apiHandleRequest(ctx *Ctx) (result any, handled bool) {
 	ctx.Timings.Step("handler lookup")
 	api := api[ctx.Http.UrlPath]
 	if api == nil {
@@ -212,8 +214,12 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	ctx.Timings.Step("validate req")
 	_, err_validation := api.validatePayload(payload)
 	if err_validation != "" {
-		ctx.HttpErr(400, err_validation.Error())
+		ctx.HttpErr(err_validation.HttpStatusCodeOr(400), err_validation.Error())
 		return nil, false
+	}
+
+	if ctx.GetStr(QueryArgValidateOnly) != "" {
+		return nil, true
 	}
 
 	ctx.Timings.Step("HANDLE")

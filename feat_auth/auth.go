@@ -79,7 +79,7 @@ func UserVerify(ctx *Ctx, jwtRaw string) *JwtPayload {
 	return nil
 }
 
-func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, passwordNewPlain string) bool {
+func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, passwordNewPlain string) {
 	ctx.DbTx()
 	user_account, _ := UserLogin(ctx, emailAddr, passwordOldPlain)
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordNewPlain), bcrypt.DefaultCost)
@@ -91,5 +91,7 @@ func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, pas
 		}
 	}
 	user_account.passwordHashed = hash
-	return (yodb.Update[UserAccount](ctx, user_account, false, nil)) > 0
+	if (yodb.Update[UserAccount](ctx, user_account, false, nil)) < 1 {
+		panic(ErrAuthChangePassword_ChangesAcceptedWithNoErrYetNotStored)
+	}
 }

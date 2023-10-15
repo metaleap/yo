@@ -11,10 +11,10 @@ func (apiPkgInfo) PkgName() string { return "yoauth" }
 
 var PkgInfo = apiPkgInfo{}
 
-const ErrAuthChangePassword_ChangesNotStored util.Err = "AuthChangePassword_ChangesNotStored"
+const ErrAuthChangePassword_ChangesAcceptedWithNoErrYetNotStored util.Err = "AuthChangePassword_ChangesAcceptedWithNoErrYetNotStored"
 const ErrAuthChangePassword_Forbidden util.Err = "AuthChangePassword_Forbidden"
+const ErrAuthChangePassword_NewPasswordExpectedToDiffer util.Err = "AuthChangePassword_NewPasswordExpectedToDiffer"
 const ErrAuthChangePassword_NewPasswordInvalid util.Err = "AuthChangePassword_NewPasswordInvalid"
-const ErrAuthChangePassword_NewPasswordSameAsOld util.Err = "AuthChangePassword_NewPasswordSameAsOld"
 const ErrAuthChangePassword_NewPasswordTooLong util.Err = "AuthChangePassword_NewPasswordTooLong"
 const ErrAuthChangePassword_NewPasswordTooShort util.Err = "AuthChangePassword_NewPasswordTooShort"
 const ErrAuthLogin_AccountDoesNotExist util.Err = "AuthLogin_AccountDoesNotExist"

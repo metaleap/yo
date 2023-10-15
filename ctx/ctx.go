@@ -95,7 +95,7 @@ func (me *Ctx) Dispose() {
 						os.Exit(1)
 					}
 				}
-				code = err.HttpStatusCode()
+				code = err.HttpStatusCodeOr(code)
 			}
 			me.HttpErr(code, str.Fmt("%v", fail))
 		}

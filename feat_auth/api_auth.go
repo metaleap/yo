@@ -46,10 +46,10 @@ func init() {
 		).CouldFailWith("EmailAddrAlreadyExists", "PasswordInvalid"),
 
 		MethodPathChangePassword: Api(apiChangePassword, PkgInfo,
-			Fails{Err: "NewPasswordSameAsOld", If: AuthChangePasswordPasswordNewPlain.Equal(AuthChangePasswordPasswordPlain)},
+			Fails{Err: "NewPasswordExpectedToDiffer", If: AuthChangePasswordPasswordNewPlain.Equal(AuthChangePasswordPasswordPlain)},
 			Fails{Err: "NewPasswordTooShort", If: AuthChangePasswordPasswordNewPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 			Fails{Err: "NewPasswordTooLong", If: AuthChangePasswordPasswordNewPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
-		).CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "Forbidden", "NewPasswordInvalid", "ChangesNotStored"),
+		).CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "Forbidden", "NewPasswordInvalid", "ChangesAcceptedWithNoErrYetNotStored"),
 	})
 
 	PreServes = append(PreServes, PreServe{Name: "authCheck", Do: func(ctx *Ctx) {
@@ -95,9 +95,7 @@ func apiChangePassword(this *ApiCtx[struct {
 		panic(ErrAuthChangePassword_Forbidden)
 	}
 	httpSetUser(this.Ctx, "")
-	if !UserChangePassword(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.PasswordNewPlain) {
-		panic(ErrAuthChangePassword_ChangesNotStored)
-	}
+	UserChangePassword(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.PasswordNewPlain)
 }
 
 func httpSetUser(ctx *Ctx, jwtRaw string) {
