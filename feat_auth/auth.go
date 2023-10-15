@@ -80,15 +80,6 @@ func UserVerify(ctx *Ctx, jwtRaw string) *JwtPayload {
 }
 
 func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, passwordNewPlain string) bool {
-	if passwordNewPlain == "" {
-		panic(ErrAuthChangePassword_NewPasswordRequiredButMissing)
-	}
-	if len(passwordNewPlain) < 6 {
-		panic(ErrAuthChangePassword_NewPasswordTooShort)
-	}
-	if passwordNewPlain == passwordOldPlain {
-		panic(ErrAuthChangePassword_NewPasswordSameAsOld)
-	}
 	ctx.DbTx()
 	user_account, _ := UserLogin(ctx, emailAddr, passwordOldPlain)
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordNewPlain), bcrypt.DefaultCost)
