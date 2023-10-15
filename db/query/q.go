@@ -1,6 +1,7 @@
 package q
 
 import (
+	"os"
 	"reflect"
 
 	. "yo/util"
@@ -85,7 +86,7 @@ type fun struct {
 }
 
 func Fn(f fn, args ...any) Operand {
-	return &fun{Fn: f, Args: operandsFrom(args)}
+	return &fun{Fn: f, Args: operandsFrom(args...)}
 }
 func Via[TArg any, TRet any](fn func(TArg) TRet, arg any) Operand {
 	ret := Fn("", arg).(*fun)
@@ -102,6 +103,8 @@ func (me *fun) In(set ...any) Query            { return In(me, set...) }
 func (me *fun) NotIn(set ...any) Query         { return NotIn(me, set...) }
 func (me *fun) Eval(obj any, c2f func(C) F) reflect.Value {
 	if me.Alt != nil {
+		println(str.From(me.Args))
+		os.Exit(1)
 		return reflect.ValueOf(me.Alt(sl.To(me.Args, func(it Operand) any { return it.Eval(obj, c2f).Interface() })...))
 	}
 	switch me.Fn {
@@ -171,9 +174,9 @@ func GreaterThan(lhs any, rhs any) Query {
 func GreaterOrEqual(lhs any, rhs any) Query {
 	return &query{op: opGeq, operands: []Operand{operandFrom(lhs), operandFrom(rhs)}}
 }
-func In(lhs any, rhs ...any) Query { return inNotIn(opIn, operandFrom(lhs), operandsFrom(rhs)...) }
+func In(lhs any, rhs ...any) Query { return inNotIn(opIn, operandFrom(lhs), operandsFrom(rhs...)...) }
 func NotIn(lhs any, rhs ...any) Query {
-	return inNotIn(opNotIn, operandFrom(lhs), operandsFrom(rhs)...)
+	return inNotIn(opNotIn, operandFrom(lhs), operandsFrom(rhs...)...)
 }
 func inNotIn(op string, lhs Operand, rhs ...Operand) Query {
 	if len(rhs) == 0 {
