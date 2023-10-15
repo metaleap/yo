@@ -32,23 +32,20 @@ func init() {
 
 		MethodPathLogin: Api(apiUserLogin, PkgInfo,
 			Fails{Err: "EmailRequiredButMissing", If: AuthRegisterEmailAddr.Equal("")},
-			Fails{Err: "PasswordRequiredButMissing", If: AuthLoginPasswordPlain.Equal("")},
 			Fails{Err: "EmailInvalid", If: isEmailishEnough(AuthLoginEmailAddr).Not()},
-		).CouldFailWith("OkButFailedToCreateSignedToken", "AccountDoesNotExist", "WrongPassword"),
+			Fails{Err: "WrongPassword",
+				If: AuthLoginPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN).Or(
+					AuthLoginPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN))},
+		).CouldFailWith("OkButFailedToCreateSignedToken", "AccountDoesNotExist"),
 
 		MethodPathRegister: Api(apiUserRegister, PkgInfo,
 			Fails{Err: "EmailRequiredButMissing", If: AuthRegisterEmailAddr.Equal("")},
 			Fails{Err: "EmailInvalid", If: isEmailishEnough(AuthRegisterEmailAddr).Not()},
-			Fails{Err: "PasswordRequiredButMissing", If: AuthRegisterPasswordPlain.Equal("")},
 			Fails{Err: "PasswordTooShort", If: AuthRegisterPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 			Fails{Err: "PasswordTooLong", If: AuthRegisterPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
 		).CouldFailWith("EmailAddrAlreadyExists", "PasswordInvalid"),
 
 		MethodPathChangePassword: Api(apiChangePassword, PkgInfo,
-			Fails{Err: "EmailRequiredButMissing", If: AuthChangePasswordEmailAddr.Equal("")},
-			Fails{Err: "EmailInvalid", If: isEmailishEnough(AuthChangePasswordEmailAddr).Not()},
-			Fails{Err: "OldPasswordRequiredButMissing", If: AuthChangePasswordPasswordPlain.Equal("")},
-			Fails{Err: "NewPasswordRequiredButMissing", If: AuthChangePasswordPasswordNewPlain.Equal("")},
 			Fails{Err: "NewPasswordSameAsOld", If: AuthChangePasswordPasswordNewPlain.Equal(AuthChangePasswordPasswordPlain)},
 			Fails{Err: "NewPasswordTooShort", If: AuthChangePasswordPasswordNewPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 			Fails{Err: "NewPasswordTooLong", If: AuthChangePasswordPasswordNewPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},

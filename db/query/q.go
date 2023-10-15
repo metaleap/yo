@@ -150,22 +150,22 @@ const (
 )
 
 func Equal(lhs any, rhs any) Query {
-	return &query{op: opEq, operands: []Operand{operandFrom(lhs), operandFrom(rhs)}}
+	return &query{op: opEq, operands: operandsFrom(lhs, rhs)}
 }
 func NotEqual(lhs any, rhs any) Query {
-	return &query{op: opNeq, operands: []Operand{operandFrom(lhs), operandFrom(rhs)}}
+	return &query{op: opNeq, operands: operandsFrom(lhs, rhs)}
 }
 func LessThan(lhs any, rhs any) Query {
-	return &query{op: opLt, operands: []Operand{operandFrom(lhs), operandFrom(rhs)}}
+	return &query{op: opLt, operands: operandsFrom(lhs, rhs)}
 }
 func LessOrEqual(lhs any, rhs any) Query {
-	return &query{op: opLeq, operands: []Operand{operandFrom(lhs), operandFrom(rhs)}}
+	return &query{op: opLeq, operands: operandsFrom(lhs, rhs)}
 }
 func GreaterThan(lhs any, rhs any) Query {
-	return &query{op: opGt, operands: []Operand{operandFrom(lhs), operandFrom(rhs)}}
+	return &query{op: opGt, operands: operandsFrom(lhs, rhs)}
 }
 func GreaterOrEqual(lhs any, rhs any) Query {
-	return &query{op: opGeq, operands: []Operand{operandFrom(lhs), operandFrom(rhs)}}
+	return &query{op: opGeq, operands: operandsFrom(lhs, rhs)}
 }
 func In(lhs any, rhs ...any) Query { return inNotIn(opIn, operandFrom(lhs), operandsFrom(rhs...)...) }
 func NotIn(lhs any, rhs ...any) Query {
@@ -315,7 +315,8 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 	buf.WriteByte(')')
 }
 
-func (me *query) Eval(obj any, c2f func(C) F) (failed Query) {
+func (me *query) Eval(obj any, c2f func(C) F) Query {
+	var failed Query
 	switch me.op {
 	case opAnd:
 		_ = sl.All(me.conds, func(it Query) bool {
@@ -323,14 +324,17 @@ func (me *query) Eval(obj any, c2f func(C) F) (failed Query) {
 			failed = If[Query]((maybe_failed == nil), failed, maybe_failed)
 			return (maybe_failed == nil)
 		})
+		return failed
 	case opOr:
-		if sl.Any(me.conds, func(it Query) bool {
+		any_true := sl.Any(me.conds, func(it Query) bool {
 			maybe_failed := it.Eval(obj, c2f)
 			failed = If[Query]((maybe_failed == nil), failed, maybe_failed)
 			return (maybe_failed == nil)
-		}) {
+		})
+		if any_true {
 			failed = nil
 		}
+		return failed
 	case opNot:
 		return If[Query]((me.conds[0].Eval(obj, c2f) == nil), me, nil)
 	case opIn:
@@ -356,5 +360,4 @@ func (me *query) Eval(obj any, c2f func(C) F) (failed Query) {
 	default:
 		panic(me.op)
 	}
-	return nil
 }

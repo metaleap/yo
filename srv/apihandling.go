@@ -28,20 +28,20 @@ func Apis(all ApiMethods) {
 			panic("already a method registered for path '" + method_path + "'")
 		}
 		api[method_path] = method
-		method.init(method_path)
 	}
 }
 
 type apiHandleFunc func(*Ctx, any) any
 
 type ApiMethod interface {
-	init(string)
+	ApiPkgInfo
 	handler() apiHandleFunc
 	loadPayload(data []byte) (any, error)
 	validatePayload(any) (q.Query, Err)
 	reflTypes() (reflect.Type, reflect.Type)
+	failsIf() []Fails
+	methodNameUp0() string
 	KnownErrs() []Err
-	ApiPkgInfo
 	CouldFailWith(...Err) ApiMethod
 }
 
@@ -85,6 +85,13 @@ type Fails struct {
 	If  q.Query
 }
 
+func FailsOf(methodPaths ...string) (ret []Fails) {
+	for _, method_path := range methodPaths {
+		ret = append(ret, api[method_path].failsIf()...)
+	}
+	return
+}
+
 type apiMethod[TIn any, TOut any] struct {
 	handleFunc apiHandleFunc
 	errsOwn    []Err
@@ -93,6 +100,7 @@ type apiMethod[TIn any, TOut any] struct {
 	PkgInfo    ApiPkgInfo
 }
 
+func (me *apiMethod[TIn, TOut]) failsIf() []Fails       { return me.failIfs }
 func (me *apiMethod[TIn, TOut]) handler() apiHandleFunc { return me.handleFunc }
 func (me *apiMethod[TIn, TOut]) PkgName() string {
 	if me.PkgInfo != nil {
@@ -100,8 +108,25 @@ func (me *apiMethod[TIn, TOut]) PkgName() string {
 	}
 	return ""
 }
+func (me *apiMethod[TIn, TOut]) methodPath() (ret string) {
+	for path, method := range api {
+		if method == me {
+			ret = path
+		}
+	}
+	if ret == "" {
+		panic("unregistered ApiMethod")
+	}
+	return
+}
+func (me *apiMethod[TIn, TOut]) methodNameUp0() (ret string) {
+	return str.Up0(ToIdent(me.methodPath()))
+}
 func (me *apiMethod[TIn, TOut]) KnownErrs() (ret []Err) {
-	ret = append(me.errsOwn, KnownErrSets[""]...)
+	method_name := me.methodNameUp0()
+	err_name_prefix := Err(str.Up0(method_name)) + "_"
+
+	ret = append(sl.To(me.errsOwn, func(it Err) Err { return err_name_prefix + it }), KnownErrSets[""]...)
 	for _, err_dep := range me.errsDeps {
 		if method := api[err_dep]; method != nil {
 			ret = append(ret, api[err_dep].KnownErrs()...)
@@ -119,9 +144,26 @@ func (*apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
 	return &it, err
 }
 func (me *apiMethod[TIn, TOut]) validatePayload(it any) (q.Query, Err) {
-	for _, check := range me.failIfs {
+	do_check := func(method ApiMethod, check *Fails) (q.Query, Err) {
+		method_name := method.methodNameUp0()
+		err_name_prefix := str.Up0(method_name) + "_"
 		if failed_condition := check.If.Eval(it, nil); failed_condition == nil {
-			return failed_condition, check.Err
+			return failed_condition, Err(err_name_prefix) + check.Err
+		}
+		return nil, ""
+	}
+	for _, dep := range me.errsDeps {
+		if method := api[dep]; method != nil {
+			for _, check := range method.failsIf() {
+				if failed_condition, err := do_check(api[dep], &check); failed_condition != nil {
+					return failed_condition, err
+				}
+			}
+		}
+	}
+	for i := range me.failIfs {
+		if failed_condition, err := do_check(me, &me.failIfs[i]); failed_condition != nil {
+			return failed_condition, err
 		}
 	}
 	return nil, ""
@@ -130,13 +172,6 @@ func (*apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
 	var tmp_in TIn
 	var tmp_out TOut
 	return reflect.ValueOf(tmp_in).Type(), reflect.ValueOf(tmp_out).Type()
-}
-func (me *apiMethod[TIn, TOut]) init(methodPath string) {
-	method_name := ToIdent(methodPath)
-	err_name_prefix := Err(str.Up0(method_name)) + "_"
-	for i, err := range me.errsOwn {
-		me.errsOwn[i] = err_name_prefix + err
-	}
 }
 func (me *apiMethod[TIn, TOut]) CouldFailWith(knownErrs ...Err) ApiMethod {
 	errs_own := sl.Where(knownErrs, func(it Err) bool { return it[0] != ':' })
