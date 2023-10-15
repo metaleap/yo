@@ -8,7 +8,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 
+	q "yo/db/query"
 	. "yo/util"
 	"yo/util/str"
 )
@@ -95,28 +97,49 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 		// render enumerants for the field names
 		codeGenWriteEnumDecl(&buf, desc, "Field", "q.F", false)
 
-		for _, method := range [][3]string{
-			{"Asc", "()q.OrderBy", "()"},
-			{"Desc", "()q.OrderBy", "()"},
-			{"Eval", "(obj any,c2f func(q.C)q.F)reflect.Value", "(obj,c2f)"},
-			{"In", "(set...q.Operand)q.Query", "(set...)"},
-			{"NotIn", "(set...q.Operand)q.Query", "(set...)"},
-			{"Equal", "(other q.Operand)q.Query", "(other)"},
-			{"NotEqual", "(other q.Operand)q.Query", "(other)"},
-			{"LessThan", "(other q.Operand)q.Query", "(other)"},
-			{"GreaterThan", "(other q.Operand)q.Query", "(other)"},
-			{"LessOrEqual", "(other q.Operand)q.Query", "(other)"},
-			{"GreaterOrEqual", "(other q.Operand)q.Query", "(other)"},
-		} {
-			buf.WriteString("func(me ")
-			buf.WriteString(desc.ty.Name())
-			buf.WriteString("Field) ")
-			buf.WriteString(method[0])
-			buf.WriteString(method[1])
-			buf.WriteString("{return ((q.F)(me)).")
-			buf.WriteString(method[0])
-			buf.WriteString(method[2])
-			buf.WriteString("}\n")
+		for i, rt_fld := 0, reflect.TypeOf(q.F("")); i < rt_fld.NumMethod(); i++ {
+			if method := rt_fld.Method(i); (method.Name[0] >= 'A') && (method.Name[0] <= 'Z') {
+				// println(">>>>>>>" + method.Name + "<<<<<<<<<")
+				// for j, rtf := 0, method.Func.Type(); j < rtf.NumIn(); j++ {
+				// 	println("\t" + rtf.In(j).Name() + ": " + rtf.In(j).String())
+				// }
+				buf.WriteString("func(me ")
+				buf.WriteString(desc.ty.Name())
+				buf.WriteString("Field) ")
+				buf.WriteString(method.Name)
+				buf.WriteByte('(')
+				for j, rt_fn := 1, method.Func.Type(); j < rt_fn.NumIn(); j++ {
+					buf.WriteByte('a')
+					buf.WriteString(str.FromInt(j))
+					buf.WriteByte(' ')
+					if rt_arg := rt_fn.In(j); (j == (rt_fn.NumIn() - 1)) && rt_fn.IsVariadic() {
+						buf.WriteString("...")
+						buf.WriteString(rt_arg.Elem().String())
+					} else {
+						buf.WriteString(rt_arg.String())
+					}
+					buf.WriteByte(',')
+				}
+				buf.WriteByte(')')
+				buf.WriteByte('(')
+				for j, rt_fn := 0, method.Func.Type(); j < rt_fn.NumOut(); j++ {
+					buf.WriteString(rt_fn.Out(j).String())
+				}
+				buf.WriteByte(')')
+				buf.WriteString("{return ((q.F)(me)).")
+				buf.WriteString(method.Name)
+				buf.WriteByte('(')
+				for j, rt_fn := 1, method.Func.Type(); j < rt_fn.NumIn(); j++ {
+					buf.WriteByte('a')
+					buf.WriteString(str.FromInt(j))
+					if (j == (rt_fn.NumIn() - 1)) && rt_fn.IsVariadic() {
+						buf.WriteString("...")
+					}
+					buf.WriteByte(',')
+				}
+				buf.WriteByte(')')
+				buf.WriteString("}\n")
+			}
 		}
 	}
 	raw_src, err := format.Source([]byte(buf.String()))

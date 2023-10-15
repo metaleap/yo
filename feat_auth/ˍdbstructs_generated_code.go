@@ -23,22 +23,18 @@ const (
 	userAccountFieldPasswordHashed UserAccountField = "passwordHashed"
 )
 
-func (me UserAccountField) Asc() q.OrderBy  { return ((q.F)(me)).Asc() }
-func (me UserAccountField) Desc() q.OrderBy { return ((q.F)(me)).Desc() }
-func (me UserAccountField) Eval(obj any, c2f func(q.C) q.F) reflect.Value {
-	return ((q.F)(me)).Eval(obj, c2f)
+func (me UserAccountField) Asc() q.OrderBy             { return ((q.F)(me)).Asc() }
+func (me UserAccountField) Desc() q.OrderBy            { return ((q.F)(me)).Desc() }
+func (me UserAccountField) Equal(a1 q.Operand) q.Query { return ((q.F)(me)).Equal(a1) }
+func (me UserAccountField) Eval(a1 interface{}, a2 func(q.C) q.F) reflect.Value {
+	return ((q.F)(me)).Eval(a1, a2)
 }
-func (me UserAccountField) In(set ...q.Operand) q.Query      { return ((q.F)(me)).In(set...) }
-func (me UserAccountField) NotIn(set ...q.Operand) q.Query   { return ((q.F)(me)).NotIn(set...) }
-func (me UserAccountField) Equal(other q.Operand) q.Query    { return ((q.F)(me)).Equal(other) }
-func (me UserAccountField) NotEqual(other q.Operand) q.Query { return ((q.F)(me)).NotEqual(other) }
-func (me UserAccountField) LessThan(other q.Operand) q.Query { return ((q.F)(me)).LessThan(other) }
-func (me UserAccountField) GreaterThan(other q.Operand) q.Query {
-	return ((q.F)(me)).GreaterThan(other)
+func (me UserAccountField) GreaterOrEqual(a1 q.Operand) q.Query {
+	return ((q.F)(me)).GreaterOrEqual(a1)
 }
-func (me UserAccountField) LessOrEqual(other q.Operand) q.Query {
-	return ((q.F)(me)).LessOrEqual(other)
-}
-func (me UserAccountField) GreaterOrEqual(other q.Operand) q.Query {
-	return ((q.F)(me)).GreaterOrEqual(other)
-}
+func (me UserAccountField) GreaterThan(a1 q.Operand) q.Query { return ((q.F)(me)).GreaterThan(a1) }
+func (me UserAccountField) In(a1 ...q.Operand) q.Query       { return ((q.F)(me)).In(a1...) }
+func (me UserAccountField) LessOrEqual(a1 q.Operand) q.Query { return ((q.F)(me)).LessOrEqual(a1) }
+func (me UserAccountField) LessThan(a1 q.Operand) q.Query    { return ((q.F)(me)).LessThan(a1) }
+func (me UserAccountField) NotEqual(a1 q.Operand) q.Query    { return ((q.F)(me)).NotEqual(a1) }
+func (me UserAccountField) NotIn(a1 ...q.Operand) q.Query    { return ((q.F)(me)).NotIn(a1...) }

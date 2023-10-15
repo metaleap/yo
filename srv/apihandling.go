@@ -41,7 +41,7 @@ type ApiMethod interface {
 	reflTypes() (reflect.Type, reflect.Type)
 	KnownErrs() []Err
 	ApiPkgInfo
-	CanFailWith(...Err) ApiMethod
+	CouldFailWith(...Err) ApiMethod
 	FailIf(rule q.Query, err Err) ApiMethod
 }
 
@@ -118,7 +118,7 @@ func (me *apiMethod[TIn, TOut]) init(methodPath string) {
 		me.errsOwn[i] = err_name_prefix + err
 	}
 }
-func (me *apiMethod[TIn, TOut]) CanFailWith(knownErrs ...Err) ApiMethod {
+func (me *apiMethod[TIn, TOut]) CouldFailWith(knownErrs ...Err) ApiMethod {
 	errs_own := sl.Where(knownErrs, func(it Err) bool { return it[0] != ':' })
 	errs_deps := sl.To(sl.Where(knownErrs, func(it Err) bool { return it[0] == ':' }), func(it Err) string { return string(it)[1:] })
 	me.errsOwn, me.errsDeps = sl.With(me.errsOwn, errs_own...), sl.With(me.errsDeps, errs_deps...)
