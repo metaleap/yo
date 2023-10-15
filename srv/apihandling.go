@@ -38,11 +38,12 @@ type ApiMethod interface {
 	init(string)
 	handler() apiHandleFunc
 	loadPayload(data []byte) (any, error)
+	validatePayload(any) (q.Query, Err)
 	reflTypes() (reflect.Type, reflect.Type)
 	KnownErrs() []Err
 	ApiPkgInfo
 	CouldFailWith(...Err) ApiMethod
-	FailIf(rule q.Query, err Err) ApiMethod
+	FailsIf(map[Err]q.Query) ApiMethod
 }
 
 type ApiCtx[TIn any, TOut any] struct {
@@ -106,6 +107,14 @@ func (*apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
 	}
 	return &it, err
 }
+func (me *apiMethod[TIn, TOut]) validatePayload(it any) (q.Query, Err) {
+	for err, rule := range me.failIfs {
+		if failed_condition := rule.Eval(it, nil); failed_condition == nil {
+			return failed_condition, err
+		}
+	}
+	return nil, ""
+}
 func (*apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
 	var tmp_in TIn
 	var tmp_out TOut
@@ -124,11 +133,13 @@ func (me *apiMethod[TIn, TOut]) CouldFailWith(knownErrs ...Err) ApiMethod {
 	me.errsOwn, me.errsDeps = sl.With(me.errsOwn, errs_own...), sl.With(me.errsDeps, errs_deps...)
 	return me
 }
-func (me *apiMethod[TIn, TOut]) FailIf(rule q.Query, err Err) ApiMethod {
-	if me.failIfs[err] != nil {
-		panic("buggy FailIf call: already have a condition for err '" + string(err) + "'")
+func (me *apiMethod[TIn, TOut]) FailsIf(failsIf map[Err]q.Query) ApiMethod {
+	for err, rule := range failsIf {
+		if me.failIfs[err] != nil {
+			panic("buggy FailIf call: already have a condition for err '" + string(err) + "'")
+		}
+		me.failIfs[err], me.errsOwn = rule, sl.With(me.errsOwn, err)
 	}
-	me.failIfs[err], me.errsOwn = rule, sl.With(me.errsOwn, err)
 	return me
 }
 
@@ -151,6 +162,13 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	payload, err := api.loadPayload(payload_data)
 	if err != nil {
 		ctx.HttpErr(400, err.Error()+If(IsDevMode, "\n"+string(payload_data), ""))
+		return nil, false
+	}
+
+	ctx.Timings.Step("validate req")
+	_, err_validation := api.validatePayload(payload)
+	if err_validation != "" {
+		ctx.HttpErr(400, err_validation.Error())
 		return nil, false
 	}
 

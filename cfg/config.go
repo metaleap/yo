@@ -27,11 +27,7 @@ func Load() {
 	}
 
 	// Setenv from .env file if any
-	env_file_data, err := os.ReadFile(".env")
-	if err != nil {
-		panic(err)
-	}
-	if env_file_data = bytes.TrimSpace(env_file_data); len(env_file_data) == 0 {
+	if env_file_data := bytes.TrimSpace(ReadFile(".env")); len(env_file_data) == 0 {
 		panic(".env")
 	} else {
 		for i, lines := 0, str.Split(string(env_file_data), "\n"); i < len(lines); i++ {

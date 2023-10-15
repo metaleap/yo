@@ -14,6 +14,8 @@ import (
 	"yo/util/str"
 )
 
+const doErrCatchInDevMode = false // gotta toggle occasionally during local debug
+
 var (
 	ErrTimedOut = Err("TimedOut")
 	DB          *sql.DB
@@ -68,7 +70,7 @@ func NewNonHttp(timeout time.Duration) *Ctx {
 
 func (me *Ctx) Dispose() {
 	var fail any
-	if (!IsDevMode) || true { // gotta toggle occasionally during local debug
+	if (!IsDevMode) || doErrCatchInDevMode {
 		fail = recover()
 	}
 	if err, _ := fail.(error); err == context.DeadlineExceeded {

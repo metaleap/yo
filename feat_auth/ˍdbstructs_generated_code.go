@@ -38,3 +38,4 @@ func (me UserAccountField) LessOrEqual(a1 q.Operand) q.Query { return ((q.F)(me)
 func (me UserAccountField) LessThan(a1 q.Operand) q.Query    { return ((q.F)(me)).LessThan(a1) }
 func (me UserAccountField) NotEqual(a1 q.Operand) q.Query    { return ((q.F)(me)).NotEqual(a1) }
 func (me UserAccountField) NotIn(a1 ...q.Operand) q.Query    { return ((q.F)(me)).NotIn(a1...) }
+func (me UserAccountField) StrLen(a1 ...q.Operand) q.Operand { return ((q.F)(me)).StrLen(a1...) }

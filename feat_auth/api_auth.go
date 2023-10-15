@@ -26,8 +26,9 @@ func init() {
 		MethodPathLogout: Api(apiUserLogout, PkgInfo),
 
 		MethodPathLogin: Api(apiUserLogin, PkgInfo).
-			FailIf(q.FnStrLen.Of(AuthLoginEmailAddr).Equal(q.L(0)),
-				"EmailRequiredButMissing").
+			FailsIf(map[Err]q.Query{
+				"EmailRequiredButMissing": AuthLoginEmailAddr.StrLen().Equal(q.L(0)),
+			}).
 			CouldFailWith("OkButFailedToCreateSignedToken", "EmailInvalid", "PasswordRequiredButMissing", "AccountDoesNotExist", "WrongPassword"),
 
 		MethodPathRegister: Api(apiUserRegister, PkgInfo).

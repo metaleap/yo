@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"go/format"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"reflect"
 
@@ -47,10 +46,7 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 			(str.Begins(desc.ty.PkgPath(), "main/") || (desc.ty.PkgPath() == "main")),
 			func(path string, dirEntry fs.DirEntry) {
 				if str.Ends(path, ".go") {
-					data, err := os.ReadFile(path)
-					if err != nil {
-						panic(err)
-					}
+					data := ReadFile(path)
 					if dir_path, idx := filepath.Dir(path), bytes.Index(data, needle); idx > 0 {
 						if idx = bytes.IndexByte(data, '\n'); (idx < len("package ")) || !bytes.Equal(data[0:len("package ")], []byte("package ")) {
 							panic("no package name for " + pkgPath)
@@ -75,13 +71,12 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	}
 
 	out_file_path := filepath.Join(src_dir_path, "ˍdbstructs_generated_code.go")
-	old_src, old_src_err := os.ReadFile(out_file_path)
 	if len(descs) == 0 {
-		if old_src_err == os.ErrNotExist {
-			return false
-		} else {
-			_ = os.Remove(out_file_path)
+		if IsFile(out_file_path) {
+			DelFile(out_file_path)
 			return true
+		} else {
+			return false
 		}
 	}
 
@@ -109,16 +104,36 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 		panic(err)
 	}
 
-	if !bytes.Equal(old_src, raw_src) {
-		if err = os.WriteFile(out_file_path, raw_src, os.ModePerm); err != nil {
-			panic(err)
-		}
+	if !bytes.Equal(ReadFile(out_file_path), raw_src) {
+		WriteFile(out_file_path, raw_src)
 		return true
 	}
 	return false
 }
 
 func codeGenQueryFns() bool {
+	src_raw := ReadFile("../yo/db/query/q.go")
+
+	var buf bytes.Buffer
+	buf.WriteString("package q\n")
+	for _, line := range str.Split(str.Trim(string(src_raw)), "\n") {
+		if pref := "\tFn"; (line != "") && str.Begins(line, pref) && str.Ends(line, `"`) && str.Has(line, ` fn = "`) {
+			name := line[len(pref):str.Idx(line, ' ')]
+			for _, operand_type_name := range []string{"C", "F", "V[T]"} {
+				buf.WriteString("\nfunc(me ")
+				buf.WriteString(operand_type_name)
+				buf.WriteByte(')')
+				buf.WriteString(name)
+				buf.WriteString(`(args...Operand)Operand{return Fn(Fn` + name + `,append([]Operand{me},args...)...)}`)
+			}
+		}
+	}
+	out_file_path := "../yo/db/query/ˍgenerated_code.go"
+	src_old, src_new := ReadFile(out_file_path), buf.Bytes()
+	if src_new, _ = format.Source(src_new); !bytes.Equal(src_old, src_new) {
+		WriteFile(out_file_path, src_new)
+		return true
+	}
 	return false
 }
 

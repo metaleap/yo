@@ -81,7 +81,9 @@ func (me *fun) NotIn(set ...Operand) Query         { return NotIn(me, set...) }
 func (me *fun) Eval(obj any, c2f func(C) F) reflect.Value {
 	switch me.Fn {
 	case FnStrLen:
-		return reflect.ValueOf(len(me.Args[0].Eval(obj, c2f).Interface().(string)))
+		str := me.Args[0].Eval(obj, c2f).Interface().(string)
+		foo := len(str)
+		return reflect.ValueOf(foo)
 	default:
 		panic(me.Fn)
 	}

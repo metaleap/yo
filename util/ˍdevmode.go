@@ -10,11 +10,54 @@ import (
 
 const IsDevMode = true
 
-func WalkCodeFiles(yoDir bool, mainDir bool, onDirEntry func(string, fs.DirEntry)) {
-	cur_dir_path, err := os.Getwd()
+func CurDirPath() string {
+	ret, err := os.Getwd()
 	if err != nil {
 		panic(err)
 	}
+	return ret
+}
+
+func DelFile(filePath string) {
+	_ = os.Remove(filePath)
+}
+
+func DelDir(dirPath string) {
+	_ = os.RemoveAll(dirPath)
+}
+
+func fsIs(path string, check func(fs.FileInfo) bool, expect bool) bool {
+	info, err := os.Stat(path)
+	is_not_exist := os.IsNotExist(err)
+	if err != nil && !is_not_exist {
+		panic(err)
+	}
+	if is_not_exist || (info == nil) {
+		return false
+	}
+	return (expect == check(info))
+}
+
+func IsDir(path string) bool  { return fsIs(path, fs.FileInfo.IsDir, true) }
+func IsFile(path string) bool { return fsIs(path, fs.FileInfo.IsDir, false) }
+
+func ReadFile(filePath string) []byte {
+	data, err := os.ReadFile(filePath)
+	if err != nil && !os.IsNotExist(err) {
+		panic(err)
+	}
+	return data
+}
+
+func WriteFile(filePath string, data []byte) {
+	err := os.WriteFile(filePath, data, os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func WalkCodeFiles(yoDir bool, mainDir bool, onDirEntry func(string, fs.DirEntry)) {
+	cur_dir_path := CurDirPath()
 	dir_paths := If(yoDir, []string{filepath.Join(filepath.Dir(cur_dir_path), "yo")}, []string{})
 	if mainDir {
 		dir_paths = append(dir_paths, cur_dir_path)

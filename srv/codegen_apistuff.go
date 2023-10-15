@@ -46,10 +46,7 @@ func init() {
 		}
 
 		if str.Ends(path, ".go") { // looking for enums' enumerants
-			data, err := os.ReadFile(path)
-			if err != nil {
-				panic(err)
-			}
+			data := ReadFile(path)
 			pkg_name := ""
 			for _, line := range str.Split(str.Trim(string(data)), "\n") {
 				if str.Begins(line, "package ") {
@@ -88,7 +85,7 @@ func codegenGo(apiRefl *apiRefl) {
 	for pkg_name, pkg_dir_path := range pkgsFound {
 		out_file_path := filepath.Join(pkg_dir_path, "ˍapi_generated_code.go")
 		if !pkgsImportingSrv[pkg_name] {
-			_ = os.Remove(out_file_path)
+			DelFile(out_file_path)
 			continue
 		}
 
@@ -133,9 +130,8 @@ func codegenGo(apiRefl *apiRefl) {
 			panic(err)
 		}
 
-		src_old, _ := os.ReadFile(out_file_path)
-		if !bytes.Equal(src_old, src_raw) {
-			_ = os.WriteFile(out_file_path, src_raw, os.ModePerm)
+		if src_old := ReadFile(out_file_path); !bytes.Equal(src_old, src_raw) {
+			WriteFile(out_file_path, src_raw)
 			did_write_files = append(did_write_files, filepath.Base(filepath.Dir(out_file_path)))
 		}
 	}
@@ -150,11 +146,7 @@ func codegenTsSdk(apiRefl *apiRefl) {
 	apiRefl.codeGen.typesUsed, apiRefl.codeGen.typesEmitted, apiRefl.codeGen.strLits = map[string]bool{}, map[string]bool{}, str.Dict{}
 
 	yolog.Println("  generate *.ts...")
-	b, err := os.ReadFile("../yo/" + sdkGenDstTsFileRelPath)
-	if err != nil {
-		panic(err)
-	}
-	buf.Write(b)
+	buf.Write(ReadFile(("../yo/" + sdkGenDstTsFileRelPath)))
 	for _, method := range apiRefl.Methods {
 		codegenTsSdkMethod(&buf, apiRefl, &method)
 	}
@@ -180,17 +172,13 @@ func codegenTsSdk(apiRefl *apiRefl) {
 	}
 
 	src_is_changed, src_to_write := true, []byte(buf_prepend.String()+buf.String())
-	data, _ := os.ReadFile(sdkGenDstTsFileRelPath)
+	data := ReadFile(sdkGenDstTsFileRelPath)
 	src_is_changed = (len(data) == 0) || (!bytes.Equal(data, src_to_write))
 	if src_is_changed {
 		foundModifiedTsFiles = true
 		yolog.Println("  writing files...")
-		if err := os.WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`), os.ModePerm); err != nil {
-			panic(err)
-		}
-		if err := os.WriteFile(sdkGenDstTsFileRelPath, src_to_write, os.ModePerm); err != nil {
-			panic(err)
-		}
+		WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`))
+		WriteFile(sdkGenDstTsFileRelPath, src_to_write)
 	}
 	if foundModifiedTsFiles {
 		yolog.Println("  2x tsc...")
