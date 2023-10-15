@@ -6,7 +6,6 @@ import (
 	. "yo/cfg"
 	. "yo/ctx"
 	yodb "yo/db"
-	q "yo/db/query"
 
 	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
@@ -32,7 +31,7 @@ func init() {
 
 func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 	ctx.DbTx()
-	if yodb.Exists[UserAccount](ctx, UserAccountColEmailAddr.Equal(q.L(emailAddr))) {
+	if yodb.Exists[UserAccount](ctx, UserAccountColEmailAddr.Equal(emailAddr)) {
 		panic(ErrAuthRegister_EmailAddrAlreadyExists)
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
@@ -50,7 +49,7 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 }
 
 func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAccount, *jwt.Token) {
-	user_account := yodb.FindOne[UserAccount](ctx, UserAccountColEmailAddr.Equal(q.L(emailAddr)))
+	user_account := yodb.FindOne[UserAccount](ctx, UserAccountColEmailAddr.Equal(emailAddr))
 	if user_account == nil {
 		panic(ErrAuthLogin_AccountDoesNotExist)
 	}

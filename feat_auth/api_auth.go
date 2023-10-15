@@ -27,20 +27,20 @@ func init() {
 		MethodPathLogout: Api(apiUserLogout, PkgInfo),
 
 		MethodPathLogin: Api(apiUserLogin, PkgInfo,
-			Fails{Err: "EmailRequiredButMissing", If: AuthRegisterEmailAddr.Equal(q.L(""))},
-			Fails{Err: "PasswordRequiredButMissing", If: AuthLoginPasswordPlain.Equal(q.L(""))},
-			Fails{Err: "EmailInvalid", If: q.Via(str.IsEmailishEnough, AuthLoginEmailAddr).Equal(q.L(false))},
+			Fails{Err: "EmailRequiredButMissing", If: AuthRegisterEmailAddr.Equal("")},
+			Fails{Err: "PasswordRequiredButMissing", If: AuthLoginPasswordPlain.Equal("")},
+			Fails{Err: "EmailInvalid", If: q.Via(str.IsEmailishEnough, AuthLoginEmailAddr).Equal(false)},
 		).CouldFailWith("OkButFailedToCreateSignedToken", "AccountDoesNotExist", "WrongPassword"),
 
 		MethodPathRegister: Api(apiUserRegister, PkgInfo,
-			Fails{Err: "EmailRequiredButMissing", If: AuthRegisterEmailAddr.Equal(q.L(""))},
-			Fails{Err: "EmailInvalid", If: q.Via(str.IsEmailishEnough, AuthRegisterEmailAddr).Equal(q.L(false))},
-			Fails{Err: "PasswordRequiredButMissing", If: AuthRegisterPasswordPlain.Equal(q.L(""))},
-			Fails{Err: "PasswordTooShort", If: AuthRegisterPasswordPlain.StrLen().LessThan(q.L[any](6))},
+			Fails{Err: "EmailRequiredButMissing", If: AuthRegisterEmailAddr.Equal("")},
+			Fails{Err: "EmailInvalid", If: q.Via(str.IsEmailishEnough, AuthRegisterEmailAddr).Equal(false)},
+			Fails{Err: "PasswordRequiredButMissing", If: AuthRegisterPasswordPlain.Equal("")},
+			Fails{Err: "PasswordTooShort", If: AuthRegisterPasswordPlain.StrLen().LessThan(6)},
 		).CouldFailWith("EmailAddrAlreadyExists", "PasswordTooLong", "PasswordInvalid"),
 
 		MethodPathChangePassword: Api(apiChangePassword, PkgInfo,
-			Fails{Err: "NewPasswordRequiredButMissing", If: AuthChangePasswordPasswordNewPlain.Equal(q.L(""))},
+			Fails{Err: "NewPasswordRequiredButMissing", If: AuthChangePasswordPasswordNewPlain.Equal("")},
 		).CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "Forbidden", "NewPasswordTooShort", "NewPasswordSameAsOld", "NewPasswordTooLong", "NewPasswordInvalid", "ChangesNotStored"),
 	})
 

@@ -124,7 +124,7 @@ func codeGenQueryFns() bool {
 				buf.WriteString(operand_type_name)
 				buf.WriteByte(')')
 				buf.WriteString(name)
-				buf.WriteString(`(args...Operand)Operand{return Fn(Fn` + name + `,append([]Operand{me},args...)...)}`)
+				buf.WriteString(`(args...any)Operand{return Fn(Fn` + name + `,args...)}`)
 			}
 		}
 	}

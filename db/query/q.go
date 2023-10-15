@@ -31,28 +31,28 @@ func operandFrom(it any) Operand {
 
 type C string
 
-func (me C) Equal(other any) Query                     { return Equal(me, operandFrom(other)) }
-func (me C) NotEqual(other any) Query                  { return NotEqual(me, operandFrom(other)) }
-func (me C) LessThan(other any) Query                  { return LessThan(me, operandFrom(other)) }
-func (me C) GreaterThan(other any) Query               { return GreaterThan(me, operandFrom(other)) }
-func (me C) LessOrEqual(other any) Query               { return LessOrEqual(me, operandFrom(other)) }
-func (me C) GreaterOrEqual(other any) Query            { return GreaterOrEqual(me, operandFrom(other)) }
-func (me C) In(set ...any) Query                       { return In(me, operandsFrom(set)...) }
-func (me C) NotIn(set ...any) Query                    { return NotIn(me, operandsFrom(set)...) }
+func (me C) Equal(other any) Query                     { return Equal(me, other) }
+func (me C) NotEqual(other any) Query                  { return NotEqual(me, other) }
+func (me C) LessThan(other any) Query                  { return LessThan(me, other) }
+func (me C) GreaterThan(other any) Query               { return GreaterThan(me, other) }
+func (me C) LessOrEqual(other any) Query               { return LessOrEqual(me, other) }
+func (me C) GreaterOrEqual(other any) Query            { return GreaterOrEqual(me, other) }
+func (me C) In(set ...any) Query                       { return In(me, set...) }
+func (me C) NotIn(set ...any) Query                    { return NotIn(me, set...) }
 func (me C) Asc() OrderBy                              { return &orderBy[C]{col: me} }
 func (me C) Desc() OrderBy                             { return &orderBy[C]{col: me, desc: true} }
 func (me C) Eval(obj any, c2f func(C) F) reflect.Value { return c2f(me).Eval(obj, c2f) }
 
 type F string
 
-func (me F) Equal(other any) Query          { return Equal(me, operandFrom(other)) }
-func (me F) NotEqual(other any) Query       { return NotEqual(me, operandFrom(other)) }
-func (me F) LessThan(other any) Query       { return LessThan(me, operandFrom(other)) }
-func (me F) GreaterThan(other any) Query    { return GreaterThan(me, operandFrom(other)) }
-func (me F) LessOrEqual(other any) Query    { return LessOrEqual(me, operandFrom(other)) }
-func (me F) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, operandFrom(other)) }
-func (me F) In(set ...any) Query            { return In(me, operandsFrom(set)...) }
-func (me F) NotIn(set ...any) Query         { return NotIn(me, operandsFrom(set)...) }
+func (me F) Equal(other any) Query          { return Equal(me, other) }
+func (me F) NotEqual(other any) Query       { return NotEqual(me, other) }
+func (me F) LessThan(other any) Query       { return LessThan(me, other) }
+func (me F) GreaterThan(other any) Query    { return GreaterThan(me, other) }
+func (me F) LessOrEqual(other any) Query    { return LessOrEqual(me, other) }
+func (me F) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, other) }
+func (me F) In(set ...any) Query            { return In(me, set...) }
+func (me F) NotIn(set ...any) Query         { return NotIn(me, set...) }
 func (me F) Asc() OrderBy                   { return &orderBy[F]{fld: me} }
 func (me F) Desc() OrderBy                  { return &orderBy[F]{fld: me, desc: true} }
 func (me F) Eval(obj any, _ func(C) F) reflect.Value {
@@ -61,14 +61,14 @@ func (me F) Eval(obj any, _ func(C) F) reflect.Value {
 
 type V struct{ Value any }
 
-func (me V) Equal(other any) Query             { return Equal(me, operandFrom(other)) }
-func (me V) NotEqual(other any) Query          { return NotEqual(me, operandFrom(other)) }
-func (me V) LessThan(other any) Query          { return LessThan(me, operandFrom(other)) }
-func (me V) GreaterThan(other any) Query       { return GreaterThan(me, operandFrom(other)) }
-func (me V) LessOrEqual(other any) Query       { return LessOrEqual(me, operandFrom(other)) }
-func (me V) GreaterOrEqual(other any) Query    { return GreaterOrEqual(me, operandFrom(other)) }
-func (me V) In(set ...any) Query               { return In(me, operandsFrom(set)...) }
-func (me V) NotIn(set ...any) Query            { return NotIn(me, operandsFrom(set)...) }
+func (me V) Equal(other any) Query             { return Equal(me, other) }
+func (me V) NotEqual(other any) Query          { return NotEqual(me, other) }
+func (me V) LessThan(other any) Query          { return LessThan(me, other) }
+func (me V) GreaterThan(other any) Query       { return GreaterThan(me, other) }
+func (me V) LessOrEqual(other any) Query       { return LessOrEqual(me, other) }
+func (me V) GreaterOrEqual(other any) Query    { return GreaterOrEqual(me, other) }
+func (me V) In(set ...any) Query               { return In(me, set...) }
+func (me V) NotIn(set ...any) Query            { return NotIn(me, set...) }
 func (me V) Eval(any, func(C) F) reflect.Value { return reflect.ValueOf(me.Value) }
 func (me V) AsAny() any                        { return me.Value }
 
@@ -78,30 +78,28 @@ const (
 	FnStrLen fn = "octet_length"
 )
 
-func (me fn) Of(args ...Operand) Operand { return Fn(me, args...) }
-
 type fun struct {
 	Fn   fn
 	Args []Operand
 	Alt  func(...any) any
 }
 
-func Fn(f fn, args ...Operand) Operand {
-	return &fun{Fn: f, Args: args}
+func Fn(f fn, args ...any) Operand {
+	return &fun{Fn: f, Args: operandsFrom(args)}
 }
-func Via[TArg any, TRet any](fn func(TArg) TRet, arg Operand) Operand {
+func Via[TArg any, TRet any](fn func(TArg) TRet, arg any) Operand {
 	ret := Fn("", arg).(*fun)
 	ret.Alt = func(args ...any) any { return fn(args[0].(TArg)) }
 	return ret
 }
-func (me *fun) Equal(other any) Query          { return Equal(me, operandFrom(other)) }
-func (me *fun) NotEqual(other any) Query       { return NotEqual(me, operandFrom(other)) }
-func (me *fun) LessThan(other any) Query       { return LessThan(me, operandFrom(other)) }
-func (me *fun) GreaterThan(other any) Query    { return GreaterThan(me, operandFrom(other)) }
-func (me *fun) LessOrEqual(other any) Query    { return LessOrEqual(me, operandFrom(other)) }
-func (me *fun) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, operandFrom(other)) }
-func (me *fun) In(set ...any) Query            { return In(me, operandsFrom(set)...) }
-func (me *fun) NotIn(set ...any) Query         { return NotIn(me, operandsFrom(set)...) }
+func (me *fun) Equal(other any) Query          { return Equal(me, other) }
+func (me *fun) NotEqual(other any) Query       { return NotEqual(me, other) }
+func (me *fun) LessThan(other any) Query       { return LessThan(me, other) }
+func (me *fun) GreaterThan(other any) Query    { return GreaterThan(me, other) }
+func (me *fun) LessOrEqual(other any) Query    { return LessOrEqual(me, other) }
+func (me *fun) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, other) }
+func (me *fun) In(set ...any) Query            { return In(me, set...) }
+func (me *fun) NotIn(set ...any) Query         { return NotIn(me, set...) }
 func (me *fun) Eval(obj any, c2f func(C) F) reflect.Value {
 	if me.Alt != nil {
 		return reflect.ValueOf(me.Alt(sl.To(me.Args, func(it Operand) any { return it.Eval(obj, c2f).Interface() })...))
@@ -155,20 +153,34 @@ const (
 	opNot   = "NOT "
 )
 
-func Equal(x Operand, y Operand) Query          { return &query{op: opEq, operands: []Operand{x, y}} }
-func NotEqual(x Operand, y Operand) Query       { return &query{op: opNeq, operands: []Operand{x, y}} }
-func LessThan(x Operand, y Operand) Query       { return &query{op: opLt, operands: []Operand{x, y}} }
-func LessOrEqual(x Operand, y Operand) Query    { return &query{op: opLeq, operands: []Operand{x, y}} }
-func GreaterThan(x Operand, y Operand) Query    { return &query{op: opGt, operands: []Operand{x, y}} }
-func GreaterOrEqual(x Operand, y Operand) Query { return &query{op: opGeq, operands: []Operand{x, y}} }
-func In(x Operand, y ...Operand) Query          { return inOrNotIn(opIn, x, y...) }
-func NotIn(x Operand, y ...Operand) Query       { return inOrNotIn(opNotIn, x, y...) }
-func inOrNotIn(op string, x Operand, y ...Operand) Query {
-	if len(y) == 0 {
+func Equal(lhs any, rhs any) Query {
+	return &query{op: opEq, operands: []Operand{operandFrom(lhs), operandFrom(rhs)}}
+}
+func NotEqual(lhs any, rhs any) Query {
+	return &query{op: opNeq, operands: []Operand{operandFrom(lhs), operandFrom(rhs)}}
+}
+func LessThan(lhs any, rhs any) Query {
+	return &query{op: opLt, operands: []Operand{operandFrom(lhs), operandFrom(rhs)}}
+}
+func LessOrEqual(lhs any, rhs any) Query {
+	return &query{op: opLeq, operands: []Operand{operandFrom(lhs), operandFrom(rhs)}}
+}
+func GreaterThan(lhs any, rhs any) Query {
+	return &query{op: opGt, operands: []Operand{operandFrom(lhs), operandFrom(rhs)}}
+}
+func GreaterOrEqual(lhs any, rhs any) Query {
+	return &query{op: opGeq, operands: []Operand{operandFrom(lhs), operandFrom(rhs)}}
+}
+func In(lhs any, rhs ...any) Query { return inNotIn(opIn, operandFrom(lhs), operandsFrom(rhs)...) }
+func NotIn(lhs any, rhs ...any) Query {
+	return inNotIn(opNotIn, operandFrom(lhs), operandsFrom(rhs)...)
+}
+func inNotIn(op string, lhs Operand, rhs ...Operand) Query {
+	if len(rhs) == 0 {
 		panic(str.Trim(str.Trim(op) + ": empty set"))
 	}
-	sub_stmt, _ := y[0].(interface{ Sql(*str.Buf) })
-	return &query{op: If(((len(y) == 1) && (sub_stmt == nil)), opEq, op), operands: append([]Operand{x}, y...)}
+	sub_stmt, _ := rhs[0].(interface{ Sql(*str.Buf) })
+	return &query{op: If(((len(rhs) == 1) && (sub_stmt == nil)), opEq, op), operands: append([]Operand{lhs}, rhs...)}
 }
 func AllTrue(conds ...Query) Query {
 	return If((len(conds) == 0), nil, If((len(conds) == 1), conds[0], (Query)(&query{op: opAnd, conds: conds})))
@@ -179,9 +191,9 @@ func EitherOr(conds ...Query) Query {
 func Not(cond Query) Query {
 	switch q := cond.(*query); q.op {
 	case opIn:
-		return NotIn(q.operands[0], q.operands[1:]...)
+		return inNotIn(opNotIn, q.operands[0], q.operands[1:]...)
 	case opNotIn:
-		return In(q.operands[0], q.operands[1:]...)
+		return inNotIn(opIn, q.operands[0], q.operands[1:]...)
 	case opEq:
 		return NotEqual(q.operands[0], q.operands[1])
 	case opNeq:

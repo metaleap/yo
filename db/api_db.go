@@ -227,11 +227,11 @@ func (me *ApiQueryExpr[TObj, TFld]) toDbQ() q.Query {
 	case me.NOT != nil:
 		return q.Not(me.NOT.toDbQ())
 	case len(me.IN) >= 2:
-		return q.In(me.IN[0].val(), sl.To(me.IN[1:], func(it ApiQueryVal[TObj, TFld]) q.Operand { return q.L(it.val()) })...)
+		return q.In(me.IN[0].val(), sl.To(me.IN[1:], func(it ApiQueryVal[TObj, TFld]) any { return it.val() })...)
 	}
-	for bin_op, q_f := range map[*[]ApiQueryVal[TObj, TFld]]func(q.Operand, q.Operand) q.Query{&me.EQ: q.Equal, &me.NE: q.NotEqual, &me.LT: q.LessThan, &me.LE: q.LessOrEqual, &me.GT: q.GreaterThan, &me.GE: q.GreaterOrEqual} {
+	for bin_op, q_f := range map[*[]ApiQueryVal[TObj, TFld]]func(any, any) q.Query{&me.EQ: q.Equal, &me.NE: q.NotEqual, &me.LT: q.LessThan, &me.LE: q.LessOrEqual, &me.GT: q.GreaterThan, &me.GE: q.GreaterOrEqual} {
 		if bin_op := *bin_op; len(bin_op) == 2 {
-			return q_f(q.L(bin_op[0].val()), q.L(bin_op[1].val()))
+			return q_f(bin_op[0].val(), bin_op[1].val())
 		}
 	}
 	return nil
