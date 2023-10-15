@@ -165,20 +165,19 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 		return nil, false
 	}
 
-	ctx.Timings.Step("validate req")
-	_, err_validation := api.validatePayload(payload)
-	if err_validation != "" {
-		ctx.HttpErr(400, err_validation.Error())
-		return nil, false
-	}
-
-	// generic input sanitizations
 	ctx.Timings.Step("sani payload")
 	ReflWalk(reflect.ValueOf(payload), nil, true, func(path []any, it reflect.Value) {
 		if it.Kind() == reflect.String {
 			ReflSet(it, str.Trim(ReflGet[string](it)))
 		}
 	})
+
+	ctx.Timings.Step("validate req")
+	_, err_validation := api.validatePayload(payload)
+	if err_validation != "" {
+		ctx.HttpErr(400, err_validation.Error())
+		return nil, false
+	}
 
 	ctx.Timings.Step("HANDLE")
 	return api.handler()(ctx, payload), true
