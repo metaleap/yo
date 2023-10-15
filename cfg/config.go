@@ -14,6 +14,8 @@ var Cfg struct {
 	YO_API_HTTP_PORT        int
 	YO_API_IMPL_TIMEOUT     time.Duration
 	YO_AUTH_JWT_EXPIRY_DAYS int
+	YO_AUTH_PWD_MIN_LEN     int
+	YO_AUTH_PWD_MAX_LEN     int
 	DB_REQ_TIMEOUT          time.Duration
 	DATABASE_URL            string
 }

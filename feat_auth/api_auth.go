@@ -36,14 +36,19 @@ func init() {
 			Fails{Err: "EmailRequiredButMissing", If: AuthRegisterEmailAddr.Equal("")},
 			Fails{Err: "EmailInvalid", If: q.Via(str.IsEmailishEnough, AuthRegisterEmailAddr).Equal(false)},
 			Fails{Err: "PasswordRequiredButMissing", If: AuthRegisterPasswordPlain.Equal("")},
-			Fails{Err: "PasswordTooShort", If: AuthRegisterPasswordPlain.StrLen().LessThan(6)},
-		).CouldFailWith("EmailAddrAlreadyExists", "PasswordTooLong", "PasswordInvalid"),
+			Fails{Err: "PasswordTooShort", If: AuthRegisterPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
+			Fails{Err: "PasswordTooLong", If: AuthRegisterPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
+		).CouldFailWith("EmailAddrAlreadyExists", "PasswordInvalid"),
 
 		MethodPathChangePassword: Api(apiChangePassword, PkgInfo,
+			Fails{Err: "EmailRequiredButMissing", If: AuthChangePasswordEmailAddr.Equal("")},
+			Fails{Err: "EmailInvalid", If: q.Via(str.IsEmailishEnough, AuthChangePasswordEmailAddr).Equal(false)},
+			Fails{Err: "OldPasswordRequiredButMissing", If: AuthChangePasswordPasswordPlain.Equal("")},
 			Fails{Err: "NewPasswordRequiredButMissing", If: AuthChangePasswordPasswordNewPlain.Equal("")},
-			Fails{Err: "NewPasswordTooShort", If: AuthChangePasswordPasswordNewPlain.StrLen().LessThan(6)},
 			Fails{Err: "NewPasswordSameAsOld", If: AuthChangePasswordPasswordNewPlain.Equal(AuthChangePasswordPasswordPlain)},
-		).CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "Forbidden", "NewPasswordTooLong", "NewPasswordInvalid", "ChangesNotStored"),
+			Fails{Err: "NewPasswordTooShort", If: AuthChangePasswordPasswordNewPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
+			Fails{Err: "NewPasswordTooLong", If: AuthChangePasswordPasswordNewPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
+		).CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "Forbidden", "NewPasswordInvalid", "ChangesNotStored"),
 	})
 
 	PreServes = append(PreServes, PreServe{Name: "authCheck", Do: func(ctx *Ctx) {
