@@ -27,16 +27,21 @@ func init() {
 		MethodPathLogout: Api(apiUserLogout, PkgInfo),
 
 		MethodPathLogin: Api(apiUserLogin, PkgInfo,
-			Fails{Err: "EmailRequiredButMissing", If: AuthLoginEmailAddr.StrLen().Equal(q.L(0))},
-			Fails{Err: "PasswordRequiredButMissing", If: AuthLoginPasswordPlain.StrLen().Equal(q.L(0))},
-			Fails{Err: "EmailInvalid", If: q.Check(str.IsEmailishEnough, AuthLoginEmailAddr).Equal(q.L(false))},
+			Fails{Err: "EmailRequiredButMissing", If: AuthRegisterEmailAddr.Equal(q.L(""))},
+			Fails{Err: "PasswordRequiredButMissing", If: AuthLoginPasswordPlain.Equal(q.L(""))},
+			Fails{Err: "EmailInvalid", If: q.Via(str.IsEmailishEnough, AuthLoginEmailAddr).Equal(q.L(false))},
 		).CouldFailWith("OkButFailedToCreateSignedToken", "AccountDoesNotExist", "WrongPassword"),
 
-		MethodPathRegister: Api(apiUserRegister, PkgInfo).
-			CouldFailWith("WhileLoggedIn", "EmailRequiredButMissing", "EmailInvalid", "EmailAddrAlreadyExists", "PasswordRequiredButMissing", "PasswordTooShort", "PasswordTooLong", "PasswordInvalid"),
+		MethodPathRegister: Api(apiUserRegister, PkgInfo,
+			Fails{Err: "EmailRequiredButMissing", If: AuthRegisterEmailAddr.Equal(q.L(""))},
+			Fails{Err: "EmailInvalid", If: q.Via(str.IsEmailishEnough, AuthRegisterEmailAddr).Equal(q.L(false))},
+			Fails{Err: "PasswordRequiredButMissing", If: AuthRegisterPasswordPlain.Equal(q.L(""))},
+			Fails{Err: "PasswordTooShort", If: AuthRegisterPasswordPlain.StrLen().LessThan(q.L[any](6))},
+		).CouldFailWith("EmailAddrAlreadyExists", "PasswordTooLong", "PasswordInvalid"),
 
-		MethodPathChangePassword: Api(apiChangePassword, PkgInfo).
-			CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "Forbidden", "NewPasswordRequiredButMissing", "NewPasswordTooShort", "NewPasswordSameAsOld", "NewPasswordTooLong", "NewPasswordInvalid", "ChangesNotStored"),
+		MethodPathChangePassword: Api(apiChangePassword, PkgInfo,
+			Fails{Err: "NewPasswordRequiredButMissing", If: AuthChangePasswordPasswordNewPlain.Equal(q.L(""))},
+		).CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "Forbidden", "NewPasswordTooShort", "NewPasswordSameAsOld", "NewPasswordTooLong", "NewPasswordInvalid", "ChangesNotStored"),
 	})
 
 	PreServes = append(PreServes, PreServe{Name: "authCheck", Do: func(ctx *Ctx) {
@@ -56,9 +61,6 @@ type ApiTokenPayload struct {
 func apiUserRegister(this *ApiCtx[ApiAccountPayload, struct {
 	Id int64
 }]) {
-	if this.Ctx.GetStr(CtxKey) != "" {
-		panic(ErrAuthRegister_WhileLoggedIn)
-	}
 	httpSetUser(this.Ctx, "")
 	this.Ret.Id = int64(UserRegister(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain))
 }

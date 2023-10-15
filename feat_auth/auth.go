@@ -7,7 +7,6 @@ import (
 	. "yo/ctx"
 	yodb "yo/db"
 	q "yo/db/query"
-	"yo/util/str"
 
 	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
@@ -32,18 +31,6 @@ func init() {
 }
 
 func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
-	if emailAddr == "" {
-		panic(ErrAuthRegister_EmailRequiredButMissing)
-	}
-	if !str.IsEmailishEnough(emailAddr) {
-		panic(ErrAuthRegister_EmailInvalid)
-	}
-	if passwordPlain == "" {
-		panic(ErrAuthRegister_PasswordRequiredButMissing)
-	}
-	if len(passwordPlain) < 6 {
-		panic(ErrAuthRegister_PasswordTooShort)
-	}
 	ctx.DbTx()
 	if yodb.Exists[UserAccount](ctx, UserAccountColEmailAddr.Equal(q.L(emailAddr))) {
 		panic(ErrAuthRegister_EmailAddrAlreadyExists)

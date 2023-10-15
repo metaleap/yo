@@ -119,7 +119,7 @@ func codeGenQueryFns() bool {
 	for _, line := range str.Split(str.Trim(string(src_raw)), "\n") {
 		if pref := "\tFn"; (line != "") && str.Begins(line, pref) && str.Ends(line, `"`) && str.Has(line, ` fn = "`) {
 			name := line[len(pref):str.Idx(line, ' ')]
-			for _, operand_type_name := range []string{"C", "F", "V[T]"} {
+			for _, operand_type_name := range []string{"C", "F", "V"} {
 				buf.WriteString("\nfunc(me ")
 				buf.WriteString(operand_type_name)
 				buf.WriteByte(')')

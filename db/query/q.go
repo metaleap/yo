@@ -10,49 +10,67 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+func operandsFrom(it ...any) []Operand {
+	return sl.To(it, operandFrom)
+}
+
+func operandFrom(it any) Operand {
+	switch it := it.(type) {
+	case C:
+		return it
+	case F:
+		return it
+	case V:
+		return it
+	case *fun:
+		return it
+	default:
+		return V{Value: it}
+	}
+}
+
 type C string
 
-func (me C) Equal(other Operand) Query                 { return Equal(me, other) }
-func (me C) NotEqual(other Operand) Query              { return NotEqual(me, other) }
-func (me C) LessThan(other Operand) Query              { return LessThan(me, other) }
-func (me C) GreaterThan(other Operand) Query           { return GreaterThan(me, other) }
-func (me C) LessOrEqual(other Operand) Query           { return LessOrEqual(me, other) }
-func (me C) GreaterOrEqual(other Operand) Query        { return GreaterOrEqual(me, other) }
-func (me C) In(set ...Operand) Query                   { return In(me, set...) }
-func (me C) NotIn(set ...Operand) Query                { return NotIn(me, set...) }
+func (me C) Equal(other any) Query                     { return Equal(me, operandFrom(other)) }
+func (me C) NotEqual(other any) Query                  { return NotEqual(me, operandFrom(other)) }
+func (me C) LessThan(other any) Query                  { return LessThan(me, operandFrom(other)) }
+func (me C) GreaterThan(other any) Query               { return GreaterThan(me, operandFrom(other)) }
+func (me C) LessOrEqual(other any) Query               { return LessOrEqual(me, operandFrom(other)) }
+func (me C) GreaterOrEqual(other any) Query            { return GreaterOrEqual(me, operandFrom(other)) }
+func (me C) In(set ...any) Query                       { return In(me, operandsFrom(set)...) }
+func (me C) NotIn(set ...any) Query                    { return NotIn(me, operandsFrom(set)...) }
 func (me C) Asc() OrderBy                              { return &orderBy[C]{col: me} }
 func (me C) Desc() OrderBy                             { return &orderBy[C]{col: me, desc: true} }
 func (me C) Eval(obj any, c2f func(C) F) reflect.Value { return c2f(me).Eval(obj, c2f) }
 
 type F string
 
-func (me F) Equal(other Operand) Query          { return Equal(me, other) }
-func (me F) NotEqual(other Operand) Query       { return NotEqual(me, other) }
-func (me F) LessThan(other Operand) Query       { return LessThan(me, other) }
-func (me F) GreaterThan(other Operand) Query    { return GreaterThan(me, other) }
-func (me F) LessOrEqual(other Operand) Query    { return LessOrEqual(me, other) }
-func (me F) GreaterOrEqual(other Operand) Query { return GreaterOrEqual(me, other) }
-func (me F) In(set ...Operand) Query            { return In(me, set...) }
-func (me F) NotIn(set ...Operand) Query         { return NotIn(me, set...) }
-func (me F) Asc() OrderBy                       { return &orderBy[F]{fld: me} }
-func (me F) Desc() OrderBy                      { return &orderBy[F]{fld: me, desc: true} }
+func (me F) Equal(other any) Query          { return Equal(me, operandFrom(other)) }
+func (me F) NotEqual(other any) Query       { return NotEqual(me, operandFrom(other)) }
+func (me F) LessThan(other any) Query       { return LessThan(me, operandFrom(other)) }
+func (me F) GreaterThan(other any) Query    { return GreaterThan(me, operandFrom(other)) }
+func (me F) LessOrEqual(other any) Query    { return LessOrEqual(me, operandFrom(other)) }
+func (me F) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, operandFrom(other)) }
+func (me F) In(set ...any) Query            { return In(me, operandsFrom(set)...) }
+func (me F) NotIn(set ...any) Query         { return NotIn(me, operandsFrom(set)...) }
+func (me F) Asc() OrderBy                   { return &orderBy[F]{fld: me} }
+func (me F) Desc() OrderBy                  { return &orderBy[F]{fld: me, desc: true} }
 func (me F) Eval(obj any, _ func(C) F) reflect.Value {
 	return reflect.ValueOf(obj).Elem().FieldByName(string(me))
 }
 
-type V[T any] struct{ Value T }
+type V struct{ Value any }
 
-func L[T any](value T) Operand                     { return V[T]{Value: value} }
-func (me V[T]) Equal(other Operand) Query          { return Equal(me, other) }
-func (me V[T]) NotEqual(other Operand) Query       { return NotEqual(me, other) }
-func (me V[T]) LessThan(other Operand) Query       { return LessThan(me, other) }
-func (me V[T]) GreaterThan(other Operand) Query    { return GreaterThan(me, other) }
-func (me V[T]) LessOrEqual(other Operand) Query    { return LessOrEqual(me, other) }
-func (me V[T]) GreaterOrEqual(other Operand) Query { return GreaterOrEqual(me, other) }
-func (me V[T]) In(set ...Operand) Query            { return In(me, set...) }
-func (me V[T]) NotIn(set ...Operand) Query         { return NotIn(me, set...) }
-func (me V[T]) Eval(any, func(C) F) reflect.Value  { return reflect.ValueOf(me.Value) }
-func (me V[T]) AsAny() any                         { return me.Value }
+func (me V) Equal(other any) Query             { return Equal(me, operandFrom(other)) }
+func (me V) NotEqual(other any) Query          { return NotEqual(me, operandFrom(other)) }
+func (me V) LessThan(other any) Query          { return LessThan(me, operandFrom(other)) }
+func (me V) GreaterThan(other any) Query       { return GreaterThan(me, operandFrom(other)) }
+func (me V) LessOrEqual(other any) Query       { return LessOrEqual(me, operandFrom(other)) }
+func (me V) GreaterOrEqual(other any) Query    { return GreaterOrEqual(me, operandFrom(other)) }
+func (me V) In(set ...any) Query               { return In(me, operandsFrom(set)...) }
+func (me V) NotIn(set ...any) Query            { return NotIn(me, operandsFrom(set)...) }
+func (me V) Eval(any, func(C) F) reflect.Value { return reflect.ValueOf(me.Value) }
+func (me V) AsAny() any                        { return me.Value }
 
 type fn string
 
@@ -71,19 +89,19 @@ type fun struct {
 func Fn(f fn, args ...Operand) Operand {
 	return &fun{Fn: f, Args: args}
 }
-func Check[TArg any, TRet any](fn func(TArg) TRet, arg Operand) Operand {
+func Via[TArg any, TRet any](fn func(TArg) TRet, arg Operand) Operand {
 	ret := Fn("", arg).(*fun)
 	ret.Alt = func(args ...any) any { return fn(args[0].(TArg)) }
 	return ret
 }
-func (me *fun) Equal(other Operand) Query          { return Equal(me, other) }
-func (me *fun) NotEqual(other Operand) Query       { return NotEqual(me, other) }
-func (me *fun) LessThan(other Operand) Query       { return LessThan(me, other) }
-func (me *fun) GreaterThan(other Operand) Query    { return GreaterThan(me, other) }
-func (me *fun) LessOrEqual(other Operand) Query    { return LessOrEqual(me, other) }
-func (me *fun) GreaterOrEqual(other Operand) Query { return GreaterOrEqual(me, other) }
-func (me *fun) In(set ...Operand) Query            { return In(me, set...) }
-func (me *fun) NotIn(set ...Operand) Query         { return NotIn(me, set...) }
+func (me *fun) Equal(other any) Query          { return Equal(me, operandFrom(other)) }
+func (me *fun) NotEqual(other any) Query       { return NotEqual(me, operandFrom(other)) }
+func (me *fun) LessThan(other any) Query       { return LessThan(me, operandFrom(other)) }
+func (me *fun) GreaterThan(other any) Query    { return GreaterThan(me, operandFrom(other)) }
+func (me *fun) LessOrEqual(other any) Query    { return LessOrEqual(me, operandFrom(other)) }
+func (me *fun) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, operandFrom(other)) }
+func (me *fun) In(set ...any) Query            { return In(me, operandsFrom(set)...) }
+func (me *fun) NotIn(set ...any) Query         { return NotIn(me, operandsFrom(set)...) }
 func (me *fun) Eval(obj any, c2f func(C) F) reflect.Value {
 	if me.Alt != nil {
 		return reflect.ValueOf(me.Alt(sl.To(me.Args, func(it Operand) any { return it.Eval(obj, c2f).Interface() })...))
@@ -188,14 +206,14 @@ func q() *query {
 
 type Operand interface {
 	Eval(any, func(C) F) reflect.Value
-	Equal(other Operand) Query
-	NotEqual(other Operand) Query
-	LessThan(other Operand) Query
-	GreaterThan(other Operand) Query
-	LessOrEqual(other Operand) Query
-	GreaterOrEqual(other Operand) Query
-	In(set ...Operand) Query
-	NotIn(set ...Operand) Query
+	Equal(other any) Query
+	NotEqual(other any) Query
+	LessThan(other any) Query
+	GreaterThan(other any) Query
+	LessOrEqual(other any) Query
+	GreaterOrEqual(other any) Query
+	In(set ...any) Query
+	NotIn(set ...any) Query
 }
 
 type query struct {

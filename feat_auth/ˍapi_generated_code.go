@@ -33,7 +33,6 @@ const ErrAuthRegister_PasswordInvalid util.Err = "AuthRegister_PasswordInvalid"
 const ErrAuthRegister_PasswordRequiredButMissing util.Err = "AuthRegister_PasswordRequiredButMissing"
 const ErrAuthRegister_PasswordTooLong util.Err = "AuthRegister_PasswordTooLong"
 const ErrAuthRegister_PasswordTooShort util.Err = "AuthRegister_PasswordTooShort"
-const ErrAuthRegister_WhileLoggedIn util.Err = "AuthRegister_WhileLoggedIn"
 const AuthChangePasswordEmailAddr = q.F("EmailAddr")
 const AuthChangePasswordPasswordNewPlain = q.F("PasswordNewPlain")
 const AuthChangePasswordPasswordPlain = q.F("PasswordPlain")
