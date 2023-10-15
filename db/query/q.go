@@ -52,6 +52,7 @@ func (me V[T]) GreaterOrEqual(other Operand) Query { return GreaterOrEqual(me, o
 func (me V[T]) In(set ...Operand) Query            { return In(me, set...) }
 func (me V[T]) NotIn(set ...Operand) Query         { return NotIn(me, set...) }
 func (me V[T]) Eval(any, func(C) F) reflect.Value  { return reflect.ValueOf(me.Value) }
+func (me V[T]) AsAny() any                         { return me.Value }
 
 type fn string
 
@@ -209,7 +210,11 @@ func (me *query) String(fld2col func(F) C, args pgx.NamedArgs) string {
 func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 	var do_arg func(operand Operand)
 	do_arg = func(operand Operand) {
-		if sub_stmt, _ := operand.(interface{ Sql(*str.Buf) }); sub_stmt != nil {
+		if col_name, is := operand.(C); is {
+			buf.WriteString(string(col_name))
+		} else if fld_name, is := operand.(F); is {
+			buf.WriteString(string(fld2col(fld_name)))
+		} else if sub_stmt, _ := operand.(interface{ Sql(*str.Buf) }); sub_stmt != nil {
 			sub_stmt.Sql(buf)
 		} else if fn, _ := operand.(*fun); fn != nil {
 			buf.WriteString(string(fn.Fn))
@@ -223,7 +228,7 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 			buf.WriteByte(')')
 		} else {
 			arg_name := "@A" + str.FromInt(len(args))
-			args[arg_name[1:]] = operand
+			args[arg_name[1:]] = operand.(interface{ AsAny() any }).AsAny()
 			buf.WriteString(arg_name)
 		}
 	}
@@ -264,14 +269,7 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 					break
 				}
 			}
-
-			if col_name, is := operand.(C); is {
-				buf.WriteString(string(col_name))
-			} else if fld_name, is := operand.(F); is {
-				buf.WriteString(string(fld2col(fld_name)))
-			} else {
-				do_arg(operand)
-			}
+			do_arg(operand)
 		}
 	}
 	buf.WriteByte(')')

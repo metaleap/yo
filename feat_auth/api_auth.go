@@ -24,15 +24,19 @@ const (
 func init() {
 	Apis(ApiMethods{
 		MethodPathLogout: Api(apiUserLogout, PkgInfo),
+
 		MethodPathLogin: Api(apiUserLogin, PkgInfo).
-			FailIf(q.FnStrLen.Of(q.F("EmailAddr")).Equal(q.L(0)),
+			FailIf(q.FnStrLen.Of(AuthLoginEmailAddr).Equal(q.L(0)),
 				"EmailRequiredButMissing").
-			WithKnownErrs("OkButFailedToCreateSignedToken", "EmailRequiredButMissing", "EmailInvalid", "PasswordRequiredButMissing", "AccountDoesNotExist", "WrongPassword"),
+			CanFailWith("OkButFailedToCreateSignedToken", "EmailInvalid", "PasswordRequiredButMissing", "AccountDoesNotExist", "WrongPassword"),
+
 		MethodPathRegister: Api(apiUserRegister, PkgInfo).
-			WithKnownErrs("WhileLoggedIn", "EmailRequiredButMissing", "EmailInvalid", "EmailAddrAlreadyExists", "PasswordRequiredButMissing", "PasswordTooShort", "PasswordTooLong", "PasswordInvalid"),
+			CanFailWith("WhileLoggedIn", "EmailRequiredButMissing", "EmailInvalid", "EmailAddrAlreadyExists", "PasswordRequiredButMissing", "PasswordTooShort", "PasswordTooLong", "PasswordInvalid"),
+
 		MethodPathChangePassword: Api(apiChangePassword, PkgInfo).
-			WithKnownErrs(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "Forbidden", "NewPasswordRequiredButMissing", "NewPasswordTooShort", "NewPasswordSameAsOld", "NewPasswordTooLong", "NewPasswordInvalid", "ChangesNotStored"),
+			CanFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "Forbidden", "NewPasswordRequiredButMissing", "NewPasswordTooShort", "NewPasswordSameAsOld", "NewPasswordTooLong", "NewPasswordInvalid", "ChangesNotStored"),
 	})
+
 	PreServes = append(PreServes, PreServe{Name: "authCheck", Do: func(ctx *Ctx) {
 		httpSetUser(ctx, ctx.HttpGetCookie(HttpJwtCookieName))
 	}})

@@ -27,11 +27,18 @@ type apiRefl struct {
 	}
 }
 
+func (me *apiRefl) method(methodPath string) *apiReflMethod {
+	return &me.Methods[sl.IdxWhere(me.Methods, func(it apiReflMethod) bool { return (it.Path == methodPath) })]
+}
+
 type apiReflMethod struct {
 	Path string
 	In   string
 	Out  string
 }
+
+func (me *apiReflMethod) ident() string    { return ToIdent(me.Path) }
+func (me *apiReflMethod) identUp0() string { return str.Up0(me.ident()) }
 
 func apiHandleReflReq(this *ApiCtx[Void, apiRefl]) {
 	// note, exceptionally in this handler, this.Ctx can be nil
@@ -40,7 +47,8 @@ func apiHandleReflReq(this *ApiCtx[Void, apiRefl]) {
 		if !str.IsPrtAscii(method_path) {
 			panic("not printable ASCII: '" + method_path + "'")
 		}
-		method_name, method := ToIdent(method_path), apiReflMethod{Path: method_path}
+		method := apiReflMethod{Path: method_path}
+		method_name := method.ident()
 		rt_in, rt_out := api[method_path].reflTypes()
 		method.In, method.Out = apiReflType(this.Ret, rt_in, "In", method_name), apiReflType(this.Ret, rt_out, "Out", method_name)
 		if no_in, no_out := (method.In == ""), (method.Out == ""); no_in || no_out {

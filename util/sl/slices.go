@@ -5,14 +5,14 @@ import (
 	"slices"
 )
 
-func WithoutIdx[TSl ~[]TEl, TEl any](slice TSl, sansIdx int, noMake bool) (ret TSl) {
+func WithoutIdx[TSlice ~[]TItem, TItem any](slice TSlice, sansIdx int, noMake bool) (ret TSlice) {
 	if (sansIdx < 0) || (sansIdx >= len(slice)) {
 		return slice
 	}
 	if noMake {
 		return append(slice[:sansIdx], slice[sansIdx+1:]...)
 	}
-	ret = make(TSl, 0, len(slice)-1)
+	ret = make(TSlice, 0, len(slice)-1)
 	for i := range slice {
 		if i != sansIdx {
 			ret = append(ret, slice[i])
@@ -21,11 +21,11 @@ func WithoutIdx[TSl ~[]TEl, TEl any](slice TSl, sansIdx int, noMake bool) (ret T
 	return
 }
 
-func WithoutIdxs[TSl ~[]TEl, TEl any](slice TSl, sansIdxs ...int) (ret TSl) {
+func WithoutIdxs[TSlice ~[]TItem, TItem any](slice TSlice, sansIdxs ...int) (ret TSlice) {
 	if len(sansIdxs) == 0 {
 		return slice
 	}
-	ret = make(TSl, 0, len(slice)-len(sansIdxs))
+	ret = make(TSlice, 0, len(slice)-len(sansIdxs))
 	for i := range slice {
 		if !Has(sansIdxs, i) {
 			ret = append(ret, slice[i])
@@ -34,19 +34,19 @@ func WithoutIdxs[TSl ~[]TEl, TEl any](slice TSl, sansIdxs ...int) (ret TSl) {
 	return
 }
 
-func WithoutIdxRange[TSl ~[]TEl, TEl any](slice TSl, delFromIdx int, delUntilIdx int) TSl {
+func WithoutIdxRange[TSlice ~[]TItem, TItem any](slice TSlice, delFromIdx int, delUntilIdx int) TSlice {
 	if (delFromIdx <= 0) && ((delUntilIdx < 0) || (delUntilIdx >= len(slice))) {
-		return TSl{}
+		return TSlice{}
 	}
-	return append(append(make(TSl, 0, len(slice)-(delUntilIdx-delFromIdx)), slice[:delFromIdx]...), slice[delUntilIdx:]...)
+	return append(append(make(TSlice, 0, len(slice)-(delUntilIdx-delFromIdx)), slice[:delFromIdx]...), slice[delUntilIdx:]...)
 }
 
-func Sorted[TSl ~[]TEl, TEl cmp.Ordered](slice TSl) TSl {
+func Sorted[TSlice ~[]TItem, TItem cmp.Ordered](slice TSlice) TSlice {
 	slices.Sort(slice)
 	return slice
 }
 
-func IdxOf[TSl ~[]TEl, TEl comparable](s TSl, v TEl) int {
+func IdxOf[TSlice ~[]TItem, TItem comparable](s TSlice, v TItem) int {
 	for i := range s {
 		if v == s[i] {
 			return i
@@ -55,7 +55,7 @@ func IdxOf[TSl ~[]TEl, TEl comparable](s TSl, v TEl) int {
 	return -1
 }
 
-func IdxWhere[TSl ~[]TEl, TEl any](slice TSl, pred func(TEl) bool) int {
+func IdxWhere[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) int {
 	for i := range slice {
 		if pred(slice[i]) {
 			return i
@@ -64,7 +64,7 @@ func IdxWhere[TSl ~[]TEl, TEl any](slice TSl, pred func(TEl) bool) int {
 	return -1
 }
 
-func Has[TSl ~[]TEl, TEl comparable](slice TSl, needle TEl) bool {
+func Has[TSlice ~[]TItem, TItem comparable](slice TSlice, needle TItem) bool {
 	for i := range slice {
 		if slice[i] == needle {
 			return true
@@ -73,7 +73,7 @@ func Has[TSl ~[]TEl, TEl comparable](slice TSl, needle TEl) bool {
 	return false
 }
 
-func HasAnyOf[TSl ~[]TEl, TEl comparable](slice TSl, of ...TEl) bool {
+func HasAnyOf[TSlice ~[]TItem, TItem comparable](slice TSlice, of ...TItem) bool {
 	if len(of) == 0 {
 		return true
 	} else if len(of) == 1 {
@@ -89,7 +89,7 @@ func HasAnyOf[TSl ~[]TEl, TEl comparable](slice TSl, of ...TEl) bool {
 	return false
 }
 
-func HasAllOf[TSl ~[]TEl, TEl comparable](slice TSl, of ...TEl) bool {
+func HasAllOf[TSlice ~[]TItem, TItem comparable](slice TSlice, of ...TItem) bool {
 	if len(of) == 0 {
 		return true
 	} else if len(of) == 1 {
@@ -112,7 +112,7 @@ func HasAllOf[TSl ~[]TEl, TEl comparable](slice TSl, of ...TEl) bool {
 	return true
 }
 
-func To[TSl ~[]TEl, TEl any, TOut any](slice TSl, f func(TEl) TOut) (ret []TOut) {
+func To[TSlice ~[]TItem, TItem any, TOut any](slice TSlice, f func(TItem) TOut) (ret []TOut) {
 	ret = make([]TOut, len(slice))
 	for i := range slice {
 		ret[i] = f(slice[i])
@@ -120,7 +120,7 @@ func To[TSl ~[]TEl, TEl any, TOut any](slice TSl, f func(TEl) TOut) (ret []TOut)
 	return
 }
 
-func All[TSl ~[]TEl, TEl any](slice TSl, pred func(TEl) bool) bool {
+func All[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) bool {
 	for i := range slice {
 		if !pred(slice[i]) {
 			return false
@@ -129,7 +129,7 @@ func All[TSl ~[]TEl, TEl any](slice TSl, pred func(TEl) bool) bool {
 	return true
 }
 
-func Any[TSl ~[]TEl, TEl any](slice TSl, pred func(TEl) bool) bool {
+func Any[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) bool {
 	for i := range slice {
 		if pred(slice[i]) {
 			return true
@@ -138,23 +138,35 @@ func Any[TSl ~[]TEl, TEl any](slice TSl, pred func(TEl) bool) bool {
 	return false
 }
 
-func Without[TSl ~[]TEl, TEl comparable](slice TSl, without ...TEl) TSl {
+func Without[TSlice ~[]TItem, TItem comparable](slice TSlice, without ...TItem) TSlice {
 	if len(without) == 0 {
 		return slice
 	}
-	return Where(slice, func(item TEl) bool {
+	return Where(slice, func(item TItem) bool {
 		return !Has(without, item)
 	})
 }
 
-func Where[TSl ~[]TEl, TEl any](slice TSl, pred func(TEl) bool) (ret TSl) {
-	ret = make(TSl, 0, len(slice))
+func Where[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) (ret TSlice) {
+	ret = make(TSlice, 0, len(slice))
 	for i := range slice {
 		if pred(slice[i]) {
 			ret = append(ret, slice[i])
 		}
 	}
 	return
+}
+
+// add only those `items` not yet in `slice`. avoids the need for a `Unique(TSlice)TSlice`
+func With[TSlice ~[]TItem, TItem comparable](slice TSlice, items ...TItem) TSlice {
+	append_from := 0
+	for i := range items {
+		if IdxOf(slice, items[i]) < 0 {
+			slice = append(slice, items[append_from:i+1]...)
+		}
+		append_from = i + 1
+	}
+	return append(slice, items[append_from:]...)
 }
 
 type Slice[T any] []T

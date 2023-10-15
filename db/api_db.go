@@ -44,14 +44,14 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 	Apis(ApiMethods{
 		"__/db/" + type_name + "/createOne":  Api(apiCreateOne[TObj, TFld], PkgInfo),
 		"__/db/" + type_name + "/createMany": Api(apiCreateMany[TObj, TFld], PkgInfo),
-		"__/db/" + type_name + "/count":      Api(apiCount[TObj, TFld], PkgInfo).WithKnownErrs(":" + ErrSetQuery),
+		"__/db/" + type_name + "/count":      Api(apiCount[TObj, TFld], PkgInfo).CanFailWith(":" + ErrSetQuery),
 		"__/db/" + type_name + "/findById":   Api(apiFindById[TObj, TFld], PkgInfo),
-		"__/db/" + type_name + "/findOne":    Api(apiFindOne[TObj, TFld], PkgInfo).WithKnownErrs(":" + ErrSetQuery),
-		"__/db/" + type_name + "/findMany":   Api(apiFindMany[TObj, TFld], PkgInfo).WithKnownErrs(":" + ErrSetQuery),
-		"__/db/" + type_name + "/deleteOne":  Api(apiDeleteOne[TObj, TFld], PkgInfo).WithKnownErrs(":" + ErrSetDbDelete),
-		"__/db/" + type_name + "/deleteMany": Api(apiDeleteMany[TObj, TFld], PkgInfo).WithKnownErrs(":"+ErrSetQuery, ":"+ErrSetDbDelete),
-		"__/db/" + type_name + "/updateOne":  Api(apiUpdateOne[TObj, TFld], PkgInfo).WithKnownErrs(":"+ErrSetDbUpdate, "ExpectedIdGreater0"),
-		"__/db/" + type_name + "/updateMany": Api(apiUpdateMany[TObj, TFld], PkgInfo).WithKnownErrs(":"+ErrSetQuery, ":"+ErrSetDbUpdate),
+		"__/db/" + type_name + "/findOne":    Api(apiFindOne[TObj, TFld], PkgInfo).CanFailWith(":" + ErrSetQuery),
+		"__/db/" + type_name + "/findMany":   Api(apiFindMany[TObj, TFld], PkgInfo).CanFailWith(":" + ErrSetQuery),
+		"__/db/" + type_name + "/deleteOne":  Api(apiDeleteOne[TObj, TFld], PkgInfo).CanFailWith(":" + ErrSetDbDelete),
+		"__/db/" + type_name + "/deleteMany": Api(apiDeleteMany[TObj, TFld], PkgInfo).CanFailWith(":"+ErrSetQuery, ":"+ErrSetDbDelete),
+		"__/db/" + type_name + "/updateOne":  Api(apiUpdateOne[TObj, TFld], PkgInfo).CanFailWith(":"+ErrSetDbUpdate, "ExpectedIdGreater0"),
+		"__/db/" + type_name + "/updateMany": Api(apiUpdateMany[TObj, TFld], PkgInfo).CanFailWith(":"+ErrSetQuery, ":"+ErrSetDbUpdate),
 	})
 }
 
