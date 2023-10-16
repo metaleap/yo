@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	doErrCatchInDevMode = true // gotta toggle occasionally during local debug
-	ErrTimedOut         = Err("TimedOut")
-	ErrDbNotStored      = Err("DbWriteRequestAcceptedWithoutErrButNotStoredEither")
+	doErrCatchInDevMode   = true // gotta toggle occasionally during local debug
+	ErrTimedOut           = Err("TimedOut")
+	ErrDbNotStored        = Err("DbWriteRequestAcceptedWithoutErrButNotStoredEither")
+	ErrDbUpdExpectedIdGt0 = Err("ErrDbUpdExpectedIdGt0")
 )
 
 var (

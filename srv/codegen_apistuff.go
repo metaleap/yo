@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	yoctx "yo/ctx"
 	yolog "yo/log"
 	. "yo/util"
 	"yo/util/sl"
@@ -110,10 +109,13 @@ func codegenGo(apiRefl *apiRefl) {
 		buf.WriteString("var PkgInfo = apiPkgInfo{}\n")
 
 		// emit known `Err`s
-		err_emitted := map[Err]bool{yoctx.ErrTimedOut: true}
+		err_emitted := map[Err]bool{}
+		for _, err := range errsNoCodegen {
+			err_emitted[err] = true
+		}
 		for _, method_path := range sl.Sorted(Keys(pkg_methods)) {
 			for _, err := range sl.Sorted(Keys(apiRefl.KnownErrs[method_path])) {
-				if (!err_emitted[err]) && !sl.Has(errsNoCodegen, err) {
+				if !err_emitted[err] {
 					err_emitted[err] = true
 					buf.WriteString("const Err" + string(err) + " util.Err = \"" + string(err) + "\"\n")
 				}

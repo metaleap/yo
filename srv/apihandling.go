@@ -21,8 +21,8 @@ var (
 	KnownErrSets = map[string][]Err{
 		"": {ErrTimedOut},
 	}
-	errsNoCodegen = []Err{ErrUnauthorized, ErrDbNotStored}
-	ErrsNoPrefix  = []Err{ErrUnauthorized, ErrDbNotStored}
+	errsNoCodegen = []Err{ErrTimedOut, ErrUnauthorized, ErrDbNotStored, ErrDbUpdExpectedIdGt0}
+	ErrsNoPrefix  = errsNoCodegen
 )
 
 type ApiMethods map[string]ApiMethod

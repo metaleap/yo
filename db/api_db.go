@@ -3,6 +3,7 @@ package yodb
 import (
 	"reflect"
 
+	yoctx "yo/ctx"
 	q "yo/db/query"
 	. "yo/srv"
 	. "yo/util"
@@ -10,8 +11,7 @@ import (
 )
 
 const (
-	errBinOpPrefix         = "ExpectedTwoOperandsFor"
-	ErrUpdateExpectedIdGt0 = Err("ErrUpdateExpectedIdGt0")
+	errBinOpPrefix = "ExpectedTwoOperandsFor"
 
 	ErrSetQuery    = "Query"
 	ErrSetDbUpdate = "DbUpdate"
@@ -57,7 +57,7 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 		apiMethodPath(type_name, "deleteMany"): Api(apiDeleteMany[TObj, TFld], PkgInfo).
 			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbDelete),
 		apiMethodPath(type_name, "updateOne"): Api(apiUpdateOne[TObj, TFld], PkgInfo).
-			CouldFailWith(":"+ErrSetDbUpdate, ErrUpdateExpectedIdGt0),
+			CouldFailWith(":"+ErrSetDbUpdate, yoctx.ErrDbNotStored, yoctx.ErrDbUpdExpectedIdGt0),
 		apiMethodPath(type_name, "updateMany"): Api(apiUpdateMany[TObj, TFld], PkgInfo).
 			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbUpdate),
 		apiMethodPath(type_name, "count"): Api(apiCount[TObj, TFld], PkgInfo).
@@ -141,7 +141,7 @@ type ApiUpdateArgs[TObj any] struct {
 
 func apiUpdateOne[TObj any, TFld ~string](this *ApiCtx[ApiUpdateArgs[TObj], retCount]) {
 	if this.Args.Id <= 0 {
-		panic(Err(this.Ctx.Http.ApiMethod.MethodNameUp0() + "_" + string(ErrUpdateExpectedIdGt0)))
+		panic(Err(this.Ctx.Http.ApiMethod.MethodNameUp0() + "_" + string(yoctx.ErrDbUpdExpectedIdGt0)))
 	}
 	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, ColID.Equal(this.Args.Id))
 }
