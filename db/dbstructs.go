@@ -56,7 +56,7 @@ func (me *Ref[_, OnDel]) onDelSql() string {
 }
 func (me Ref[_, _]) Id() I64       { return me.id }
 func (me Ref[_, _]) IsDbRef() bool { return true } // no direct callers, but checked for by `yo/srv` during codegen
-func (me *Ref[_, _]) Set(id I64)   { me.self, me.id = nil, id }
+func (me *Ref[_, _]) SetId(id I64) { me.self, me.id = nil, id }
 func (me *Ref[T, _]) Get(ctx *yoctx.Ctx) *T {
 	if (me.self == nil) && (me.id != 0) {
 		me.self = FindOne[T](ctx, ColID.Equal(me.id))
@@ -396,7 +396,7 @@ func Q[T any](it *T) q.Query {
 func doEnsureDbStructTables() {
 	for _, desc := range ensureDescs {
 		ctx := yoctx.NewDebugNoCatch(Cfg.DB_REQ_TIMEOUT) // yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
-		defer ctx.Dispose()
+		defer ctx.OnDone()
 		ctx.DbTx()
 		yolog.Println("db.Mig: " + desc.tableName)
 		is_table_rename := (desc.mig.oldTableName != "")

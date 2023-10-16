@@ -494,7 +494,6 @@ function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: s
             const field_type_name = type_struc[field_name]
             obj[field_name] = newSampleVal(refl, field_type_name, [type_name].concat(recurse_protection), isForPayload, isRootVal, methodPath)
         }
-        console.log(type_name, refl.DbStructs.indexOf(type_name))
         const filter_dbstruct_fields = (refl.DbStructs.indexOf(type_name) >= 0) && is_db_create
         if (filter_dbstruct_fields)
             for (const field_name of ['ID', 'Id', 'Created'])

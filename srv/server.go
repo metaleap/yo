@@ -57,7 +57,7 @@ func listenAndServe() {
 
 func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	ctx := yoctx.NewForHttp(req, rw, Cfg.YO_API_IMPL_TIMEOUT)
-	defer ctx.Dispose()
+	defer ctx.OnDone()
 
 	ctx.Timings.Step("check " + QueryArgForceFail)
 	if s := ctx.GetStr(QueryArgForceFail); s != "" {

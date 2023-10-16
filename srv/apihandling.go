@@ -59,20 +59,8 @@ type ApiPkgInfo interface {
 }
 
 func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, failIfs ...Fails) ApiMethod {
-	var tmp_in TIn
-	var tmp_out TOut
-	if reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct {
-		panic(str.Fmt("in/out types must be structs, got in:%T, out:%T", tmp_in, tmp_out))
-	}
-	var ret *apiMethod[TIn, TOut]
-	method := apiMethod[TIn, TOut]{PkgInfo: pkgInfo, handleFunc: func(ctx *Ctx, in any) any {
-		ctx.Http.ApiMethod = ret
-		var output TOut
-		api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
-		f(api_ctx)
-		return api_ctx.Ret
-	}}
-	ret = &method
+	var ret apiMethod[TIn, TOut]
+	method[TIn, TOut](f, pkgInfo, &ret)
 	for _, fail := range failIfs {
 		ret.errsOwn = sl.With(ret.errsOwn, fail.Err)
 		if sl.IdxWhere(ret.failIfs, func(it Fails) bool { return (it.Err == fail.Err) }) > 0 {
@@ -80,7 +68,7 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, fail
 		}
 		ret.failIfs = append(ret.failIfs, fail)
 	}
-	return ret
+	return &ret
 }
 
 type Fails struct {
@@ -181,6 +169,32 @@ func (me *apiMethod[TIn, TOut]) CouldFailWith(knownErrs ...Err) ApiMethod {
 	errs_deps := sl.To(sl.Where(knownErrs, func(it Err) bool { return it[0] == ':' }), func(it Err) string { return string(it)[1:] })
 	me.errsOwn, me.errsDeps = sl.With(me.errsOwn, errs_own...), sl.With(me.errsDeps, errs_deps...)
 	return me
+}
+
+func method[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, ret *apiMethod[TIn, TOut]) {
+	var tmp_in TIn
+	var tmp_out TOut
+	if IsDevMode && (reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct) {
+		panic(str.Fmt("in/out types must be structs, got in:%T, out:%T", tmp_in, tmp_out))
+	}
+	*ret = apiMethod[TIn, TOut]{
+		PkgInfo: pkgInfo,
+		handleFunc: func(ctx *Ctx, in any) any {
+			ctx.Http.ApiMethod = ret
+			var output TOut
+			api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
+			f(api_ctx)
+			return api_ctx.Ret
+		}}
+}
+
+func Call[TIn any, TOut any](ctx *Ctx, f func(*ApiCtx[TIn, TOut]), args *TIn) *TOut {
+	var m apiMethod[TIn, TOut]
+	method[TIn, TOut](f, nil, &m)
+	if ret := m.handleFunc(ctx, args); ret != nil {
+		return ret.(*TOut)
+	}
+	return nil
 }
 
 func apiHandleRequest(ctx *Ctx) (result any, handled bool) {

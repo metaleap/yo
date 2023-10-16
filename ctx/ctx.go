@@ -72,13 +72,10 @@ func NewDebugNoCatch(timeout time.Duration) *Ctx {
 
 func NewNonHttp(timeout time.Duration) *Ctx {
 	ctx := newCtx(timeout)
-	if DB != nil {
-		ctx.DbTx()
-	}
 	return ctx
 }
 
-func (me *Ctx) Dispose() {
+func (me *Ctx) OnDone() {
 	var fail any
 	if (!IsDevMode) || (doErrCatchInDevMode && !me.DbgNoCatch) {
 		fail = recover()

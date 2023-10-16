@@ -4,6 +4,7 @@ import (
 	"time"
 
 	yodb "yo/db"
+	_ "yo/feat_auth" // because feat_auth it has its own admin-only endpoints: so api-related codegen (using api-refl) must know about them regardless of actual app using feat_auth or not
 	yolog "yo/log"
 	yosrv "yo/srv"
 )
