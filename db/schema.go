@@ -209,7 +209,7 @@ func sqlColTypeDeclFrom(ty reflect.Type) string {
 	case tyText:
 		return sql_data_type_name + " NOT NULL DEFAULT ('')"
 	default:
-		if is_db_json_obj_type, is_db_json_arr_type := isWhatDbJsonType(ty); is_db_json_obj_type || is_db_json_arr_type {
+		if is_db_json_dict_type, is_db_json_arr_type, is_db_json_obj_type := isWhatDbJsonType(ty); is_db_json_obj_type || is_db_json_dict_type || is_db_json_arr_type {
 			return sql_data_type_name + " NOT NULL DEFAULT ('" + If(is_db_json_arr_type, "[]", "{}") + "'::jsonb)"
 		}
 		panic(ty)

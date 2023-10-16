@@ -36,18 +36,18 @@ type DateTime time.Time
 type Dict[T any] map[string]T
 type Arr[T any] sl.Slice[T]
 
-type JsonDbObj[T any] struct{ Self *T }
+type JsonDbObj[T any] struct{ self *T }
 
 type jsonDbValue interface {
-	init()
+	init(selfPtr any)
 	get() any
 	scan([]byte) error
 }
 
-func (me *JsonDbObj[T]) init()                   {}
-func (me *JsonDbObj[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me.Self) }
-func (me *JsonDbObj[T]) get() any                { return me.Self }
-func (me *Dict[T]) init()                        { *me = Dict[T]{} }
+func (me *JsonDbObj[T]) init(selfPtr any)        { me.self = selfPtr.(*T) }
+func (me *JsonDbObj[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me.self) }
+func (me *JsonDbObj[T]) get() any                { return me.self }
+func (me *Dict[T]) init(any)                     { *me = Dict[T]{} }
 func (me *Dict[T]) scan(jsonb []byte) error      { return yojson.Unmarshal(jsonb, me) }
 func (me *Dict[T]) get() any {
 	if (me == nil) || (*me == nil) {
@@ -55,7 +55,7 @@ func (me *Dict[T]) get() any {
 	}
 	return Dict[T](*me)
 }
-func (me *Arr[T]) init()                   { *me = []T{} }
+func (me *Arr[T]) init(any)                { *me = []T{} }
 func (me *Arr[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me) }
 func (me *Arr[T]) get() any {
 	if (me == nil) || (*me == nil) {
@@ -116,14 +116,25 @@ func isColField(fieldType reflect.Type) bool {
 }
 
 func isDbJsonType(ty reflect.Type) bool {
-	is_db_json_obj_type, is_db_json_arr_type := isWhatDbJsonType(ty)
-	return is_db_json_obj_type || is_db_json_arr_type
+	is_db_json_dict_type, is_db_json_arr_type, is_db_json_obj_type := isWhatDbJsonType(ty)
+	return is_db_json_obj_type || is_db_json_arr_type || is_db_json_dict_type
 }
 
-func isWhatDbJsonType(fieldType reflect.Type) (isDbJsonObjType bool, isDbJsonArrType bool) {
-	if field_type_name := fieldType.Name(); fieldType.PkgPath() == PkgInfo.PkgPath() {
+func isWhatDbJsonType(ty reflect.Type) (isDbJsonDictType bool, isDbJsonArrType bool, isDbJsonObjType bool) {
+	if field_type_name := ty.Name(); ty.PkgPath() == PkgInfo.PkgPath() {
 		if isDbJsonArrType = str.Begins(field_type_name, "Arr[") && str.Ends(field_type_name, "]"); !isDbJsonArrType {
-			isDbJsonObjType = str.Begins(field_type_name, "Dict[") && str.Ends(field_type_name, "]")
+			isDbJsonDictType = str.Begins(field_type_name, "Dict[") && str.Ends(field_type_name, "]")
+		}
+	}
+	if (!(isDbJsonArrType || isDbJsonDictType)) && (ty.Kind() == reflect.Struct) {
+		for i, l := 0, ty.NumField(); i < l; i++ {
+			if field := ty.Field(i); field.Anonymous {
+				if field_type := field.Type; (field_type.PkgPath() == PkgInfo.PkgPath()) &&
+					str.Begins(field_type.Name(), "JsonDbObj[") && str.Ends(field_type.Name(), "]") {
+					isDbJsonObjType = true
+					break
+				}
+			}
 		}
 	}
 	return
