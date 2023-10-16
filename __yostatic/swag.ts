@@ -24,7 +24,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         table: HTMLTableElement, input_querystring: HTMLInputElement, textarea_payload: HTMLTextAreaElement, textarea_response: HTMLTextAreaElement,
         tree_payload: HTMLUListElement, tree_response: HTMLUListElement, div_validate_error_msg: HTMLDivElement
     let last_textarea_payload_value = ''
-    const state_email_addr_default = '(user email addr.)', state_email_addr = van.state(getCurUser() || state_email_addr_default)
+    const state_email_addr_default = '(none)', state_email_addr = van.state(getCurUser() || state_email_addr_default)
     const auto_completes: { [_: string]: HTMLDataListElement } = {}
 
     const refreshAutoCompletes = () => {
@@ -434,9 +434,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                     input_querystring = html.input({ 'type': 'text', 'id': ('q' + now), 'value': '', 'placeholder': '{"name":"val", ...}' }),
                 ),
                 html.span({ 'class': 'nobr' },
-                    html.label({ 'for': ('l' + now) }, "Login:"),
-                    html.input({ 'type': 'text', 'id': ('l' + now), 'placeholder': state_email_addr, 'disabled': true, 'value': '' }),
-                    html.input({ 'type': 'password', 'placeholder': 'user password', 'disabled': true, 'value': '' }),
+                    html.span({}, "Current login: ", html.b({}, state_email_addr)),
                 ),
                 html.button({ 'style': 'font-weight:bold', 'onclick': sendRequest }, 'Go!'),
             )),
