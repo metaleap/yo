@@ -253,7 +253,7 @@ func (me scanner) Scan(it any) error {
 		default:
 			if isDbJsonType(me.ty) && me.jsonDbVal != nil {
 				if err := me.jsonDbVal.scan(it); err != nil {
-					panic(err)
+					panic(str.Fmt("scanner.Scan %T into %s: %s", it, me.ty.String(), err.Error()))
 				}
 			} else {
 				panic(str.Fmt("scanner.Scan %T into %s", it, me.ty.String()))
