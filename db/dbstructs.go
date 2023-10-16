@@ -33,7 +33,7 @@ type F32 float32
 type F64 float64
 type Text string
 type DateTime time.Time
-type Map[T any] map[string]T
+type Dict[T any] map[string]T
 type Arr[T any] sl.Slice[T]
 
 type jsonDbValue interface {
@@ -42,13 +42,13 @@ type jsonDbValue interface {
 	scan([]byte) error
 }
 
-func (me *Map[T]) init()                   { *me = Map[T]{} }
-func (me *Map[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me) }
-func (me *Map[T]) get() any {
+func (me *Dict[T]) init()                   { *me = Dict[T]{} }
+func (me *Dict[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me) }
+func (me *Dict[T]) get() any {
 	if (me == nil) || (*me == nil) {
-		return Map[T]{}
+		return Dict[T]{}
 	}
-	return Map[T](*me)
+	return Dict[T](*me)
 }
 func (me *Arr[T]) init()                   { *me = []T{} }
 func (me *Arr[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me) }
@@ -118,7 +118,7 @@ func isDbJsonType(ty reflect.Type) bool {
 func isWhatDbJsonType(fieldType reflect.Type) (isDbJsonObjType bool, isDbJsonArrType bool) {
 	if field_type_name := fieldType.Name(); fieldType.PkgPath() == PkgInfo.PkgPath() {
 		if isDbJsonArrType = str.Begins(field_type_name, "Arr[") && str.Ends(field_type_name, "]"); !isDbJsonArrType {
-			isDbJsonObjType = str.Begins(field_type_name, "Map[") && str.Ends(field_type_name, "]")
+			isDbJsonObjType = str.Begins(field_type_name, "Dict[") && str.Ends(field_type_name, "]")
 		}
 	}
 	return
