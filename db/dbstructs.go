@@ -32,7 +32,8 @@ type F32 float32
 type F64 float64
 type Text string
 type DateTime time.Time
-type Map[TKey comparable, TVal any] map[TKey]TVal
+type Map[T any] map[string]T
+type Arr[T any] sl.Slice[T]
 
 var (
 	tyBool     = reflect.TypeOf(Bool(false))
@@ -82,7 +83,17 @@ func (me *structDesc) fieldNameToColName(fieldName q.F) q.C {
 }
 
 func isColField(fieldType reflect.Type) bool {
-	return sl.Has(okTypes, fieldType)
+	is_db_json_obj_type, is_db_json_arr_type := isDbJsonType(fieldType)
+	return sl.Has(okTypes, fieldType) || is_db_json_arr_type || is_db_json_obj_type
+}
+
+func isDbJsonType(fieldType reflect.Type) (isDbJsonObjType bool, isDbJsonArrType bool) {
+	if field_type_name := fieldType.Name(); fieldType.PkgPath() == PkgInfo.PkgPath() {
+		if isDbJsonArrType = str.Begins(field_type_name, "Arr[") && str.Ends(field_type_name, "]"); !isDbJsonArrType {
+			isDbJsonObjType = str.Begins(field_type_name, "Map[") && str.Ends(field_type_name, "]")
+		}
+	}
+	return
 }
 
 func desc[T any]() (ret *structDesc) {

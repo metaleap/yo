@@ -190,6 +190,9 @@ func sqlColTypeFrom(ty reflect.Type) string {
 	case tyDateTime:
 		return "timestamp without time zone"
 	default:
+		if is_db_json_obj_type, is_db_json_arr_type := isDbJsonType(ty); is_db_json_obj_type || is_db_json_arr_type {
+			return "jsonb"
+		}
 		panic(ty)
 	}
 }
@@ -206,6 +209,9 @@ func sqlColTypeDeclFrom(ty reflect.Type) string {
 	case tyText:
 		return sql_data_type_name + " NOT NULL DEFAULT ('')"
 	default:
+		if is_db_json_obj_type, is_db_json_arr_type := isDbJsonType(ty); is_db_json_obj_type || is_db_json_arr_type {
+			return sql_data_type_name + " NOT NULL DEFAULT ('" + If(is_db_json_arr_type, "[]", "{}") + "'::jsonb)"
+		}
 		panic(ty)
 	}
 }
