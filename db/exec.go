@@ -7,6 +7,7 @@ import (
 
 	. "yo/ctx"
 	q "yo/db/query"
+	yojson "yo/json"
 	. "yo/util"
 	"yo/util/str"
 
@@ -253,6 +254,14 @@ func dbArgsCleanUpForPgx(args dbArgs) {
 			panic("non-pointer DateTime")
 		} else if dt, is := v.(*DateTime); is {
 			args[k] = (*time.Time)(dt)
+		} else if rv := reflect.ValueOf(v); rv.IsValid() {
+			if isDbJsonType(rv.Type()) {
+				if jsonb, err := yojson.Marshal(v); err == nil {
+					args[k] = jsonb
+				} else {
+					panic(err)
+				}
+			}
 		}
 	}
 }

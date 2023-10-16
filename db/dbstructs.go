@@ -46,17 +46,17 @@ func (me *Map[T]) init()                   { *me = Map[T]{} }
 func (me *Map[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me) }
 func (me *Map[T]) get() any {
 	if (me == nil) || (*me == nil) {
-		return map[string]T{}
+		return Map[T]{}
 	}
-	return map[string]T(*me)
+	return Map[T](*me)
 }
 func (me *Arr[T]) init()                   { *me = []T{} }
 func (me *Arr[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me) }
 func (me *Arr[T]) get() any {
 	if (me == nil) || (*me == nil) {
-		return []T{}
+		return Arr[T]{}
 	}
-	return []T(*me)
+	return Arr[T](*me)
 }
 
 var (
@@ -163,6 +163,9 @@ func reflFieldValue(rvField reflect.Value) any {
 	if !rvField.IsValid() {
 		return nil
 	}
+	if rvField.CanInterface() { // below unsafe-pointering won't do for jsonDbValue impls, so they must be in public/exported fields
+		return rvField.Interface()
+	}
 	addr := rvField.UnsafeAddr()
 	switch val := reflect.New(rvField.Type()).Interface().(type) {
 	case *Bool:
@@ -188,9 +191,6 @@ func reflFieldValue(rvField reflect.Value) any {
 	case **DateTime:
 		return *getPtr[*DateTime](addr)
 	default:
-		if json_db_val, is := val.(jsonDbValue); is {
-			return json_db_val.get()
-		}
 		panic(str.Fmt("reflFieldValue:%T", val))
 	}
 }
