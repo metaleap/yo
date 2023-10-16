@@ -32,21 +32,21 @@ func init() {
 func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I64) {
 	ctx.DbTx()
 	if yodb.Exists[UserAuth](ctx, UserAuthColEmailAddr.Equal(emailAddr)) {
-		panic(ErrAuthRegister_EmailAddrAlreadyExists)
+		panic(Err___admin_authRegister_EmailAddrAlreadyExists)
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
 	if (err != nil) || (len(hash) == 0) {
 		if err == bcrypt.ErrPasswordTooLong {
-			panic(ErrAuthRegister_PasswordTooLong)
+			panic(Err___admin_authRegister_PasswordTooLong)
 		} else {
-			panic(ErrAuthRegister_PasswordInvalid)
+			panic(Err___admin_authRegister_PasswordInvalid)
 		}
 	}
 	if ret = yodb.I64(yodb.CreateOne[UserAuth](ctx, &UserAuth{
 		EmailAddr:      yodb.Text(emailAddr),
 		passwordHashed: hash,
 	})); ret <= 0 {
-		panic(ErrAuthRegister_DbInsertAcceptedWithoutErrButNotStoredEither)
+		panic(Err___admin_authRegister_DbInsertAcceptedWithoutErrButNotStoredEither)
 	}
 	return
 }
@@ -54,12 +54,12 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I6
 func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jwt.Token) {
 	user_account := yodb.FindOne[UserAuth](ctx, UserAuthColEmailAddr.Equal(emailAddr))
 	if user_account == nil {
-		panic(ErrAuthLogin_AccountDoesNotExist)
+		panic(Err___admin_authLogin_AccountDoesNotExist)
 	}
 
 	err := bcrypt.CompareHashAndPassword(user_account.passwordHashed, []byte(passwordPlain))
 	if err != nil {
-		panic(ErrAuthLogin_WrongPassword)
+		panic(Err___admin_authLogin_WrongPassword)
 	}
 
 	return user_account, jwt.NewWithClaims(jwt.SigningMethodHS256, &JwtPayload{
@@ -88,13 +88,13 @@ func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, pas
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordNewPlain), bcrypt.DefaultCost)
 	if (err != nil) || (len(hash) == 0) {
 		if err == bcrypt.ErrPasswordTooLong {
-			panic(ErrAuthChangePassword_NewPasswordTooLong)
+			panic(Err___admin_authChangePassword_NewPasswordTooLong)
 		} else {
-			panic(ErrAuthChangePassword_NewPasswordInvalid)
+			panic(Err___admin_authChangePassword_NewPasswordInvalid)
 		}
 	}
 	user_account.passwordHashed = hash
 	if (yodb.Update[UserAuth](ctx, user_account, false, nil)) < 1 {
-		panic(ErrAuthChangePassword_DbUpdateAcceptedWithoutErrButNotStoredEither)
+		panic(Err___admin_authChangePassword_DbUpdateAcceptedWithoutErrButNotStoredEither)
 	}
 }

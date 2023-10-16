@@ -29,7 +29,7 @@ func init() {
 		return Err(errBinOpPrefix + it)
 	})...)
 	Apis(ApiMethods{
-		"__/db/listTables": Api(apiListTables, PkgInfo),
+		"__/admin/db/listTables": Api(apiListTables, PkgInfo),
 	})
 }
 
@@ -40,7 +40,7 @@ func apiListTables(this *ApiCtx[struct {
 }
 
 func apiMethodPath(typeName string, relMethodPath string) string {
-	return "__/db/" + typeName + "/" + relMethodPath
+	return "__/admin/db/" + typeName + "/" + relMethodPath
 }
 
 func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
