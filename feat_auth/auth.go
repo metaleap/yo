@@ -17,7 +17,7 @@ type JwtPayload struct {
 	jwt.StandardClaims
 }
 
-type UserAccount struct {
+type UserAuth struct {
 	Id      yodb.I64
 	Created *yodb.DateTime
 
@@ -26,12 +26,12 @@ type UserAccount struct {
 }
 
 func init() {
-	yodb.Ensure[UserAccount, UserAccountField](false, "", nil)
+	yodb.Ensure[UserAuth, UserAuthField](false, "", nil)
 }
 
 func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 	ctx.DbTx()
-	if yodb.Exists[UserAccount](ctx, UserAccountColEmailAddr.Equal(emailAddr)) {
+	if yodb.Exists[UserAuth](ctx, UserAuthColEmailAddr.Equal(emailAddr)) {
 		panic(ErrAuthRegister_EmailAddrAlreadyExists)
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
@@ -42,14 +42,14 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 			panic(ErrAuthRegister_PasswordInvalid)
 		}
 	}
-	return yodb.CreateOne[UserAccount](ctx, &UserAccount{
+	return yodb.CreateOne[UserAuth](ctx, &UserAuth{
 		EmailAddr:      yodb.Text(emailAddr),
 		passwordHashed: hash,
 	})
 }
 
-func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAccount, *jwt.Token) {
-	user_account := yodb.FindOne[UserAccount](ctx, UserAccountColEmailAddr.Equal(emailAddr))
+func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jwt.Token) {
+	user_account := yodb.FindOne[UserAuth](ctx, UserAuthColEmailAddr.Equal(emailAddr))
 	if user_account == nil {
 		panic(ErrAuthLogin_AccountDoesNotExist)
 	}
@@ -91,7 +91,7 @@ func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, pas
 		}
 	}
 	user_account.passwordHashed = hash
-	if (yodb.Update[UserAccount](ctx, user_account, false, nil)) < 1 {
+	if (yodb.Update[UserAuth](ctx, user_account, false, nil)) < 1 {
 		panic(ErrAuthChangePassword_ChangesAcceptedWithNoErrYetNotStored)
 	}
 }

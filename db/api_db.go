@@ -134,7 +134,7 @@ func apiUpdateOne[TObj any, TFld ~string](this *ApiCtx[struct {
 	IncludingEmptyOrMissingFields bool
 }, retCount]) {
 	if this.Args.Id <= 0 {
-		panic(Err___db_UserAccount_updateOne_ExpectedIdGreater0)
+		panic(Err___db_UserAuth_updateOne_ExpectedIdGreater0)
 	}
 	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, ColID.Equal(this.Args.Id))
 }

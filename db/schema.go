@@ -77,6 +77,7 @@ func (me *sqlStmt) createTable(desc *structDesc) *sqlStmt {
 var sqlDtAltNames = map[string]Text{
 	"int2": "smallint",
 	"int4": "integer",
+	"int8": "bigint",
 }
 
 func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, renamesOldColToNewField map[q.C]q.F) (ret []*sqlStmt) {
