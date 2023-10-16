@@ -205,7 +205,7 @@ func codegenTsSdk(apiRefl *apiRefl) {
 }
 
 func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiRefl, method *apiReflMethod) {
-	if str.Begins(method.Path, "__/admin/") {
+	if str.Begins(method.Path, "__/yo/") {
 		return
 	}
 

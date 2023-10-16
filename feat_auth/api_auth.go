@@ -17,10 +17,10 @@ const (
 	HttpUserHeader    = "X-Yo-User"
 	HttpJwtCookieName = "t"
 
-	MethodPathLogin          = "__/admin/authLogin"
-	MethodPathLogout         = "__/admin/authLogout"
-	MethodPathRegister       = "__/admin/authRegister"
-	MethodPathChangePassword = "__/admin/authChangePassword"
+	MethodPathLogin          = "__/yo/authLogin"
+	MethodPathLogout         = "__/yo/authLogout"
+	MethodPathRegister       = "__/yo/authRegister"
+	MethodPathChangePassword = "__/yo/authChangePassword"
 )
 
 var (
@@ -32,24 +32,24 @@ func init() {
 		MethodPathLogout: Api(ApiUserLogout, PkgInfo),
 
 		MethodPathLogin: Api(ApiUserLogin, PkgInfo,
-			Fails{Err: "EmailRequiredButMissing", If: ___admin_authRegisterEmailAddr.Equal("")},
-			Fails{Err: "EmailInvalid", If: isEmailishEnough(___admin_authLoginEmailAddr).Not()},
+			Fails{Err: "EmailRequiredButMissing", If: ___yo_authRegisterEmailAddr.Equal("")},
+			Fails{Err: "EmailInvalid", If: isEmailishEnough(___yo_authLoginEmailAddr).Not()},
 			Fails{Err: "WrongPassword",
-				If: ___admin_authLoginPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN).Or(
-					___admin_authLoginPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN))},
+				If: ___yo_authLoginPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN).Or(
+					___yo_authLoginPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN))},
 		).CouldFailWith("OkButFailedToCreateSignedToken", "AccountDoesNotExist"),
 
 		MethodPathRegister: Api(ApiUserRegister, PkgInfo,
-			Fails{Err: "EmailRequiredButMissing", If: ___admin_authRegisterEmailAddr.Equal("")},
-			Fails{Err: "EmailInvalid", If: isEmailishEnough(___admin_authRegisterEmailAddr).Not()},
-			Fails{Err: "PasswordTooShort", If: ___admin_authRegisterPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
-			Fails{Err: "PasswordTooLong", If: ___admin_authRegisterPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
+			Fails{Err: "EmailRequiredButMissing", If: ___yo_authRegisterEmailAddr.Equal("")},
+			Fails{Err: "EmailInvalid", If: isEmailishEnough(___yo_authRegisterEmailAddr).Not()},
+			Fails{Err: "PasswordTooShort", If: ___yo_authRegisterPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
+			Fails{Err: "PasswordTooLong", If: ___yo_authRegisterPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
 		).CouldFailWith("EmailAddrAlreadyExists", "PasswordInvalid", ErrDbNotStored),
 
 		MethodPathChangePassword: Api(apiChangePassword, PkgInfo,
-			Fails{Err: "NewPasswordExpectedToDiffer", If: ___admin_authChangePasswordPasswordNewPlain.Equal(___admin_authChangePasswordPasswordPlain)},
-			Fails{Err: "NewPasswordTooShort", If: ___admin_authChangePasswordPasswordNewPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
-			Fails{Err: "NewPasswordTooLong", If: ___admin_authChangePasswordPasswordNewPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
+			Fails{Err: "NewPasswordExpectedToDiffer", If: ___yo_authChangePasswordPasswordNewPlain.Equal(___yo_authChangePasswordPasswordPlain)},
+			Fails{Err: "NewPasswordTooShort", If: ___yo_authChangePasswordPasswordNewPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
+			Fails{Err: "NewPasswordTooLong", If: ___yo_authChangePasswordPasswordNewPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
 		).CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "NewPasswordInvalid", ErrUnauthorized, ErrDbNotStored),
 	})
 
@@ -79,7 +79,7 @@ func ApiUserLogin(this *ApiCtx[ApiAccountPayload, Void]) {
 	_, jwt_token := UserLogin(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain)
 	jwt_signed, err := jwt_token.SignedString(jwtKey)
 	if err != nil {
-		panic(Err___admin_authLogin_OkButFailedToCreateSignedToken)
+		panic(Err___yo_authLogin_OkButFailedToCreateSignedToken)
 	}
 	httpSetUser(this.Ctx, jwt_signed)
 }

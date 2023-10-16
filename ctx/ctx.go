@@ -15,6 +15,7 @@ import (
 
 const (
 	doErrCatchInDevMode   = true // gotta toggle occasionally during local debug
+	ErrMustBeAdmin        = Err("MustBeAdmin")
 	ErrTimedOut           = Err("TimedOut")
 	ErrDbNotStored        = Err("DbWriteRequestAcceptedWithoutErrButNotStoredEither")
 	ErrDbUpdExpectedIdGt0 = Err("ErrDbUpdExpectedIdGt0")
@@ -99,7 +100,7 @@ func (me *Ctx) OnDone() {
 		if code := 500; fail != nil {
 			if err, is_app_err := fail.(Err); is_app_err {
 				if IsDevMode && me.Http.ApiMethod != nil {
-					if known_errs := me.Http.ApiMethod.KnownErrs(); (len(known_errs) > 0) && !sl.Has(known_errs, err) {
+					if known_errs := me.Http.ApiMethod.KnownErrs(); (len(known_errs) > 0) && (err != ErrMustBeAdmin) && !sl.Has(known_errs, err) {
 						os.Stderr.WriteString("\n\nunexpected/undocumented Err thrown: " + string(err) + " not found in " + str.From(known_errs) + ", add it to " + str.From(me.Http.ApiMethod) + "\n\n")
 						os.Stderr.Sync()
 						os.Exit(1)

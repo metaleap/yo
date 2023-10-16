@@ -21,7 +21,7 @@ var (
 	KnownErrSets = map[string][]Err{
 		"": {ErrTimedOut},
 	}
-	errsNoCodegen = []Err{ErrTimedOut, ErrUnauthorized, ErrDbNotStored, ErrDbUpdExpectedIdGt0}
+	errsNoCodegen = []Err{ErrTimedOut, ErrUnauthorized, ErrDbNotStored, ErrDbUpdExpectedIdGt0, ErrMustBeAdmin}
 	ErrsNoPrefix  = errsNoCodegen
 )
 

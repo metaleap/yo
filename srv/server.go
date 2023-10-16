@@ -26,7 +26,20 @@ var (
 	StaticFileServes = map[string]fs.FS{}
 
 	// funcs are run (in no particular order) just prior to loading request payload, handling request, and serving response
-	PreServes = []PreServe{}
+	PreServes = []PreServe{
+		{"authAdmin", func(ctx *yoctx.Ctx) {
+			if str.Begins(ctx.Http.UrlPath, "__/yo/") || (ctx.Http.UrlPath == "__yo/swag.html") {
+				user, pwd, ok := ctx.Http.Req.BasicAuth()
+				if ok {
+					ok = (user == "foo") && (pwd == "bar")
+				}
+				if !ok {
+					ctx.Http.Resp.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
+					panic(yoctx.ErrMustBeAdmin)
+				}
+			}
+		}},
+	}
 
 	codegenMaybe func() = nil // overwritten by apisdkgen.go in debug build mode
 )
@@ -36,7 +49,7 @@ const StaticFilesDirName = "__yostatic"
 func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
 	apiReflAllDbStructs = dbStructs
 	Apis(ApiMethods{
-		"__/admin/refl": Api(apiHandleReflReq, nil),
+		"__/yo/refl": Api(apiHandleReflReq, nil),
 	})
 	for method_path := range api {
 		if (str.Trim(method_path) != method_path) || (method_path == "") || !str.IsPrtAscii(method_path) {

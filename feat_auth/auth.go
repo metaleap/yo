@@ -33,14 +33,14 @@ func init() {
 func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I64) {
 	ctx.DbTx()
 	if yodb.Exists[UserAuth](ctx, UserAuthColEmailAddr.Equal(emailAddr)) {
-		panic(Err___admin_authRegister_EmailAddrAlreadyExists)
+		panic(Err___yo_authRegister_EmailAddrAlreadyExists)
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
 	if (err != nil) || (len(hash) == 0) {
 		if err == bcrypt.ErrPasswordTooLong {
-			panic(Err___admin_authRegister_PasswordTooLong)
+			panic(Err___yo_authRegister_PasswordTooLong)
 		} else {
-			panic(Err___admin_authRegister_PasswordInvalid)
+			panic(Err___yo_authRegister_PasswordInvalid)
 		}
 	}
 	if ret = yodb.I64(yodb.CreateOne[UserAuth](ctx, &UserAuth{
@@ -55,12 +55,12 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I6
 func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jwt.Token) {
 	user_auth := yodb.FindOne[UserAuth](ctx, UserAuthColEmailAddr.Equal(emailAddr))
 	if user_auth == nil {
-		panic(Err___admin_authLogin_AccountDoesNotExist)
+		panic(Err___yo_authLogin_AccountDoesNotExist)
 	}
 
 	err := bcrypt.CompareHashAndPassword(user_auth.passwordHashed, []byte(passwordPlain))
 	if err != nil {
-		panic(Err___admin_authLogin_WrongPassword)
+		panic(Err___yo_authLogin_WrongPassword)
 	}
 
 	return user_auth, jwt.NewWithClaims(jwt.SigningMethodHS256, &JwtPayload{
@@ -90,9 +90,9 @@ func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, pas
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordNewPlain), bcrypt.DefaultCost)
 	if (err != nil) || (len(hash) == 0) {
 		if err == bcrypt.ErrPasswordTooLong {
-			panic(Err___admin_authChangePassword_NewPasswordTooLong)
+			panic(Err___yo_authChangePassword_NewPasswordTooLong)
 		} else {
-			panic(Err___admin_authChangePassword_NewPasswordInvalid)
+			panic(Err___yo_authChangePassword_NewPasswordInvalid)
 		}
 	}
 	user_account.passwordHashed = hash

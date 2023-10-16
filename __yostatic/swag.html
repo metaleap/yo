@@ -65,18 +65,17 @@
             margin-left: 2em;
         }
     </style>
-</head><body><script type='module' onerror="setTimeout(()=>{location.reload()},123)">
+</head><body><script type='module'>
     import * as yo_sdk from './yo-sdk.js'
     import * as main_view from './swag.js'
 
     async function loadUp() {
         try {
             const get_cur_user = () => yo_sdk.userEmailAddr
-            const refl = await yo_sdk.req("__/admin/refl",{})
+            const refl = await yo_sdk.req("__/yo/refl",{})
             main_view.onInit(document.body, refl, yo_sdk.req, get_cur_user)
         } catch(err) {
             console.error(err)
-            setTimeout(loadUp(123)) // rare but happens in local dev mode, despite no-cache headers, so...
         }
     }
 

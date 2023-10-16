@@ -21,6 +21,7 @@ var errSubstrToHttpStatusCode = map[string]int{
 	"Unauthorized":  403,
 	"Forbidden":     403,
 	"WrongPassword": 401,
+	"MustBeAdmin":   401,
 	"NotStored":     502,
 
 	"Timeout":  504,

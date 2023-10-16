@@ -482,7 +482,7 @@ function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: s
         return isForPayload ? "" : `(some ${type_name} enumerant)`
     }
 
-    const is_db_create = methodPath && methodPath.startsWith('__/admin/db/') && (methodPath.endsWith('/createOne') || methodPath.endsWith('/createMany'))
+    const is_db_create = methodPath && methodPath.startsWith('__/yo/db/') && (methodPath.endsWith('/createOne') || methodPath.endsWith('/createMany'))
     const type_struc = refl.Types[type_name]
     if (type_struc) {
         const obj = {}
