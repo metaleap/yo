@@ -37,21 +37,40 @@ type Dict[T any] map[string]T
 type Arr[T any] sl.Slice[T]
 
 type IsJsonOf[T any] struct{ self *T }
-type Ref[T any] struct {
+
+type Ref[T any, OnDel refOnDel] struct {
 	id   I64
 	self *T
 }
+type refOnDel interface{ onDelSql() string }
+type RefOnDelCascade struct{}
+type RefOnDelPrevent struct{}
+type RefOnDelSetZero struct{}
 
-func (me *Ref[T]) Id() I64    { return me.id }
-func (me *Ref[T]) Set(id I64) { me.self, me.id = nil, id }
-func (me *Ref[T]) Get(ctx *yoctx.Ctx) *T {
-	if me.self == nil && me.id != 0 {
+func (RefOnDelCascade) onDelSql() string { return "CASCADE" }
+func (RefOnDelPrevent) onDelSql() string { return "RESTRICT" }
+func (RefOnDelSetZero) onDelSql() string { return "SET DEFAULT" }
+func (me *Ref[_, OnDel]) onDelSql() string {
+	var dummy OnDel
+	return dummy.onDelSql()
+}
+func (me *Ref[T, _]) Id() I64    { return me.id }
+func (me *Ref[T, _]) Set(id I64) { me.self, me.id = nil, id }
+func (me *Ref[T, _]) Get(ctx *yoctx.Ctx) *T {
+	if me.self == nil && me.id != 0 && ctx != nil {
 		me.self = FindOne[T](ctx, ColID.Equal(me.id))
 	}
 	return me.self
 }
-func (me *Ref[T]) MarshalJSON() ([]byte, error) { return []byte(str.FromI64(int64(me.id), 10)), nil }
-func (me *Ref[T]) UnmarshalJSON(json []byte) error {
+func (me *Ref[T, _]) structDesc() *structDesc {
+	ret := desc[T]()
+	if !sl.Has(ensureDescs, ret) {
+		panic(reflect.TypeOf(me).Elem().String() + " refs a non-`Ensure`d type, which hence has no db table yet/anymore")
+	}
+	return ret
+}
+func (me *Ref[T, _]) MarshalJSON() ([]byte, error) { return []byte(str.FromI64(int64(me.id), 10)), nil }
+func (me *Ref[T, _]) UnmarshalJSON(json []byte) error {
 	me.self, me.id = nil, 0
 	i64, err := str.ToI64(string(json), 10, 64)
 	if err == nil {

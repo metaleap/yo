@@ -214,7 +214,12 @@ func sqlColTypeDeclFrom(ty reflect.Type) string {
 		if is_db_json_dict_type, is_db_json_arr_type, is_db_json_obj_type := isWhatDbJsonType(ty); is_db_json_obj_type || is_db_json_dict_type || is_db_json_arr_type {
 			return sql_data_type_name + " NOT NULL DEFAULT ('" + If(is_db_json_arr_type, "[]", "{}") + "'::jsonb)"
 		} else if isDbRefType(ty) {
-			return sql_data_type_name + " NOT NULL DEFAULT (0)"
+			dummy := reflect.New(ty).Interface().(interface {
+				structDesc() *structDesc
+				refOnDel
+			})
+			desc := dummy.structDesc()
+			return sql_data_type_name + " NOT NULL DEFAULT (0) REFERENCES " + desc.tableName + " ON DELETE " + dummy.onDelSql()
 		}
 		panic(ty)
 	}
