@@ -38,27 +38,31 @@ func apiListTables(this *ApiCtx[struct {
 	this.Ret.Result = ListTables(this.Ctx, this.Args.Name)
 }
 
+func apiMethodPath(typeName string, relMethodPath string) string {
+	return "__/db/" + typeName + "/" + relMethodPath
+}
+
 func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 	type_name := desc.ty.Name()
 
 	Apis(ApiMethods{
-		"__/db/" + type_name + "/findById": Api(apiFindById[TObj, TFld], PkgInfo),
-		"__/db/" + type_name + "/findOne": Api(apiFindOne[TObj, TFld], PkgInfo).
+		apiMethodPath(type_name, "findById"): Api(apiFindById[TObj, TFld], PkgInfo),
+		apiMethodPath(type_name, "findOne"): Api(apiFindOne[TObj, TFld], PkgInfo).
 			CouldFailWith(":" + ErrSetQuery),
-		"__/db/" + type_name + "/findMany": Api(apiFindMany[TObj, TFld], PkgInfo).
+		apiMethodPath(type_name, "findMany"): Api(apiFindMany[TObj, TFld], PkgInfo).
 			CouldFailWith(":" + ErrSetQuery),
-		"__/db/" + type_name + "/deleteOne": Api(apiDeleteOne[TObj, TFld], PkgInfo).
+		apiMethodPath(type_name, "deleteOne"): Api(apiDeleteOne[TObj, TFld], PkgInfo).
 			CouldFailWith(":" + ErrSetDbDelete),
-		"__/db/" + type_name + "/deleteMany": Api(apiDeleteMany[TObj, TFld], PkgInfo).
+		apiMethodPath(type_name, "deleteMany"): Api(apiDeleteMany[TObj, TFld], PkgInfo).
 			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbDelete),
-		"__/db/" + type_name + "/updateOne": Api(apiUpdateOne[TObj, TFld], PkgInfo).
+		apiMethodPath(type_name, "updateOne"): Api(apiUpdateOne[TObj, TFld], PkgInfo).
 			CouldFailWith(":"+ErrSetDbUpdate, "ExpectedIdGreater0"),
-		"__/db/" + type_name + "/updateMany": Api(apiUpdateMany[TObj, TFld], PkgInfo).
+		apiMethodPath(type_name, "updateMany"): Api(apiUpdateMany[TObj, TFld], PkgInfo).
 			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbUpdate),
-		"__/db/" + type_name + "/count": Api(apiCount[TObj, TFld], PkgInfo).
+		apiMethodPath(type_name, "count"): Api(apiCount[TObj, TFld], PkgInfo).
 			CouldFailWith(":" + ErrSetQuery),
-		"__/db/" + type_name + "/createOne":  Api(apiCreateOne[TObj, TFld], PkgInfo),
-		"__/db/" + type_name + "/createMany": Api(apiCreateMany[TObj, TFld], PkgInfo),
+		apiMethodPath(type_name, "createOne"):  Api(apiCreateOne[TObj, TFld], PkgInfo),
+		apiMethodPath(type_name, "createMany"): Api(apiCreateMany[TObj, TFld], PkgInfo),
 	})
 }
 
@@ -134,7 +138,7 @@ func apiUpdateOne[TObj any, TFld ~string](this *ApiCtx[struct {
 	IncludingEmptyOrMissingFields bool
 }, retCount]) {
 	if this.Args.Id <= 0 {
-		panic(Err___db_UserAuth_updateOne_ExpectedIdGreater0)
+		panic(Err(this.Ctx.Http.ApiMethod.MethodNameUp0() + "_ExpectedIdGreater0"))
 	}
 	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, ColID.Equal(this.Args.Id))
 }

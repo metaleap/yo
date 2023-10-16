@@ -42,7 +42,8 @@ type ApiMethod interface {
 	validatePayload(any) (q.Query, Err)
 	reflTypes() (reflect.Type, reflect.Type)
 	failsIf() []Fails
-	methodNameUp0() string
+	MethodPath() string
+	MethodNameUp0() string
 	KnownErrs() []Err
 	CouldFailWith(...Err) ApiMethod
 }
@@ -65,7 +66,7 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, fail
 	}
 	var ret *apiMethod[TIn, TOut]
 	method := apiMethod[TIn, TOut]{PkgInfo: pkgInfo, handleFunc: func(ctx *Ctx, in any) any {
-		ctx.Http.ApiErrs = ret
+		ctx.Http.ApiMethod = ret
 		var output TOut
 		api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
 		f(api_ctx)
@@ -110,7 +111,7 @@ func (me *apiMethod[TIn, TOut]) PkgName() string {
 	}
 	return ""
 }
-func (me *apiMethod[TIn, TOut]) methodPath() (ret string) {
+func (me *apiMethod[TIn, TOut]) MethodPath() (ret string) {
 	for path, method := range api {
 		if method == me {
 			ret = path
@@ -121,11 +122,11 @@ func (me *apiMethod[TIn, TOut]) methodPath() (ret string) {
 	}
 	return
 }
-func (me *apiMethod[TIn, TOut]) methodNameUp0() (ret string) {
-	return str.Up0(ToIdent(me.methodPath()))
+func (me *apiMethod[TIn, TOut]) MethodNameUp0() (ret string) {
+	return str.Up0(ToIdent(me.MethodPath()))
 }
 func (me *apiMethod[TIn, TOut]) KnownErrs() (ret []Err) {
-	method_name := me.methodNameUp0()
+	method_name := me.MethodNameUp0()
 	err_name_prefix := Err(str.Up0(method_name)) + "_"
 
 	ret = append(sl.To(me.errsOwn, func(it Err) Err { return err_name_prefix + it }), KnownErrSets[""]...)
@@ -147,7 +148,7 @@ func (*apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
 }
 func (me *apiMethod[TIn, TOut]) validatePayload(it any) (q.Query, Err) {
 	do_check := func(method ApiMethod, check *Fails) (q.Query, Err) {
-		method_name := method.methodNameUp0()
+		method_name := method.MethodNameUp0()
 		err_name_prefix := str.Up0(method_name) + "_"
 		if failed_condition := check.If.Not().Eval(it, nil); failed_condition != nil {
 			return failed_condition, Err(err_name_prefix) + check.Err
