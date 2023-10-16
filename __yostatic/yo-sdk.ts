@@ -23,7 +23,7 @@ export async function req<TIn, TOut>(methodPath: string, payload: TIn, urlQueryA
     console.log('callAPI:', uri, payload)
     const resp = await fetch(uri, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-        cache: 'no-cache', mode: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(reqTimeoutMilliSec)
+        cache: 'no-store', mode: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(reqTimeoutMilliSec)
     })
     if (resp.status !== 200) {
         let body_text: string = '', body_err: any

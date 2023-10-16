@@ -1,6 +1,7 @@
 package yosrv
 
 import (
+	"crypto/subtle"
 	"io/fs"
 	"net/http"
 	"os"
@@ -23,7 +24,12 @@ type PreServe struct {
 
 var (
 	// requests to key+'/' will be served from the corresponding FS
-	StaticFileServes = map[string]fs.FS{}
+	StaticFileServes  = map[string]fs.FS{}
+	apiStdRespHeaders = str.Dict{
+		"Content-Type":           "application/json",
+		"X-Content-Type-Options": "nosniff",
+		"Cache-Control":          "no-store",
+	}
 
 	// funcs are run (in no particular order) just prior to loading request payload, handling request, and serving response
 	PreServes = []PreServe{
@@ -31,7 +37,8 @@ var (
 			if str.Begins(ctx.Http.UrlPath, "__/yo/") || (ctx.Http.UrlPath == "__yo/swag.html") {
 				user, pwd, ok := ctx.Http.Req.BasicAuth()
 				if ok {
-					ok = (user == "foo") && (pwd == "bar")
+					ok = (1 == subtle.ConstantTimeCompare([]byte(Cfg.YO_API_ADMIN_USER), []byte(user))) &&
+						(1 == subtle.ConstantTimeCompare([]byte(Cfg.YO_API_ADMIN_PWD), []byte(pwd)))
 				}
 				if !ok {
 					ctx.Http.Resp.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
@@ -105,8 +112,9 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 		}
 
 		ctx.Timings.Step("write resp")
-		rw.Header().Set("Content-Type", "application/json")
-		rw.Header().Set("X-Content-Type-Options", "nosniff")
+		for k, v := range apiStdRespHeaders {
+			rw.Header().Set(k, v)
+		}
 		rw.Header().Set("Content-Length", str.FromInt(len(resp_data)))
 		ctx.HttpOnPreWriteResponse()
 		_, _ = rw.Write(resp_data)

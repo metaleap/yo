@@ -16,6 +16,8 @@ var Cfg struct {
 	YO_AUTH_JWT_EXPIRY_DAYS int
 	YO_AUTH_PWD_MIN_LEN     int
 	YO_AUTH_PWD_MAX_LEN     int
+	YO_API_ADMIN_USER       string
+	YO_API_ADMIN_PWD        string
 	DB_REQ_TIMEOUT          time.Duration
 	DATABASE_URL            string
 }
@@ -28,15 +30,14 @@ func init() {
 		}()
 	}
 
+	env_file := str.Dict{}
 	// Setenv from .env file if any
-	if env_file_data := bytes.TrimSpace(ReadFile(".env")); len(env_file_data) == 0 {
-		panic("empty or missing .env")
-	} else {
+	if env_file_data := bytes.TrimSpace(ReadFile(".env")); len(env_file_data) > 0 {
 		for i, lines := 0, str.Split(string(env_file_data), "\n"); i < len(lines); i++ {
 			if name, val, ok := str.Cut(lines[i], "="); !ok {
 				panic(lines[i])
-			} else if err := os.Setenv(name, val); err != nil {
-				panic(err)
+			} else if os.Getenv(name) == "" {
+				env_file[name] = val
 			}
 		}
 	}
@@ -48,6 +49,11 @@ func init() {
 	for i := 0; i < tstruc.NumField(); i++ {
 		env_name := tstruc.Field(i).Name
 		env_val := os.Getenv(env_name)
+		if env_val == "" {
+			if env_val = env_file[env_name]; env_val == "" {
+				panic("missing in env: " + env_name)
+			}
+		}
 		var new_val any
 		switch t := struc.Field(i).Interface().(type) {
 		case string:
