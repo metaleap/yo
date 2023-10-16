@@ -63,7 +63,7 @@ func (me *sqlStmt) createTable(desc *structDesc) *sqlStmt {
 		w(" ")
 		switch col_name {
 		case ColID:
-			w(If(desc.idBigInt, "bigserial PRIMARY KEY", " serial PRIMARY KEY"))
+			w("bigserial PRIMARY KEY")
 		case ColCreated:
 			w("timestamp without time zone NOT NULL DEFAULT (current_timestamp)")
 		default:
@@ -192,6 +192,8 @@ func sqlColTypeFrom(ty reflect.Type) string {
 	default:
 		if isDbJsonType(ty) {
 			return "jsonb"
+		} else if isDbRefType(ty) {
+			return "int8"
 		}
 		panic(ty)
 	}
@@ -211,6 +213,8 @@ func sqlColTypeDeclFrom(ty reflect.Type) string {
 	default:
 		if is_db_json_dict_type, is_db_json_arr_type, is_db_json_obj_type := isWhatDbJsonType(ty); is_db_json_obj_type || is_db_json_dict_type || is_db_json_arr_type {
 			return sql_data_type_name + " NOT NULL DEFAULT ('" + If(is_db_json_arr_type, "[]", "{}") + "'::jsonb)"
+		} else if isDbRefType(ty) {
+			return sql_data_type_name + " NOT NULL DEFAULT (0)"
 		}
 		panic(ty)
 	}

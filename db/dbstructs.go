@@ -36,19 +36,42 @@ type DateTime time.Time
 type Dict[T any] map[string]T
 type Arr[T any] sl.Slice[T]
 
-type JsonDbObj[T any] struct{ self *T }
+type IsJsonOf[T any] struct{ self *T }
+type Ref[T any] struct {
+	id   I64
+	self *T
+}
 
+func (me *Ref[T]) Id() I64    { return me.id }
+func (me *Ref[T]) Set(id I64) { me.self, me.id = nil, id }
+func (me *Ref[T]) Get(ctx *yoctx.Ctx) *T {
+	if me.self == nil && me.id != 0 {
+		me.self = FindOne[T](ctx, ColID.Equal(me.id))
+	}
+	return me.self
+}
+func (me *Ref[T]) MarshalJSON() ([]byte, error) { return []byte(str.FromI64(int64(me.id), 10)), nil }
+func (me *Ref[T]) UnmarshalJSON(json []byte) error {
+	me.self, me.id = nil, 0
+	i64, err := str.ToI64(string(json), 10, 64)
+	if err == nil {
+		me.id = I64(i64)
+	}
+	return err
+}
+
+type dbRef interface{ Id() I64 }
 type jsonDbValue interface {
 	init(selfPtr any)
 	get() any
 	scan([]byte) error
 }
 
-func (me *JsonDbObj[T]) init(selfPtr any)        { me.self = selfPtr.(*T) }
-func (me *JsonDbObj[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me.self) }
-func (me *JsonDbObj[T]) get() any                { return me.self }
-func (me *Dict[T]) init(any)                     { *me = Dict[T]{} }
-func (me *Dict[T]) scan(jsonb []byte) error      { return yojson.Unmarshal(jsonb, me) }
+func (me *IsJsonOf[T]) init(selfPtr any)        { me.self = selfPtr.(*T) }
+func (me *IsJsonOf[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me.self) }
+func (me *IsJsonOf[T]) get() any                { return me.self }
+func (me *Dict[T]) init(any)                    { *me = Dict[T]{} }
+func (me *Dict[T]) scan(jsonb []byte) error     { return yojson.Unmarshal(jsonb, me) }
 func (me *Dict[T]) get() any {
 	if (me == nil) || (*me == nil) {
 		return Dict[T]{}
@@ -93,9 +116,8 @@ var (
 type structDesc struct {
 	ty        reflect.Type
 	tableName string // defaults to db.NameFrom(structTypeName)
-	fields    []q.F  // struct fields marked persistish by being of a type in `okTypes`
+	fields    []q.F  // struct fields marked persistish by being of a `yo/db`-exported type
 	cols      []q.C  // for each field above, its db.NameFrom()
-	idBigInt  bool   // allow up to 9223372036854775807 instead of up to 2147483647
 	mig       struct {
 		oldTableName            string
 		renamesOldColToNewField map[q.C]q.F
@@ -112,7 +134,7 @@ func (me *structDesc) fieldNameToColName(fieldName q.F) q.C {
 }
 
 func isColField(fieldType reflect.Type) bool {
-	return sl.Has(okTypes, fieldType) || isDbJsonType(fieldType)
+	return sl.Has(okTypes, fieldType) || isDbJsonType(fieldType) || isDbRefType(fieldType)
 }
 
 func isDbJsonType(ty reflect.Type) bool {
@@ -130,7 +152,7 @@ func isWhatDbJsonType(ty reflect.Type) (isDbJsonDictType bool, isDbJsonArrType b
 		for i, l := 0, ty.NumField(); i < l; i++ {
 			if field := ty.Field(i); field.Anonymous {
 				if field_type := field.Type; (field_type.PkgPath() == PkgInfo.PkgPath()) &&
-					str.Begins(field_type.Name(), "JsonDbObj[") && str.Ends(field_type.Name(), "]") {
+					str.Begins(field_type.Name(), "IsJsonOf[") && str.Ends(field_type.Name(), "]") {
 					isDbJsonObjType = true
 					break
 				}
@@ -138,6 +160,11 @@ func isWhatDbJsonType(ty reflect.Type) (isDbJsonDictType bool, isDbJsonArrType b
 		}
 	}
 	return
+}
+
+func isDbRefType(ty reflect.Type) bool {
+	type_name := ty.Name()
+	return ty.PkgPath() == PkgInfo.PkgPath() && str.Begins(type_name, "Ref[") && str.Ends(type_name, "]")
 }
 
 func desc[T any]() (ret *structDesc) {
@@ -258,7 +285,11 @@ func (me scanner) Scan(it any) error {
 		case tyI64:
 			setPtr(me.ptr, (I64)(it))
 		default:
-			panic(str.Fmt("scanner.Scan %T into %s", it, me.ty.String()))
+			if isDbRefType(me.ty) {
+				setPtr(me.ptr, (I64)(it))
+			} else {
+				panic(str.Fmt("scanner.Scan %T into %s", it, me.ty.String()))
+			}
 		}
 	case []byte:
 		switch me.ty {
@@ -296,13 +327,13 @@ func (me scanner) Scan(it any) error {
 	return nil
 }
 
-func Ensure[TObj any, TFld ~string](idBigInt bool, oldTableName string, renamesOldColToNewField map[q.C]q.F) {
+func Ensure[TObj any, TFld ~string](oldTableName string, renamesOldColToNewField map[q.C]q.F) {
 	if inited {
 		panic("db.Ensure called after db.Init")
 	}
 	desc := desc[TObj]()
 	ensureDescs = append(ensureDescs, desc)
-	desc.idBigInt, desc.mig.oldTableName, desc.mig.renamesOldColToNewField = idBigInt, oldTableName, renamesOldColToNewField
+	desc.mig.oldTableName, desc.mig.renamesOldColToNewField = oldTableName, renamesOldColToNewField
 	if (len(desc.cols) < 1) || (desc.cols[0] != ColID) {
 		panic(desc.tableName + ": first column must be '" + string(ColID))
 	} else if (len(desc.cols) < 2) || (desc.cols[1] != ColCreated) {

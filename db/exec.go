@@ -225,7 +225,10 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 		for i := range struct_desc.cols {
 			field := rv.Field(i)
 			var json_db_val jsonDbValue
-			if is_db_json_dict_type, is_db_json_arr_type, is_db_json_obj_type := isWhatDbJsonType(field.Type()); is_db_json_dict_type || is_db_json_arr_type {
+			unsafe_addr := field.UnsafeAddr()
+			if isDbRefType(field.Type()) {
+				unsafe_addr = field.FieldByName("id").UnsafeAddr()
+			} else if is_db_json_dict_type, is_db_json_arr_type, is_db_json_obj_type := isWhatDbJsonType(field.Type()); is_db_json_dict_type || is_db_json_arr_type {
 				ptr := reflect.New(field.Type())
 				ptr.Interface().(jsonDbValue).init(nil)
 				field.Set(ptr.Elem())
@@ -235,7 +238,7 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 				json_db_val = ptr.(jsonDbValue)
 				json_db_val.init(ptr)
 			}
-			col_scanners[i] = scanner{ptr: field.UnsafeAddr(), jsonDbVal: json_db_val, ty: field.Type()}
+			col_scanners[i] = scanner{ptr: unsafe_addr, jsonDbVal: json_db_val, ty: field.Type()}
 		}
 		if err = rows.Scan(col_scanners...); err != nil {
 			panic(err)
@@ -259,12 +262,14 @@ func dbArgsCleanUpForPgx(args dbArgs) {
 		} else if dt, is := v.(*DateTime); is {
 			args[k] = (*time.Time)(dt)
 		} else if rv := reflect.ValueOf(v); rv.IsValid() {
-			if isDbJsonType(rv.Type()) {
+			if rvt := rv.Type(); isDbJsonType(rvt) {
 				if jsonb, err := yojson.Marshal(v); err == nil {
 					args[k] = jsonb
 				} else {
 					panic(err)
 				}
+			} else if db_ref, _ := v.(dbRef); db_ref != nil {
+				args[k] = db_ref.Id()
 			}
 		}
 	}
