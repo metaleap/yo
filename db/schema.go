@@ -216,6 +216,7 @@ func sqlColTypeDeclFrom(ty reflect.Type) string {
 		} else if isDbRefType(ty) {
 			dummy := reflect.New(ty).Interface().(interface {
 				structDesc() *structDesc
+				IsDbRef() bool
 				refOnDel
 			})
 			desc := dummy.structDesc()

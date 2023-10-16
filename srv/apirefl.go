@@ -74,6 +74,9 @@ func apiReflErrs(method ApiMethod, methodRefl apiReflMethod) (ret map[Err]int) {
 }
 
 func apiReflType(it *apiRefl, rt reflect.Type, fldName string, parent string) string {
+	if maybe_db_ref, _ := reflect.New(rt).Interface().(interface{ IsDbRef() bool }); (maybe_db_ref != nil) && maybe_db_ref.IsDbRef() {
+		return apiReflType(it, reflect.TypeOf(int64(0)), fldName, parent)
+	}
 	rt_kind, type_ident := rt.Kind(), rt.PkgPath()+"."+rt.Name()
 	if type_ident == "." && rt_kind == reflect.Struct && parent != "" && fldName != "" {
 		type_ident = parent + "_" + fldName
