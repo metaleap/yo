@@ -11,6 +11,10 @@ type Named[V any] struct {
 	Name  string
 	Value V
 }
+type Pair[TLhs any, TRhs any] struct {
+	Lhs TLhs
+	Rhs TRhs
+}
 
 func If[T any](b bool, t T, f T) T {
 	if b {

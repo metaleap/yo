@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	yodiag "yo/diag"
 	. "yo/util"
 	"yo/util/sl"
 	"yo/util/str"
@@ -45,12 +44,12 @@ type Ctx struct {
 	Db struct {
 		Tx *sql.Tx
 	}
-	Timings    yodiag.Timings
+	Timings    Timings
 	DbgNoCatch bool
 }
 
 func newCtx(timeout time.Duration) *Ctx {
-	ctx := Ctx{Timings: yodiag.NewTimings("init ctx", !IsDevMode), Context: context.Background(), ctxVals: map[string]any{}}
+	ctx := Ctx{Timings: NewTimings("init ctx", !IsDevMode), Context: context.Background(), ctxVals: map[string]any{}}
 	if timeout > 0 {
 		ctx.Context, ctx.ctxDone = context.WithTimeout(ctx.Context, timeout)
 	}

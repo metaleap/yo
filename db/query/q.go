@@ -88,6 +88,14 @@ func Via[TArg any, TRet any](fn func(TArg) TRet) func(any) Operand {
 		return ret
 	}
 }
+
+//	func ViaCtx[TArg any, TRet any](fn func(*yoctx.Ctx, TArg) TRet) func(*yoctx.Ctx,any) Operand {
+//		return func(arg any) Operand {
+//			ret := Fn("", arg).(*fun)
+//			ret.Alt = func(args ...any) any { return fn( args[0].(TArg)) }
+//			return ret
+//		}
+//	}
 func (me *fun) Equal(other any) Query          { return Equal(me, other) }
 func (me *fun) NotEqual(other any) Query       { return NotEqual(me, other) }
 func (me *fun) LessThan(other any) Query       { return LessThan(me, other) }

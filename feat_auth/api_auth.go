@@ -78,7 +78,7 @@ func ApiUserLogin(this *ApiCtx[ApiAccountPayload, Void]) {
 	_, jwt_token := UserLogin(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain)
 	jwt_signed, err := jwt_token.SignedString(jwtKey)
 	if err != nil {
-		// panic(ErrAuthLogin_OkButFailedToCreateSignedToken)
+		panic(Err___admin_authLogin_OkButFailedToCreateSignedToken)
 	}
 	httpSetUser(this.Ctx, jwt_signed)
 }
@@ -92,7 +92,7 @@ func apiChangePassword(this *ApiCtx[struct {
 	PasswordNewPlain string
 }, Void]) {
 	if user_email_addr := this.Ctx.GetStr(CtxKey); user_email_addr != this.Args.EmailAddr {
-		// panic(ErrAuthChangePassword_Forbidden)
+		panic(Err___admin_authChangePassword_Forbidden)
 	}
 	httpSetUser(this.Ctx, "")
 	UserChangePassword(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.PasswordNewPlain)

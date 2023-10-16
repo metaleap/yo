@@ -1,4 +1,4 @@
-package yodiag
+package yoctx
 
 import (
 	"time"

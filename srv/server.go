@@ -36,7 +36,7 @@ const StaticFilesDirName = "__yostatic"
 func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
 	apiReflAllDbStructs = dbStructs
 	Apis(ApiMethods{
-		"__/refl": Api(apiHandleReflReq, nil),
+		"__/admin/refl": Api(apiHandleReflReq, nil),
 	})
 	for method_path := range api {
 		if (str.Trim(method_path) != method_path) || (method_path == "") || !str.IsPrtAscii(method_path) {

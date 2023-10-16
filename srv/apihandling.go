@@ -46,6 +46,7 @@ type ApiMethod interface {
 	MethodNameUp0() string
 	KnownErrs() []Err
 	CouldFailWith(...Err) ApiMethod
+	PreCheck(Err, func(*Ctx)) ApiMethod
 }
 
 type ApiCtx[TIn any, TOut any] struct {
@@ -88,11 +89,22 @@ type apiMethod[TIn any, TOut any] struct {
 	errsOwn    []Err
 	errsDeps   []string // methodPath refs to other methods
 	failIfs    []Fails
+	preChecks  []Pair[Err, func(*Ctx)]
 	PkgInfo    ApiPkgInfo
 }
 
 func (me *apiMethod[TIn, TOut]) failsIf() []Fails       { return me.failIfs }
 func (me *apiMethod[TIn, TOut]) handler() apiHandleFunc { return me.handleFunc }
+func (me *apiMethod[TIn, TOut]) preCheck(ctx *Ctx) {
+	for _, pre_check := range me.preChecks {
+		pre_check.Rhs(ctx)
+	}
+}
+func (me *apiMethod[TIn, TOut]) PreCheck(err Err, preCheck func(*Ctx)) ApiMethod {
+	me.CouldFailWith(err)
+	me.preChecks = append(me.preChecks, Pair[Err, func(*Ctx)]{Lhs: err, Rhs: preCheck})
+	return me
+}
 func (me *apiMethod[TIn, TOut]) PkgName() string {
 	if me.PkgInfo != nil {
 		return me.PkgInfo.PkgName()
@@ -175,12 +187,13 @@ func method[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, r
 	var tmp_in TIn
 	var tmp_out TOut
 	if IsDevMode && (reflect.ValueOf(tmp_in).Kind() != reflect.Struct || reflect.ValueOf(tmp_out).Kind() != reflect.Struct) {
-		panic(str.Fmt("in/out types must be structs, got in:%T, out:%T", tmp_in, tmp_out))
+		panic(str.Fmt("in/out types must both be structs, got %T and %T", tmp_in, tmp_out))
 	}
 	*ret = apiMethod[TIn, TOut]{
 		PkgInfo: pkgInfo,
 		handleFunc: func(ctx *Ctx, in any) any {
 			ctx.Http.ApiMethod = ret
+			ret.preCheck(ctx)
 			var output TOut
 			api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
 			f(api_ctx)
