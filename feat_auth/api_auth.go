@@ -43,13 +43,13 @@ func init() {
 			Fails{Err: "EmailInvalid", If: isEmailishEnough(___admin_authRegisterEmailAddr).Not()},
 			Fails{Err: "PasswordTooShort", If: ___admin_authRegisterPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 			Fails{Err: "PasswordTooLong", If: ___admin_authRegisterPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
-		).CouldFailWith("EmailAddrAlreadyExists", "PasswordInvalid", "DbInsertAcceptedWithoutErrButNotStoredEither"),
+		).CouldFailWith("EmailAddrAlreadyExists", "PasswordInvalid", ErrDbNotStored),
 
 		MethodPathChangePassword: Api(apiChangePassword, PkgInfo,
 			Fails{Err: "NewPasswordExpectedToDiffer", If: ___admin_authChangePasswordPasswordNewPlain.Equal(___admin_authChangePasswordPasswordPlain)},
 			Fails{Err: "NewPasswordTooShort", If: ___admin_authChangePasswordPasswordNewPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 			Fails{Err: "NewPasswordTooLong", If: ___admin_authChangePasswordPasswordNewPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
-		).CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "Forbidden", "NewPasswordInvalid", "DbUpdateAcceptedWithoutErrButNotStoredEither"),
+		).CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "Forbidden", "NewPasswordInvalid", ErrDbNotStored),
 	})
 
 	PreServes = append(PreServes, PreServe{Name: "authCheck", Do: func(ctx *Ctx) {

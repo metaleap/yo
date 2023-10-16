@@ -46,7 +46,7 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I6
 		EmailAddr:      yodb.Text(emailAddr),
 		passwordHashed: hash,
 	})); ret <= 0 {
-		panic(Err___admin_authRegister_DbInsertAcceptedWithoutErrButNotStoredEither)
+		panic(ErrDbNotStored)
 	}
 	return
 }
@@ -95,6 +95,6 @@ func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, pas
 	}
 	user_account.passwordHashed = hash
 	if (yodb.Update[UserAuth](ctx, user_account, false, nil)) < 1 {
-		panic(Err___admin_authChangePassword_DbUpdateAcceptedWithoutErrButNotStoredEither)
+		panic(ErrDbNotStored)
 	}
 }

@@ -13,12 +13,15 @@ import (
 	"yo/util/str"
 )
 
-const doErrCatchInDevMode = true // gotta toggle occasionally during local debug
+const (
+	doErrCatchInDevMode = true // gotta toggle occasionally during local debug
+	ErrTimedOut         = Err("TimedOut")
+	ErrDbNotStored      = "DbWriteRequestAcceptedWithoutErrButNotStoredEither"
+)
 
 var (
-	ErrTimedOut = Err("TimedOut")
-	DB          *sql.DB
-	OnDone      []func(ctx *Ctx, fail any)
+	DB     *sql.DB
+	OnDone []func(ctx *Ctx, fail any)
 )
 
 type apiMethod interface {

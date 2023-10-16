@@ -10,8 +10,10 @@ import (
 )
 
 const (
-	errBinOpPrefix = "ExpectedTwoOperandsFor"
-	errUpdateNoId  = "ExpectedIdGreater0"
+	errBinOpPrefix         = "ExpectedTwoOperandsFor"
+	ErrUpdateNoValidId Err = "ErrUpdateNoValidId"
+	ErrDbNoUpdate      Err = "DbUpdateAcceptedWithoutErrButNotStoredEither"
+	ErrDbNoInsert      Err = "DbInsertAcceptedWithoutErrButNotStoredEither"
 
 	ErrSetQuery    = "Query"
 	ErrSetDbUpdate = "DbUpdate"
@@ -57,7 +59,7 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 		apiMethodPath(type_name, "deleteMany"): Api(apiDeleteMany[TObj, TFld], PkgInfo).
 			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbDelete),
 		apiMethodPath(type_name, "updateOne"): Api(apiUpdateOne[TObj, TFld], PkgInfo).
-			CouldFailWith(":"+ErrSetDbUpdate, errUpdateNoId),
+			CouldFailWith(":"+ErrSetDbUpdate, ErrUpdateNoValidId),
 		apiMethodPath(type_name, "updateMany"): Api(apiUpdateMany[TObj, TFld], PkgInfo).
 			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbUpdate),
 		apiMethodPath(type_name, "count"): Api(apiCount[TObj, TFld], PkgInfo).
@@ -133,13 +135,15 @@ func apiDeleteMany[TObj any, TFld ~string](this *ApiCtx[argQuery[TObj, TFld], re
 	this.Ret.Count = Delete[TObj](this.Ctx, this.Args.toDbQ())
 }
 
-func apiUpdateOne[TObj any, TFld ~string](this *ApiCtx[struct {
+type ApiUpdateArgs[TObj any] struct {
 	argId
 	Changes                       TObj
 	IncludingEmptyOrMissingFields bool
-}, retCount]) {
+}
+
+func apiUpdateOne[TObj any, TFld ~string](this *ApiCtx[ApiUpdateArgs[TObj], retCount]) {
 	if this.Args.Id <= 0 {
-		panic(Err(this.Ctx.Http.ApiMethod.MethodNameUp0() + "_" + errUpdateNoId))
+		panic(Err(this.Ctx.Http.ApiMethod.MethodNameUp0() + "_" + string(ErrUpdateNoValidId)))
 	}
 	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, ColID.Equal(this.Args.Id))
 }
