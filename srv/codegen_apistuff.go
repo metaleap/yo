@@ -177,6 +177,7 @@ func codegenTsSdk(apiRefl *apiRefl) {
 	if src_is_changed {
 		foundModifiedTsFiles = true
 		WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`))
+		EnsureDirExists(StaticFilesDirName)
 		WriteFile(sdkGenDstTsFileRelPath, src_to_write)
 	}
 	if foundModifiedTsFiles {

@@ -13,7 +13,7 @@ func (me apiPkgInfo) PkgPath() string { return reflect.TypeOf(me).PkgPath() }
 
 var PkgInfo = apiPkgInfo{}
 
-const ErrAuthChangePassword_ChangesAcceptedWithNoErrYetNotStored util.Err = "AuthChangePassword_ChangesAcceptedWithNoErrYetNotStored"
+const ErrAuthChangePassword_DbUpdateAcceptedWithoutErrButNotStoredEither util.Err = "AuthChangePassword_DbUpdateAcceptedWithoutErrButNotStoredEither"
 const ErrAuthChangePassword_Forbidden util.Err = "AuthChangePassword_Forbidden"
 const ErrAuthChangePassword_NewPasswordExpectedToDiffer util.Err = "AuthChangePassword_NewPasswordExpectedToDiffer"
 const ErrAuthChangePassword_NewPasswordInvalid util.Err = "AuthChangePassword_NewPasswordInvalid"
@@ -26,6 +26,7 @@ const ErrAuthLogin_OkButFailedToCreateSignedToken util.Err = "AuthLogin_OkButFai
 const ErrAuthLogin_WrongPassword util.Err = "AuthLogin_WrongPassword"
 const ErrDbUpdate_ExpectedChangesForUpdate util.Err = "DbUpdate_ExpectedChangesForUpdate"
 const ErrDbUpdate_ExpectedQueryForUpdate util.Err = "DbUpdate_ExpectedQueryForUpdate"
+const ErrAuthRegister_DbInsertAcceptedWithoutErrButNotStoredEither util.Err = "AuthRegister_DbInsertAcceptedWithoutErrButNotStoredEither"
 const ErrAuthRegister_EmailAddrAlreadyExists util.Err = "AuthRegister_EmailAddrAlreadyExists"
 const ErrAuthRegister_EmailInvalid util.Err = "AuthRegister_EmailInvalid"
 const ErrAuthRegister_EmailRequiredButMissing util.Err = "AuthRegister_EmailRequiredButMissing"

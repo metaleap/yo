@@ -30,7 +30,7 @@ func init() {
 
 	// Setenv from .env file if any
 	if env_file_data := bytes.TrimSpace(ReadFile(".env")); len(env_file_data) == 0 {
-		panic(".env")
+		panic("empty or missing .env")
 	} else {
 		for i, lines := 0, str.Split(string(env_file_data), "\n"); i < len(lines); i++ {
 			if name, val, ok := str.Cut(lines[i], "="); !ok {

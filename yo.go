@@ -3,14 +3,10 @@ package yo
 import (
 	"time"
 
-	yoctx "yo/ctx"
 	yodb "yo/db"
 	yolog "yo/log"
 	yosrv "yo/srv"
 )
-
-type ApiMethods = yosrv.ApiMethods
-type Ctx = yoctx.Ctx
 
 func init() {
 	time.Local = time.UTC

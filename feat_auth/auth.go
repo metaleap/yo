@@ -29,7 +29,7 @@ func init() {
 	yodb.Ensure[UserAuth, UserAuthField]("", nil)
 }
 
-func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
+func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I64) {
 	ctx.DbTx()
 	if yodb.Exists[UserAuth](ctx, UserAuthColEmailAddr.Equal(emailAddr)) {
 		panic(ErrAuthRegister_EmailAddrAlreadyExists)
@@ -42,10 +42,13 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 			panic(ErrAuthRegister_PasswordInvalid)
 		}
 	}
-	return yodb.CreateOne[UserAuth](ctx, &UserAuth{
+	if ret = yodb.I64(yodb.CreateOne[UserAuth](ctx, &UserAuth{
 		EmailAddr:      yodb.Text(emailAddr),
 		passwordHashed: hash,
-	})
+	})); ret <= 0 {
+		panic(ErrAuthRegister_DbInsertAcceptedWithoutErrButNotStoredEither)
+	}
+	return
 }
 
 func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jwt.Token) {
@@ -92,6 +95,6 @@ func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, pas
 	}
 	user_account.passwordHashed = hash
 	if (yodb.Update[UserAuth](ctx, user_account, false, nil)) < 1 {
-		panic(ErrAuthChangePassword_ChangesAcceptedWithNoErrYetNotStored)
+		panic(ErrAuthChangePassword_DbUpdateAcceptedWithoutErrButNotStoredEither)
 	}
 }

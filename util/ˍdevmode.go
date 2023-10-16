@@ -38,8 +38,14 @@ func fsIs(path string, check func(fs.FileInfo) bool, expect bool) bool {
 	return (expect == check(info))
 }
 
-func IsDir(path string) bool  { return fsIs(path, fs.FileInfo.IsDir, true) }
-func IsFile(path string) bool { return fsIs(path, fs.FileInfo.IsDir, false) }
+func IsDir(dirPath string) bool   { return fsIs(dirPath, fs.FileInfo.IsDir, true) }
+func IsFile(filePath string) bool { return fsIs(filePath, fs.FileInfo.IsDir, false) }
+
+func EnsureDirExists(dirPath string) {
+	if err := os.MkdirAll(dirPath, os.ModePerm); (err != nil) && !os.IsExist(err) {
+		panic(err)
+	}
+}
 
 func ReadFile(filePath string) []byte {
 	data, err := os.ReadFile(filePath)
