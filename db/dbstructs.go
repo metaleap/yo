@@ -36,14 +36,19 @@ type DateTime time.Time
 type Dict[T any] map[string]T
 type Arr[T any] sl.Slice[T]
 
+type JsonDbObj[T any] struct{ Self *T }
+
 type jsonDbValue interface {
 	init()
 	get() any
 	scan([]byte) error
 }
 
-func (me *Dict[T]) init()                   { *me = Dict[T]{} }
-func (me *Dict[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me) }
+func (me *JsonDbObj[T]) init()                   {}
+func (me *JsonDbObj[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me.Self) }
+func (me *JsonDbObj[T]) get() any                { return me.Self }
+func (me *Dict[T]) init()                        { *me = Dict[T]{} }
+func (me *Dict[T]) scan(jsonb []byte) error      { return yojson.Unmarshal(jsonb, me) }
 func (me *Dict[T]) get() any {
 	if (me == nil) || (*me == nil) {
 		return Dict[T]{}
