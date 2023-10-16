@@ -15,7 +15,6 @@ var PkgInfo = apiPkgInfo{}
 
 const ErrDbUpdate_ExpectedChangesForUpdate util.Err = "DbUpdate_ExpectedChangesForUpdate"
 const ErrDbUpdate_ExpectedQueryForUpdate util.Err = "DbUpdate_ExpectedQueryForUpdate"
-const Err___admin_authChangePassword_DbUpdateAcceptedWithoutErrButNotStoredEither util.Err = "___admin_authChangePassword_DbUpdateAcceptedWithoutErrButNotStoredEither"
 const Err___admin_authChangePassword_Forbidden util.Err = "___admin_authChangePassword_Forbidden"
 const Err___admin_authChangePassword_NewPasswordExpectedToDiffer util.Err = "___admin_authChangePassword_NewPasswordExpectedToDiffer"
 const Err___admin_authChangePassword_NewPasswordInvalid util.Err = "___admin_authChangePassword_NewPasswordInvalid"
@@ -26,7 +25,6 @@ const Err___admin_authLogin_EmailInvalid util.Err = "___admin_authLogin_EmailInv
 const Err___admin_authLogin_EmailRequiredButMissing util.Err = "___admin_authLogin_EmailRequiredButMissing"
 const Err___admin_authLogin_OkButFailedToCreateSignedToken util.Err = "___admin_authLogin_OkButFailedToCreateSignedToken"
 const Err___admin_authLogin_WrongPassword util.Err = "___admin_authLogin_WrongPassword"
-const Err___admin_authRegister_DbInsertAcceptedWithoutErrButNotStoredEither util.Err = "___admin_authRegister_DbInsertAcceptedWithoutErrButNotStoredEither"
 const Err___admin_authRegister_EmailAddrAlreadyExists util.Err = "___admin_authRegister_EmailAddrAlreadyExists"
 const Err___admin_authRegister_EmailInvalid util.Err = "___admin_authRegister_EmailInvalid"
 const Err___admin_authRegister_EmailRequiredButMissing util.Err = "___admin_authRegister_EmailRequiredButMissing"

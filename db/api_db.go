@@ -11,9 +11,7 @@ import (
 
 const (
 	errBinOpPrefix         = "ExpectedTwoOperandsFor"
-	ErrUpdateNoValidId Err = "ErrUpdateNoValidId"
-	ErrDbNoUpdate      Err = "DbUpdateAcceptedWithoutErrButNotStoredEither"
-	ErrDbNoInsert      Err = "DbInsertAcceptedWithoutErrButNotStoredEither"
+	ErrUpdateExpectedIdGt0 = Err("ErrUpdateExpectedIdGt0")
 
 	ErrSetQuery    = "Query"
 	ErrSetDbUpdate = "DbUpdate"
@@ -59,7 +57,7 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 		apiMethodPath(type_name, "deleteMany"): Api(apiDeleteMany[TObj, TFld], PkgInfo).
 			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbDelete),
 		apiMethodPath(type_name, "updateOne"): Api(apiUpdateOne[TObj, TFld], PkgInfo).
-			CouldFailWith(":"+ErrSetDbUpdate, ErrUpdateNoValidId),
+			CouldFailWith(":"+ErrSetDbUpdate, ErrUpdateExpectedIdGt0),
 		apiMethodPath(type_name, "updateMany"): Api(apiUpdateMany[TObj, TFld], PkgInfo).
 			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbUpdate),
 		apiMethodPath(type_name, "count"): Api(apiCount[TObj, TFld], PkgInfo).
@@ -70,7 +68,7 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 }
 
 type retCount struct{ Count int64 }
-type argId struct{ Id I64 }
+type ApiArgId struct{ Id I64 }
 type argQuery[TObj any, TFld ~string] struct {
 	Query     *ApiQueryExpr[TObj, TFld]
 	QueryFrom *TObj
@@ -98,7 +96,7 @@ func (me *argQuery[TObj, TFld]) toDbO() []q.OrderBy {
 	})
 }
 
-func apiFindById[TObj any, TFld ~string](this *ApiCtx[argId, TObj]) {
+func apiFindById[TObj any, TFld ~string](this *ApiCtx[ApiArgId, TObj]) {
 	this.Ret = ById[TObj](this.Ctx, this.Args.Id)
 }
 
@@ -127,7 +125,7 @@ func apiCreateMany[TObj any, TFld ~string](this *ApiCtx[struct {
 	CreateMany[TObj](this.Ctx, sl.Ptrs(this.Args.Items)...)
 }
 
-func apiDeleteOne[TObj any, TFld ~string](this *ApiCtx[argId, retCount]) {
+func apiDeleteOne[TObj any, TFld ~string](this *ApiCtx[ApiArgId, retCount]) {
 	this.Ret.Count = Delete[TObj](this.Ctx, ColID.Equal(this.Args.Id))
 }
 
@@ -136,14 +134,14 @@ func apiDeleteMany[TObj any, TFld ~string](this *ApiCtx[argQuery[TObj, TFld], re
 }
 
 type ApiUpdateArgs[TObj any] struct {
-	argId
+	ApiArgId
 	Changes                       TObj
 	IncludingEmptyOrMissingFields bool
 }
 
 func apiUpdateOne[TObj any, TFld ~string](this *ApiCtx[ApiUpdateArgs[TObj], retCount]) {
 	if this.Args.Id <= 0 {
-		panic(Err(this.Ctx.Http.ApiMethod.MethodNameUp0() + "_" + string(ErrUpdateNoValidId)))
+		panic(Err(this.Ctx.Http.ApiMethod.MethodNameUp0() + "_" + string(ErrUpdateExpectedIdGt0)))
 	}
 	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, ColID.Equal(this.Args.Id))
 }
