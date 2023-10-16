@@ -33,25 +33,14 @@ var (
 
 	// funcs are run (in no particular order) just prior to loading request payload, handling request, and serving response
 	PreServes = []PreServe{
-		{"authAdmin", func(ctx *yoctx.Ctx) {
-			if str.Begins(ctx.Http.UrlPath, "__/yo/") || (ctx.Http.UrlPath == "__yo/swag.html") {
-				user, pwd, ok := ctx.Http.Req.BasicAuth()
-				if ok {
-					ok = (1 == subtle.ConstantTimeCompare([]byte(Cfg.YO_API_ADMIN_USER), []byte(user))) &&
-						(1 == subtle.ConstantTimeCompare([]byte(Cfg.YO_API_ADMIN_PWD), []byte(pwd)))
-				}
-				if !ok {
-					ctx.Http.Resp.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
-					panic(yoctx.ErrMustBeAdmin)
-				}
-			}
-		}},
+		{"authAdmin", If(IsDevMode, nil, authAdmin)},
 	}
 
 	codegenMaybe func() = nil // overwritten by apisdkgen.go in debug build mode
 )
 
 const StaticFilesDirName = "__yostatic"
+const staticFilesUrlPrefix = "__yo"
 
 func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
 	apiReflAllDbStructs = dbStructs
@@ -70,7 +59,7 @@ func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
 }
 
 func listenAndServe() {
-	StaticFileServes["__yo"] = os.DirFS("../yo/" + StaticFilesDirName)
+	StaticFileServes[staticFilesUrlPrefix] = os.DirFS("../yo/" + StaticFilesDirName)
 	yolog.Println("live @ port %d", Cfg.YO_API_HTTP_PORT)
 	panic(http.ListenAndServe(":"+str.FromInt(Cfg.YO_API_HTTP_PORT), http.HandlerFunc(handleHTTPRequest)))
 }
@@ -87,8 +76,10 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	for _, pre_serve := range PreServes {
-		ctx.Timings.Step("pre:" + pre_serve.Name)
-		pre_serve.Do(ctx)
+		if pre_serve.Do != nil {
+			ctx.Timings.Step("pre:" + pre_serve.Name)
+			pre_serve.Do(ctx)
+		}
 	}
 
 	ctx.Timings.Step("static check")
@@ -118,5 +109,20 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Set("Content-Length", str.FromInt(len(resp_data)))
 		ctx.HttpOnPreWriteResponse()
 		_, _ = rw.Write(resp_data)
+	}
+}
+
+func authAdmin(ctx *yoctx.Ctx) {
+	if !(str.Begins(ctx.Http.UrlPath, "__/yo/") || str.Begins(ctx.Http.UrlPath, staticFilesUrlPrefix+"/yo.")) {
+		return
+	}
+	user, pwd, ok := ctx.Http.Req.BasicAuth()
+	if ok {
+		ok = (1 == subtle.ConstantTimeCompare([]byte(Cfg.YO_API_ADMIN_USER), []byte(user))) &&
+			(1 == subtle.ConstantTimeCompare([]byte(Cfg.YO_API_ADMIN_PWD), []byte(pwd)))
+	}
+	if !ok {
+		ctx.Http.Resp.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
+		panic(yoctx.ErrMustBeAdmin)
 	}
 }
