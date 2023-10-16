@@ -8,6 +8,7 @@ import (
 	. "yo/cfg"
 	yoctx "yo/ctx"
 	q "yo/db/query"
+	yojson "yo/json"
 	yolog "yo/log"
 	. "yo/util"
 	"yo/util/sl"
@@ -34,6 +35,29 @@ type Text string
 type DateTime time.Time
 type Map[T any] map[string]T
 type Arr[T any] sl.Slice[T]
+
+type jsonDbValue interface {
+	init()
+	get() any
+	scan([]byte) error
+}
+
+func (me *Map[T]) init()                   { *me = Map[T]{} }
+func (me *Map[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me) }
+func (me *Map[T]) get() any {
+	if (me == nil) || (*me == nil) {
+		return map[string]T{}
+	}
+	return map[string]T(*me)
+}
+func (me *Arr[T]) init()                   { *me = []T{} }
+func (me *Arr[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me) }
+func (me *Arr[T]) get() any {
+	if (me == nil) || (*me == nil) {
+		return []T{}
+	}
+	return []T(*me)
+}
 
 var (
 	tyBool     = reflect.TypeOf(Bool(false))
@@ -83,11 +107,15 @@ func (me *structDesc) fieldNameToColName(fieldName q.F) q.C {
 }
 
 func isColField(fieldType reflect.Type) bool {
-	is_db_json_obj_type, is_db_json_arr_type := isDbJsonType(fieldType)
-	return sl.Has(okTypes, fieldType) || is_db_json_arr_type || is_db_json_obj_type
+	return sl.Has(okTypes, fieldType) || isDbJsonType(fieldType)
 }
 
-func isDbJsonType(fieldType reflect.Type) (isDbJsonObjType bool, isDbJsonArrType bool) {
+func isDbJsonType(ty reflect.Type) bool {
+	is_db_json_obj_type, is_db_json_arr_type := isWhatDbJsonType(ty)
+	return is_db_json_obj_type || is_db_json_arr_type
+}
+
+func isWhatDbJsonType(fieldType reflect.Type) (isDbJsonObjType bool, isDbJsonArrType bool) {
 	if field_type_name := fieldType.Name(); fieldType.PkgPath() == PkgInfo.PkgPath() {
 		if isDbJsonArrType = str.Begins(field_type_name, "Arr[") && str.Ends(field_type_name, "]"); !isDbJsonArrType {
 			isDbJsonObjType = str.Begins(field_type_name, "Map[") && str.Ends(field_type_name, "]")
@@ -122,8 +150,9 @@ func desc[T any]() (ret *structDesc) {
 }
 
 type scanner struct {
-	ptr uintptr
-	ty  reflect.Type
+	ptr       uintptr
+	jsonDbVal jsonDbValue
+	ty        reflect.Type
 }
 
 func reflFieldValueOf[T any](it *T, fieldName q.F) any {
@@ -159,6 +188,9 @@ func reflFieldValue(rvField reflect.Value) any {
 	case **DateTime:
 		return *getPtr[*DateTime](addr)
 	default:
+		if json_db_val, is := val.(jsonDbValue); is {
+			return json_db_val.get()
+		}
 		panic(str.Fmt("reflFieldValue:%T", val))
 	}
 }
@@ -182,7 +214,7 @@ func (me scanner) Scan(it any) error {
 		case tyBool:
 			setPtr(me.ptr, it)
 		default:
-			panic(me.ty)
+			panic(str.Fmt("scanner.Scan %T into %s", it, me.ty.String()))
 		}
 	case float64:
 		switch me.ty {
@@ -191,7 +223,7 @@ func (me scanner) Scan(it any) error {
 		case tyF64:
 			setPtr(me.ptr, (F64)(it))
 		default:
-			panic(me.ty)
+			panic(str.Fmt("scanner.Scan %T into %s", it, me.ty.String()))
 		}
 	case int64:
 		switch me.ty {
@@ -210,7 +242,7 @@ func (me scanner) Scan(it any) error {
 		case tyI64:
 			setPtr(me.ptr, (I64)(it))
 		default:
-			panic(me.ty)
+			panic(str.Fmt("scanner.Scan %T into %s", it, me.ty.String()))
 		}
 	case []byte:
 		switch me.ty {
@@ -219,14 +251,20 @@ func (me scanner) Scan(it any) error {
 			copy(dup, it)
 			setPtr(me.ptr, dup)
 		default:
-			panic(me.ty)
+			if isDbJsonType(me.ty) && me.jsonDbVal != nil {
+				if err := me.jsonDbVal.scan(it); err != nil {
+					panic(err)
+				}
+			} else {
+				panic(str.Fmt("scanner.Scan %T into %s", it, me.ty.String()))
+			}
 		}
 	case string:
 		switch me.ty {
 		case tyText:
 			setPtr(me.ptr, it)
 		default:
-			panic(me.ty)
+			panic(str.Fmt("scanner.Scan %T into %s", it, me.ty.String()))
 		}
 	case time.Time:
 		switch me.ty {
@@ -234,10 +272,10 @@ func (me scanner) Scan(it any) error {
 			dup := (DateTime)(it)
 			setPtr(me.ptr, &dup)
 		default:
-			panic(me.ty)
+			panic(str.Fmt("scanner.Scan %T into %s", it, me.ty.String()))
 		}
 	default:
-		panic(it)
+		panic(str.Fmt("scanner.Scan %T into %s", it, me.ty.String()))
 	}
 	return nil
 }

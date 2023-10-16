@@ -223,7 +223,14 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 		rv, col_scanners := reflect.ValueOf(&rec).Elem(), make([]any, len(struct_desc.cols))
 		for i := range struct_desc.cols {
 			field := rv.Field(i)
-			col_scanners[i] = scanner{ptr: field.UnsafeAddr(), ty: field.Type()}
+			var json_db_val jsonDbValue
+			if isDbJsonType(field.Type()) {
+				new := reflect.New(field.Type())
+				new.Interface().(jsonDbValue).init()
+				field.Set(new.Elem())
+				json_db_val, _ = field.Addr().Interface().(jsonDbValue)
+			}
+			col_scanners[i] = scanner{ptr: field.UnsafeAddr(), jsonDbVal: json_db_val, ty: field.Type()}
 		}
 		if err = rows.Scan(col_scanners...); err != nil {
 			panic(err)
