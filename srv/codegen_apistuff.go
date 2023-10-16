@@ -113,7 +113,7 @@ func codegenGo(apiRefl *apiRefl) {
 		err_emitted := map[Err]bool{yoctx.ErrTimedOut: true}
 		for _, method_path := range sl.Sorted(Keys(pkg_methods)) {
 			for _, err := range sl.Sorted(Keys(apiRefl.KnownErrs[method_path])) {
-				if !err_emitted[err] {
+				if (!err_emitted[err]) && !sl.Has(errsNoCodegen, err) {
 					err_emitted[err] = true
 					buf.WriteString("const Err" + string(err) + " util.Err = \"" + string(err) + "\"\n")
 				}

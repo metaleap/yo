@@ -91,7 +91,7 @@ func apiChangePassword(this *ApiCtx[struct {
 	ApiAccountPayload
 	PasswordNewPlain string
 }, Void]) {
-	if user_email_addr := this.Ctx.GetStr(CtxKey); user_email_addr != this.Args.EmailAddr {
+	if user_email_addr := CurrentlyLoggedInUserEmailAddr(this.Ctx); user_email_addr != this.Args.EmailAddr {
 		panic(Err___admin_authChangePassword_Forbidden)
 	}
 	httpSetUser(this.Ctx, "")
@@ -110,4 +110,12 @@ func httpSetUser(ctx *Ctx, jwtRaw string) {
 	ctx.Set(CtxKey, user_email_addr)
 	ctx.Http.Resp.Header().Set(HttpUserHeader, user_email_addr)
 	ctx.HttpSetCookie(HttpJwtCookieName, jwtRaw, Cfg.YO_AUTH_JWT_EXPIRY_DAYS)
+}
+
+func CurrentlyLoggedInUserEmailAddr(ctx *Ctx) string {
+	return ctx.GetStr(CtxKey)
+}
+
+func CurrentlyLoggedIn(ctx *Ctx) bool {
+	return (CurrentlyLoggedInUserEmailAddr(ctx) != "")
 }

@@ -14,12 +14,15 @@ import (
 )
 
 const QueryArgValidateOnly = "yoValidateOnly"
+const ErrUnauthorized Err = "Unauthorized"
 
 var (
 	api          = ApiMethods{}
 	KnownErrSets = map[string][]Err{
 		"": {ErrTimedOut},
 	}
+	errsNoCodegen = []Err{ErrUnauthorized}
+	ErrsNoPrefix  = []Err{ErrUnauthorized}
 )
 
 type ApiMethods map[string]ApiMethod
@@ -46,7 +49,7 @@ type ApiMethod interface {
 	MethodNameUp0() string
 	KnownErrs() []Err
 	CouldFailWith(...Err) ApiMethod
-	PreCheck(Err, func(*Ctx)) ApiMethod
+	PreCheck(Pair[Err, func(*Ctx) bool]) ApiMethod // pre-checks run just before handler invocation, thus after PreServe handlers and input payload validations
 }
 
 type ApiCtx[TIn any, TOut any] struct {
@@ -89,20 +92,15 @@ type apiMethod[TIn any, TOut any] struct {
 	errsOwn    []Err
 	errsDeps   []string // methodPath refs to other methods
 	failIfs    []Fails
-	preChecks  []Pair[Err, func(*Ctx)]
+	preChecks  []Pair[Err, func(*Ctx) bool]
 	PkgInfo    ApiPkgInfo
 }
 
 func (me *apiMethod[TIn, TOut]) failsIf() []Fails       { return me.failIfs }
 func (me *apiMethod[TIn, TOut]) handler() apiHandleFunc { return me.handleFunc }
-func (me *apiMethod[TIn, TOut]) preCheck(ctx *Ctx) {
-	for _, pre_check := range me.preChecks {
-		pre_check.Rhs(ctx)
-	}
-}
-func (me *apiMethod[TIn, TOut]) PreCheck(err Err, preCheck func(*Ctx)) ApiMethod {
-	me.CouldFailWith(err)
-	me.preChecks = append(me.preChecks, Pair[Err, func(*Ctx)]{Lhs: err, Rhs: preCheck})
+func (me *apiMethod[TIn, TOut]) PreCheck(preCheck Pair[Err, func(*Ctx) bool]) ApiMethod {
+	me.CouldFailWith(preCheck.Lhs)
+	me.preChecks = append(me.preChecks, preCheck)
 	return me
 }
 func (me *apiMethod[TIn, TOut]) PkgName() string {
@@ -129,7 +127,8 @@ func (me *apiMethod[TIn, TOut]) KnownErrs() (ret []Err) {
 	method_name := me.MethodNameUp0()
 	err_name_prefix := Err(str.Up0(method_name)) + "_"
 
-	ret = append(sl.To(me.errsOwn, func(it Err) Err { return err_name_prefix + it }), KnownErrSets[""]...)
+	ret = append(sl.To(me.errsOwn, func(it Err) Err { return If(sl.Has(ErrsNoPrefix, it), it, err_name_prefix+it) }),
+		KnownErrSets[""]...)
 	for _, err_dep := range me.errsDeps {
 		if method := api[err_dep]; method != nil {
 			ret = append(ret, api[err_dep].KnownErrs()...)
@@ -193,7 +192,11 @@ func method[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, r
 		PkgInfo: pkgInfo,
 		handleFunc: func(ctx *Ctx, in any) any {
 			ctx.Http.ApiMethod = ret
-			ret.preCheck(ctx)
+			for _, pre_check := range ret.preChecks {
+				if !pre_check.Rhs(ctx) {
+					panic(pre_check.Lhs)
+				}
+			}
 			var output TOut
 			api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: in.(*TIn), Ret: &output}
 			f(api_ctx)
