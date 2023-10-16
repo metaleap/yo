@@ -32,28 +32,29 @@ type F32 float32
 type F64 float64
 type Text string
 type DateTime time.Time
+type Map[TKey comparable, TVal any] map[TKey]TVal
 
 var (
-	tyBool      = reflect.TypeOf(Bool(false))
-	tyBytes     = reflect.TypeOf(Bytes(nil))
-	tyI8        = reflect.TypeOf(I8(0))
-	tyI16       = reflect.TypeOf(I16(0))
-	tyI32       = reflect.TypeOf(I32(0))
-	tyI64       = reflect.TypeOf(I64(0))
-	tyU8        = reflect.TypeOf(U8(0))
-	tyU16       = reflect.TypeOf(U16(0))
-	tyU32       = reflect.TypeOf(U32(0))
-	tyF32       = reflect.TypeOf(F32(0))
-	tyF64       = reflect.TypeOf(F64(0))
-	tyText      = reflect.TypeOf(Text(""))
-	tyTimestamp = reflect.TypeOf(&DateTime{})
-	okTypes     = []reflect.Type{
+	tyBool     = reflect.TypeOf(Bool(false))
+	tyBytes    = reflect.TypeOf(Bytes(nil))
+	tyI8       = reflect.TypeOf(I8(0))
+	tyI16      = reflect.TypeOf(I16(0))
+	tyI32      = reflect.TypeOf(I32(0))
+	tyI64      = reflect.TypeOf(I64(0))
+	tyU8       = reflect.TypeOf(U8(0))
+	tyU16      = reflect.TypeOf(U16(0))
+	tyU32      = reflect.TypeOf(U32(0))
+	tyF32      = reflect.TypeOf(F32(0))
+	tyF64      = reflect.TypeOf(F64(0))
+	tyText     = reflect.TypeOf(Text(""))
+	tyDateTime = reflect.TypeOf(&DateTime{})
+	okTypes    = []reflect.Type{
 		tyBool,
 		tyBytes,
 		tyI8, tyI16, tyI32, tyI64, tyU8, tyU16, tyU32,
 		tyF32, tyF64,
 		tyText,
-		tyTimestamp,
+		tyDateTime,
 	}
 	descs       = map[reflect.Type]*structDesc{}
 	ensureDescs []*structDesc
@@ -166,13 +167,20 @@ func (me scanner) Scan(it any) error {
 	}
 	switch it := it.(type) {
 	case bool:
-		setPtr(me.ptr, it)
+		switch me.ty {
+		case tyBool:
+			setPtr(me.ptr, it)
+		default:
+			panic(me.ty)
+		}
 	case float64:
 		switch me.ty {
 		case tyF32:
 			setPtr(me.ptr, (F32)(it))
-		default:
+		case tyF64:
 			setPtr(me.ptr, (F64)(it))
+		default:
+			panic(me.ty)
 		}
 	case int64:
 		switch me.ty {
@@ -188,18 +196,35 @@ func (me scanner) Scan(it any) error {
 			setPtr(me.ptr, (U16)(it))
 		case tyU32:
 			setPtr(me.ptr, (U32)(it))
-		default:
+		case tyI64:
 			setPtr(me.ptr, (I64)(it))
+		default:
+			panic(me.ty)
 		}
 	case []byte:
-		dup := make([]byte, len(it))
-		copy(dup, it)
-		setPtr(me.ptr, dup)
+		switch me.ty {
+		case tyBytes:
+			dup := make([]byte, len(it))
+			copy(dup, it)
+			setPtr(me.ptr, dup)
+		default:
+			panic(me.ty)
+		}
 	case string:
-		setPtr(me.ptr, it)
+		switch me.ty {
+		case tyText:
+			setPtr(me.ptr, it)
+		default:
+			panic(me.ty)
+		}
 	case time.Time:
-		dup := (DateTime)(it)
-		setPtr(me.ptr, &dup)
+		switch me.ty {
+		case tyDateTime:
+			dup := (DateTime)(it)
+			setPtr(me.ptr, &dup)
+		default:
+			panic(me.ty)
+		}
 	default:
 		panic(it)
 	}

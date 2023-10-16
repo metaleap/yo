@@ -187,7 +187,7 @@ func sqlColTypeFrom(ty reflect.Type) string {
 		return "int8"
 	case tyText:
 		return "text"
-	case tyTimestamp:
+	case tyDateTime:
 		return "timestamp without time zone"
 	default:
 		panic(ty)
@@ -199,7 +199,7 @@ func sqlColTypeDeclFrom(ty reflect.Type) string {
 	switch ty {
 	case tyBool:
 		return sql_data_type_name + " NOT NULL DEFAULT (false)"
-	case tyBytes, tyTimestamp:
+	case tyBytes, tyDateTime:
 		return sql_data_type_name + " NULL DEFAULT (NULL)"
 	case tyF32, tyF64, tyI16, tyI32, tyI64, tyI8, tyU16, tyU32, tyU8:
 		return sql_data_type_name + " NOT NULL DEFAULT (0)"
