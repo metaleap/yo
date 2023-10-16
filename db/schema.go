@@ -216,11 +216,10 @@ func sqlColTypeDeclFrom(ty reflect.Type) string {
 		} else if isDbRefType(ty) {
 			dummy := reflect.New(ty).Interface().(interface {
 				structDesc() *structDesc
-				IsDbRef() bool
 				refOnDel
 			})
 			desc := dummy.structDesc()
-			return sql_data_type_name + " NOT NULL DEFAULT (0) REFERENCES " + desc.tableName + " ON DELETE " + dummy.onDelSql()
+			return sql_data_type_name + " NULL DEFAULT (NULL) REFERENCES " + desc.tableName + " ON DELETE " + dummy.onDelSql()
 		}
 		panic(ty)
 	}

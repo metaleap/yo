@@ -45,33 +45,32 @@ type Ref[T any, OnDel refOnDel] struct {
 type refOnDel interface{ onDelSql() string }
 type RefOnDelCascade struct{}
 type RefOnDelPrevent struct{}
-type RefOnDelSetZero struct{}
+type RefOnDelSetNull struct{}
 
 func (RefOnDelCascade) onDelSql() string { return "CASCADE" }
 func (RefOnDelPrevent) onDelSql() string { return "RESTRICT" }
-func (RefOnDelSetZero) onDelSql() string { return "SET DEFAULT" }
+func (RefOnDelSetNull) onDelSql() string { return "SET NULL" }
 func (me *Ref[_, OnDel]) onDelSql() string {
 	var dummy OnDel
 	return dummy.onDelSql()
 }
-func (me *Ref[T, _]) IsDbRef() bool { return true }
-func (me Ref[T, _]) Id() I64        { return me.id }
-func (me *Ref[T, _]) Set(id I64)    { me.self, me.id = nil, id }
+func (me Ref[_, _]) Id() I64       { return me.id }
+func (me Ref[_, _]) IsDbRef() bool { return true } // no direct callers, but checked for by `yo/srv` during codegen
+func (me *Ref[_, _]) Set(id I64)   { me.self, me.id = nil, id }
 func (me *Ref[T, _]) Get(ctx *yoctx.Ctx) *T {
-	if _ = any(me).(dbRef); me.self == nil && me.id != 0 && ctx != nil {
+	if (me.self == nil) && (me.id != 0) {
 		me.self = FindOne[T](ctx, ColID.Equal(me.id))
 	}
 	return me.self
 }
-func (me *Ref[T, _]) structDesc() *structDesc {
-	ret := desc[T]()
-	if !sl.Has(ensureDescs, ret) {
+func (me *Ref[T, _]) structDesc() (ret *structDesc) {
+	if ret = desc[T](); !sl.Has(ensureDescs, ret) {
 		panic(reflect.TypeOf(me).Elem().String() + " refs a non-`Ensure`d type, which hence has no db table yet/anymore")
 	}
-	return ret
+	return
 }
-func (me *Ref[T, _]) MarshalJSON() ([]byte, error) { return []byte(str.FromI64(int64(me.id), 10)), nil }
-func (me *Ref[T, _]) UnmarshalJSON(json []byte) error {
+func (me *Ref[_, _]) MarshalJSON() ([]byte, error) { return []byte(str.FromI64(int64(me.id), 10)), nil }
+func (me *Ref[_, _]) UnmarshalJSON(json []byte) error {
 	me.self, me.id = nil, 0
 	i64, err := str.ToI64(string(json), 10, 64)
 	if err == nil {
@@ -80,7 +79,10 @@ func (me *Ref[T, _]) UnmarshalJSON(json []byte) error {
 	return err
 }
 
-type dbRef interface{ Id() I64 }
+type dbRef interface {
+	Id() I64
+	IsDbRef() bool
+}
 type jsonDbValue interface {
 	init(selfPtr any)
 	get() any

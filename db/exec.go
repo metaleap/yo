@@ -260,7 +260,8 @@ func dbArgsCleanUpForPgx(args dbArgs) dbArgs {
 		} else if dt, is := v.(*DateTime); is {
 			args[k] = (*time.Time)(dt)
 		} else if db_ref, _ := v.(dbRef); db_ref != nil {
-			args[k] = db_ref.Id()
+			id := db_ref.Id()
+			args[k] = If[any](id == 0, nil, id)
 		} else if rv := reflect.ValueOf(v); !rv.IsValid() {
 			panic(v)
 		} else if rvt := rv.Type(); isDbJsonType(rvt) {
