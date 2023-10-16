@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	CtxKey            = "yoUser"
+	CtxKeyEmailAddr   = "yoUserEmailAddr"
+	CtxKeyAuthId      = "yoUserAuthId"
 	HttpUserHeader    = "X-Yo-User"
 	HttpJwtCookieName = "t"
 
@@ -49,7 +50,7 @@ func init() {
 			Fails{Err: "NewPasswordExpectedToDiffer", If: ___admin_authChangePasswordPasswordNewPlain.Equal(___admin_authChangePasswordPasswordPlain)},
 			Fails{Err: "NewPasswordTooShort", If: ___admin_authChangePasswordPasswordNewPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 			Fails{Err: "NewPasswordTooLong", If: ___admin_authChangePasswordPasswordNewPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
-		).CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "Forbidden", "NewPasswordInvalid", ErrDbNotStored),
+		).CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "NewPasswordInvalid", ErrUnauthorized, ErrDbNotStored),
 	})
 
 	PreServes = append(PreServes, PreServe{Name: "authCheck", Do: func(ctx *Ctx) {
@@ -91,31 +92,34 @@ func apiChangePassword(this *ApiCtx[struct {
 	ApiAccountPayload
 	PasswordNewPlain string
 }, Void]) {
-	if user_email_addr := CurrentlyLoggedInUserEmailAddr(this.Ctx); user_email_addr != this.Args.EmailAddr {
-		panic(Err___admin_authChangePassword_Forbidden)
+	user_email_addr, _ := CurrentlyLoggedInUser(this.Ctx)
+	if user_email_addr != this.Args.EmailAddr {
+		panic(ErrUnauthorized)
 	}
 	httpSetUser(this.Ctx, "")
 	UserChangePassword(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.PasswordNewPlain)
 }
 
 func httpSetUser(ctx *Ctx, jwtRaw string) {
-	user_email_addr := ""
+	user_email_addr, user_auth_id := "", yodb.I64(0)
 	if jwtRaw != "" {
 		if jwt_payload := UserVerify(ctx, jwtRaw); jwt_payload == nil {
 			jwtRaw = ""
 		} else {
-			user_email_addr = jwt_payload.StandardClaims.Subject
+			user_email_addr, user_auth_id = jwt_payload.StandardClaims.Subject, jwt_payload.UserAuthId
 		}
 	}
-	ctx.Set(CtxKey, user_email_addr)
+	ctx.Set(CtxKeyEmailAddr, user_email_addr)
+	ctx.Set(CtxKeyAuthId, user_auth_id)
 	ctx.Http.Resp.Header().Set(HttpUserHeader, user_email_addr)
 	ctx.HttpSetCookie(HttpJwtCookieName, jwtRaw, Cfg.YO_AUTH_JWT_EXPIRY_DAYS)
 }
 
-func CurrentlyLoggedInUserEmailAddr(ctx *Ctx) string {
-	return ctx.GetStr(CtxKey)
+func CurrentlyLoggedInUser(ctx *Ctx) (emailAddr string, authID yodb.I64) {
+	return ctx.GetStr(CtxKeyEmailAddr), ctx.Get(CtxKeyAuthId, yodb.I64(0)).(yodb.I64)
 }
 
 func CurrentlyLoggedIn(ctx *Ctx) bool {
-	return (CurrentlyLoggedInUserEmailAddr(ctx) != "")
+	user_email_addr, user_auth_id := CurrentlyLoggedInUser(ctx)
+	return (user_email_addr != "") && (user_auth_id > 0)
 }

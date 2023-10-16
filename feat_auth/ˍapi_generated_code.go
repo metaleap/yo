@@ -15,7 +15,6 @@ var PkgInfo = apiPkgInfo{}
 
 const ErrDbUpdate_ExpectedChangesForUpdate util.Err = "DbUpdate_ExpectedChangesForUpdate"
 const ErrDbUpdate_ExpectedQueryForUpdate util.Err = "DbUpdate_ExpectedQueryForUpdate"
-const Err___admin_authChangePassword_Forbidden util.Err = "___admin_authChangePassword_Forbidden"
 const Err___admin_authChangePassword_NewPasswordExpectedToDiffer util.Err = "___admin_authChangePassword_NewPasswordExpectedToDiffer"
 const Err___admin_authChangePassword_NewPasswordInvalid util.Err = "___admin_authChangePassword_NewPasswordInvalid"
 const Err___admin_authChangePassword_NewPasswordTooLong util.Err = "___admin_authChangePassword_NewPasswordTooLong"

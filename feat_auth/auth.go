@@ -15,6 +15,7 @@ var jwtKey = []byte("my_secret_key")
 
 type JwtPayload struct {
 	jwt.StandardClaims
+	UserAuthId yodb.I64
 }
 
 type UserAuth struct {
@@ -52,19 +53,20 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I6
 }
 
 func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jwt.Token) {
-	user_account := yodb.FindOne[UserAuth](ctx, UserAuthColEmailAddr.Equal(emailAddr))
-	if user_account == nil {
+	user_auth := yodb.FindOne[UserAuth](ctx, UserAuthColEmailAddr.Equal(emailAddr))
+	if user_auth == nil {
 		panic(Err___admin_authLogin_AccountDoesNotExist)
 	}
 
-	err := bcrypt.CompareHashAndPassword(user_account.passwordHashed, []byte(passwordPlain))
+	err := bcrypt.CompareHashAndPassword(user_auth.passwordHashed, []byte(passwordPlain))
 	if err != nil {
 		panic(Err___admin_authLogin_WrongPassword)
 	}
 
-	return user_account, jwt.NewWithClaims(jwt.SigningMethodHS256, &JwtPayload{
+	return user_auth, jwt.NewWithClaims(jwt.SigningMethodHS256, &JwtPayload{
+		UserAuthId: user_auth.Id,
 		StandardClaims: jwt.StandardClaims{
-			Subject:   string(user_account.EmailAddr),
+			Subject:   string(user_auth.EmailAddr),
 			ExpiresAt: time.Now().UTC().AddDate(0, 0, Cfg.YO_AUTH_JWT_EXPIRY_DAYS).Unix(),
 		},
 	})

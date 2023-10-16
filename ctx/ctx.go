@@ -129,12 +129,12 @@ func (me *Ctx) OnDone() {
 // context.Context impl/override
 func (me *Ctx) Value(key any) any {
 	if k, _ := key.(string); k != "" {
-		return me.Get(k)
+		return me.Get(k, nil)
 	}
 	return me.Context.Value(key)
 }
 
-func (me *Ctx) Get(name string) any {
+func (me *Ctx) Get(name string, defaultValue any) any {
 	if value, got := me.ctxVals[name]; got {
 		return value
 	}
@@ -143,11 +143,14 @@ func (me *Ctx) Get(name string) any {
 			return s
 		}
 	}
-	return me.Context.Value(name)
+	if value := me.Context.Value(name); value != nil {
+		return value
+	}
+	return defaultValue
 }
 
 func (me *Ctx) GetStr(name string) (ret string) {
-	ret, _ = me.Get(name).(string)
+	ret, _ = me.Get(name, "").(string)
 	return
 }
 
