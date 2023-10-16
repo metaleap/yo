@@ -11,6 +11,7 @@ import (
 
 const (
 	errBinOpPrefix = "ExpectedTwoOperandsFor"
+	errUpdateNoId  = "ExpectedIdGreater0"
 
 	ErrSetQuery    = "Query"
 	ErrSetDbUpdate = "DbUpdate"
@@ -18,6 +19,8 @@ const (
 )
 
 func init() {
+	KnownErrSets[ErrSetDbDelete] = []Err{"ExpectedQueryForDelete"}
+	KnownErrSets[ErrSetDbUpdate] = []Err{"ExpectedChangesForUpdate", "ExpectedQueryForUpdate"}
 	KnownErrSets[ErrSetQuery] = append([]Err{
 		Err("ExpectedOnlyEitherQueryOrQueryFromButNotBoth"),
 		Err("ExpectedSetOperandFor" + opIn),
@@ -25,8 +28,6 @@ func init() {
 	}, sl.To([]string{opAnd, opOr, opNot, opIn, opEq, opNe, opGt, opGe, opLt, opLe}, func(it string) Err {
 		return Err(errBinOpPrefix + it)
 	})...)
-	KnownErrSets[ErrSetDbDelete] = []Err{"ExpectedQueryForDelete"}
-	KnownErrSets[ErrSetDbUpdate] = []Err{"ExpectedChangesForUpdate", "ExpectedQueryForUpdate"}
 	Apis(ApiMethods{
 		"__/db/listTables": Api(apiListTables, PkgInfo),
 	})
@@ -56,7 +57,7 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 		apiMethodPath(type_name, "deleteMany"): Api(apiDeleteMany[TObj, TFld], PkgInfo).
 			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbDelete),
 		apiMethodPath(type_name, "updateOne"): Api(apiUpdateOne[TObj, TFld], PkgInfo).
-			CouldFailWith(":"+ErrSetDbUpdate, "ExpectedIdGreater0"),
+			CouldFailWith(":"+ErrSetDbUpdate, errUpdateNoId),
 		apiMethodPath(type_name, "updateMany"): Api(apiUpdateMany[TObj, TFld], PkgInfo).
 			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbUpdate),
 		apiMethodPath(type_name, "count"): Api(apiCount[TObj, TFld], PkgInfo).
@@ -138,7 +139,7 @@ func apiUpdateOne[TObj any, TFld ~string](this *ApiCtx[struct {
 	IncludingEmptyOrMissingFields bool
 }, retCount]) {
 	if this.Args.Id <= 0 {
-		panic(Err(this.Ctx.Http.ApiMethod.MethodNameUp0() + "_ExpectedIdGreater0"))
+		panic(Err(this.Ctx.Http.ApiMethod.MethodNameUp0() + "_" + errUpdateNoId))
 	}
 	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, ColID.Equal(this.Args.Id))
 }

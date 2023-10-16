@@ -18,7 +18,7 @@ func init() {
 
 func Init() (listenAndServe func()) {
 	time.Local = time.UTC // between above `init` and now, `time` might have its own `init`-time ideas about setting `time.Local`...
-	yolog.Println("Load config...")
+	yolog.Println("DB config...")
 	db_structs := yodb.InitAndConnectAndMigrateAndMaybeCodegen()
 	yolog.Println("API init...")
 	listenAndServe = yosrv.InitAndMaybeCodegen(db_structs)
