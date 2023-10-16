@@ -170,8 +170,7 @@ func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {
 	if ctx.Db.Tx != nil {
 		do_exec = ctx.Db.Tx.ExecContext
 	}
-	dbArgsCleanUpForPgx(args)
-	result, err := do_exec(ctx, sql_raw, args)
+	result, err := do_exec(ctx, sql_raw, dbArgsCleanUpForPgx(args))
 	if err != nil {
 		panic(err)
 	}
@@ -198,8 +197,7 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 		do_query = ctx.Db.Tx.QueryContext
 	}
 
-	dbArgsCleanUpForPgx(args)
-	rows, err := do_query(ctx, sql_raw, args)
+	rows, err := do_query(ctx, sql_raw, dbArgsCleanUpForPgx(args))
 	if rows != nil {
 		defer rows.Close()
 	}
@@ -253,7 +251,7 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 	}
 }
 
-func dbArgsCleanUpForPgx(args dbArgs) {
+func dbArgsCleanUpForPgx(args dbArgs) dbArgs {
 	for k, v := range args {
 		if b, is := v.(Bytes); is {
 			args[k] = ([]byte)(b)
@@ -261,16 +259,17 @@ func dbArgsCleanUpForPgx(args dbArgs) {
 			panic("non-pointer DateTime")
 		} else if dt, is := v.(*DateTime); is {
 			args[k] = (*time.Time)(dt)
-		} else if rv := reflect.ValueOf(v); rv.IsValid() {
-			if rvt := rv.Type(); isDbJsonType(rvt) {
-				if jsonb, err := yojson.Marshal(v); err == nil {
-					args[k] = jsonb
-				} else {
-					panic(err)
-				}
-			} else if db_ref, _ := v.(dbRef); db_ref != nil {
-				args[k] = db_ref.Id()
+		} else if db_ref, _ := v.(dbRef); db_ref != nil {
+			args[k] = db_ref.Id()
+		} else if rv := reflect.ValueOf(v); !rv.IsValid() {
+			panic(v)
+		} else if rvt := rv.Type(); isDbJsonType(rvt) {
+			if jsonb, err := yojson.Marshal(v); err == nil {
+				args[k] = jsonb
+			} else {
+				panic(err)
 			}
 		}
 	}
+	return args
 }

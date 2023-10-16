@@ -55,10 +55,10 @@ func (me *Ref[_, OnDel]) onDelSql() string {
 	return dummy.onDelSql()
 }
 func (me *Ref[T, _]) IsDbRef() bool { return true }
-func (me *Ref[T, _]) Id() I64       { return me.id }
+func (me Ref[T, _]) Id() I64        { return me.id }
 func (me *Ref[T, _]) Set(id I64)    { me.self, me.id = nil, id }
 func (me *Ref[T, _]) Get(ctx *yoctx.Ctx) *T {
-	if me.self == nil && me.id != 0 && ctx != nil {
+	if _ = any(me).(dbRef); me.self == nil && me.id != 0 && ctx != nil {
 		me.self = FindOne[T](ctx, ColID.Equal(me.id))
 	}
 	return me.self
