@@ -38,6 +38,7 @@ var (
 	PreServes = []PreServe{
 		{"authAdmin", If(IsDevMode, nil, authAdmin)},
 	}
+	AppSideStaticRedirectPathFor func(string) string
 
 	codegenMaybe func() = nil // overwritten by apisdkgen.go in debug build mode
 )
@@ -79,6 +80,13 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	ctx.Timings.Step("static check")
+	if (AppSideStaticRedirectPathFor != nil) && !str.Begins(ctx.Http.UrlPath, "_") {
+		if re_path := AppSideStaticRedirectPathFor(ctx.Http.UrlPath); (re_path != "") && (re_path != ctx.Http.UrlPath) {
+			ctx.Http.UrlPath = re_path
+			req.RequestURI = "/" + re_path // loses query-args, but not expected for static content either
+			req.URL.Path = "/" + re_path
+		}
+	}
 	var static_fs fs.FS
 	if static_prefix := StaticFilesDirNameYo + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && (ctx.Http.UrlPath != static_prefix) {
 		static_fs = StaticFileDirYo

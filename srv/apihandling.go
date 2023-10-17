@@ -220,10 +220,9 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	if (AppApiUrlPrefix == "") || str.Begins(method_path, yoAdminApisUrlPrefix) {
 		api_method = api[ctx.Http.UrlPath]
 	} else if str.Begins(method_path, AppApiUrlPrefix) {
-		api_method = api[AppApiUrlPrefix+ctx.Http.UrlPath]
+		api_method = api[ctx.Http.UrlPath[len(AppApiUrlPrefix):]]
 	}
 	if api_method == nil {
-		println(">>>", method_path, "under", AppApiUrlPrefix)
 		ctx.HttpErr(404, "Not Found")
 		return
 	}
