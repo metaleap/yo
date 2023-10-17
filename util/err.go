@@ -5,27 +5,25 @@ import "yo/util/str"
 type Err string
 
 var errSubstrToHttpStatusCode = map[string]int{
-	"Required":     400,
-	"Expected":     400,
-	"Invalid":      400,
-	"TooShort":     400,
-	"TooLong":      400,
-	"TooLow":       400,
-	"TooHigh":      400,
-	"TooSmall":     400,
-	"TooBig":       400,
-	"DoesNotExist": 400,
-
-	"AlreadyExists": 409,
-	"NotFound":      404,
-	"Unauthorized":  403,
-	"Forbidden":     403,
+	"DoesNotExist":  400, // no 404 wanted for those, there's NotFound below for that
 	"WrongPassword": 401,
 	"MustBeAdmin":   401,
+	"Unauthorized":  403,
+	"Forbidden":     403,
+	"NotFound":      404,
+	"AlreadyExists": 409,
+	"Required":      422,
+	"Expected":      422,
+	"Invalid":       422,
+	"TooShort":      422,
+	"TooLong":       422,
+	"TooLow":        422,
+	"TooHigh":       422,
+	"TooSmall":      422,
+	"TooBig":        422,
 	"NotStored":     502,
-
-	"Timeout":  504,
-	"TimedOut": 504,
+	"Timeout":       504,
+	"TimedOut":      504,
 }
 
 func (me Err) Error() string  { return string(me) }

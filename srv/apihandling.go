@@ -227,7 +227,13 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 		return
 	}
 
+	if (ctx.Http.Req.ContentLength < 0) || (ctx.Http.Req.ContentLength > (1000 * 1000)) {
+		ctx.HttpErr(406, "missing or invalid Content-Length header value")
+		return
+	}
+
 	ctx.Timings.Step("read req")
+	println("CL:", ctx.Http.Req.ContentLength, ctx.Http.UrlPath, "<<<<<<<<<<<<<<<<")
 	payload_data, err := io.ReadAll(ctx.Http.Req.Body)
 	if err != nil {
 		ctx.HttpErr(500, err.Error())

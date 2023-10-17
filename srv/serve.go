@@ -21,12 +21,14 @@ var StaticFilesDirNameApp string
 var StaticFileDirYo fs.FS
 var StaticFileDirApp fs.FS
 
-type PreServe struct {
+type Middleware struct {
 	Name string
 	Do   func(*yoctx.Ctx)
 }
 
 var (
+	codegenMaybe func() = nil // overwritten by apisdkgen.go in debug build mode
+
 	// requests to key+'/' will be served from the corresponding FS
 	apiStdRespHeaders = str.Dict{
 		"Content-Type":           "application/json",
@@ -34,13 +36,14 @@ var (
 		"Cache-Control":          "no-store",
 	}
 
-	// funcs are run (in no particular order) just prior to loading request payload, handling request, and serving response
-	PreServes = []PreServe{
-		{"authAdmin", If(IsDevMode, nil, authAdmin)},
-	}
-	AppSideStaticRedirectPathFor func(string) string
+	// PreServes funcs are run at the start of the request handling, prior to any other request processing
+	PreServes = []Middleware{{"authAdmin", If(IsDevMode, nil, authAdmin)}}
 
-	codegenMaybe func() = nil // overwritten by apisdkgen.go in debug build mode
+	// PreHandling funcs are run just prior to loading api request payload, handling that request, and serving the handler's response
+	PreApiHandling = []Middleware{}
+
+	// set by app for home and vanity-URL (non-file, non-API) requests
+	AppSideStaticRedirectPathFor func(string) string
 )
 
 func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
@@ -94,10 +97,17 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 		static_fs = StaticFileDirApp
 	}
 	if static_fs != nil {
-		ctx.Timings.Step("static serve" + req.RequestURI)
+		ctx.Timings.Step("static serve")
 		ctx.HttpOnPreWriteResponse()
 		http.FileServer(http.FS(static_fs)).ServeHTTP(rw, req)
 		return
+	}
+
+	for _, pre_serve := range PreApiHandling {
+		if pre_serve.Do != nil {
+			ctx.Timings.Step("pre:" + pre_serve.Name)
+			pre_serve.Do(ctx)
+		}
 	}
 
 	// no static content was requested or served, so it's an api call

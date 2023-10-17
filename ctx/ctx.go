@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	doErrCatchInDevMode   = false // gotta toggle occasionally during local debug
+	doErrCatchInDevMode   = true // gotta toggle occasionally during local debug
 	ErrMustBeAdmin        = Err("MustBeAdmin")
 	ErrTimedOut           = Err("TimedOut")
 	ErrDbNotStored        = Err("DbWriteRequestAcceptedWithoutErrButNotStoredEither")
@@ -118,7 +118,7 @@ func (me *Ctx) OnDone(subTimings Timings) {
 	if IsDevMode {
 		do_print_timings := func(it Timings) {
 			total_duration, steps := it.AllDone()
-			println("\n" + it.String() + "\n...." + str.DurationMs(total_duration) + ", whereof:")
+			println("\n" + it.String() + "\n  . . . " + str.DurationMs(total_duration) + ", whereof:")
 			for _, step := range steps {
 				println(step.Step + ":\t" + str.DurationMs(step.Time))
 			}

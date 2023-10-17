@@ -53,7 +53,7 @@ func init() {
 		).CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "NewPasswordInvalid", ErrUnauthorized, ErrDbNotStored),
 	})
 
-	PreServes = append(PreServes, PreServe{Name: "authCheck", Do: func(ctx *Ctx) {
+	PreApiHandling = append(PreApiHandling, Middleware{Name: "authCheck", Do: func(ctx *Ctx) {
 		httpSetUser(ctx, ctx.HttpGetCookie(HttpJwtCookieName))
 	}})
 }
