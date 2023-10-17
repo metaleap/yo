@@ -21,7 +21,7 @@ type YoReflMethod = {
 
 export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodPath: string, payload: any, urlQueryArgs?: { [_: string]: string }) => Promise<any>, getCurUser: () => string) {
     let select_method: HTMLSelectElement, select_history: HTMLSelectElement, td_input: HTMLTableCellElement, td_output: HTMLTableCellElement,
-        table: HTMLTableElement, input_querystring: HTMLInputElement, textarea_payload: HTMLTextAreaElement, textarea_response: HTMLTextAreaElement,
+        table: HTMLTableElement, input_query_args: HTMLInputElement, textarea_payload: HTMLTextAreaElement, textarea_response: HTMLTextAreaElement,
         tree_payload: HTMLUListElement, tree_response: HTMLUListElement, div_validate_error_msg: HTMLDivElement
     let last_textarea_payload_value = ''
     const state_email_addr_default = '(none)', state_email_addr = van.state(getCurUser() || state_email_addr_default)
@@ -60,7 +60,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
 
     const onSelectHistoryItem = () => {
         if ((select_history.selectedIndex <= 0) || (select_method.selectedIndex <= 0)) {
-            input_querystring.value = ''
+            input_query_args.value = ''
             return buildApiMethodGui(true)
         }
         const date_time = parseInt(select_history.selectedOptions[0].value), method_path = select_method.selectedOptions[0].value
@@ -68,7 +68,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         if (method)
             for (const entry of entries)
                 if (entry.dateTime === date_time) {
-                    input_querystring.value = (entry.queryString ? JSON.stringify(entry.queryString) : '')
+                    input_query_args.value = (entry.queryString ? JSON.stringify(entry.queryString) : '')
                     textarea_payload.value = JSON.stringify(entry.payload, null, 2)
                     onPayloadTextAreaMaybeModified(method_path, method.In)
                     break
@@ -356,8 +356,8 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         textarea_response.value = "..."
         textarea_response.style.backgroundColor = '#f0f0f0'
         let query_string: { [_: string]: string }, payload: object, is_validate_failed = false
-        if (input_querystring.value && input_querystring.value.length)
-            try { query_string = JSON.parse(input_querystring.value) } catch (err) {
+        if (input_query_args.value && input_query_args.value.length)
+            try { query_string = JSON.parse(input_query_args.value) } catch (err) {
                 return show_err(`URL query-string object:\n${err}`)
             }
         const method_path = select_method.selectedOptions[0].value
@@ -430,8 +430,13 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             html.tr({}, html.td({ 'colspan': '2', 'style': 'text-align:center', 'align': 'center' },
                 html.hr(),
                 html.span({ 'class': 'nobr' },
+                    html.datalist({ 'id': ('ql' + now) },
+                        html.option({ value: '{"yoUser":"fooN@bar.baz"}' }, "?yoUser"),
+                        html.option({ value: '{"yoValiOnly":true}' }, "?yoValiOnly"),
+                        html.option({ value: '{"yoFail":true}' }, "?yoFail"),
+                    ),
                     html.label({ 'for': ('q' + now) }, "URL query args:"),
-                    input_querystring = html.input({ 'type': 'text', 'id': ('q' + now), 'value': '', 'placeholder': '{"name":"val", ...}' }),
+                    input_query_args = html.input({ 'type': 'text', 'id': ('q' + now), 'list': ('ql' + now), 'value': '', 'placeholder': '{"name":"val", ...}', 'style': 'min-width: 44%; max-width: 88%' }),
                 ),
                 html.span({ 'class': 'nobr' },
                     html.span({ 'style': 'margin-left: 0.44em' }, "Current login: ", html.b({ 'style': 'margin-right: 0.44em' }, state_email_addr)),

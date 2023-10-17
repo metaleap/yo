@@ -13,7 +13,7 @@ import (
 	"yo/util/str"
 )
 
-const QueryArgValidateOnly = "yoValidateOnly"
+const QueryArgValidateOnly = "yoValiOnly"
 const ErrUnauthorized Err = "Unauthorized"
 const yoAdminApisUrlPrefix = "__/yo/"
 

@@ -15,6 +15,7 @@ import (
 )
 
 const QueryArgForceFail = "yoFail"
+const QueryArgForceUser = "yoUser"
 const StaticFilesDirNameYo = "__yostatic"
 
 var StaticFilesDirNameApp string
@@ -68,11 +69,14 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	ctx := yoctx.NewForHttp(req, rw, Cfg.YO_API_IMPL_TIMEOUT)
 	defer ctx.OnDone(nil)
 
-	ctx.Timings.Step("check " + QueryArgForceFail)
-	if s := ctx.GetStr(QueryArgForceFail); s != "" {
-		code, _ := str.ToInt(s)
-		ctx.HttpErr(If(code == 0, 500, code), "forced error via query-string param '"+QueryArgForceFail+"'")
-		return
+	if IsDevMode {
+		if s := ctx.GetStr(QueryArgForceFail); s != "" {
+			code, _ := str.ToInt(s)
+			ctx.HttpErr(If(code == 0, 500, code), "forced error via query-string param '"+QueryArgForceFail+"'")
+			return
+		} else if s = ctx.GetStr(QueryArgForceUser); s != "" {
+			ctx.Set(yoctx.CtxKeyForcedUser, s)
+		}
 	}
 
 	for _, pre_serve := range PreServes {

@@ -54,7 +54,11 @@ func init() {
 	})
 
 	PreApiHandling = append(PreApiHandling, Middleware{Name: "authCheck", Do: func(ctx *Ctx) {
-		httpSetUser(ctx, ctx.HttpGetCookie(HttpJwtCookieName))
+		if test_user := ctx.GetStr(CtxKeyForcedUser); IsDevMode && (test_user != "") {
+			Do(ApiUserLogin, ctx, &ApiAccountPayload{EmailAddr: test_user, PasswordPlain: "foobar"})
+		} else {
+			httpSetUser(ctx, ctx.HttpGetCookie(HttpJwtCookieName))
+		}
 	}})
 }
 
