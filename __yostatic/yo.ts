@@ -434,7 +434,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                     input_querystring = html.input({ 'type': 'text', 'id': ('q' + now), 'value': '', 'placeholder': '{"name":"val", ...}' }),
                 ),
                 html.span({ 'class': 'nobr' },
-                    html.span({}, "Current login: ", html.b({}, state_email_addr)),
+                    html.span({ 'style': 'margin-left: 0.44em' }, "Current login: ", html.b({ 'style': 'margin-right: 0.44em' }, state_email_addr)),
                 ),
                 html.button({ 'style': 'font-weight:bold', 'onclick': sendRequest }, 'Go!'),
             )),

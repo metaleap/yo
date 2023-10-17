@@ -58,15 +58,11 @@ type ApiCtx[TIn any, TOut any] struct {
 	Ret  *TOut
 }
 
-func Call[TIn any, TOut any](ctx *Ctx, f func(*ApiCtx[TIn, TOut]), args *TIn) *TOut {
+func Do[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), ctx *Ctx, args *TIn) *TOut {
 	var ret TOut
 	api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: args, Ret: &ret}
 	f(api_ctx)
 	return api_ctx.Ret
-}
-
-func CallCtx[TIn any, TOut any](ctx *Ctx, args *TIn, ret *TOut) *ApiCtx[TIn, TOut] {
-	return &ApiCtx[TIn, TOut]{Ctx: ctx, Args: args, Ret: ret}
 }
 
 type ApiPkgInfo interface {
