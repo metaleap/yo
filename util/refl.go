@@ -1,6 +1,7 @@
 package util
 
 import (
+	"cmp"
 	"reflect"
 	"unsafe"
 
@@ -100,49 +101,32 @@ func ReflWalk(rv reflect.Value, path []any, skipMaps bool, onValue func(path []a
 	}
 }
 
-func ReflGt(lhs reflect.Value, rhs reflect.Value) bool {
-	return (lhs.Kind() == rhs.Kind()) && !ReflLe(lhs, rhs)
-}
+func ReflGt(lhs reflect.Value, rhs reflect.Value) bool { return reflCmp(lhs, rhs, false, false) }
+func ReflGe(lhs reflect.Value, rhs reflect.Value) bool { return reflCmp(lhs, rhs, false, true) }
+func ReflLe(lhs reflect.Value, rhs reflect.Value) bool { return reflCmp(lhs, rhs, true, true) }
+func ReflLt(lhs reflect.Value, rhs reflect.Value) bool { return reflCmp(lhs, rhs, true, false) }
 
-func ReflGe(lhs reflect.Value, rhs reflect.Value) bool {
-	return (lhs.Kind() == rhs.Kind()) && (ReflGt(lhs, rhs) || reflect.DeepEqual(lhs.Interface(), rhs.Interface()))
-}
-
-func ReflLe(lhs reflect.Value, rhs reflect.Value) bool {
-	return (lhs.Kind() == rhs.Kind()) && (ReflLt(lhs, rhs) || reflect.DeepEqual(lhs.Interface(), rhs.Interface()))
-}
-
-func ReflLt(lhs reflect.Value, rhs reflect.Value) bool {
-	if lhs.Kind() != rhs.Kind() {
-		return false
+func reflCmp(lhs reflect.Value, rhs reflect.Value, less bool, orEq bool) bool {
+	switch {
+	case lhs.CanFloat() && rhs.CanFloat():
+		return cmpHow(lhs.Float(), rhs.Float(), less, orEq)
+	case lhs.CanUint() && rhs.CanUint():
+		return cmpHow(lhs.Uint(), rhs.Uint(), less, orEq)
+	case lhs.CanInt() && rhs.CanInt():
+		return cmpHow(lhs.Int(), rhs.Int(), less, orEq)
+	case lhs.CanConvert(str.ReflType) && rhs.CanConvert(str.ReflType):
+		return cmpHow(lhs.String(), rhs.String(), less, orEq)
 	}
-	lv, rv := lhs.Interface(), rhs.Interface()
-	switch lv := lv.(type) {
-	case uint8:
-		return lv < rv.(uint8)
-	case uint16:
-		return lv < rv.(uint16)
-	case uint32:
-		return lv < rv.(uint32)
-	case uint64:
-		return lv < rv.(uint64)
-	case uint:
-		return lv < rv.(uint)
-	case int8:
-		return lv < rv.(int8)
-	case int16:
-		return lv < rv.(int16)
-	case int32:
-		return lv < rv.(int32)
-	case int64:
-		return lv < rv.(int64)
-	case int:
-		return lv < rv.(int)
-	case float32:
-		return lv < rv.(float32)
-	case float64:
-		return lv < rv.(float64)
-	default:
-		return lv.(string) < rv.(string)
+	return false
+}
+
+func cmpHow[T cmp.Ordered](x T, y T, less bool, orEq bool) bool {
+	if less && orEq {
+		return x <= y
+	} else if less {
+		return x < y
+	} else if orEq {
+		return x >= y
 	}
+	return x > y
 }

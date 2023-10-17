@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	doErrCatchInDevMode   = true // gotta toggle occasionally during local debug
+	doErrCatchInDevMode   = false // gotta toggle occasionally during local debug
 	ErrMustBeAdmin        = Err("MustBeAdmin")
 	ErrTimedOut           = Err("TimedOut")
 	ErrDbNotStored        = Err("DbWriteRequestAcceptedWithoutErrButNotStoredEither")

@@ -2,6 +2,7 @@ package str
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"unicode"
@@ -11,6 +12,7 @@ type Buf = strings.Builder
 type Dict = map[string]string
 
 var (
+	ReflType = reflect.TypeOf("")
 	Has      = strings.Contains
 	Begins   = strings.HasPrefix
 	Ends     = strings.HasSuffix
