@@ -90,7 +90,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 		static_fs = StaticFileDirApp
 	}
 	if static_fs != nil {
-		ctx.Timings.Step("static serve")
+		ctx.Timings.Step("static serve" + req.RequestURI)
 		ctx.HttpOnPreWriteResponse()
 		http.FileServer(http.FS(static_fs)).ServeHTTP(rw, req)
 		return
