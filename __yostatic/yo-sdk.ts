@@ -17,11 +17,11 @@ export function setReqTimeoutMilliSec(timeout: number) {
 }
 
 export async function req<TIn, TOut>(methodPath: string, payload: TIn, urlQueryArgs?: { [_: string]: string }): Promise<TOut> {
-    let uri = '/' + methodPath
+    let rel_url = '/' + methodPath
     if (urlQueryArgs)
-        uri += '?' + new URLSearchParams(urlQueryArgs).toString()
-    console.log('callAPI:', uri, payload)
-    const resp = await fetch(uri, {
+        rel_url += ('?' + new URLSearchParams(urlQueryArgs).toString())
+    console.log('callAPI:', rel_url, payload)
+    const resp = await fetch(rel_url, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         cache: 'no-store', mode: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(reqTimeoutMilliSec)
     })

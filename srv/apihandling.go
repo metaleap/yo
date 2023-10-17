@@ -17,12 +17,13 @@ const QueryArgValidateOnly = "yoValidateOnly"
 const ErrUnauthorized Err = "Unauthorized"
 
 var (
-	api          = ApiMethods{}
-	KnownErrSets = map[string][]Err{
+	api             = ApiMethods{}
+	AppApiUrlPrefix = ""
+	KnownErrSets    = map[string][]Err{
 		"": {ErrTimedOut},
 	}
-	errsNoCodegen = []Err{ErrTimedOut, ErrUnauthorized, ErrDbNotStored, ErrDbUpdExpectedIdGt0, ErrMustBeAdmin}
 	ErrsNoPrefix  = errsNoCodegen
+	errsNoCodegen = []Err{ErrTimedOut, ErrUnauthorized, ErrDbNotStored, ErrDbUpdExpectedIdGt0, ErrMustBeAdmin}
 )
 
 type ApiMethods map[string]ApiMethod
@@ -213,8 +214,11 @@ func method[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, r
 
 func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	ctx.Timings.Step("handler lookup")
-	api := api[ctx.Http.UrlPath]
-	if api == nil {
+	api_method := api[AppApiUrlPrefix+ctx.Http.UrlPath]
+	if api_method == nil {
+		api_method = api[ctx.Http.UrlPath]
+	}
+	if api_method == nil {
 		ctx.HttpErr(404, "Not Found")
 		return
 	}
@@ -227,7 +231,7 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	}
 
 	ctx.Timings.Step("parse req")
-	payload, err := api.loadPayload(payload_data)
+	payload, err := api_method.loadPayload(payload_data)
 	if err != nil {
 		ctx.HttpErr(400, err.Error()+If(IsDevMode, "\n"+string(payload_data), ""))
 		return
@@ -241,7 +245,7 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	})
 
 	ctx.Timings.Step("validate req")
-	_, err_validation := api.validatePayload(payload)
+	_, err_validation := api_method.validatePayload(payload)
 	if err_validation != "" {
 		ctx.HttpErr(err_validation.HttpStatusCodeOr(400), err_validation.Error())
 		return
@@ -252,5 +256,5 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	}
 
 	ctx.Timings.Step("call handler")
-	return api.handler()(ctx, payload), true
+	return api_method.handler()(ctx, payload), true
 }

@@ -17,7 +17,6 @@ import (
 
 const QueryArgForceFail = "yoFail"
 const StaticFilesDirName = "__yostatic"
-const staticFilesUrlPrefix = "__yo"
 const yoAdminUrlPrefix = "__/yo/"
 
 type PreServe struct {
@@ -59,7 +58,7 @@ func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
 }
 
 func listenAndServe() {
-	StaticFileServes[staticFilesUrlPrefix] = os.DirFS("../yo/" + StaticFilesDirName)
+	StaticFileServes[StaticFilesDirName] = os.DirFS("../yo/")
 	yolog.Println("live @ port %d", Cfg.YO_API_HTTP_PORT)
 	panic(http.ListenAndServe(":"+str.FromInt(Cfg.YO_API_HTTP_PORT), http.HandlerFunc(handleHTTPRequest)))
 }
@@ -84,8 +83,8 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 
 	ctx.Timings.Step("static check")
 	for static_prefix, static_serve := range StaticFileServes {
-		if static_prefix = static_prefix + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && ctx.Http.UrlPath != static_prefix {
-			req.URL.Path = ctx.Http.UrlPath[len(static_prefix):]
+		if static_prefix = static_prefix + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && (ctx.Http.UrlPath != static_prefix) {
+			req.URL.Path = ctx.Http.UrlPath
 			ctx.Timings.Step("static serve")
 			ctx.HttpOnPreWriteResponse()
 			http.FileServer(http.FS(static_serve)).ServeHTTP(rw, req)
@@ -113,7 +112,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 }
 
 func authAdmin(ctx *yoctx.Ctx) {
-	if !(str.Begins(ctx.Http.UrlPath, yoAdminUrlPrefix) || str.Begins(ctx.Http.UrlPath, staticFilesUrlPrefix+"/yo.")) {
+	if !(str.Begins(ctx.Http.UrlPath, yoAdminUrlPrefix) || str.Begins(ctx.Http.UrlPath, StaticFilesDirName+"/yo.")) {
 		return
 	}
 	user, pwd, ok := ctx.Http.Req.BasicAuth()
