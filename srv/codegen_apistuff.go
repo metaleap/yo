@@ -138,7 +138,7 @@ func codegenGo(apiRefl *apiRefl) {
 
 		if src_old := ReadFile(out_file_path); !bytes.Equal(src_old, src_raw) {
 			WriteFile(out_file_path, src_raw)
-			did_write_files = append(did_write_files, filepath.Base(filepath.Dir(out_file_path)))
+			did_write_files = append(did_write_files, str.TrimL(filepath.Dir(out_file_path), os.Getenv("GOPATH")+"/"))
 		}
 	}
 	if len(did_write_files) > 0 {
