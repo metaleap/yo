@@ -187,12 +187,12 @@ func codegenTsRunTsc(inDirPath string) {
 }
 
 func codegenTsSdk(apiRefl *apiRefl) (didFsWrites bool) {
-	if EnsureDir(StaticFilesDirName) {
+	if EnsureDir(StaticFilesDirNameYo) {
 		didFsWrites = true
 	}
 
 	const yo_dir_path = "../yo/"
-	const yo_static_dir_path = yo_dir_path + StaticFilesDirName
+	const yo_static_dir_path = yo_dir_path + StaticFilesDirNameYo
 	const yo_sdk_ts_file_name = "/yo-sdk.ts"
 	const yo_sdk_js_file_name = "/yo-sdk.js"
 
@@ -227,7 +227,7 @@ func codegenTsSdk(apiRefl *apiRefl) (didFsWrites bool) {
 	}
 	src_to_write := []byte(buf_prepend.String() + buf.String())
 
-	out_file_path := StaticFilesDirName + yo_sdk_ts_file_name
+	out_file_path := StaticFilesDirNameYo + yo_sdk_ts_file_name
 	data := ReadFile(out_file_path)
 	src_is_changed := (len(data) == 0) || (!bytes.Equal(data, src_to_write))
 	if src_is_changed {
@@ -242,7 +242,7 @@ func codegenTsSdk(apiRefl *apiRefl) (didFsWrites bool) {
 	}
 
 	// post-generate: clean up app-side, by removing files no longer in yo side
-	WalkDir(StaticFilesDirName, func(path string, dirEntry fs.DirEntry) {
+	WalkDir(StaticFilesDirNameYo, func(path string, dirEntry fs.DirEntry) {
 		yo_side_path := yo_dir_path + path
 		if !(IsFile(yo_side_path) || IsDir(yo_side_path)) {
 			if dirEntry.IsDir() {

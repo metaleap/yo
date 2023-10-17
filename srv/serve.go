@@ -14,9 +14,13 @@ import (
 	"yo/util/str"
 )
 
-const QueryArgForceFail = "yoFail"
-const StaticFilesDirName = "__yostatic"
 const yoAdminUrlPrefix = "__/yo/"
+const QueryArgForceFail = "yoFail"
+const StaticFilesDirNameYo = "__yostatic"
+
+var StaticFilesDirNameApp string
+var StaticFileDirYo fs.FS
+var StaticFileDirApp fs.FS
 
 type PreServe struct {
 	Name string
@@ -25,7 +29,6 @@ type PreServe struct {
 
 var (
 	// requests to key+'/' will be served from the corresponding FS
-	StaticFileServes  = map[string]fs.FS{}
 	apiStdRespHeaders = str.Dict{
 		"Content-Type":           "application/json",
 		"X-Content-Type-Options": "nosniff",
@@ -57,9 +60,6 @@ func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
 }
 
 func listenAndServe() {
-	// if IsDevMode {
-	// 	StaticFileServes[StaticFilesDirName] = os.DirFS("../yo/")
-	// }
 	yolog.Println("live @ port %d", Cfg.YO_API_HTTP_PORT)
 	panic(http.ListenAndServe(":"+str.FromInt(Cfg.YO_API_HTTP_PORT), http.HandlerFunc(handleHTTPRequest)))
 }
@@ -83,14 +83,17 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	ctx.Timings.Step("static check")
-	for static_prefix, static_serve := range StaticFileServes {
-		if static_prefix = static_prefix + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && (ctx.Http.UrlPath != static_prefix) {
-			req.URL.Path = ctx.Http.UrlPath
-			ctx.Timings.Step("static serve")
-			ctx.HttpOnPreWriteResponse()
-			http.FileServer(http.FS(static_serve)).ServeHTTP(rw, req)
-			return
-		}
+	var static_fs fs.FS
+	if static_prefix := StaticFilesDirNameYo + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && (ctx.Http.UrlPath != static_prefix) {
+		static_fs = StaticFileDirYo
+	} else if (StaticFileDirApp != nil) && (StaticFilesDirNameApp != "") && str.Begins(ctx.Http.UrlPath, StaticFilesDirNameApp+"/") {
+		static_fs = StaticFileDirApp
+	}
+	if static_fs != nil {
+		ctx.Timings.Step("static serve")
+		ctx.HttpOnPreWriteResponse()
+		http.FileServer(http.FS(static_fs)).ServeHTTP(rw, req)
+		return
 	}
 
 	// no static content was requested or served, so it's an api call
@@ -113,7 +116,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 }
 
 func authAdmin(ctx *yoctx.Ctx) {
-	if !(str.Begins(ctx.Http.UrlPath, yoAdminUrlPrefix) || str.Begins(ctx.Http.UrlPath, StaticFilesDirName+"/yo.")) {
+	if !(str.Begins(ctx.Http.UrlPath, yoAdminUrlPrefix) || str.Begins(ctx.Http.UrlPath, StaticFilesDirNameYo+"/yo.")) {
 		return
 	}
 	user, pwd, ok := ctx.Http.Req.BasicAuth()
