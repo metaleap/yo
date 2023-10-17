@@ -1,6 +1,7 @@
 package util
 
 import (
+	"cmp"
 	"strings"
 )
 
@@ -22,6 +23,28 @@ func If[T any](b bool, t T, f T) T {
 	}
 	return f
 }
+
+func Min[T cmp.Ordered](values ...T) (ret T) {
+	ret = values[0]
+	for _, value := range values[1:] {
+		if value < ret {
+			ret = value
+		}
+	}
+	return
+}
+
+func Max[T cmp.Ordered](values ...T) (ret T) {
+	ret = values[0]
+	for _, value := range values[1:] {
+		if value > ret {
+			ret = value
+		}
+	}
+	return
+}
+
+func ToPtr[T any](v T) *T { return &v }
 
 func Either[T comparable](try ...T) T {
 	var none T

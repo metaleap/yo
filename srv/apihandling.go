@@ -251,6 +251,6 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 		return
 	}
 
-	ctx.Timings.Step("call API handler")
+	ctx.Timings.Step("call handler")
 	return api.handler()(ctx, payload), true
 }

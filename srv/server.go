@@ -95,7 +95,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 
 	// no static content was requested or served, so it's an api call
 	if result, handler_called := apiHandleRequest(ctx); handler_called { // if not, `apiHandleRequest` did `http.Error()` and nothing more to do here
-		ctx.Timings.Step("jsonify result")
+		ctx.Timings.Step("jsonify resp")
 		resp_data, err := yojson.MarshalIndent(result, "", "  ")
 		if err != nil {
 			ctx.HttpErr(500, err.Error())

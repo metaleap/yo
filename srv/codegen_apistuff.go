@@ -224,7 +224,6 @@ func codegenTsSdk(apiRefl *apiRefl) {
 		}
 		work.Wait()
 	}
-
 }
 
 func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiRefl, method *apiReflMethod) {

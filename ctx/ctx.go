@@ -118,9 +118,9 @@ func (me *Ctx) OnDone(subTimings Timings) {
 	if IsDevMode {
 		do_print_timings := func(it Timings) {
 			total_duration, steps := it.AllDone()
-			println(it.String() + "\t" + str.DurationMs(total_duration))
+			println("\n" + it.String() + "\n\t" + str.DurationMs(total_duration) + ", whereof:")
 			for _, step := range steps {
-				println("\t" + step.Step + ":\t" + str.DurationMs(step.Time))
+				println(step.Step + ":\t" + str.DurationMs(step.Time))
 			}
 		}
 		if do_print_timings(me.Timings); subTimings != nil {
