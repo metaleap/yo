@@ -41,24 +41,33 @@ func fsIs(path string, check func(fs.FileInfo) bool, expect bool) bool {
 func IsDir(dirPath string) bool   { return fsIs(dirPath, fs.FileInfo.IsDir, true) }
 func IsFile(filePath string) bool { return fsIs(filePath, fs.FileInfo.IsDir, false) }
 
-func EnsureDir(dirPath string) {
-	if err := os.MkdirAll(dirPath, os.ModePerm); (err != nil) && !os.IsExist(err) {
+func EnsureDir(dirPath string) (did bool) {
+	if IsDir(dirPath) { // wouldn't think you'd need this, with the below, but do
+		return false
+	}
+	err := os.MkdirAll(dirPath, os.ModePerm)
+	if (err != nil) && !os.IsExist(err) {
 		panic(err)
 	}
+	return (err == nil)
 }
 
-func EnsureLink(linkLocationPath string, pointsToPath string, pointsToIsDir bool) {
+func EnsureLink(linkLocationPath string, pointsToPath string, pointsToIsDir bool) (did bool) {
 	if pointsToIsDir {
-		EnsureDir(pointsToPath)
+		did = EnsureDir(pointsToPath)
 	} else {
-		EnsureDir(filepath.Dir(linkLocationPath))
-		link_location_path, err := filepath.Abs(linkLocationPath)
-		if err != nil {
+		did = EnsureDir(filepath.Dir(linkLocationPath))
+		if points_to_path, err := filepath.Abs(pointsToPath); err != nil {
 			panic(err)
-		} else if err = os.Symlink(pointsToPath, link_location_path); (err != nil) && !os.IsExist(err) {
+		} else if link_location_path, err := filepath.Abs(linkLocationPath); err != nil {
 			panic(err)
+		} else if err = os.Symlink(points_to_path, link_location_path); (err != nil) && !os.IsExist(err) {
+			panic(err)
+		} else {
+			did = (err == nil)
 		}
 	}
+	return
 }
 
 func ReadFile(filePath string) []byte {

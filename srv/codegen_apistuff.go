@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sync"
 
 	yolog "yo/log"
 	. "yo/util"
@@ -173,10 +172,25 @@ func codegenGo(apiRefl *apiRefl) {
 	}
 }
 
-func codegenTsSdk(apiRefl *apiRefl) (didWriteFiles bool) {
+func codegenTsSdk(apiRefl *apiRefl) (didFsWrites bool) {
+	do_tsc := func(dirPath string) {
+		yolog.Println("tsc in " + dirPath)
+		cmd_tsc := exec.Command("tsc")
+		cmd_tsc.Dir = dirPath
+		if output, err := cmd_tsc.CombinedOutput(); err != nil {
+			panic(err.Error() + "\n" + string(output))
+		}
+		didFsWrites = true
+	}
+	if EnsureDir(StaticFilesDirName) {
+		didFsWrites = true
+	}
+
 	const yo_dir_path = "../yo/"
 	const yo_static_dir_path = yo_dir_path + StaticFilesDirName
 	const yo_sdk_ts_file_name = "/yo-sdk.ts"
+	const yo_sdk_js_file_name = "/yo-sdk.js"
+
 	buf := str.Buf{}
 	apiRefl.codeGen.typesUsed, apiRefl.codeGen.typesEmitted, apiRefl.codeGen.strLits = map[string]bool{}, map[string]bool{}, str.Dict{}
 
@@ -208,41 +222,46 @@ func codegenTsSdk(apiRefl *apiRefl) (didWriteFiles bool) {
 	}
 	src_to_write := []byte(buf_prepend.String() + buf.String())
 
-	EnsureDir(StaticFilesDirName)
-	WalkDir(yo_static_dir_path, func(path string, dirEntry fs.DirEntry) {
-		if (path != (yo_static_dir_path + yo_sdk_ts_file_name)) && !str.Ends(path, ".js") {
-			app_side_link_path := path[len(yo_dir_path):]
-			if EnsureLink(app_side_link_path, path, dirEntry.IsDir()); (!dirEntry.IsDir()) && str.Ends(path, ".ts") && !str.Ends(path, ".d.ts") {
-				if !IsFile(app_side_link_path[:len(app_side_link_path)-len(".ts")] + ".js") {
-					foundModifiedTsFiles = true
-				}
-			}
-		}
-	})
-
 	out_file_path := StaticFilesDirName + yo_sdk_ts_file_name
 	data := ReadFile(out_file_path)
 	src_is_changed := (len(data) == 0) || (!bytes.Equal(data, src_to_write))
 	if src_is_changed {
-		foundModifiedTsFiles, didWriteFiles = true, true
+		foundModifiedTsFiles = true
 		WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`))
 		WriteFile(out_file_path, src_to_write)
 	}
+
 	if foundModifiedTsFiles {
-		yolog.Println("    2x tsc...")
-		var work sync.WaitGroup
-		work.Add(2)
-		for _, dir_path := range []string{"", "../yo"} {
-			go func(dirPath string) {
-				defer work.Done()
-				tsc := exec.Command("tsc")
-				tsc.Dir = dirPath
-				if output, err := tsc.CombinedOutput(); err != nil {
-					panic(err.Error() + "\n" + string(output))
-				}
-			}(dir_path)
+		do_tsc(yo_dir_path)
+	}
+
+	// post-generate: clean up app-side, by removing files no longer in yo side
+	WalkDir(StaticFilesDirName, func(path string, dirEntry fs.DirEntry) {
+		yo_side_path := yo_dir_path + path
+		if !(IsFile(yo_side_path) || IsDir(yo_side_path)) {
+			if dirEntry.IsDir() {
+				DelDir(path)
+			} else {
+				DelFile(path)
+			}
+			didFsWrites = true
 		}
-		work.Wait()
+	})
+
+	// post-generate: ensure files are linked app-side (and folders mirrored)
+	WalkDir(yo_static_dir_path, func(path string, dirEntry fs.DirEntry) {
+		if path == (yo_static_dir_path+yo_sdk_ts_file_name) || (path == (yo_static_dir_path + yo_sdk_js_file_name)) {
+			return // skip yo-sdk.?s
+		}
+
+		is_dir, app_side_link_path := dirEntry.IsDir(), path[len(yo_dir_path):]
+		if EnsureLink(app_side_link_path, path, is_dir) {
+			didFsWrites = true
+		}
+	})
+
+	if foundModifiedTsFiles || didFsWrites {
+		do_tsc(CurDirPath())
 	}
 	return
 }
