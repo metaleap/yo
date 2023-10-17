@@ -21,11 +21,12 @@ const (
 )
 
 var (
-	foundModifiedTsFiles bool
-	pkgsFound            = str.Dict{}
-	pkgsImportingSrv     = map[string]bool{}
-	curMainDir           = CurDirPath()
-	curMainName          = filepath.Base(curMainDir)
+	foundModifiedTsFilesYoSide  bool
+	foundModifiedTsFilesAppSide bool
+	pkgsFound                   = str.Dict{}
+	pkgsImportingSrv            = map[string]bool{}
+	curMainDir                  = CurDirPath()
+	curMainName                 = filepath.Base(curMainDir)
 )
 
 func init() {
@@ -50,14 +51,18 @@ func init() {
 
 	enum_pkgs := str.Dict{}
 	WalkCodeFiles(true, true, func(path string, dirEntry fs.DirEntry) {
-		if (!dirEntry.IsDir()) && str.Ends(path, ".ts") && (!str.Ends(path, ".d.ts")) && !foundModifiedTsFiles {
+		is_app_side := str.Begins(path, str.TrimR(curMainDir, "/")+"/")
+		if (!(foundModifiedTsFilesYoSide && foundModifiedTsFilesAppSide)) && (!dirEntry.IsDir()) &&
+			str.Ends(path, ".ts") && (!str.Ends(path, ".d.ts")) {
 			fileinfo_ts, err := dirEntry.Info()
 			if err != nil || fileinfo_ts == nil {
 				panic(err)
 			}
 			fileinfo_js, err := os.Stat(path[:len(path)-len(".ts")] + ".js")
-			foundModifiedTsFiles = ((fileinfo_js == nil) || (err != nil) ||
+			is_modified := ((fileinfo_js == nil) || (err != nil) ||
 				(fileinfo_ts.ModTime().After(fileinfo_js.ModTime())))
+			foundModifiedTsFilesYoSide = foundModifiedTsFilesYoSide || (is_modified && !is_app_side)
+			foundModifiedTsFilesAppSide = foundModifiedTsFilesAppSide || (is_modified && is_app_side)
 		}
 
 		if str.Ends(path, ".go") { // looking for enums' enumerants
@@ -172,16 +177,16 @@ func codegenGo(apiRefl *apiRefl) {
 	}
 }
 
-func codegenTsSdk(apiRefl *apiRefl) (didFsWrites bool) {
-	do_tsc := func(dirPath string) {
-		yolog.Println("tsc in " + dirPath)
-		cmd_tsc := exec.Command("tsc")
-		cmd_tsc.Dir = dirPath
-		if output, err := cmd_tsc.CombinedOutput(); err != nil {
-			panic(err.Error() + "\n" + string(output))
-		}
-		didFsWrites = true
+func codegenTsRunTsc(inDirPath string) {
+	yolog.Println("tsc in " + inDirPath)
+	cmd_tsc := exec.Command("tsc")
+	cmd_tsc.Dir = inDirPath
+	if output, err := cmd_tsc.CombinedOutput(); err != nil {
+		panic(err.Error() + "\n" + string(output))
 	}
+}
+
+func codegenTsSdk(apiRefl *apiRefl) (didFsWrites bool) {
 	if EnsureDir(StaticFilesDirName) {
 		didFsWrites = true
 	}
@@ -226,13 +231,14 @@ func codegenTsSdk(apiRefl *apiRefl) (didFsWrites bool) {
 	data := ReadFile(out_file_path)
 	src_is_changed := (len(data) == 0) || (!bytes.Equal(data, src_to_write))
 	if src_is_changed {
-		foundModifiedTsFiles = true
+		foundModifiedTsFilesYoSide = true
 		WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`))
 		WriteFile(out_file_path, src_to_write)
 	}
 
-	if foundModifiedTsFiles {
-		do_tsc(yo_dir_path)
+	if foundModifiedTsFilesYoSide {
+		codegenTsRunTsc(yo_dir_path)
+		didFsWrites = true
 	}
 
 	// post-generate: clean up app-side, by removing files no longer in yo side
@@ -260,8 +266,9 @@ func codegenTsSdk(apiRefl *apiRefl) (didFsWrites bool) {
 		}
 	})
 
-	if foundModifiedTsFiles || didFsWrites {
-		do_tsc(CurDirPath())
+	if foundModifiedTsFilesYoSide || foundModifiedTsFilesAppSide || didFsWrites {
+		codegenTsRunTsc(curMainDir)
+		didFsWrites = true
 	}
 	return
 }

@@ -55,7 +55,7 @@ func EnsureDir(dirPath string) (did bool) {
 func EnsureLink(linkLocationPath string, pointsToPath string, pointsToIsDir bool) (did bool) {
 	if pointsToIsDir {
 		did = EnsureDir(pointsToPath)
-	} else {
+	} else if !IsFile(linkLocationPath) { // dito as the comment above in EnsureDir  =)
 		did = EnsureDir(filepath.Dir(linkLocationPath))
 		if points_to_path, err := filepath.Abs(pointsToPath); err != nil {
 			panic(err)
