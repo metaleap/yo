@@ -64,7 +64,7 @@ func WriteFile(filePath string, data []byte) {
 
 func WalkCodeFiles(yoDir bool, mainDir bool, onDirEntry func(string, fs.DirEntry)) {
 	cur_dir_path := CurDirPath()
-	dir_paths := If(yoDir, []string{filepath.Join(filepath.Dir(cur_dir_path), "yo")}, []string{})
+	dir_paths := If(!yoDir, []string{}, []string{filepath.Join(filepath.Dir(cur_dir_path), "yo")})
 	if mainDir {
 		dir_paths = append(dir_paths, cur_dir_path)
 	}

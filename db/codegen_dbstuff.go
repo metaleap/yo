@@ -43,22 +43,21 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	for _, desc := range descs { // find src_dir_path in which to generate `ˍcodegend.go`
 		found, needle := str.Dict{}, []byte("\ntype "+desc.ty.Name()+" struct {\n\t")
 
-		WalkCodeFiles(
-			(str.Begins(desc.ty.PkgPath(), "yo/") || (desc.ty.PkgPath() == "yo")),
-			(str.Begins(desc.ty.PkgPath(), "main/") || (desc.ty.PkgPath() == "main")),
-			func(path string, dirEntry fs.DirEntry) {
-				if str.Ends(path, ".go") {
-					data := ReadFile(path)
-					if dir_path, idx := filepath.Dir(path), bytes.Index(data, needle); idx > 0 {
-						if idx = bytes.IndexByte(data, '\n'); (idx < len("package ")) || !bytes.Equal(data[0:len("package ")], []byte("package ")) {
-							panic("no package name for " + pkgPath)
-						}
-						pkg_name = str.Trim(string(data[len("package "):idx]))
-						found[dir_path] = path
+		is_yo_own := (str.Begins(desc.ty.PkgPath(), "yo/") || (desc.ty.PkgPath() == "yo"))
+		WalkCodeFiles(is_yo_own, !is_yo_own, func(path string, dirEntry fs.DirEntry) {
+			if str.Ends(path, ".go") {
+				data := ReadFile(path)
+				if dir_path, idx := filepath.Dir(path), bytes.Index(data, needle); idx > 0 {
+					if idx = bytes.IndexByte(data, '\n'); (idx < len("package ")) || !bytes.Equal(data[0:len("package ")], []byte("package ")) {
+						panic("no package name for " + pkgPath)
 					}
+					pkg_name = str.Trim(string(data[len("package "):idx]))
+					found[dir_path] = path
 				}
-			},
+			}
+		},
 		)
+		//no source dir found for haxsh/app.User
 		if len(found) == 0 {
 			panic("no source dir found for " + desc.ty.PkgPath() + "." + desc.ty.Name())
 		} else if len(found) > 1 {
