@@ -41,9 +41,23 @@ func fsIs(path string, check func(fs.FileInfo) bool, expect bool) bool {
 func IsDir(dirPath string) bool   { return fsIs(dirPath, fs.FileInfo.IsDir, true) }
 func IsFile(filePath string) bool { return fsIs(filePath, fs.FileInfo.IsDir, false) }
 
-func EnsureDirExists(dirPath string) {
+func EnsureDir(dirPath string) {
 	if err := os.MkdirAll(dirPath, os.ModePerm); (err != nil) && !os.IsExist(err) {
 		panic(err)
+	}
+}
+
+func EnsureLink(linkLocationPath string, pointsToPath string, pointsToIsDir bool) {
+	if pointsToIsDir {
+		EnsureDir(pointsToPath)
+	} else {
+		EnsureDir(filepath.Dir(linkLocationPath))
+		link_location_path, err := filepath.Abs(linkLocationPath)
+		if err != nil {
+			panic(err)
+		} else if err = os.Symlink(pointsToPath, link_location_path); (err != nil) && !os.IsExist(err) {
+			panic(err)
+		}
 	}
 }
 
@@ -62,6 +76,18 @@ func WriteFile(filePath string, data []byte) {
 	}
 }
 
+func WalkDir(dirPath string, onDirEntry func(string, fs.DirEntry)) {
+	if err := fs.WalkDir(os.DirFS(dirPath), ".", func(path string, dirEntry fs.DirEntry, err error) error {
+		if err != nil {
+			panic(err)
+		}
+		onDirEntry(filepath.Join(dirPath, path), dirEntry)
+		return nil
+	}); err != nil {
+		panic(err)
+	}
+}
+
 func WalkCodeFiles(yoDir bool, mainDir bool, onDirEntry func(string, fs.DirEntry)) {
 	cur_dir_path := CurDirPath()
 	dir_paths := If(!yoDir, []string{}, []string{filepath.Join(filepath.Dir(cur_dir_path), "yo")})
@@ -69,14 +95,6 @@ func WalkCodeFiles(yoDir bool, mainDir bool, onDirEntry func(string, fs.DirEntry
 		dir_paths = append(dir_paths, cur_dir_path)
 	}
 	for _, dir_path := range dir_paths {
-		if err := fs.WalkDir(os.DirFS(dir_path), ".", func(path string, dirEntry fs.DirEntry, err error) error {
-			if err != nil {
-				panic(err)
-			}
-			onDirEntry(filepath.Join(dir_path, path), dirEntry)
-			return nil
-		}); err != nil {
-			panic(err)
-		}
+		WalkDir(dir_path, onDirEntry)
 	}
 }

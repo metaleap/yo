@@ -173,13 +173,15 @@ func codegenGo(apiRefl *apiRefl) {
 	}
 }
 
-func codegenTsSdk(apiRefl *apiRefl) {
-	const sdkGenDstTsFileRelPath = StaticFilesDirName + "/yo-sdk.ts"
+func codegenTsSdk(apiRefl *apiRefl) (didWriteFiles bool) {
+	const yo_dir_path = "../yo/"
+	const yo_static_dir_path = yo_dir_path + StaticFilesDirName
+	const yo_sdk_ts_file_name = "/yo-sdk.ts"
 	buf := str.Buf{}
 	apiRefl.codeGen.typesUsed, apiRefl.codeGen.typesEmitted, apiRefl.codeGen.strLits = map[string]bool{}, map[string]bool{}, str.Dict{}
 
 	buf.Write([]byte(codegenEmitTopCommentLine))
-	buf.Write(ReadFile(("../yo/" + sdkGenDstTsFileRelPath)))
+	buf.Write(ReadFile(yo_static_dir_path + yo_sdk_ts_file_name))
 	for _, method := range apiRefl.Methods {
 		codegenTsSdkMethod(&buf, apiRefl, &method)
 	}
@@ -199,19 +201,32 @@ func codegenTsSdk(apiRefl *apiRefl) {
 			}
 		}
 	}
+
 	var buf_prepend str.Buf
 	for value, name := range apiRefl.codeGen.strLits {
 		buf_prepend.WriteString("const " + name + ": string = " + str.Q(value) + "\n")
 	}
+	src_to_write := []byte(buf_prepend.String() + buf.String())
 
-	src_is_changed, src_to_write := true, []byte(buf_prepend.String()+buf.String())
-	data := ReadFile(sdkGenDstTsFileRelPath)
-	src_is_changed = (len(data) == 0) || (!bytes.Equal(data, src_to_write))
+	EnsureDir(StaticFilesDirName)
+	WalkDir(yo_static_dir_path, func(path string, dirEntry fs.DirEntry) {
+		if (path != (yo_static_dir_path + yo_sdk_ts_file_name)) && !str.Ends(path, ".js") {
+			app_side_link_path := path[len(yo_dir_path):]
+			if EnsureLink(app_side_link_path, path, dirEntry.IsDir()); (!dirEntry.IsDir()) && str.Ends(path, ".ts") && !str.Ends(path, ".d.ts") {
+				if !IsFile(app_side_link_path[:len(app_side_link_path)-len(".ts")] + ".js") {
+					foundModifiedTsFiles = true
+				}
+			}
+		}
+	})
+
+	out_file_path := StaticFilesDirName + yo_sdk_ts_file_name
+	data := ReadFile(out_file_path)
+	src_is_changed := (len(data) == 0) || (!bytes.Equal(data, src_to_write))
 	if src_is_changed {
-		foundModifiedTsFiles = true
+		foundModifiedTsFiles, didWriteFiles = true, true
 		WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`))
-		EnsureDirExists(StaticFilesDirName)
-		WriteFile(sdkGenDstTsFileRelPath, src_to_write)
+		WriteFile(out_file_path, src_to_write)
 	}
 	if foundModifiedTsFiles {
 		yolog.Println("    2x tsc...")
@@ -229,6 +244,7 @@ func codegenTsSdk(apiRefl *apiRefl) {
 		}
 		work.Wait()
 	}
+	return
 }
 
 func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiRefl, method *apiReflMethod) {

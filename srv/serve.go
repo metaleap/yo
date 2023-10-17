@@ -4,7 +4,6 @@ import (
 	"crypto/subtle"
 	"io/fs"
 	"net/http"
-	"os"
 	"reflect"
 
 	. "yo/cfg"
@@ -58,7 +57,9 @@ func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
 }
 
 func listenAndServe() {
-	StaticFileServes[StaticFilesDirName] = os.DirFS("../yo/")
+	// if IsDevMode {
+	// 	StaticFileServes[StaticFilesDirName] = os.DirFS("../yo/")
+	// }
 	yolog.Println("live @ port %d", Cfg.YO_API_HTTP_PORT)
 	panic(http.ListenAndServe(":"+str.FromInt(Cfg.YO_API_HTTP_PORT), http.HandlerFunc(handleHTTPRequest)))
 }
