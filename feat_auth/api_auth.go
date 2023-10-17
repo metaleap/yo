@@ -54,11 +54,15 @@ func init() {
 	})
 
 	PreApiHandling = append(PreApiHandling, Middleware{Name: "authCheck", Do: func(ctx *Ctx) {
-		if test_user := ctx.GetStr(CtxKeyForcedUser); IsDevMode && (test_user != "") {
-			Do(ApiUserLogin, ctx, &ApiAccountPayload{EmailAddr: test_user, PasswordPlain: "foobar"})
-		} else {
-			httpSetUser(ctx, ctx.HttpGetCookie(HttpJwtCookieName))
+		jwt_raw, forced_test_user := ctx.HttpGetCookie(HttpJwtCookieName), ctx.GetStr(CtxKeyForcedTestUser)
+		if IsDevMode && (forced_test_user != "") {
+			if cur_user_email_addr, cur_user_auth_id := httpUserFromJwtRaw(jwt_raw); (cur_user_auth_id != 0) &&
+				(cur_user_email_addr != forced_test_user) {
+				Do(ApiUserLogin, ctx, &ApiAccountPayload{EmailAddr: forced_test_user, PasswordPlain: "foobar"})
+				return
+			}
 		}
+		httpSetUser(ctx, jwt_raw)
 	}})
 }
 
@@ -104,15 +108,17 @@ func apiChangePassword(this *ApiCtx[struct {
 	UserChangePassword(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.PasswordNewPlain)
 }
 
-func httpSetUser(ctx *Ctx, jwtRaw string) {
-	user_email_addr, user_auth_id := "", yodb.I64(0)
+func httpUserFromJwtRaw(jwtRaw string) (userEmailAddr string, userAuthId yodb.I64) {
 	if jwtRaw != "" {
-		if jwt_payload := UserVerify(ctx, jwtRaw); jwt_payload == nil {
-			jwtRaw = ""
-		} else {
-			user_email_addr, user_auth_id = jwt_payload.StandardClaims.Subject, jwt_payload.UserAuthId
+		if jwt_payload := UserVerify(jwtRaw); jwt_payload != nil {
+			userEmailAddr, userAuthId = jwt_payload.StandardClaims.Subject, jwt_payload.UserAuthId
 		}
 	}
+	return
+}
+
+func httpSetUser(ctx *Ctx, jwtRaw string) {
+	user_email_addr, user_auth_id := httpUserFromJwtRaw(jwtRaw)
 	ctx.Set(CtxKeyEmailAddr, user_email_addr)
 	ctx.Set(CtxKeyAuthId, user_auth_id)
 	ctx.Http.Resp.Header().Set(HttpUserHeader, user_email_addr)

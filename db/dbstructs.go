@@ -197,6 +197,9 @@ func desc[T any]() (ret *structDesc) {
 		for i, l := 0, ty.NumField(); i < l; i++ {
 			field := ty.Field(i)
 			col_name := q.C(NameFrom(field.Name))
+			if field.Type == tyDateTime.Elem() {
+				panic("non-pointer DateTime field '" + field.Name + "' in '" + ty.Name() + "'")
+			}
 			if isColField(field.Type) {
 				if !str.IsPrtAscii(field.Name) {
 					panic("DB-column fields' names should be ASCII")
@@ -370,7 +373,7 @@ func Is(ty reflect.Type) (ret bool) {
 	return
 }
 
-func ForEachField[T any](it *T, do func(fieldName q.F, colName q.C, fieldValue any, isZero bool)) {
+func ForEachColField[T any](it *T, do func(fieldName q.F, colName q.C, fieldValue any, isZero bool)) {
 	desc, rv := desc[T](), reflect.ValueOf(it).Elem()
 	if it == nil {
 		panic("ForEachField called with nil, check at call-site")
@@ -384,7 +387,7 @@ func ForEachField[T any](it *T, do func(fieldName q.F, colName q.C, fieldValue a
 
 func Q[T any](it *T) q.Query {
 	var col_eqs []q.Query
-	ForEachField(it, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
+	ForEachColField(it, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
 		if !isZero {
 			col_eqs = append(col_eqs, colName.Equal(fieldValue))
 		}

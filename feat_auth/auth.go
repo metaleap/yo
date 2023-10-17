@@ -72,7 +72,7 @@ func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jw
 	})
 }
 
-func UserVerify(ctx *Ctx, jwtRaw string) *JwtPayload {
+func UserVerify(jwtRaw string) *JwtPayload {
 	token, _ := jwt.ParseWithClaims(jwtRaw, &JwtPayload{}, func(token *jwt.Token) (any, error) {
 		return []byte(jwtKey), nil
 	})

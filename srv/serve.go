@@ -75,7 +75,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 			ctx.HttpErr(If(code == 0, 500, code), "forced error via query-string param '"+QueryArgForceFail+"'")
 			return
 		} else if s = ctx.GetStr(QueryArgForceUser); s != "" {
-			ctx.Set(yoctx.CtxKeyForcedUser, s)
+			ctx.Set(yoctx.CtxKeyForcedTestUser, s)
 		}
 	}
 

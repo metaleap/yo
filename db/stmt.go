@@ -35,7 +35,7 @@ func (me *sqlStmt) delete(from string) *sqlStmt {
 func (me *sqlStmt) update(tableName string, colNames ...string) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	if len(colNames) == 0 {
-		panic("buggy update call: len(upd)==0, include the check at the call site")
+		panic("buggy update call: len(colNames)==0, include the check at the call site")
 	}
 	w("UPDATE ")
 	w(tableName)

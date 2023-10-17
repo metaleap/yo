@@ -24,6 +24,13 @@ func If[T any](b bool, t T, f T) T {
 	return f
 }
 
+func IfF[T any](b bool, t func() T, f func() T) T {
+	if b {
+		return t()
+	}
+	return f()
+}
+
 func Min[T cmp.Ordered](values ...T) (ret T) {
 	ret = values[0]
 	for _, value := range values[1:] {

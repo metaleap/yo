@@ -19,7 +19,7 @@ const (
 	ErrTimedOut           = Err("TimedOut")
 	ErrDbNotStored        = Err("DbWriteRequestAcceptedWithoutErrButNotStoredEither")
 	ErrDbUpdExpectedIdGt0 = Err("DbUpdExpectedIdGt0")
-	CtxKeyForcedUser      = "yoUserAlt" // handled only with IsDevMode==true
+	CtxKeyForcedTestUser  = "yoUserTest" // handled only with IsDevMode==true
 )
 
 var (

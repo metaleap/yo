@@ -73,7 +73,7 @@ func Count[T any](ctx *Ctx, query q.Query, max int, nonNullColumn q.C, distinct 
 func CreateOne[T any](ctx *Ctx, rec *T) I64 {
 	desc := desc[T]()
 	args := make(dbArgs, len(desc.cols)-2)
-	ForEachField[T](rec, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
+	ForEachColField[T](rec, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
 		if (colName != ColID) && (colName != ColCreated) {
 			args["A"+string(colName)] = fieldValue
 		}
@@ -96,7 +96,7 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 	desc := desc[T]()
 	args := make(dbArgs, len(recs)*(len(desc.cols)-2))
 	for j := range recs {
-		ForEachField[T](recs[j], func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
+		ForEachColField[T](recs[j], func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
 			if (colName != ColID) && (colName != ColCreated) {
 				args["A"+string(colName)+str.FromInt(j)] = fieldValue
 			}
@@ -122,7 +122,7 @@ func Update[T any](ctx *Ctx, upd *T, includingEmptyOrMissingFields bool, where q
 	desc, args := desc[T](), dbArgs{}
 	col_names, col_vals := []string{}, []any{}
 	if upd != nil {
-		ForEachField[T](upd, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
+		ForEachColField[T](upd, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
 			if (colName != ColID) && (colName != ColCreated) && (includingEmptyOrMissingFields || !isZero) {
 				col_names, col_vals = append(col_names, string(colName)), append(col_vals, fieldValue)
 			}
@@ -167,7 +167,12 @@ func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {
 	if ctx.Db.Tx != nil {
 		do_exec = ctx.Db.Tx.ExecContext
 	}
-	result, err := do_exec(ctx, sql_raw, dbArgsCleanUpForPgx(args))
+
+	args = dbArgsCleanUpForPgx(args)
+	if IsDevMode {
+		println(sql_raw, str.From(args))
+	}
+	result, err := do_exec(ctx, sql_raw, args)
 	if err != nil {
 		panic(err)
 	}
@@ -191,7 +196,11 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 		do_query = ctx.Db.Tx.QueryContext
 	}
 
-	rows, err := do_query(ctx, sql_raw, dbArgsCleanUpForPgx(args))
+	args = dbArgsCleanUpForPgx(args)
+	if IsDevMode {
+		println(sql_raw, str.From(args))
+	}
+	rows, err := do_query(ctx, sql_raw, args)
 	if rows != nil {
 		defer rows.Close()
 	}
@@ -215,7 +224,7 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 		}
 		rv, col_scanners := reflect.ValueOf(&rec).Elem(), make([]any, len(struct_desc.cols))
 		for i := range struct_desc.cols {
-			field := rv.Field(i)
+			field := rv.FieldByName(string(struct_desc.fields[i]))
 			var json_db_val jsonDbValue
 			unsafe_addr := field.UnsafeAddr()
 			if isDbRefType(field.Type()) {
@@ -249,8 +258,6 @@ func dbArgsCleanUpForPgx(args dbArgs) dbArgs {
 	for k, v := range args {
 		if b, is := v.(Bytes); is {
 			args[k] = ([]byte)(b)
-		} else if _, is := v.(DateTime); is {
-			panic("non-pointer DateTime")
 		} else if dt, is := v.(*DateTime); is {
 			args[k] = (*time.Time)(dt)
 		} else if db_ref, _ := v.(dbRef); db_ref != nil {
