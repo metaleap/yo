@@ -233,7 +233,6 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	}
 
 	ctx.Timings.Step("read req")
-	println("CL:", ctx.Http.Req.ContentLength, ctx.Http.UrlPath, "<<<<<<<<<<<<<<<<")
 	payload_data, err := io.ReadAll(ctx.Http.Req.Body)
 	if err != nil {
 		ctx.HttpErr(500, err.Error())
