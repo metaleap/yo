@@ -44,7 +44,7 @@ func init() {
 		}
 
 		api_refl := apiRefl{}
-		apiHandleReflReq(&ApiCtx[Void, apiRefl]{Args: &Void{}, Ret: &api_refl})
+		apiHandleReflReq(&ApiCtx[Void, apiRefl]{Ret: &api_refl})
 		codegenGo(&api_refl)
 		codegenTsSdk(&api_refl)
 	}
@@ -147,9 +147,9 @@ func codegenGo(apiRefl *apiRefl) {
 		for _, method_path := range sl.Sorted(Keys(pkg_methods)) {
 			method := apiRefl.method(method_path)
 			is_app_dep, name_prefix, input_type := false, method.identUp0(), apiRefl.Types[method.In]
-			if pkg_name == "yodb" && str.Begins(method_path, yoAdminUrlPrefix+"db/") {
+			if pkg_name == "yodb" && str.Begins(method_path, yoAdminApisUrlPrefix+"db/") {
 				for _, rt := range apiReflAppDbStructs {
-					if is_app_dep = str.Begins(method_path, yoAdminUrlPrefix+"db/"+rt.Name()+"/"); is_app_dep {
+					if is_app_dep = str.Begins(method_path, yoAdminApisUrlPrefix+"db/"+rt.Name()+"/"); is_app_dep {
 						break
 					}
 				}
@@ -274,27 +274,29 @@ func codegenTsSdk(apiRefl *apiRefl) (didFsWrites bool) {
 }
 
 func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiRefl, method *apiReflMethod) {
-	if str.Begins(method.Path, yoAdminUrlPrefix) {
+	is_app_api := !str.Begins(method.Path, yoAdminApisUrlPrefix)
+	if !is_app_api {
 		return
 	}
 
 	method_name, method_errs := method.identUp0(), sl.Sorted(Keys(apiRefl.KnownErrs[method.Path]))
 	ts_enum_type_name := method_name + "Err"
 	repl := str.Dict{
-		"method_name":    method_name,
-		"in_type_ident":  codegenTsSdkTypeName(apiRefl, method.In),
-		"out_type_ident": codegenTsSdkTypeName(apiRefl, method.Out),
-		"method_path":    method.Path,
-		"enum_type_name": ts_enum_type_name,
-		"known_errs":     "['" + str.Join(sl.To(method_errs, Err.String), "', '") + "']",
+		"method_name":        method_name,
+		"in_type_ident":      codegenTsSdkTypeName(apiRefl, method.In),
+		"out_type_ident":     codegenTsSdkTypeName(apiRefl, method.Out),
+		"method_path":        method.Path,
+		"method_path_prefix": If(is_app_api, AppApiUrlPrefix, ""),
+		"enum_type_name":     ts_enum_type_name,
+		"known_errs":         "['" + str.Join(sl.To(method_errs, Err.String), "', '") + "']",
 	}
 
 	buf.WriteString(str.Repl(`
 const errs{method_name} = {known_errs} as const
 export type {enum_type_name} = typeof errs{method_name}[number]
-export async function call{method_name}(payload: {in_type_ident}, query?: {[_:string]:string}): Promise<{out_type_ident}> {
+export async function api{method_name}(payload: {in_type_ident}, query?: {[_:string]:string}): Promise<{out_type_ident}> {
 	try {
-		return req<{in_type_ident}, {out_type_ident}>('{method_path}', payload, query)
+		return req<{in_type_ident}, {out_type_ident}>('{method_path_prefix}{method_path}', payload, query)
 	} catch(err) {
 		if (err && err['body_text'] && (errs{method_name}.indexOf(err.body_text) >= 0))
 			throw(new Err<{enum_type_name}>(err.body_text as {enum_type_name}))

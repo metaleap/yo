@@ -15,6 +15,12 @@ var apiReflAllDbStructs []reflect.Type
 var apiReflYoDbStructs []reflect.Type
 var apiReflAppDbStructs []reflect.Type
 
+func init() {
+	Apis(ApiMethods{
+		yoAdminApisUrlPrefix + "refl": Api(apiHandleReflReq, nil),
+	})
+}
+
 type apiRefl struct {
 	Methods   []apiReflMethod
 	Types     map[string]str.Dict
@@ -43,7 +49,7 @@ func (me *apiReflMethod) ident() string    { return ToIdent(me.Path) }
 func (me *apiReflMethod) identUp0() string { return str.Up0(me.ident()) }
 
 func apiHandleReflReq(this *ApiCtx[Void, apiRefl]) {
-	// note, exceptionally in this handler, this.Ctx can be nil
+	is_devmode_at_codegen_time := IsDevMode && (this.Ctx == nil) && (this.Args == nil)
 	this.Ret.Types, this.Ret.Enums, this.Ret.KnownErrs = map[string]str.Dict{}, map[string][]string{}, map[string]map[Err]int{}
 	for _, method_path := range sl.Sorted(Keys(api)) {
 		if !str.IsPrtAscii(method_path) {
@@ -65,6 +71,21 @@ func apiHandleReflReq(this *ApiCtx[Void, apiRefl]) {
 		}
 		return cmp.Compare(a.Path, b.Path)
 	})
+
+	// (pre)fix up method paths for http callers
+	if (!is_devmode_at_codegen_time) && (AppApiUrlPrefix != "") {
+		for i := range this.Ret.Methods {
+			if method_path := this.Ret.Methods[i].Path; !str.Begins(method_path, yoAdminApisUrlPrefix) {
+				this.Ret.Methods[i].Path = AppApiUrlPrefix + method_path
+			}
+		}
+		for method_path, known_errs := range this.Ret.KnownErrs {
+			if !str.Begins(method_path, yoAdminApisUrlPrefix) {
+				delete(this.Ret.KnownErrs, method_path)
+				this.Ret.KnownErrs[AppApiUrlPrefix+method_path] = known_errs
+			}
+		}
+	}
 }
 
 func apiReflErrs(method ApiMethod, methodRefl apiReflMethod) (ret map[Err]int) {

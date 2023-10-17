@@ -14,7 +14,6 @@ import (
 	"yo/util/str"
 )
 
-const yoAdminUrlPrefix = "__/yo/"
 const QueryArgForceFail = "yoFail"
 const StaticFilesDirNameYo = "__yostatic"
 
@@ -45,9 +44,6 @@ var (
 
 func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
 	apiReflAllDbStructs = dbStructs
-	Apis(ApiMethods{
-		yoAdminUrlPrefix + "refl": Api(apiHandleReflReq, nil),
-	})
 	for method_path := range api {
 		if (str.Trim(method_path) != method_path) || (method_path == "") || !str.IsPrtAscii(method_path) {
 			panic("not a valid method path: '" + method_path + "'")
@@ -116,7 +112,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 }
 
 func authAdmin(ctx *yoctx.Ctx) {
-	if !(str.Begins(ctx.Http.UrlPath, yoAdminUrlPrefix) || str.Begins(ctx.Http.UrlPath, StaticFilesDirNameYo+"/yo.")) {
+	if !(str.Begins(ctx.Http.UrlPath, yoAdminApisUrlPrefix) || str.Begins(ctx.Http.UrlPath, StaticFilesDirNameYo+"/yo.")) {
 		return
 	}
 	user, pwd, ok := ctx.Http.Req.BasicAuth()

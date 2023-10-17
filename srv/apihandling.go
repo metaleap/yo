@@ -15,6 +15,7 @@ import (
 
 const QueryArgValidateOnly = "yoValidateOnly"
 const ErrUnauthorized Err = "Unauthorized"
+const yoAdminApisUrlPrefix = "__/yo/"
 
 var (
 	api             = ApiMethods{}
@@ -214,11 +215,15 @@ func method[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, r
 
 func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	ctx.Timings.Step("handler lookup")
-	api_method := api[AppApiUrlPrefix+ctx.Http.UrlPath]
-	if api_method == nil {
+	var api_method ApiMethod
+	method_path := ctx.Http.UrlPath
+	if (AppApiUrlPrefix == "") || str.Begins(method_path, yoAdminApisUrlPrefix) {
 		api_method = api[ctx.Http.UrlPath]
+	} else if str.Begins(method_path, AppApiUrlPrefix) {
+		api_method = api[AppApiUrlPrefix+ctx.Http.UrlPath]
 	}
 	if api_method == nil {
+		println(">>>", method_path, "under", AppApiUrlPrefix)
 		ctx.HttpErr(404, "Not Found")
 		return
 	}
