@@ -27,6 +27,39 @@ func ReflHasMethod(ty reflect.Type, name string) bool {
 	return ok
 }
 
+func ReflField(obj any, fieldName string) *reflect.Value {
+	rv := reflect.ValueOf(obj)
+	for rv.Kind() == reflect.Pointer {
+		rv = rv.Elem()
+	}
+	if rt := rv.Type(); rt.Kind() == reflect.Struct {
+		embeds := map[*reflect.StructField]reflect.Value{}
+		do_fields := func(rt reflect.Type, rv reflect.Value) *reflect.Value {
+			for i, l := 0, rt.NumField(); i < l; i++ {
+				if field := rt.Field(i); field.Name == fieldName {
+					ret := rv.Field(i)
+					return &ret
+				} else if field.Anonymous {
+					embeds[&field] = rv.Field(i)
+				}
+			}
+			return nil
+		}
+		if ret := do_fields(rt, rv); ret != nil {
+			return ret
+		}
+		for len(embeds) > 0 {
+			for embed_field, embed_value := range embeds {
+				delete(embeds, embed_field)
+				if ret := do_fields(embed_field.Type, embed_value); ret != nil {
+					return ret
+				}
+			}
+		}
+	}
+	panic("no field '" + fieldName + "' in type '" + rv.Type().String() + "'")
+}
+
 func ReflGet[T any](rv reflect.Value) T {
 	return *getPtr[T](rv.UnsafeAddr())
 }

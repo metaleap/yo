@@ -49,9 +49,7 @@ func (me F) In(set ...any) Query            { return In(me, set...) }
 func (me F) NotIn(set ...any) Query         { return NotIn(me, set...) }
 func (me F) Asc() OrderBy                   { return &orderBy[F]{fld: me} }
 func (me F) Desc() OrderBy                  { return &orderBy[F]{fld: me, desc: true} }
-func (me F) Eval(obj any, _ func(C) F) any {
-	return reflect.ValueOf(obj).Elem().FieldByName(string(me)).Interface()
-}
+func (me F) Eval(obj any, _ func(C) F) any  { return ReflField(obj, string(me)).Interface() }
 
 type V struct{ Value any }
 
@@ -89,13 +87,6 @@ func Via[TArg any, TRet any](fn func(TArg) TRet) func(any) Operand {
 	}
 }
 
-//	func ViaCtx[TArg any, TRet any](fn func(*yoctx.Ctx, TArg) TRet) func(*yoctx.Ctx,any) Operand {
-//		return func(arg any) Operand {
-//			ret := Fn("", arg).(*fun)
-//			ret.Alt = func(args ...any) any { return fn( args[0].(TArg)) }
-//			return ret
-//		}
-//	}
 func (me *fun) Equal(other any) Query          { return Equal(me, other) }
 func (me *fun) NotEqual(other any) Query       { return NotEqual(me, other) }
 func (me *fun) LessThan(other any) Query       { return LessThan(me, other) }
