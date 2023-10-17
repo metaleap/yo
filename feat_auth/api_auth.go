@@ -56,7 +56,7 @@ func init() {
 	PreApiHandling = append(PreApiHandling, Middleware{Name: "authCheck", Do: func(ctx *Ctx) {
 		jwt_raw, forced_test_user := ctx.HttpGetCookie(HttpJwtCookieName), ctx.GetStr(CtxKeyForcedTestUser)
 		if IsDevMode && (forced_test_user != "") {
-			if cur_user_email_addr, cur_user_auth_id := httpUserFromJwtRaw(jwt_raw); (cur_user_auth_id != 0) &&
+			if cur_user_email_addr, cur_user_auth_id := httpUserFromJwtRaw(jwt_raw); (cur_user_auth_id == 0) ||
 				(cur_user_email_addr != forced_test_user) {
 				Do(ApiUserLogin, ctx, &ApiAccountPayload{EmailAddr: forced_test_user, PasswordPlain: "foobar"})
 				return
