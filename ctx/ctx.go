@@ -18,7 +18,7 @@ const (
 	ErrMustBeAdmin        = Err("MustBeAdmin")
 	ErrTimedOut           = Err("TimedOut")
 	ErrDbNotStored        = Err("DbWriteRequestAcceptedWithoutErrButNotStoredEither")
-	ErrDbUpdExpectedIdGt0 = Err("ErrDbUpdExpectedIdGt0")
+	ErrDbUpdExpectedIdGt0 = Err("DbUpdExpectedIdGt0")
 )
 
 var (
