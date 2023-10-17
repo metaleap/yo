@@ -22,7 +22,7 @@ const (
 func init() {
 	if IsDevMode {
 		codeGenDBStuff = func() {
-			yolog.Println("codegen (db stuff)...")
+			yolog.Println("codegenDbStuff?")
 			if !IsDevMode {
 				return
 			}

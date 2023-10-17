@@ -10,11 +10,18 @@ import (
 
 var mut sync.Mutex
 
+func PrintlnBr(msg string, args ...any) {
+	Println("")
+	Println(msg, args...)
+}
+
 func Println(msg string, args ...any) {
 	now, buf := time.Now(), str.Buf{}
-	buf.Grow(len(msg) + 10 + (8 * len(args)))
-	buf.WriteString(now.Format("15:04:05"))
-	buf.WriteString("  ")
+	if msg != "" {
+		buf.Grow(len(msg) + 10 + (8 * len(args)))
+		buf.WriteString(now.Format("15:04:05"))
+		buf.WriteString("  ")
+	}
 	if len(args) == 0 {
 		buf.WriteString(msg)
 	} else {

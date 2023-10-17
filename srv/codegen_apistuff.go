@@ -31,7 +31,7 @@ var (
 
 func init() {
 	codegenMaybe = func() {
-		yolog.Println("codegen (api stuff)...")
+		yolog.Println("codegenApiStuff?")
 
 		for _, rt := range apiReflAllDbStructs {
 			if pkg_path := rt.PkgPath(); str.Begins(pkg_path, "yo/") {
