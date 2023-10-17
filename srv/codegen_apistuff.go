@@ -139,9 +139,9 @@ func codegenGo(apiRefl *apiRefl) {
 		for _, method_path := range sl.Sorted(Keys(pkg_methods)) {
 			method := apiRefl.method(method_path)
 			is_app_dep, name_prefix, input_type := false, method.identUp0(), apiRefl.Types[method.In]
-			if pkg_name == "yodb" && str.Begins(method_path, "__/yo/db/") {
+			if pkg_name == "yodb" && str.Begins(method_path, yoAdminUrlPrefix+"db/") {
 				for _, rt := range apiReflAppDbStructs {
-					if is_app_dep = str.Begins(method_path, "__/yo/db/"+rt.Name()+"/"); is_app_dep {
+					if is_app_dep = str.Begins(method_path, yoAdminUrlPrefix+"db/"+rt.Name()+"/"); is_app_dep {
 						break
 					}
 				}
@@ -228,7 +228,7 @@ func codegenTsSdk(apiRefl *apiRefl) {
 }
 
 func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiRefl, method *apiReflMethod) {
-	if str.Begins(method.Path, "__/yo/") {
+	if str.Begins(method.Path, yoAdminUrlPrefix) {
 		return
 	}
 

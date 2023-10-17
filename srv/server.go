@@ -16,6 +16,9 @@ import (
 )
 
 const QueryArgForceFail = "yoFail"
+const StaticFilesDirName = "__yostatic"
+const staticFilesUrlPrefix = "__yo"
+const yoAdminUrlPrefix = "__/yo/"
 
 type PreServe struct {
 	Name string
@@ -39,13 +42,10 @@ var (
 	codegenMaybe func() = nil // overwritten by apisdkgen.go in debug build mode
 )
 
-const StaticFilesDirName = "__yostatic"
-const staticFilesUrlPrefix = "__yo"
-
 func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
 	apiReflAllDbStructs = dbStructs
 	Apis(ApiMethods{
-		"__/yo/refl": Api(apiHandleReflReq, nil),
+		yoAdminUrlPrefix + "refl": Api(apiHandleReflReq, nil),
 	})
 	for method_path := range api {
 		if (str.Trim(method_path) != method_path) || (method_path == "") || !str.IsPrtAscii(method_path) {
@@ -113,7 +113,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 }
 
 func authAdmin(ctx *yoctx.Ctx) {
-	if !(str.Begins(ctx.Http.UrlPath, "__/yo/") || str.Begins(ctx.Http.UrlPath, staticFilesUrlPrefix+"/yo.")) {
+	if !(str.Begins(ctx.Http.UrlPath, yoAdminUrlPrefix) || str.Begins(ctx.Http.UrlPath, staticFilesUrlPrefix+"/yo.")) {
 		return
 	}
 	user, pwd, ok := ctx.Http.Req.BasicAuth()
