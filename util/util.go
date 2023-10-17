@@ -23,6 +23,16 @@ func If[T any](b bool, t T, f T) T {
 	return f
 }
 
+func Either[T comparable](try ...T) T {
+	var none T
+	for i := range try {
+		if try[i] != none {
+			return try[i]
+		}
+	}
+	return none
+}
+
 func ToIdent(s string) string {
 	s = strings.TrimSpace(s)
 	var buf strings.Builder

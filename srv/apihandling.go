@@ -211,26 +211,26 @@ func method[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, r
 		}}
 }
 
-func apiHandleRequest(ctx *Ctx) (result any, handled bool) {
+func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	ctx.Timings.Step("handler lookup")
 	api := api[ctx.Http.UrlPath]
 	if api == nil {
 		ctx.HttpErr(404, "Not Found")
-		return nil, false
+		return
 	}
 
 	ctx.Timings.Step("read req")
 	payload_data, err := io.ReadAll(ctx.Http.Req.Body)
 	if err != nil {
 		ctx.HttpErr(500, err.Error())
-		return nil, false
+		return
 	}
 
 	ctx.Timings.Step("parse req")
 	payload, err := api.loadPayload(payload_data)
 	if err != nil {
 		ctx.HttpErr(400, err.Error()+If(IsDevMode, "\n"+string(payload_data), ""))
-		return nil, false
+		return
 	}
 
 	ctx.Timings.Step("sani payload")
@@ -244,13 +244,13 @@ func apiHandleRequest(ctx *Ctx) (result any, handled bool) {
 	_, err_validation := api.validatePayload(payload)
 	if err_validation != "" {
 		ctx.HttpErr(err_validation.HttpStatusCodeOr(400), err_validation.Error())
-		return nil, false
+		return
 	}
 
 	if ctx.GetStr(QueryArgValidateOnly) != "" {
-		return nil, true
+		return
 	}
 
-	ctx.Timings.Step("HANDLE")
+	ctx.Timings.Step("call API handler")
 	return api.handler()(ctx, payload), true
 }

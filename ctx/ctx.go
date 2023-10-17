@@ -51,8 +51,8 @@ type Ctx struct {
 	DbgNoCatch bool
 }
 
-func newCtx(timeout time.Duration) *Ctx {
-	ctx := Ctx{Timings: NewTimings("init ctx", !IsDevMode), Context: context.Background(), ctxVals: map[string]any{}}
+func newCtx(timeout time.Duration, timingsName string) *Ctx {
+	ctx := Ctx{Timings: NewTimings(timingsName, "init ctx"), Context: context.Background(), ctxVals: map[string]any{}}
 	if timeout > 0 {
 		ctx.Context, ctx.ctxDone = context.WithTimeout(ctx.Context, timeout)
 	}
@@ -60,24 +60,24 @@ func newCtx(timeout time.Duration) *Ctx {
 }
 
 func NewForHttp(req *http.Request, resp http.ResponseWriter, timeout time.Duration) *Ctx {
-	ctx := newCtx(timeout)
+	ctx := newCtx(timeout, req.RequestURI)
 	ctx.Http.Req, ctx.Http.Resp, ctx.Http.UrlPath, ctx.Http.respCookies, ctx.Http.reqCookies =
 		req, resp, str.TrimR(str.TrimL(req.URL.Path, "/"), "/"), map[string]*http.Cookie{}, str.Dict{}
 	return ctx
 }
 
-func NewDebugNoCatch(timeout time.Duration) *Ctx {
-	ctx := newCtx(timeout)
+func NewDebugNoCatch(timeout time.Duration, timingsName string) *Ctx {
+	ctx := newCtx(timeout, timingsName)
 	ctx.DbgNoCatch = true
 	return ctx
 }
 
-func NewNonHttp(timeout time.Duration) *Ctx {
-	ctx := newCtx(timeout)
+func NewNonHttp(timeout time.Duration, timingsName string) *Ctx {
+	ctx := newCtx(timeout, timingsName)
 	return ctx
 }
 
-func (me *Ctx) OnDone() {
+func (me *Ctx) OnDone(subTimings Timings) {
 	var fail any
 	if (!IsDevMode) || (doErrCatchInDevMode && !me.DbgNoCatch) {
 		fail = recover()
@@ -116,12 +116,15 @@ func (me *Ctx) OnDone() {
 		me.ctxDone()
 	}
 	if IsDevMode {
-		total_duration, steps := me.Timings.AllDone()
-		if me.Http.Req != nil {
-			println(me.Http.Req.RequestURI, str.DurationMs(total_duration))
+		do_print_timings := func(it Timings) {
+			total_duration, steps := it.AllDone()
+			println(it.String() + "\t" + str.DurationMs(total_duration))
 			for _, step := range steps {
 				println("\t" + step.Step + ":\t" + str.DurationMs(step.Time))
 			}
+		}
+		if do_print_timings(me.Timings); subTimings != nil {
+			do_print_timings(subTimings)
 		}
 	}
 }

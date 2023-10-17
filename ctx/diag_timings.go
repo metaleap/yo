@@ -13,28 +13,32 @@ type Timing struct {
 
 type timings struct {
 	steps []Timing
-	noOp  bool
+	name  string
 }
 
 type Timings interface {
 	Step(step string)
 	AllDone() (total int64, steps []Timing)
+	String() string
 }
 
-func NewTimings(firstStep string, noOp bool) Timings {
-	ret := timings{steps: make([]Timing, 0, If(noOp, 0, 8))}
+func NewTimings(name string, firstStep string) Timings {
+	ret := timings{name: name, steps: make([]Timing, 0, If(IsDevMode, 8, 0))}
 	ret.Step(firstStep)
 	return &ret
 }
 
+func (me *timings) noOp() bool     { return !IsDevMode }
+func (me *timings) String() string { return me.name }
+
 func (me *timings) Step(step string) {
-	if !me.noOp {
+	if !me.noOp() {
 		me.steps = append(me.steps, Timing{Step: step, Time: time.Now().UnixNano()})
 	}
 }
 
 func (me *timings) AllDone() (total int64, steps []Timing) {
-	if me.noOp {
+	if me.noOp() {
 		return 0, nil
 	}
 	now := time.Now().UnixNano()

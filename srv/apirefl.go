@@ -12,6 +12,8 @@ import (
 
 var apiReflAllEnums = map[string][]string{}
 var apiReflAllDbStructs []reflect.Type
+var apiReflYoDbStructs []reflect.Type
+var apiReflAppDbStructs []reflect.Type
 
 type apiRefl struct {
 	Methods   []apiReflMethod

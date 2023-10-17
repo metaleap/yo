@@ -9,7 +9,6 @@ import (
 	yoctx "yo/ctx"
 	q "yo/db/query"
 	yojson "yo/json"
-	yolog "yo/log"
 	. "yo/util"
 	"yo/util/sl"
 	"yo/util/str"
@@ -395,10 +394,9 @@ func Q[T any](it *T) q.Query {
 
 func doEnsureDbStructTables() {
 	for _, desc := range ensureDescs {
-		ctx := yoctx.NewDebugNoCatch(Cfg.DB_REQ_TIMEOUT) // yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
-		defer ctx.OnDone()
+		ctx := yoctx.NewDebugNoCatch(Cfg.DB_REQ_TIMEOUT, "db.Mig: "+desc.tableName) // yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
+		defer ctx.OnDone(nil)
 		ctx.DbTx()
-		yolog.Println("db.Mig: " + desc.tableName)
 		is_table_rename := (desc.mig.oldTableName != "")
 		cur_table := GetTable(ctx, If(is_table_rename, desc.mig.oldTableName, desc.tableName))
 		if cur_table == nil {

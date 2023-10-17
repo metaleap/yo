@@ -21,11 +21,24 @@ var (
 	foundModifiedTsFiles bool
 	pkgsFound            = str.Dict{}
 	pkgsImportingSrv     = map[string]bool{}
+	curMainDir           = CurDirPath()
+	curMainName          = filepath.Base(curMainDir)
 )
 
 func init() {
 	codegenMaybe = func() {
 		yolog.Println("codegen (api stuff)...")
+
+		for _, rt := range apiReflAllDbStructs {
+			if pkg_path := rt.PkgPath(); str.Begins(pkg_path, "yo/") {
+				apiReflYoDbStructs = append(apiReflYoDbStructs, rt)
+			} else if str.Begins(pkg_path, curMainName+"/") {
+				apiReflAppDbStructs = append(apiReflAppDbStructs, rt)
+			} else {
+				panic(rt.String())
+			}
+		}
+
 		api_refl := apiRefl{}
 		apiHandleReflReq(&ApiCtx[Void, apiRefl]{Args: &Void{}, Ret: &api_refl})
 		codegenGo(&api_refl)
@@ -125,7 +138,17 @@ func codegenGo(apiRefl *apiRefl) {
 		// emit api method input fields for FailIf conditions
 		for _, method_path := range sl.Sorted(Keys(pkg_methods)) {
 			method := apiRefl.method(method_path)
-			name_prefix, input_type := method.identUp0(), apiRefl.Types[method.In]
+			is_app_dep, name_prefix, input_type := false, method.identUp0(), apiRefl.Types[method.In]
+			if pkg_name == "yodb" && str.Begins(method_path, "__/yo/db/") {
+				for _, rt := range apiReflAppDbStructs {
+					if is_app_dep = str.Begins(method_path, "__/yo/db/"+rt.Name()+"/"); is_app_dep {
+						break
+					}
+				}
+			}
+			if is_app_dep {
+				continue
+			}
 			for _, field_name := range sl.Sorted(Keys(input_type)) {
 				buf.WriteString("const " + name_prefix + ToIdent(field_name) + " = q.F(\"" + field_name + "\")\n")
 			}

@@ -66,7 +66,7 @@ func listenAndServe() {
 
 func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	ctx := yoctx.NewForHttp(req, rw, Cfg.YO_API_IMPL_TIMEOUT)
-	defer ctx.OnDone()
+	defer ctx.OnDone(nil)
 
 	ctx.Timings.Step("check " + QueryArgForceFail)
 	if s := ctx.GetStr(QueryArgForceFail); s != "" {
@@ -94,7 +94,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	// no static content was requested or served, so it's an api call
-	if result, handled := apiHandleRequest(ctx); handled {
+	if result, handler_called := apiHandleRequest(ctx); handler_called { // if not, `apiHandleRequest` did `http.Error()` and nothing more to do here
 		ctx.Timings.Step("jsonify result")
 		resp_data, err := yojson.MarshalIndent(result, "", "  ")
 		if err != nil {
