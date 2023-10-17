@@ -45,8 +45,8 @@ type ApiMethod interface {
 	validatePayload(any) (q.Query, Err)
 	reflTypes() (reflect.Type, reflect.Type)
 	failsIf() []Fails
-	MethodPath() string
-	MethodNameUp0() string
+	methodPath() string
+	methodNameUp0() string
 	KnownErrs() []Err
 	CouldFailWith(...Err) ApiMethod
 	PreCheck(Pair[Err, func(*Ctx) bool]) ApiMethod // pre-checks run just before handler invocation, thus after PreServe handlers and input payload validations
@@ -56,6 +56,17 @@ type ApiCtx[TIn any, TOut any] struct {
 	Ctx  *Ctx
 	Args *TIn
 	Ret  *TOut
+}
+
+func Call[TIn any, TOut any](ctx *Ctx, f func(*ApiCtx[TIn, TOut]), args *TIn) *TOut {
+	var ret TOut
+	api_ctx := &ApiCtx[TIn, TOut]{Ctx: ctx, Args: args, Ret: &ret}
+	f(api_ctx)
+	return api_ctx.Ret
+}
+
+func CallCtx[TIn any, TOut any](ctx *Ctx, args *TIn, ret *TOut) *ApiCtx[TIn, TOut] {
+	return &ApiCtx[TIn, TOut]{Ctx: ctx, Args: args, Ret: ret}
 }
 
 type ApiPkgInfo interface {
@@ -109,7 +120,7 @@ func (me *apiMethod[TIn, TOut]) PkgName() string {
 	}
 	return ""
 }
-func (me *apiMethod[TIn, TOut]) MethodPath() (ret string) {
+func (me *apiMethod[TIn, TOut]) methodPath() (ret string) {
 	for path, method := range api {
 		if method == me {
 			ret = path
@@ -120,11 +131,11 @@ func (me *apiMethod[TIn, TOut]) MethodPath() (ret string) {
 	}
 	return
 }
-func (me *apiMethod[TIn, TOut]) MethodNameUp0() (ret string) {
-	return str.Up0(ToIdent(me.MethodPath()))
+func (me *apiMethod[TIn, TOut]) methodNameUp0() string {
+	return str.Up0(ToIdent(me.methodPath()))
 }
 func (me *apiMethod[TIn, TOut]) KnownErrs() (ret []Err) {
-	method_name := me.MethodNameUp0()
+	method_name := me.methodNameUp0()
 	err_name_prefix := Err(str.Up0(method_name)) + "_"
 
 	ret = append(sl.To(me.errsOwn, func(it Err) Err { return If(sl.Has(ErrsNoPrefix, it), it, err_name_prefix+it) }),
@@ -147,7 +158,7 @@ func (*apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
 }
 func (me *apiMethod[TIn, TOut]) validatePayload(it any) (q.Query, Err) {
 	do_check := func(method ApiMethod, check *Fails) (q.Query, Err) {
-		method_name := method.MethodNameUp0()
+		method_name := method.methodNameUp0()
 		err_name_prefix := str.Up0(method_name) + "_"
 		if failed_condition := check.If.Not().Eval(it, nil); failed_condition != nil {
 			return failed_condition, Err(err_name_prefix) + check.Err
@@ -202,15 +213,6 @@ func method[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, r
 			f(api_ctx)
 			return api_ctx.Ret
 		}}
-}
-
-func Call[TIn any, TOut any](ctx *Ctx, f func(*ApiCtx[TIn, TOut]), args *TIn) *TOut {
-	var m apiMethod[TIn, TOut]
-	method[TIn, TOut](f, nil, &m)
-	if ret := m.handleFunc(ctx, args); ret != nil {
-		return ret.(*TOut)
-	}
-	return nil
 }
 
 func apiHandleRequest(ctx *Ctx) (result any, handled bool) {

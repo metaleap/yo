@@ -29,8 +29,6 @@ var (
 type apiMethod interface {
 	KnownErrs() []Err
 	PkgName() string
-	MethodPath() string
-	MethodNameUp0() string
 }
 
 type Ctx struct {

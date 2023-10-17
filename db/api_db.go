@@ -141,7 +141,7 @@ type ApiUpdateArgs[TObj any] struct {
 
 func apiUpdateOne[TObj any, TFld ~string](this *ApiCtx[ApiUpdateArgs[TObj], retCount]) {
 	if this.Args.Id <= 0 {
-		panic(Err(this.Ctx.Http.ApiMethod.MethodNameUp0() + "_" + string(yoctx.ErrDbUpdExpectedIdGt0)))
+		panic(Err(yoctx.ErrDbUpdExpectedIdGt0))
 	}
 	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, ColID.Equal(this.Args.Id))
 }
