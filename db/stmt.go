@@ -51,22 +51,10 @@ func (me *sqlStmt) update(tableName string, colNames ...string) *sqlStmt {
 	return me
 }
 
-func (me *sqlStmt) sel(countColName q.C, countDistinct bool, cols ...q.C) *sqlStmt {
+func (me *sqlStmt) selCols(cols ...q.C) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	w("SELECT ")
-	if countColName != "" {
-		w("COUNT")
-		w("(")
-		if !countDistinct {
-			w(string(countColName))
-		} else {
-			w("DISTINCT")
-			if countColName != "" {
-				w(string(countColName))
-			}
-		}
-		w(")")
-	} else if len(cols) == 0 {
+	if len(cols) == 0 {
 		w("*")
 	} else {
 		for i, col := range cols {
@@ -75,6 +63,20 @@ func (me *sqlStmt) sel(countColName q.C, countDistinct bool, cols ...q.C) *sqlSt
 			}
 			w(string(col))
 		}
+	}
+	return me
+}
+
+func (me *sqlStmt) selCount(colName q.C, distinct bool) *sqlStmt {
+	w := (*str.Buf)(me).WriteString
+	if colName == "" && !distinct {
+		colName = "*"
+	}
+	w("SELECT COUNT(")
+	w(string(colName))
+	w(")")
+	if distinct {
+		w(" DISTINCT")
 	}
 	return me
 }

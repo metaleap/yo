@@ -9,6 +9,7 @@ import (
 	q "yo/db/query"
 	yojson "yo/json"
 	. "yo/util"
+	"yo/util/sl"
 	"yo/util/str"
 
 	"github.com/jackc/pgx/v5"
@@ -24,7 +25,9 @@ func ById[T any](ctx *Ctx, id I64) *T {
 }
 
 func Exists[T any](ctx *Ctx, query q.Query) bool {
-	return (FindOne[T](ctx, query) != nil)
+	desc, args := desc[T](), dbArgs{}
+	result := doSelect[T](ctx, new(sqlStmt).selCols(ColID).from(desc.tableName).where(query, desc.fieldNameToColName, args).limit(1), args, 1, ColID)
+	return (len(result) > 0)
 }
 
 func FindOne[T any](ctx *Ctx, query q.Query, orderBy ...q.OrderBy) *T {
@@ -38,12 +41,12 @@ func FindOne[T any](ctx *Ctx, query q.Query, orderBy ...q.OrderBy) *T {
 func FindMany[T any](ctx *Ctx, query q.Query, maxResults int, orderBy ...q.OrderBy) []*T {
 	desc, args := desc[T](), dbArgs{}
 	return doSelect[T](ctx,
-		new(sqlStmt).sel("", false, desc.cols...).from(desc.tableName).where(query, desc.fieldNameToColName, args).orderBy(desc.fieldNameToColName, orderBy...).limit(maxResults), args, maxResults)
+		new(sqlStmt).selCols(desc.cols...).from(desc.tableName).where(query, desc.fieldNameToColName, args).orderBy(desc.fieldNameToColName, orderBy...).limit(maxResults), args, maxResults)
 }
 
 func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.OrderBy, onRecord func(rec *T, enough *bool)) {
 	desc, args := desc[T](), dbArgs{}
-	doStream[T](ctx, new(sqlStmt).sel("", false, desc.cols...).from(desc.tableName).where(query, desc.fieldNameToColName, args).orderBy(desc.fieldNameToColName, orderBy...).limit(maxResults), onRecord, args)
+	doStream[T](ctx, new(sqlStmt).selCols(desc.cols...).from(desc.tableName).where(query, desc.fieldNameToColName, args).orderBy(desc.fieldNameToColName, orderBy...).limit(maxResults), onRecord, args)
 }
 
 func Page[T any](ctx *Ctx, query q.Query, limit int, orderBy q.OrderBy, pageTok any) (resultsPage []*T, nextPageTok any) {
@@ -66,7 +69,7 @@ func Count[T any](ctx *Ctx, query q.Query, nonNullColumn q.C, distinct *q.C) int
 	if distinct != nil {
 		col = *distinct
 	}
-	results := doSelect[int64](ctx, new(sqlStmt).sel(col, distinct != nil).from(desc.tableName).where(query, desc.fieldNameToColName, args), args, 1)
+	results := doSelect[int64](ctx, new(sqlStmt).selCount(col, distinct != nil).from(desc.tableName).where(query, desc.fieldNameToColName, args), args, 1)
 	return *results[0]
 }
 
@@ -177,17 +180,17 @@ func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {
 	return result
 }
 
-func doSelect[T any](ctx *Ctx, stmt *sqlStmt, args dbArgs, maxResults int) (ret []*T) {
+func doSelect[T any](ctx *Ctx, stmt *sqlStmt, args dbArgs, maxResults int, cols ...q.C) (ret []*T) {
 	if maxResults > 0 {
 		ret = make([]*T, 0, maxResults)
 	}
 	doStream[T](ctx, stmt, func(rec *T, endNow *bool) {
 		ret = append(ret, rec)
-	}, args)
+	}, args, cols...)
 	return
 }
 
-func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbArgs) {
+func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbArgs, cols ...q.C) {
 	sql_raw := stmt.String()
 	do_query := DB.QueryContext
 	if ctx.Db.Tx != nil {
@@ -218,9 +221,12 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 			onRecord(&rec, &abort)
 			break
 		}
-		rv, col_scanners := reflect.ValueOf(&rec).Elem(), make([]any, len(struct_desc.cols))
-		for i := range struct_desc.cols {
-			field := rv.FieldByName(string(struct_desc.fields[i]))
+		if len(cols) == 0 {
+			cols = struct_desc.cols
+		}
+		rv, col_scanners := reflect.ValueOf(&rec).Elem(), make([]any, len(cols))
+		for i, col := range cols {
+			field := rv.FieldByName(string(struct_desc.fields[sl.IdxOf(struct_desc.cols, col)]))
 			var json_db_val jsonDbValue
 			unsafe_addr := field.UnsafeAddr()
 			if isDbRefType(field.Type()) {
