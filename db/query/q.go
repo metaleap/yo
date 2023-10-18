@@ -143,17 +143,18 @@ type Query interface {
 }
 
 const (
-	opEq    = " = "
-	opNeq   = " != "
-	opLt    = " < "
-	opLeq   = " <= "
-	opGt    = " > "
-	opGeq   = " >= "
-	opIn    = " IN "
-	opNotIn = " NOT IN "
-	opAnd   = " AND "
-	opOr    = " OR "
-	opNot   = "NOT "
+	opEq         = " = "
+	opNeq        = " != "
+	opLt         = " < "
+	opLeq        = " <= "
+	opGt         = " > "
+	opGeq        = " >= "
+	opIn         = " IN "
+	opNotIn      = " NOT IN "
+	opAnd        = " AND "
+	opOr         = " OR "
+	opNot        = "NOT "
+	opJsonArrHas = " @> " // where to @> 123
 )
 
 func Equal(lhs any, rhs any) Query {
@@ -185,6 +186,9 @@ func inNotIn(op string, lhs Operand, rhs ...Operand) Query {
 	sub_stmt, _ := rhs[0].(interface{ Sql(*str.Buf) })
 	_, is_literal := rhs[0].(V)
 	return &query{op: If(((len(rhs) == 1) && (sub_stmt == nil) && ((rhs[0] == nil) || is_literal)), opEq, op), operands: append([]Operand{lhs}, rhs...)}
+}
+func JsonArrHas(lhs Operand, rhs Operand) Query {
+	return &query{op: opJsonArrHas, operands: operandsFrom(lhs, rhs)}
 }
 func AllTrue(conds ...Query) Query {
 	return If((len(conds) == 0), nil, If((len(conds) == 1), conds[0], (Query)(&query{op: opAnd, conds: conds})))
