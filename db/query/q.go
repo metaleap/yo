@@ -314,26 +314,30 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 	buf.WriteByte(')')
 }
 
-func (me *query) Eval(obj any, c2f func(C) F) Query {
-	var failed Query
+func (me *query) Eval(obj any, c2f func(C) F) (falseDueTo Query) {
+	is_eq := func() bool {
+		lhs, rhs := me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f)
+		return reflect.DeepEqual(lhs, rhs) || // the below oddity catches convertible comparables such as string-vs-yodb.Text, int64-vs-yodb.I64 etc
+			(ReflGe(reflect.ValueOf(lhs), reflect.ValueOf(rhs)) && ReflLe(reflect.ValueOf(lhs), reflect.ValueOf(rhs)))
+	}
 	switch me.op {
 	case opAnd:
 		_ = sl.All(me.conds, func(it Query) bool {
 			maybe_failed := it.Eval(obj, c2f)
-			failed = If[Query]((maybe_failed == nil), failed, maybe_failed)
+			falseDueTo = If[Query]((maybe_failed == nil), falseDueTo, maybe_failed)
 			return (maybe_failed == nil)
 		})
-		return failed
+		return
 	case opOr:
 		any_true := sl.Any(me.conds, func(it Query) bool {
 			maybe_failed := it.Eval(obj, c2f)
-			failed = If[Query]((maybe_failed == nil), failed, maybe_failed)
+			falseDueTo = If[Query]((maybe_failed == nil), falseDueTo, maybe_failed)
 			return (maybe_failed == nil)
 		})
 		if any_true {
-			failed = nil
+			falseDueTo = nil
 		}
-		return failed
+		return
 	case opNot:
 		return If[Query]((me.conds[0].Eval(obj, c2f) == nil), me, nil)
 	case opIn:
@@ -343,11 +347,9 @@ func (me *query) Eval(obj any, c2f func(C) F) Query {
 		in_set := sl.Has(sl.To(me.operands, func(it Operand) any { return it.Eval(obj, c2f) }), me.operands[0].Eval(obj, c2f))
 		return If[Query](in_set, me, nil)
 	case opEq:
-		eq := reflect.DeepEqual(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f))
-		return If[Query](eq, nil, me)
+		return If[Query](is_eq(), nil, me)
 	case opNeq:
-		eq := reflect.DeepEqual(me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f))
-		return If[Query](eq, me, nil)
+		return If[Query](is_eq(), me, nil)
 	case opGt:
 		return If[Query](ReflGt(reflect.ValueOf(me.operands[0].Eval(obj, c2f)), reflect.ValueOf(me.operands[1].Eval(obj, c2f))), nil, me)
 	case opGeq:
