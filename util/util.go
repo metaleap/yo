@@ -13,8 +13,8 @@ type Named[V any] struct {
 	Value V
 }
 type Pair[TLhs any, TRhs any] struct {
-	Lhs TLhs
-	Rhs TRhs
+	Key TLhs
+	It  TRhs
 }
 
 func If[T any](b bool, t T, f T) T {

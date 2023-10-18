@@ -108,7 +108,7 @@ type apiMethod[TIn any, TOut any] struct {
 func (me *apiMethod[TIn, TOut]) failsIf() []Fails       { return me.failIfs }
 func (me *apiMethod[TIn, TOut]) handler() apiHandleFunc { return me.handleFunc }
 func (me *apiMethod[TIn, TOut]) PreCheck(preCheck Pair[Err, func(*Ctx) bool]) ApiMethod {
-	me.CouldFailWith(preCheck.Lhs)
+	me.CouldFailWith(preCheck.Key)
 	me.preChecks = append(me.preChecks, preCheck)
 	return me
 }
@@ -202,8 +202,8 @@ func method[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, r
 		handleFunc: func(ctx *Ctx, in any) any {
 			ctx.Http.ApiMethod = ret
 			for _, pre_check := range ret.preChecks {
-				if !pre_check.Rhs(ctx) {
-					panic(pre_check.Lhs)
+				if !pre_check.It(ctx) {
+					panic(pre_check.Key)
 				}
 			}
 			var output TOut
