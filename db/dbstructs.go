@@ -431,3 +431,25 @@ func (me *DateTime) MarshalJSON() ([]byte, error) {
 func (me *Text) Do(f func(string) string) {
 	*me = (Text)(f((string)(*me)))
 }
+
+func DtFrom(f func() time.Time) *DateTime {
+	var ret DateTime
+	ret.SetFrom(f)
+	return &ret
+}
+
+func (me *DateTime) SetFrom(f func() time.Time) {
+	*me = (DateTime)(f())
+}
+
+func (me *Arr[T]) EnsureAllUnique() {
+	this := *me
+	var idxs_to_remove []int
+	for i := len(this) - 1; i >= 0; i-- {
+		if rv := reflect.ValueOf(this[i]); sl.IdxWhere(this, func(it T) bool { return reflect.DeepEqual(rv, reflect.ValueOf(it)) }) < i {
+			idxs_to_remove = append(idxs_to_remove, i)
+		}
+	}
+	this = sl.WithoutIdxs(this, idxs_to_remove...)
+	*me = this
+}

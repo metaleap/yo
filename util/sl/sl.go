@@ -138,6 +138,10 @@ func Any[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) bool {
 	return false
 }
 
+func WithoutDupls[TSlice ~[]TItem, TItem comparable](slice TSlice) TSlice {
+	return With(make(TSlice, 0, len(slice)), slice...)
+}
+
 func Without[TSlice ~[]TItem, TItem comparable](slice TSlice, without ...TItem) TSlice {
 	if len(without) == 0 {
 		return slice
