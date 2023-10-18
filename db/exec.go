@@ -230,7 +230,7 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 			field := rv.FieldByName(string(struct_desc.fields[sl.IdxOf(struct_desc.cols, col)]))
 			var json_db_val jsonDbValue
 			unsafe_addr := field.UnsafeAddr()
-			if isDbRefType(field.Type()) {
+			if isDbRefType(field.Type()) != "" {
 				unsafe_addr = field.FieldByName("id").UnsafeAddr()
 			} else if is_db_json_dict_type, is_db_json_arr_type, is_db_json_obj_type := isWhatDbJsonType(field.Type()); is_db_json_dict_type || is_db_json_arr_type {
 				ptr := reflect.New(field.Type())

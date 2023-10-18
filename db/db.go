@@ -18,15 +18,15 @@ import (
 
 var (
 	inited                = false
-	codeGenDBStuff func() = nil
+	codegenDBStuff func() = nil
 )
 
 func InitAndConnectAndMigrateAndMaybeCodegen() (dbStructs []reflect.Type) {
 	if inited {
 		panic("db.Init called twice?")
 	}
-	if codeGenDBStuff != nil {
-		codeGenDBStuff()
+	if codegenDBStuff != nil {
+		codegenDBStuff()
 	}
 
 	conn_cfg, err := pgx.ParseConfig(Cfg.DATABASE_URL)

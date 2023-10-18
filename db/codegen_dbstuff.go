@@ -21,7 +21,7 @@ const (
 
 func init() {
 	if IsDevMode {
-		codeGenDBStuff = func() {
+		codegenDBStuff = func() {
 			yolog.Println("codegenDbStuff?")
 			if !IsDevMode {
 				return
@@ -31,9 +31,9 @@ func init() {
 				pkg_path := desc.ty.PkgPath()
 				by_pkg_path[pkg_path] = append(by_pkg_path[pkg_path], desc)
 			}
-			did_code_gen := codeGenQueryFns()
+			did_code_gen := codegenQueryFns()
 			for pkg_path, descs := range by_pkg_path {
-				did_code_gen = (codeGenDBStructsFor(pkg_path, descs)) || did_code_gen
+				did_code_gen = (codegenDBStructsFor(pkg_path, descs)) || did_code_gen
 			}
 			if did_code_gen {
 				panic("dbcodegen'd, please restart")
@@ -42,7 +42,7 @@ func init() {
 	}
 }
 
-func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
+func codegenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	var src_dir_path, pkg_name string
 	for _, desc := range descs { // find src_dir_path in which to generate `ˍcodegend.go`
 		found, needle := str.Dict{}, []byte("\ntype "+desc.ty.Name()+" struct {\n\t")
@@ -92,13 +92,13 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	buf.WriteString("\n\nimport q \"yo/db/query\"\n\n")
 	for _, desc := range descs {
 		// render enumerants for the column names
-		codeGenWriteEnumDecl(&buf, desc, "Col", "q.C", true)
+		codegenWriteEnumDecl(&buf, desc, "Col", "q.C", true)
 		// render enumerants for the field names
-		codeGenWriteEnumDecl(&buf, desc, "Field", "q.F", false)
+		codegenWriteEnumDecl(&buf, desc, "Field", "q.F", false)
 
 		for i, rt_fld := 0, reflect.TypeOf(q.F("")); i < rt_fld.NumMethod(); i++ {
 			if method := rt_fld.Method(i); (method.Name[0] >= 'A') && (method.Name[0] <= 'Z') {
-				codeGenCloneMethod(&buf, desc, &method)
+				codegenCloneMethod(&buf, desc, &method)
 			}
 		}
 	}
@@ -115,7 +115,7 @@ func codeGenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	return false
 }
 
-func codeGenQueryFns() bool {
+func codegenQueryFns() bool {
 	src_raw := ReadFile("../yo/db/query/q.go")
 
 	var buf bytes.Buffer
@@ -141,7 +141,7 @@ func codeGenQueryFns() bool {
 	return false
 }
 
-func codeGenCloneMethod(buf *str.Buf, desc *structDesc, method *reflect.Method) {
+func codegenCloneMethod(buf *str.Buf, desc *structDesc, method *reflect.Method) {
 	buf.WriteString("func(me ")
 	buf.WriteString(desc.ty.Name())
 	buf.WriteString("Field) ")
@@ -180,7 +180,7 @@ func codeGenCloneMethod(buf *str.Buf, desc *structDesc, method *reflect.Method) 
 	buf.WriteString("}\n")
 }
 
-func codeGenWriteEnumDecl(buf *str.Buf, desc *structDesc, name string, goTypeAliasOf string, isForCols bool) {
+func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc, name string, goTypeAliasOf string, isForCols bool) {
 	buf.WriteString("type ")
 	buf.WriteString(desc.ty.Name())
 	buf.WriteString(name)
@@ -188,8 +188,14 @@ func codeGenWriteEnumDecl(buf *str.Buf, desc *structDesc, name string, goTypeAli
 	buf.WriteString(goTypeAliasOf)
 	buf.WriteString("\n\n")
 	buf.WriteString("const (\n")
+	var ref_fields []q.F
 	for i, col_name := range desc.cols {
 		field_name := desc.fields[i]
+		field, _ := desc.ty.FieldByName(string(field_name))
+		if ref_of_type := isDbRefType(field.Type); isForCols && ("" != ref_of_type) {
+			ref_fields = append(ref_fields, field_name)
+			println(ref_of_type, "in", desc.ty.String(), "'s", field.Name, field.Type.String())
+		}
 		buf.WriteByte('\t')
 		if isForCols || !str.IsLo(string(field_name[:1])) {
 			buf.WriteString(desc.ty.Name())
@@ -219,4 +225,7 @@ func codeGenWriteEnumDecl(buf *str.Buf, desc *structDesc, name string, goTypeAli
 		}
 	}
 	buf.WriteString(")\n\n")
+	// for _, field_name := range ref_fields {
+	// 	codegenWriteEnumDecl(buf, nil, name+"_"+string(field_name), goTypeAliasOf, isForCols)
+	// }
 }

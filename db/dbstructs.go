@@ -155,7 +155,7 @@ func (me *structDesc) fieldNameToColName(fieldName q.F) q.C {
 }
 
 func isColField(fieldType reflect.Type) bool {
-	return sl.Has(okTypes, fieldType) || isDbJsonType(fieldType) || isDbRefType(fieldType)
+	return sl.Has(okTypes, fieldType) || isDbJsonType(fieldType) || ("" != isDbRefType(fieldType))
 }
 
 func isDbJsonType(ty reflect.Type) bool {
@@ -183,9 +183,12 @@ func isWhatDbJsonType(ty reflect.Type) (isDbJsonDictType bool, isDbJsonArrType b
 	return
 }
 
-func isDbRefType(ty reflect.Type) bool {
+func isDbRefType(ty reflect.Type) string {
 	type_name := ty.Name()
-	return ty.PkgPath() == PkgInfo.PkgPath() && str.Begins(type_name, "Ref[") && str.Ends(type_name, "]")
+	if idx := str.IdxSub(type_name, "Ref["); (idx > 0) && ty.PkgPath() == PkgInfo.PkgPath() && str.Ends(type_name, "]") {
+		return type_name[idx+len("Ref[") : len(type_name)-1]
+	}
+	return ""
 }
 
 func desc[T any]() (ret *structDesc) {
@@ -309,7 +312,7 @@ func (me scanner) Scan(it any) error {
 		case tyI64:
 			setPtr(me.ptr, (I64)(it))
 		default:
-			if isDbRefType(me.ty) {
+			if isDbRefType(me.ty) != "" {
 				setPtr(me.ptr, (I64)(it))
 			} else {
 				panic(str.Fmt("scanner.Scan %T into %s", it, me.ty.String()))

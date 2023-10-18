@@ -20,6 +20,7 @@ var (
 	TrimL    = strings.TrimPrefix
 	TrimR    = strings.TrimSuffix
 	Idx      = strings.IndexByte
+	IdxSub   = strings.Index
 	IdxLast  = strings.LastIndexByte
 	Join     = strings.Join
 	Split    = strings.Split

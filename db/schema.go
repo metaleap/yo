@@ -194,7 +194,7 @@ func sqlColTypeFrom(ty reflect.Type) string {
 	default:
 		if isDbJsonType(ty) {
 			return "jsonb"
-		} else if isDbRefType(ty) {
+		} else if isDbRefType(ty) != "" {
 			return "int8"
 		}
 		panic(ty)
@@ -215,7 +215,7 @@ func sqlColTypeDeclFrom(ty reflect.Type) string {
 	default:
 		if is_db_json_dict_type, is_db_json_arr_type, is_db_json_obj_type := isWhatDbJsonType(ty); is_db_json_obj_type || is_db_json_dict_type || is_db_json_arr_type {
 			return sql_data_type_name + " NULL DEFAULT (NULL)"
-		} else if isDbRefType(ty) {
+		} else if isDbRefType(ty) != "" {
 			dummy := reflect.New(ty).Interface().(interface {
 				structDesc() *structDesc
 				refOnDel
