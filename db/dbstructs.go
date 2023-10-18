@@ -432,6 +432,10 @@ func (me *Text) Do(f func(string) string) {
 	*me = (Text)(f((string)(*me)))
 }
 
+func (me Text) But(f func(string) string) Text {
+	return (Text)(f((string)(me)))
+}
+
 func DtFrom(f func() time.Time) *DateTime {
 	var ret DateTime
 	ret.SetFrom(f)
@@ -440,6 +444,14 @@ func DtFrom(f func() time.Time) *DateTime {
 
 func (me *DateTime) SetFrom(f func() time.Time) {
 	*me = (DateTime)(f())
+}
+
+func (me Arr[T]) ToAnys() (ret []any) {
+	ret = make([]any, len(me))
+	for i := range me {
+		ret[i] = me[i]
+	}
+	return
 }
 
 func (me *Arr[T]) EnsureAllUnique() {
