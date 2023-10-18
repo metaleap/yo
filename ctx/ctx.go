@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	doErrCatchInDevMode   = true // gotta toggle occasionally during local debug
 	ErrMustBeAdmin        = Err("MustBeAdmin")
 	ErrTimedOut           = Err("TimedOut")
 	ErrDbNotStored        = Err("DbWriteRequestAcceptedWithoutErrButNotStoredEither")
@@ -51,7 +50,6 @@ type Ctx struct {
 	}
 	Timings                 Timings
 	TimingsNoPrintInDevMode bool // never printed in non-dev-mode anyway
-	DbgNoCatch              bool
 }
 
 func newCtx(timeout time.Duration, timingsName string) *Ctx {
@@ -69,15 +67,6 @@ func NewCtxForHttp(req *http.Request, resp http.ResponseWriter, timeout time.Dur
 	return ctx
 }
 
-func NewCtxDebugNoCatch(timeout time.Duration, timingsName string) *Ctx {
-	if !IsDevMode {
-		panic("yoctx.NewDebugNoCatch called in non-dev build")
-	}
-	ctx := newCtx(timeout, timingsName)
-	ctx.DbgNoCatch = true
-	return ctx
-}
-
 func NewCtxNonHttp(timeout time.Duration, timingsName string) *Ctx {
 	ctx := newCtx(timeout, timingsName)
 	return ctx
@@ -85,7 +74,7 @@ func NewCtxNonHttp(timeout time.Duration, timingsName string) *Ctx {
 
 func (me *Ctx) OnDone(subTimings Timings) {
 	var fail any
-	if (!IsDevMode) || (doErrCatchInDevMode && !me.DbgNoCatch) {
+	if (!IsDevMode) || catchPanics {
 		fail = recover()
 	}
 	if err, _ := fail.(error); err == context.DeadlineExceeded {

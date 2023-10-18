@@ -397,7 +397,7 @@ func Q[T any](it *T) q.Query {
 
 func doEnsureDbStructTables() {
 	for _, desc := range ensureDescs {
-		ctx := yoctx.NewCtxDebugNoCatch(Cfg.DB_REQ_TIMEOUT, "db.Mig: "+desc.tableName) // yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
+		ctx := yoctx.NewCtxNonHttp(Cfg.DB_REQ_TIMEOUT, "db.Mig: "+desc.tableName) // yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
 		defer ctx.OnDone(nil)
 		ctx.Timings.Step("open TX")
 		ctx.DbTx()
