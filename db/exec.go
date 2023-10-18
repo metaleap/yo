@@ -16,6 +16,8 @@ import (
 
 type dbArgs = pgx.NamedArgs
 
+var PrintRawSqlInDevMode = true
+
 func ById[T any](ctx *Ctx, id I64) *T {
 	if id <= 0 {
 		return nil
@@ -273,7 +275,7 @@ func dbArgsCleanUpForPgx(args dbArgs) dbArgs {
 }
 
 func printIfDbgMode(sqlRaw string, args dbArgs) {
-	if IsDevMode {
+	if IsDevMode && PrintRawSqlInDevMode {
 		println("\n" + sqlRaw + "\n\t" + str.From(args))
 	}
 }

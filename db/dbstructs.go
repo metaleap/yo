@@ -397,7 +397,7 @@ func Q[T any](it *T) q.Query {
 
 func doEnsureDbStructTables() {
 	for _, desc := range ensureDescs {
-		ctx := yoctx.NewDebugNoCatch(Cfg.DB_REQ_TIMEOUT, "db.Mig: "+desc.tableName) // yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
+		ctx := yoctx.NewCtxDebugNoCatch(Cfg.DB_REQ_TIMEOUT, "db.Mig: "+desc.tableName) // yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
 		defer ctx.OnDone(nil)
 		ctx.Timings.Step("open TX")
 		ctx.DbTx()
@@ -446,8 +446,10 @@ func (me *Arr[T]) EnsureAllUnique() {
 	this := *me
 	var idxs_to_remove []int
 	for i := len(this) - 1; i >= 0; i-- {
-		if rv := reflect.ValueOf(this[i]); sl.IdxWhere(this, func(it T) bool { return reflect.DeepEqual(rv, reflect.ValueOf(it)) }) < i {
-			idxs_to_remove = append(idxs_to_remove, i)
+		for j := 0; j < i; j++ {
+			if cur, other := reflect.ValueOf(this[i]), reflect.ValueOf(this[j]); reflect.DeepEqual(cur, other) {
+				idxs_to_remove = append(idxs_to_remove, j) // dont `break`, there might be more =)
+			}
 		}
 	}
 	this = sl.WithoutIdxs(this, idxs_to_remove...)

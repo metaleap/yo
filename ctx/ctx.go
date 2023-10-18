@@ -60,20 +60,23 @@ func newCtx(timeout time.Duration, timingsName string) *Ctx {
 	return &ctx
 }
 
-func NewForHttp(req *http.Request, resp http.ResponseWriter, timeout time.Duration) *Ctx {
+func NewCtxForHttp(req *http.Request, resp http.ResponseWriter, timeout time.Duration) *Ctx {
 	ctx := newCtx(timeout, req.RequestURI)
 	ctx.Http.Req, ctx.Http.Resp, ctx.Http.UrlPath, ctx.Http.respCookies, ctx.Http.reqCookies =
 		req, resp, str.TrimR(str.TrimL(req.URL.Path, "/"), "/"), map[string]*http.Cookie{}, str.Dict{}
 	return ctx
 }
 
-func NewDebugNoCatch(timeout time.Duration, timingsName string) *Ctx {
+func NewCtxDebugNoCatch(timeout time.Duration, timingsName string) *Ctx {
+	if !IsDevMode {
+		panic("yoctx.NewDebugNoCatch called in non-dev build")
+	}
 	ctx := newCtx(timeout, timingsName)
 	ctx.DbgNoCatch = true
 	return ctx
 }
 
-func NewNonHttp(timeout time.Duration, timingsName string) *Ctx {
+func NewCtxNonHttp(timeout time.Duration, timingsName string) *Ctx {
 	ctx := newCtx(timeout, timingsName)
 	return ctx
 }

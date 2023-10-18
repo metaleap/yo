@@ -66,7 +66,7 @@ func listenAndServe() {
 }
 
 func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
-	ctx := yoctx.NewForHttp(req, rw, Cfg.YO_API_IMPL_TIMEOUT)
+	ctx := yoctx.NewCtxForHttp(req, rw, Cfg.YO_API_IMPL_TIMEOUT)
 	defer ctx.OnDone(nil)
 
 	if IsDevMode {
