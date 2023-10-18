@@ -46,7 +46,8 @@ type Ctx struct {
 		respWriting bool
 	}
 	Db struct {
-		Tx *sql.Tx
+		PrintRawSqlInDevMode bool
+		Tx                   *sql.Tx
 	}
 	Timings    Timings
 	DbgNoCatch bool

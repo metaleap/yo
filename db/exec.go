@@ -16,8 +16,6 @@ import (
 
 type dbArgs = pgx.NamedArgs
 
-var PrintRawSqlInDevMode = true
-
 func ById[T any](ctx *Ctx, id I64) *T {
 	if id <= 0 {
 		return nil
@@ -171,7 +169,7 @@ func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {
 	}
 
 	args = dbArgsCleanUpForPgx(args)
-	printIfDbgMode(sql_raw, args)
+	printIfDbgMode(ctx, sql_raw, args)
 	result, err := do_exec(ctx, sql_raw, args)
 	if err != nil {
 		panic(err)
@@ -197,7 +195,7 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 	}
 
 	args = dbArgsCleanUpForPgx(args)
-	printIfDbgMode(sql_raw, args)
+	printIfDbgMode(ctx, sql_raw, args)
 	rows, err := do_query(ctx, sql_raw, args)
 	if rows != nil {
 		defer rows.Close()
@@ -274,8 +272,8 @@ func dbArgsCleanUpForPgx(args dbArgs) dbArgs {
 	return args
 }
 
-func printIfDbgMode(sqlRaw string, args dbArgs) {
-	if IsDevMode && PrintRawSqlInDevMode {
+func printIfDbgMode(ctx *Ctx, sqlRaw string, args dbArgs) {
+	if IsDevMode && ctx.Db.PrintRawSqlInDevMode {
 		println("\n" + sqlRaw + "\n\t" + str.From(args))
 	}
 }
