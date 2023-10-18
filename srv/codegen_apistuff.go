@@ -372,9 +372,10 @@ func codegenTsSdkTypeName(apiRefl *apiRefl, typeName string) string {
 	return ToIdent(typeName[str.Idx(typeName, '.')+1:])
 }
 
+// currently unused, but if ever numbered identifiers need to be generated into the emitted output file...
 func (me *apiRefl) strLit(value string) (name string) {
 	if name = me.codeGen.strLits[value]; name == "" {
-		name = "s" + str.Base36(len(me.codeGen.strLits))
+		name = "__s" + str.Base36(len(me.codeGen.strLits))
 		me.codeGen.strLits[value] = name
 	}
 	return
