@@ -397,15 +397,6 @@ func Q[T any](it *T) q.Query {
 
 func doEnsureDbStructTables() {
 	for _, desc := range ensureDescs {
-		for _, field_name := range desc.fields {
-			field, _ := desc.ty.FieldByName(string(field_name))
-			field_type := field.Type
-			if ftn := field_type.Name(); (field_type.PkgPath() == PkgInfo.PkgPath()) && (str.Begins(ftn, "Ref[") && str.Ends(ftn, "]")) {
-
-			}
-		}
-	}
-	for _, desc := range ensureDescs {
 		ctx := yoctx.NewCtxNonHttp(Cfg.DB_REQ_TIMEOUT, "db.Mig: "+desc.tableName) // yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
 		defer ctx.OnDone(nil)
 		ctx.Timings.Step("open TX")
