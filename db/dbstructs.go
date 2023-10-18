@@ -185,8 +185,9 @@ func isWhatDbJsonType(ty reflect.Type) (isDbJsonDictType bool, isDbJsonArrType b
 
 func isDbRefType(ty reflect.Type) string {
 	type_name := ty.Name()
-	if idx := str.IdxSub(type_name, "Ref["); (idx > 0) && ty.PkgPath() == PkgInfo.PkgPath() && str.Ends(type_name, "]") {
-		return type_name[idx+len("Ref[") : len(type_name)-1]
+	if idx := str.IdxSub(type_name, "Ref["); (idx == 0) && ty.PkgPath() == PkgInfo.PkgPath() && str.Ends(type_name, "]") {
+		ret := type_name[idx+len("Ref[") : len(type_name)-1]
+		return ret[:str.Idx(ret, ',')]
 	}
 	return ""
 }

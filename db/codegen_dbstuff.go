@@ -180,22 +180,36 @@ func codegenCloneMethod(buf *str.Buf, desc *structDesc, method *reflect.Method) 
 	buf.WriteString("}\n")
 }
 
-func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc, name string, goTypeAliasOf string, isForCols bool) {
+func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc, infix string, goTypeAliasOf string, isForCols bool) {
 	buf.WriteString("type ")
 	buf.WriteString(desc.ty.Name())
-	buf.WriteString(name)
+	buf.WriteString(infix)
 	buf.WriteString(If(isForCols, " = ", " "))
 	buf.WriteString(goTypeAliasOf)
 	buf.WriteString("\n\n")
 	buf.WriteString("const (\n")
-	var ref_fields []q.F
+	var ref_fields []Pair[q.F, *structDesc]
+	if !isForCols {
+		for i := range desc.cols {
+			field_name := desc.fields[i]
+			field, _ := desc.ty.FieldByName(string(field_name))
+			if ref_of_type := isDbRefType(field.Type); (!isForCols) && ("" != ref_of_type) {
+				var sub_desc *structDesc
+				for _, desc := range descs {
+					if ty_ident := desc.ty.PkgPath() + "." + desc.ty.Name(); ty_ident == ref_of_type {
+						sub_desc = desc
+						break
+					}
+				}
+				if sub_desc == nil {
+					panic(str.Fmt("un-`Ensure`d type '%s' ref'd by '%s'.'%s'  ", ref_of_type, desc.ty.String(), field_name))
+				}
+				ref_fields = append(ref_fields, Pair[q.F, *structDesc]{field_name, sub_desc})
+			}
+		}
+	}
 	for i, col_name := range desc.cols {
 		field_name := desc.fields[i]
-		field, _ := desc.ty.FieldByName(string(field_name))
-		if ref_of_type := isDbRefType(field.Type); isForCols && ("" != ref_of_type) {
-			ref_fields = append(ref_fields, field_name)
-			println(ref_of_type, "in", desc.ty.String(), "'s", field.Name, field.Type.String())
-		}
 		buf.WriteByte('\t')
 		if isForCols || !str.IsLo(string(field_name[:1])) {
 			buf.WriteString(desc.ty.Name())
@@ -203,18 +217,18 @@ func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc, name string, goTypeAli
 			buf.WriteString(str.Lo(desc.ty.Name()[:1]))
 			buf.WriteString(desc.ty.Name()[1:])
 		}
-		buf.WriteString(name)
-		buf.WriteString(str.Up(string(desc.fields[i][:1])))
-		buf.WriteString(string(desc.fields[i][1:]))
+		buf.WriteString(infix)
+		buf.WriteString(str.Up(string(field_name[:1])))
+		buf.WriteString(string(field_name[1:]))
 		if !isForCols {
 			buf.WriteString(" ")
 			buf.WriteString(desc.ty.Name())
-			buf.WriteString(name)
+			buf.WriteString(infix)
 		}
 		buf.WriteString(" = ")
 		if isForCols {
 			buf.WriteString(desc.ty.Name())
-			buf.WriteString(name)
+			buf.WriteString(infix)
 			buf.WriteString("(\"")
 			buf.WriteString(string(col_name))
 			buf.WriteString("\")\n")
@@ -224,8 +238,31 @@ func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc, name string, goTypeAli
 			buf.WriteString("\"\n")
 		}
 	}
+	for _, ref_field := range ref_fields {
+		field_name := ref_field.Key
+		for _, sub_field := range ref_field.It.fields {
+			buf.WriteByte('\t')
+			if !str.IsLo(string(sub_field[:1])) {
+				buf.WriteString(desc.ty.Name())
+			} else {
+				buf.WriteString(str.Lo(desc.ty.Name()[:1]))
+				buf.WriteString(desc.ty.Name()[1:])
+			}
+			buf.WriteString(infix)
+			buf.WriteString(str.Up(string(field_name[:1])))
+			buf.WriteString(string(field_name[1:]))
+			buf.WriteByte('_')
+			buf.WriteString(string(sub_field))
+			buf.WriteString(" ")
+			buf.WriteString(" = ")
+			buf.WriteString(desc.ty.Name())
+			buf.WriteString(infix)
+			buf.WriteString("(\"")
+			buf.WriteString(string(field_name))
+			buf.WriteByte('.')
+			buf.WriteString(string(sub_field))
+			buf.WriteString("\")\n")
+		}
+	}
 	buf.WriteString(")\n\n")
-	// for _, field_name := range ref_fields {
-	// 	codegenWriteEnumDecl(buf, nil, name+"_"+string(field_name), goTypeAliasOf, isForCols)
-	// }
 }
