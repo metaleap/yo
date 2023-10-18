@@ -36,7 +36,7 @@ func ViaHttp[TIn any, TOut any](ctx *Ctx, methodPath string, args *TIn, client *
 	if err != nil {
 		panic(err)
 	}
-	if bytes.Equal(resp_raw, yojson.JsonNullTok) {
+	if bytes.Equal(resp_raw, yojson.JsonTokNull) {
 		return nil
 	}
 

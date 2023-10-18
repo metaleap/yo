@@ -1,6 +1,7 @@
 package yodb
 
 import (
+	"bytes"
 	"database/sql"
 	"reflect"
 	"time"
@@ -258,6 +259,9 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 
 func dbArgsCleanUpForPgx(args dbArgs) dbArgs {
 	for k, v := range args {
+		if v == nil {
+			continue
+		}
 		if b, is := v.(Bytes); is {
 			args[k] = ([]byte)(b)
 		} else if dt, is := v.(*DateTime); is {
@@ -268,10 +272,12 @@ func dbArgsCleanUpForPgx(args dbArgs) dbArgs {
 		} else if rv := reflect.ValueOf(v); !rv.IsValid() {
 			panic(v)
 		} else if rvt := rv.Type(); isDbJsonType(rvt) {
-			if jsonb, err := yojson.Marshal(v); err == nil {
-				args[k] = jsonb
-			} else {
+			if jsonb, err := yojson.Marshal(v); err != nil {
 				panic(err)
+			} else if bytes.Equal(jsonb, yojson.JsonTokEmptyArr) || bytes.Equal(jsonb, yojson.JsonTokEmptyObj) || bytes.Equal(jsonb, yojson.JsonTokNull) {
+				args[k] = nil
+			} else {
+				args[k] = jsonb
 			}
 		}
 	}

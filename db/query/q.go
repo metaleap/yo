@@ -64,6 +64,14 @@ func (me V) In(set ...any) Query            { return In(me, set...) }
 func (me V) NotIn(set ...any) Query         { return NotIn(me, set...) }
 func (me V) Eval(any, func(C) F) any        { return me.Value }
 
+func That(value any) Operand { return V{value} }
+func isNull(value any) bool {
+	if v, is := value.(V); is {
+		return (v.Value == nil)
+	}
+	return (value == nil)
+}
+
 type fn string
 
 const (
@@ -175,7 +183,8 @@ func inNotIn(op string, lhs Operand, rhs ...Operand) Query {
 		panic(str.Trim(str.Trim(op) + ": empty set"))
 	}
 	sub_stmt, _ := rhs[0].(interface{ Sql(*str.Buf) })
-	return &query{op: If(((len(rhs) == 1) && (sub_stmt == nil)), opEq, op), operands: append([]Operand{lhs}, rhs...)}
+	_, is_literal := rhs[0].(V)
+	return &query{op: If(((len(rhs) == 1) && (sub_stmt == nil) && ((rhs[0] == nil) || is_literal)), opEq, op), operands: append([]Operand{lhs}, rhs...)}
 }
 func AllTrue(conds ...Query) Query {
 	return If((len(conds) == 0), nil, If((len(conds) == 1), conds[0], (Query)(&query{op: opAnd, conds: conds})))
@@ -254,9 +263,15 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 		} else if fld_name, is := operand.(F); is {
 			buf.WriteString(string(fld2col(fld_name)))
 		} else if v, is := operand.(V); is {
-			arg_name := "@A" + str.FromInt(len(args))
-			args[arg_name[1:]] = v.Value
-			buf.WriteString(arg_name)
+			if v.Value == true {
+				buf.WriteString("(true::boolean)")
+			} else if v.Value == false {
+				buf.WriteString("(false::boolean)")
+			} else {
+				arg_name := "@A" + str.FromInt(len(args))
+				args[arg_name[1:]] = v.Value
+				buf.WriteString(arg_name)
+			}
 		} else if fn, _ := operand.(*fun); fn != nil {
 			buf.WriteString(string(fn.Fn))
 			buf.WriteByte('(')
@@ -294,21 +309,34 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 		}
 	default:
 		is_in_or_notin := (me.op == opIn) || (me.op == opNotIn)
-		for i, operand := range me.operands {
-			if i > 0 {
-				if buf.WriteString(string(me.op)); is_in_or_notin {
-					buf.WriteByte('(')
-					for j, operand := range me.operands[i:] {
-						if j > 0 {
-							buf.WriteString(", ")
-						}
-						do_arg(operand)
-					}
-					buf.WriteByte(')')
-					break
-				}
+		is_eq, is_ne, lnull, rnull := (me.op == opEq), (me.op == opNeq), isNull(me.operands[0]), isNull(me.operands[1])
+		if (lnull || rnull) && (is_eq || is_ne) { // `IS NULL` not `= NULL`
+			if lnull && rnull {
+				buf.WriteString(If(is_eq, "true", "false"))
+			} else if lnull {
+				buf.WriteString(If(is_ne, " NULL IS NOT ", " NULL IS "))
+				do_arg(me.operands[1])
+			} else if rnull {
+				do_arg(me.operands[0])
+				buf.WriteString(If(is_ne, " IS NOT NULL ", " IS NULL "))
 			}
-			do_arg(operand)
+		} else {
+			for i, operand := range me.operands {
+				if i > 0 {
+					if buf.WriteString(string(me.op)); is_in_or_notin {
+						buf.WriteByte('(')
+						for j, operand := range me.operands[i:] {
+							if j > 0 {
+								buf.WriteString(", ")
+							}
+							do_arg(operand)
+						}
+						buf.WriteByte(')')
+						break
+					}
+				}
+				do_arg(operand)
+			}
 		}
 	}
 	buf.WriteByte(')')
