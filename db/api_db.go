@@ -109,7 +109,7 @@ func apiFindMany[TObj any, TFld ~string](this *ApiCtx[argQuery[TObj, TFld], Retu
 }
 
 func apiCount[TObj any, TFld ~string](this *ApiCtx[argQuery[TObj, TFld], retCount]) {
-	this.Ret.Count = Count[TObj](this.Ctx, this.Args.toDbQ(), 0, "", nil)
+	this.Ret.Count = Count[TObj](this.Ctx, this.Args.toDbQ(), "", nil)
 }
 
 func apiCreateOne[TObj any, TFld ~string](this *ApiCtx[TObj, struct {

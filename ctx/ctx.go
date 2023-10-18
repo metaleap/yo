@@ -46,11 +46,12 @@ type Ctx struct {
 		respWriting bool
 	}
 	Db struct {
-		PrintRawSqlInDevMode bool
+		PrintRawSqlInDevMode bool // never printed in non-dev-mode anyway
 		Tx                   *sql.Tx
 	}
-	Timings    Timings
-	DbgNoCatch bool
+	Timings                 Timings
+	TimingsNoPrintInDevMode bool // never printed in non-dev-mode anyway
+	DbgNoCatch              bool
 }
 
 func newCtx(timeout time.Duration, timingsName string) *Ctx {
@@ -120,10 +121,10 @@ func (me *Ctx) OnDone(subTimings Timings) {
 	if me.ctxDone != nil {
 		me.ctxDone()
 	}
-	if IsDevMode {
+	if IsDevMode && !me.TimingsNoPrintInDevMode {
 		do_print_timings := func(it Timings) {
 			total_duration, steps := it.AllDone()
-			println("\n" + it.String() + "\n  . . . " + str.DurationMs(total_duration) + ", whereof:")
+			println("\n" + it.String() + "\n  . . . " + str.DurationMs(total_duration) + ", like so:")
 			for _, step := range steps {
 				println(step.Step + ":\t" + str.DurationMs(step.Time))
 			}

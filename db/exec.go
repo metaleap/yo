@@ -60,13 +60,13 @@ func Page[T any](ctx *Ctx, query q.Query, limit int, orderBy q.OrderBy, pageTok 
 	return
 }
 
-func Count[T any](ctx *Ctx, query q.Query, max int, nonNullColumn q.C, distinct *q.C) int64 {
+func Count[T any](ctx *Ctx, query q.Query, nonNullColumn q.C, distinct *q.C) int64 {
 	desc, args := desc[T](), dbArgs{}
 	col := If((nonNullColumn != ""), nonNullColumn, ColID)
 	if distinct != nil {
 		col = *distinct
 	}
-	results := doSelect[int64](ctx, new(sqlStmt).sel(col, distinct != nil).from(desc.tableName).limit(max).where(query, desc.fieldNameToColName, args), args, 1)
+	results := doSelect[int64](ctx, new(sqlStmt).sel(col, distinct != nil).from(desc.tableName).where(query, desc.fieldNameToColName, args), args, 1)
 	return *results[0]
 }
 
