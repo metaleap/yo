@@ -60,6 +60,15 @@ func DurationMs(nanos int64) string {
 	return FromFloat(ms, 2) + "ms"
 }
 
+func IdxRune(s string, r rune) int {
+	for i, it := range s {
+		if it == r {
+			return i
+		}
+	}
+	return -1
+}
+
 func IsLo(s string) bool {
 	for _, r := range s {
 		if !unicode.IsLower(r) {
