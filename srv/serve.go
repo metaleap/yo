@@ -44,7 +44,7 @@ var (
 	PreApiHandling = []Middleware{}
 
 	// set by app for home and vanity-URL (non-file, non-API) requests
-	AppSideStaticRedirectPathFor func(string) string
+	AppSideStaticRePathFor func(string) string
 )
 
 func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
@@ -87,10 +87,10 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	ctx.Timings.Step("static check")
-	if (AppSideStaticRedirectPathFor != nil) && !str.Begins(ctx.Http.UrlPath, "_") {
-		if re_path := AppSideStaticRedirectPathFor(ctx.Http.UrlPath); (re_path != "") && (re_path != ctx.Http.UrlPath) {
+	if (AppSideStaticRePathFor != nil) && !str.Begins(ctx.Http.UrlPath, "_") {
+		if re_path := AppSideStaticRePathFor(ctx.Http.UrlPath); (re_path != "") && (re_path != ctx.Http.UrlPath) {
 			ctx.Http.UrlPath = re_path
-			req.RequestURI = "/" + re_path // loses query-args, but not expected for static content either
+			req.RequestURI = "/" + re_path // loses query-args, which aren't expected for purely static content anyway
 			req.URL.Path = "/" + re_path
 		}
 	}
