@@ -169,9 +169,7 @@ func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {
 	}
 
 	args = dbArgsCleanUpForPgx(args)
-	if IsDevMode {
-		println(sql_raw, str.From(args))
-	}
+	printIfDbgMode(sql_raw, args)
 	result, err := do_exec(ctx, sql_raw, args)
 	if err != nil {
 		panic(err)
@@ -197,9 +195,7 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 	}
 
 	args = dbArgsCleanUpForPgx(args)
-	if IsDevMode {
-		println(sql_raw, str.From(args))
-	}
+	printIfDbgMode(sql_raw, args)
 	rows, err := do_query(ctx, sql_raw, args)
 	if rows != nil {
 		defer rows.Close()
@@ -274,4 +270,10 @@ func dbArgsCleanUpForPgx(args dbArgs) dbArgs {
 		}
 	}
 	return args
+}
+
+func printIfDbgMode(sqlRaw string, args dbArgs) {
+	if IsDevMode {
+		println("\n" + sqlRaw + "\n\t" + str.From(args))
+	}
 }
