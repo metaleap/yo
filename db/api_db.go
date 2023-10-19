@@ -43,7 +43,7 @@ func apiMethodPath(typeName string, relMethodPath string) string {
 	return "__/yo/db/" + typeName + "/" + relMethodPath
 }
 
-func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
+func registerApiHandlers[TObj any, TFld q.Field](desc *structDesc) {
 	type_name := desc.ty.Name()
 
 	Apis(ApiMethods{
@@ -69,7 +69,7 @@ func registerApiHandlers[TObj any, TFld ~string](desc *structDesc) {
 
 type retCount struct{ Count int64 }
 type ApiArgId struct{ Id I64 }
-type argQuery[TObj any, TFld ~string] struct {
+type argQuery[TObj any, TFld q.Field] struct {
 	Query     *ApiQueryExpr[TObj, TFld]
 	QueryFrom *TObj
 	OrderBy   []*ApiOrderBy[TObj, TFld]
@@ -96,40 +96,40 @@ func (me *argQuery[TObj, TFld]) toDbO() []q.OrderBy {
 	})
 }
 
-func apiFindById[TObj any, TFld ~string](this *ApiCtx[ApiArgId, TObj]) {
+func apiFindById[TObj any, TFld q.Field](this *ApiCtx[ApiArgId, TObj]) {
 	this.Ret = ById[TObj](this.Ctx, this.Args.Id)
 }
 
-func apiFindOne[TObj any, TFld ~string](this *ApiCtx[argQuery[TObj, TFld], Return[*TObj]]) {
+func apiFindOne[TObj any, TFld q.Field](this *ApiCtx[argQuery[TObj, TFld], Return[*TObj]]) {
 	this.Ret.Result = FindOne[TObj](this.Ctx, this.Args.toDbQ(), this.Args.toDbO()...)
 }
 
-func apiFindMany[TObj any, TFld ~string](this *ApiCtx[argQuery[TObj, TFld], Return[[]*TObj]]) {
+func apiFindMany[TObj any, TFld q.Field](this *ApiCtx[argQuery[TObj, TFld], Return[[]*TObj]]) {
 	this.Ret.Result = FindMany[TObj](this.Ctx, this.Args.toDbQ(), int(this.Args.Max), this.Args.toDbO()...)
 }
 
-func apiCount[TObj any, TFld ~string](this *ApiCtx[argQuery[TObj, TFld], retCount]) {
+func apiCount[TObj any, TFld q.Field](this *ApiCtx[argQuery[TObj, TFld], retCount]) {
 	this.Ret.Count = Count[TObj](this.Ctx, this.Args.toDbQ(), "", nil)
 }
 
-func apiCreateOne[TObj any, TFld ~string](this *ApiCtx[TObj, struct {
+func apiCreateOne[TObj any, TFld q.Field](this *ApiCtx[TObj, struct {
 	ID int64
 }]) {
 	id := CreateOne[TObj](this.Ctx, this.Args)
 	this.Ret.ID = int64(id)
 }
 
-func apiCreateMany[TObj any, TFld ~string](this *ApiCtx[struct {
+func apiCreateMany[TObj any, TFld q.Field](this *ApiCtx[struct {
 	Items []TObj
 }, Void]) {
 	CreateMany[TObj](this.Ctx, sl.Ptrs(this.Args.Items)...)
 }
 
-func apiDeleteOne[TObj any, TFld ~string](this *ApiCtx[ApiArgId, retCount]) {
+func apiDeleteOne[TObj any, TFld q.Field](this *ApiCtx[ApiArgId, retCount]) {
 	this.Ret.Count = Delete[TObj](this.Ctx, ColID.Equal(this.Args.Id))
 }
 
-func apiDeleteMany[TObj any, TFld ~string](this *ApiCtx[argQuery[TObj, TFld], retCount]) {
+func apiDeleteMany[TObj any, TFld q.Field](this *ApiCtx[argQuery[TObj, TFld], retCount]) {
 	this.Ret.Count = Delete[TObj](this.Ctx, this.Args.toDbQ())
 }
 
@@ -139,14 +139,14 @@ type ApiUpdateArgs[TObj any] struct {
 	IncludingEmptyOrMissingFields bool
 }
 
-func apiUpdateOne[TObj any, TFld ~string](this *ApiCtx[ApiUpdateArgs[TObj], retCount]) {
+func apiUpdateOne[TObj any, TFld q.Field](this *ApiCtx[ApiUpdateArgs[TObj], retCount]) {
 	if this.Args.Id <= 0 {
 		panic(Err(yoctx.ErrDbUpdExpectedIdGt0))
 	}
 	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, ColID.Equal(this.Args.Id))
 }
 
-func apiUpdateMany[TObj any, TFld ~string](this *ApiCtx[struct {
+func apiUpdateMany[TObj any, TFld q.Field](this *ApiCtx[struct {
 	argQuery[TObj, TFld]
 	Changes                       TObj
 	IncludingEmptyOrMissingFields bool
@@ -154,17 +154,17 @@ func apiUpdateMany[TObj any, TFld ~string](this *ApiCtx[struct {
 	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, this.Args.toDbQ())
 }
 
-type ApiOrderBy[TObj any, TFld ~string] struct {
+type ApiOrderBy[TObj any, TFld q.Field] struct {
 	Fld  TFld
 	Desc bool
 }
-type ApiQueryVal[TObj any, TFld ~string] struct {
+type ApiQueryVal[TObj any, TFld q.Field] struct {
 	Fld  *TFld
 	Str  *string
 	Bool *bool
 	Int  *int64
 }
-type ApiQueryExpr[TObj any, TFld ~string] struct {
+type ApiQueryExpr[TObj any, TFld q.Field] struct {
 	AND []ApiQueryExpr[TObj, TFld]
 	OR  []ApiQueryExpr[TObj, TFld]
 	NOT *ApiQueryExpr[TObj, TFld]

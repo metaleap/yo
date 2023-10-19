@@ -31,8 +31,9 @@ func GetTable(ctx *Ctx, tableName string) []*TableColumn {
 	return doSelect[TableColumn](ctx, stmt, args, 0)
 }
 
-func (me *sqlStmt) createTable(desc *structDesc) *sqlStmt {
-	w := (*str.Buf)(me).WriteString
+func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
+	stmt_create_table := new(sqlStmt)
+	w := (*str.Buf)(stmt_create_table).WriteString
 	w("CREATE TABLE IF NOT EXISTS ")
 	w(desc.tableName)
 	w(" (\n\t")
@@ -52,7 +53,30 @@ func (me *sqlStmt) createTable(desc *structDesc) *sqlStmt {
 		}
 	}
 	w("\n)")
-	return me
+	ret = append(ret, stmt_create_table)
+
+	var indexed_cols []q.C
+	for i, field_name := range desc.fields { // always index foreign-key cols due to ON DELETE trigger perf
+		field, _ := desc.ty.FieldByName(string(field_name))
+		if "" != isDbRefType(field.Type) {
+			indexed_cols = append(indexed_cols, desc.cols[i])
+		}
+	}
+
+	for _, col_name := range indexed_cols {
+		stmt_create_index := new(sqlStmt)
+		w := (*str.Buf)(stmt_create_index).WriteString
+		w("CREATE INDEX IF NOT EXISTS idx_")
+		w(string(col_name))
+		w(" ON ")
+		w(desc.tableName)
+		w(" (")
+		w(string(col_name))
+		w(")")
+		ret = append(ret, stmt_create_index)
+	}
+
+	return
 }
 
 var sqlDtAltNames = map[string]Text{
@@ -61,7 +85,7 @@ var sqlDtAltNames = map[string]Text{
 	"int8": "bigint",
 }
 
-func alterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, renamesOldColToNewField map[q.C]q.F) (ret []*sqlStmt) {
+func schemaAlterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, renamesOldColToNewField map[q.C]q.F) (ret []*sqlStmt) {
 	if oldTableName == desc.tableName {
 		panic("invalid table rename: " + oldTableName)
 	}

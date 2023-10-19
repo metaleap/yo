@@ -1,8 +1,11 @@
 package yodb
 
+// TODO: select user_.* from user_ join user_auth_  on user_.auth_ = user_auth_.id_ where user_auth_.email_addr_ = 'foo321@bar.baz'
+
 import (
 	q "yo/db/query"
 	. "yo/util"
+	"yo/util/sl"
 	"yo/util/str"
 
 	"github.com/jackc/pgx/v5"
@@ -40,13 +43,23 @@ func (me *sqlStmt) update(desc *structDesc, colNames ...string) *sqlStmt {
 	w("UPDATE ")
 	w(desc.tableName)
 	w(" SET ")
-	for i, name := range colNames {
+	for i, col_name := range colNames {
+		field_name := desc.fields[sl.IdxOf(desc.cols, q.C(col_name))]
+		field, _ := desc.ty.FieldByName(string(field_name))
+
 		if i > 0 {
 			w(", ")
 		}
-		w(name)
-		w(" = @")
-		w(name)
+		w(col_name)
+		w(" = ")
+		if isDbJsonType(field.Type) {
+			w("jsonb_strip_nulls(@")
+			w(col_name)
+			w(")")
+		} else {
+			w("@")
+			w(col_name)
+		}
 	}
 	return me
 }
@@ -136,10 +149,10 @@ func (me *sqlStmt) orderBy(desc *structDesc, orderBy ...q.OrderBy) *sqlStmt {
 	return me
 }
 
-func (me *sqlStmt) insert(into string, numRows int, cols ...q.C) *sqlStmt {
+func (me *sqlStmt) insert(desc *structDesc, numRows int, cols ...q.C) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	w("INSERT INTO ")
-	w(into)
+	w(desc.tableName)
 	if numRows < 1 {
 		panic(numRows)
 	}
@@ -164,13 +177,23 @@ func (me *sqlStmt) insert(into string, numRows int, cols ...q.C) *sqlStmt {
 			}
 			w("(")
 			for i, col_name := range cols {
+				field_name := desc.fields[sl.IdxOf(desc.cols, q.C(col_name))]
+				field, _ := desc.ty.FieldByName(string(field_name))
+				is_json_field := isDbJsonType(field.Type)
+
 				if i > 0 {
 					w(", ")
+				}
+				if is_json_field {
+					w("jsonb_strip_nulls(")
 				}
 				w("@A")
 				w(string(col_name))
 				if numRows > 1 {
 					w(str.FromInt(j))
+				}
+				if is_json_field {
+					w(")")
 				}
 			}
 			w(")")

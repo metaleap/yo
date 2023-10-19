@@ -139,6 +139,8 @@ type structDesc struct {
 	tableName string // defaults to db.NameFrom(structTypeName)
 	fields    []q.F  // struct fields marked persistish by being of a `yo/db`-exported type
 	cols      []q.C  // for each field above, its db.NameFrom()
+	uniques   []q.F
+	indexed   []q.F
 	mig       struct {
 		oldTableName            string
 		renamesOldColToNewField map[q.C]q.F
@@ -355,11 +357,13 @@ func (me scanner) Scan(it any) error {
 	return nil
 }
 
-func Ensure[TObj any, TFld ~string](oldTableName string, renamesOldColToNewField map[q.C]q.F) {
+func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField map[q.C]q.F, uniques []TFld, indexed ...TFld) {
 	if inited {
 		panic("db.Ensure called after db.Init")
 	}
 	desc := desc[TObj]()
+	desc.indexed = sl.To(indexed, func(it TFld) q.F { return it.AsField() })
+	desc.uniques = sl.To(uniques, func(it TFld) q.F { return it.AsField() })
 	ensureDescs = append(ensureDescs, desc)
 	desc.mig.oldTableName, desc.mig.renamesOldColToNewField = oldTableName, renamesOldColToNewField
 	if (len(desc.cols) < 1) || (desc.cols[0] != ColID) {
@@ -412,13 +416,14 @@ func doEnsureDbStructTables() {
 		cur_table := GetTable(ctx, If(is_table_rename, desc.mig.oldTableName, desc.tableName))
 		if cur_table == nil {
 			ctx.TimingsNoPrintInDevMode = false
-			if !is_table_rename {
-				ctx.Timings.Step("createTable")
-				_ = doExec(ctx, new(sqlStmt).createTable(desc), nil)
-			} else {
+			if is_table_rename {
 				panic("outdated table rename: '" + desc.mig.oldTableName + "'")
 			}
-		} else if stmts := alterTable(desc, cur_table, desc.mig.oldTableName, desc.mig.renamesOldColToNewField); len(stmts) > 0 {
+			ctx.Timings.Step("createTable")
+			for _, stmt := range schemaCreateTable(desc) {
+				_ = doExec(ctx, stmt, nil)
+			}
+		} else if stmts := schemaAlterTable(desc, cur_table, desc.mig.oldTableName, desc.mig.renamesOldColToNewField); len(stmts) > 0 {
 			ctx.TimingsNoPrintInDevMode = false
 			for i, stmt := range stmts {
 				ctx.Timings.Step("alterTable " + str.FromInt(i+1) + "/" + str.FromInt(len(stmts)))

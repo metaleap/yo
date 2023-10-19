@@ -27,7 +27,7 @@ type UserAuth struct {
 }
 
 func init() {
-	yodb.Ensure[UserAuth, UserAuthField]("", nil)
+	yodb.Ensure[UserAuth, UserAuthField]("", nil, []UserAuthField{UserAuthFieldEmailAddr})
 }
 
 func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I64) {

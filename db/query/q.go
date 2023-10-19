@@ -256,8 +256,11 @@ type Operand interface {
 }
 
 type Field interface {
+	~string
 	Operand
 	AsField() F
+	Asc() OrderBy
+	Desc() OrderBy
 }
 
 type stmt interface {
@@ -291,7 +294,7 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 			sub_stmt.Sql(buf)
 		} else if col_name, is := operand.(C); is {
 			buf.WriteString(string(col_name))
-		} else if fld, is := operand.(Field); is {
+		} else if fld, is := operand.(interface{ AsField() F }); is {
 			buf.WriteString(string(fld2col(fld.AsField())))
 		} else if v, is := operand.(V); is {
 			if v.Value == true {

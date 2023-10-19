@@ -82,7 +82,8 @@ func CreateOne[T any](ctx *Ctx, rec *T) I64 {
 			args["A"+string(colName)] = fieldValue
 		}
 	})
-	result := doSelect[int64](ctx, new(sqlStmt).insert(desc.tableName, 1, desc.cols[2:]...), args, 1)
+	ctx.Db.PrintRawSqlInDevMode = true
+	result := doSelect[int64](ctx, new(sqlStmt).insert(desc, 1, desc.cols[2:]...), args, 1)
 	if (len(result) > 0) && (result[0] != nil) {
 		return I64(*result[0])
 	}
@@ -106,7 +107,7 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 			}
 		})
 	}
-	_ = doExec(ctx, new(sqlStmt).insert(desc.tableName, len(recs), desc.cols[2:]...), args)
+	_ = doExec(ctx, new(sqlStmt).insert(desc, len(recs), desc.cols[2:]...), args)
 }
 
 func Delete[T any](ctx *Ctx, where q.Query) int64 {
@@ -123,6 +124,7 @@ func Delete[T any](ctx *Ctx, where q.Query) int64 {
 }
 
 func Update[T any](ctx *Ctx, upd *T, includingEmptyOrMissingFields bool, where q.Query) int64 {
+	// TODO: neverUpdateFields
 	desc, args := desc[T](), dbArgs{}
 	col_names, col_vals := []string{}, []any{}
 	if upd != nil {
