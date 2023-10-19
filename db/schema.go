@@ -50,7 +50,9 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 		case ColCreated:
 			w("timestamp without time zone NOT NULL DEFAULT (current_timestamp)")
 		default:
-			w(sqlColTypeDeclFrom(desc.ty.Field(i).Type))
+			field := desc.ty.Field(i)
+			is_unique := sl.Has(desc.uniques, q.F(field.Name))
+			w(sqlColTypeDeclFrom(field.Type, is_unique))
 		}
 	}
 	w("\n)")
@@ -156,7 +158,8 @@ func schemaAlterTable(desc *structDesc, curTable []*TableColumn, oldTableName st
 			w(string(col_name))
 			w(" ")
 			field, _ := desc.ty.FieldByName(string(field_name))
-			w(sqlColTypeDeclFrom(field.Type))
+			is_unique := sl.Has(desc.uniques, q.F(field.Name))
+			w(sqlColTypeDeclFrom(field.Type, is_unique))
 			w(",")
 		}
 		for _, col_name := range cols_gone {
@@ -214,7 +217,7 @@ func sqlColTypeFrom(ty reflect.Type) string {
 	}
 }
 
-func sqlColTypeDeclFrom(ty reflect.Type) string {
+func sqlColTypeDeclFrom(ty reflect.Type, isUnique bool) string {
 	sql_data_type_name := sqlColTypeFrom(ty)
 	switch ty {
 	case tyBool:
