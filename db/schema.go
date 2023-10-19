@@ -91,6 +91,7 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 		if order_by != "" {
 			w(" ")
 			w(order_by)
+			w(" NULLS LAST")
 		}
 		w(")")
 		ret = append(ret, stmt_create_index)

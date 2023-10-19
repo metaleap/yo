@@ -232,10 +232,11 @@ type scanner struct {
 }
 
 func reflFieldValueOf[T any](it *T, fieldName q.F) any {
-	return reflFieldValue(reflect.ValueOf(it).Elem().FieldByName(string(fieldName)))
+	field, _ := reflect.TypeOf(it).Elem().FieldByName(string(fieldName))
+	return reflFieldValue(reflect.ValueOf(it).Elem().FieldByName(string(fieldName)), ("" != isDbRefType(field.Type)))
 }
 
-func reflFieldValue(rvField reflect.Value) any {
+func reflFieldValue(rvField reflect.Value, isDbRef bool) any {
 	if !rvField.IsValid() {
 		return nil
 	}
@@ -267,6 +268,9 @@ func reflFieldValue(rvField reflect.Value) any {
 	case **DateTime:
 		return *getPtr[*DateTime](addr)
 	default:
+		if isDbRef {
+			return *getPtr[I64](addr)
+		}
 		panic(str.Fmt("reflFieldValue:%T", val))
 	}
 }
@@ -402,10 +406,11 @@ func ForEachColField[T any](it *T, do func(fieldName q.F, colName q.C, fieldValu
 	if it == nil {
 		panic("ForEachField called with nil, check at call-site")
 	}
-	for i, field := range desc.fields {
-		value := reflFieldValue(rv.FieldByName(string(field)))
+	for i, field_name := range desc.fields {
+		field, _ := desc.ty.FieldByName(string(field_name))
+		value := reflFieldValue(rv.FieldByName(string(field_name)), ("" != isDbRefType(field.Type)))
 		frv := reflect.ValueOf(value)
-		do(field, desc.cols[i], value, (!frv.IsValid()) || frv.IsZero())
+		do(field_name, desc.cols[i], value, (!frv.IsValid()) || frv.IsZero())
 	}
 }
 

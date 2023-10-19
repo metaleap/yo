@@ -13,9 +13,12 @@ import (
 	"yo/util/str"
 )
 
-const QueryArgValidateOnly = "yoValiOnly"
-const ErrUnauthorized Err = "Unauthorized"
-const yoAdminApisUrlPrefix = "__/yo/"
+const (
+	QueryArgValidateOnly     = "yoValiOnly"
+	QueryArgNoCtxPrt         = "yoNoCtxPrt"
+	ErrUnauthorized      Err = "Unauthorized"
+	yoAdminApisUrlPrefix     = "__/yo/"
+)
 
 var (
 	api             = ApiMethods{}
@@ -219,6 +222,10 @@ func method[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), ret *apiMethod[TIn, T
 }
 
 func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
+	if ctx.GetStr(QueryArgNoCtxPrt) != "" {
+		ctx.TimingsNoPrintInDevMode = true
+	}
+
 	ctx.Timings.Step("handler lookup")
 	var api_method ApiMethod
 	method_path := ctx.Http.UrlPath
