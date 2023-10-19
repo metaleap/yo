@@ -403,12 +403,15 @@ func doEnsureDbStructTables() {
 	for _, desc := range ensureDescs {
 		ctx := yoctx.NewCtxNonHttp(Cfg.DB_REQ_TIMEOUT, "db.Mig: "+desc.tableName) // yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
 		defer ctx.OnDone(nil)
+		ctx.TimingsNoPrintInDevMode = true
 		ctx.Timings.Step("open TX")
 		ctx.DbTx()
+
 		is_table_rename := (desc.mig.oldTableName != "")
 		ctx.Timings.Step("get cur table")
 		cur_table := GetTable(ctx, If(is_table_rename, desc.mig.oldTableName, desc.tableName))
 		if cur_table == nil {
+			ctx.TimingsNoPrintInDevMode = false
 			if !is_table_rename {
 				ctx.Timings.Step("createTable")
 				_ = doExec(ctx, new(sqlStmt).createTable(desc), nil)
@@ -416,6 +419,7 @@ func doEnsureDbStructTables() {
 				panic("outdated table rename: '" + desc.mig.oldTableName + "'")
 			}
 		} else if stmts := alterTable(desc, cur_table, desc.mig.oldTableName, desc.mig.renamesOldColToNewField); len(stmts) > 0 {
+			ctx.TimingsNoPrintInDevMode = false
 			for i, stmt := range stmts {
 				ctx.Timings.Step("alterTable " + str.FromInt(i+1) + "/" + str.FromInt(len(stmts)))
 				_ = doExec(ctx, stmt, nil)
