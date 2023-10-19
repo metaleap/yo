@@ -488,6 +488,9 @@ func (me Arr[T]) Anys() (ret []any) {
 	return
 }
 
+func (me Arr[T]) Any(pred func(T) bool) bool { return sl.Any(me, pred) }
+func (me Arr[T]) All(pred func(T) bool) bool { return sl.All(me, pred) }
+
 func (me *Arr[T]) EnsureAllUnique() {
 	this := *me
 	var idxs_to_remove []int

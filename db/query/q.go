@@ -77,7 +77,9 @@ type fn string
 
 const (
 	FnStrLen fn = "octet_length"
-	FnLen    fn = "TODO:Len" // will fail, will notice, will fix
+	FnLen    fn = "TodoFnLen"
+	FnArrAll fn = "TodoFnArrAll"
+	FnArrAny fn = "TodoFnArrAny"
 )
 
 type fun struct {
@@ -107,6 +109,7 @@ func (me *fun) Not() Query                     { return me.Equal(false) }
 func (me *fun) In(set ...any) Query            { return In(me, set...) }
 func (me *fun) NotIn(set ...any) Query         { return NotIn(me, set...) }
 func (me *fun) Eval(obj any, c2f func(C) F) any {
+
 	if me.Alt != nil {
 		return me.Alt(sl.To(me.Args, func(it Operand) any { return it.Eval(obj, c2f) })...)
 	}
@@ -117,6 +120,17 @@ func (me *fun) Eval(obj any, c2f func(C) F) any {
 	case FnStrLen:
 		str := me.Args[0].Eval(obj, c2f).(string)
 		return len(str)
+	case FnArrAll, FnArrAny:
+		arr := reflect.ValueOf(me.Args[0].Eval(obj, c2f))
+		fn := me.Args[1].Eval(obj, c2f).(func(any, any) Query)
+		rhs := me.Args[2].Eval(obj, c2f)
+		vals := make([]any, arr.Len())
+		for i := range vals {
+			vals[i] = arr.Index(i).Interface()
+		}
+		return (If(me.Fn == FnArrAll, sl.All[[]any, any], sl.Any[[]any, any]))(vals, func(lhs any) bool {
+			return (fn(lhs, rhs).Eval(obj, c2f) == nil)
+		})
 	default:
 		panic(me.Fn)
 	}
