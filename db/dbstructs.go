@@ -410,7 +410,6 @@ func doEnsureDbStructTables() {
 	for _, desc := range ensureDescs {
 		ctx := yoctx.NewCtxNonHttp(Cfg.DB_REQ_TIMEOUT, "db.Mig: "+desc.tableName) // yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
 		defer ctx.OnDone(nil)
-		ctx.Db.PrintRawSqlInDevMode = true
 		ctx.TimingsNoPrintInDevMode = true
 		ctx.Timings.Step("open TX")
 		ctx.DbTx()

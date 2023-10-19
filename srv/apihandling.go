@@ -76,7 +76,7 @@ func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), pkgInfo ApiPkgInfo, fail
 	method[TIn, TOut](f, pkgInfo, &ret)
 	for _, fail := range failIfs {
 		ret.errsOwn = sl.With(ret.errsOwn, fail.Err)
-		if sl.IdxWhere(ret.failIfs, func(it Fails) bool { return (it.Err == fail.Err) }) > 0 {
+		if sl.HasWhere(ret.failIfs, func(it Fails) bool { return (it.Err == fail.Err) }) {
 			panic("duplicate Err '" + string(fail.Err) + "' in `failIfs`")
 		}
 		ret.failIfs = append(ret.failIfs, fail)

@@ -82,7 +82,6 @@ func CreateOne[T any](ctx *Ctx, rec *T) I64 {
 			args["A"+string(colName)] = fieldValue
 		}
 	})
-	ctx.Db.PrintRawSqlInDevMode = true
 	result := doSelect[int64](ctx, new(sqlStmt).insert(desc, 1, desc.cols[2:]...), args, 1)
 	if (len(result) > 0) && (result[0] != nil) {
 		return I64(*result[0])

@@ -64,6 +64,10 @@ func IdxWhere[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) i
 	return -1
 }
 
+func HasWhere[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) bool {
+	return (IdxWhere(slice, pred) >= 0)
+}
+
 func Has[TSlice ~[]TItem, TItem comparable](slice TSlice, needle TItem) bool {
 	for i := range slice {
 		if slice[i] == needle {
@@ -189,7 +193,7 @@ func Of[T any](items ...T) Slice[T] {
 
 func (me Slice[T]) Any(pred func(T) bool) bool       { return Any(me, pred) }
 func (me Slice[T]) All(pred func(T) bool) bool       { return All(me, pred) }
-func (me Slice[T]) Idx(pred func(T) bool) int        { return IdxWhere(me, pred) }
+func (me Slice[T]) IdxWhere(pred func(T) bool) int   { return IdxWhere(me, pred) }
 func (me Slice[T]) Where(pred func(T) bool) Slice[T] { return Where(me, pred) }
 func (me Slice[T]) Without(pred func(T) bool) Slice[T] {
 	return Where(me, func(it T) bool { return !pred(it) })
