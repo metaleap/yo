@@ -32,13 +32,13 @@ func (me *sqlStmt) delete(from string) *sqlStmt {
 	return me
 }
 
-func (me *sqlStmt) update(tableName string, colNames ...string) *sqlStmt {
+func (me *sqlStmt) update(desc *structDesc, colNames ...string) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	if len(colNames) == 0 {
 		panic("buggy update call: len(colNames)==0, include the check at the call site")
 	}
 	w("UPDATE ")
-	w(tableName)
+	w(desc.tableName)
 	w(" SET ")
 	for i, name := range colNames {
 		if i > 0 {
@@ -51,18 +51,18 @@ func (me *sqlStmt) update(tableName string, colNames ...string) *sqlStmt {
 	return me
 }
 
-func (me *sqlStmt) selCols(tableName string, cols ...q.C) *sqlStmt {
+func (me *sqlStmt) selCols(desc *structDesc, cols ...q.C) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	w("SELECT ")
 	if len(cols) == 0 {
-		w(tableName)
+		w(desc.tableName)
 		w(".*")
 	} else {
 		for i, col := range cols {
 			if i > 0 {
 				w(", ")
 			}
-			w(tableName)
+			w(desc.tableName)
 			w(".")
 			w(string(col))
 		}
@@ -70,13 +70,13 @@ func (me *sqlStmt) selCols(tableName string, cols ...q.C) *sqlStmt {
 	return me
 }
 
-func (me *sqlStmt) selCount(tableName string, colName q.C, distinct bool) *sqlStmt {
+func (me *sqlStmt) selCount(desc *structDesc, colName q.C, distinct bool) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	if colName == "" && !distinct {
 		colName = "*"
 	}
 	w("SELECT COUNT(")
-	w(tableName)
+	w(desc.tableName)
 	w(".")
 	w(string(colName))
 	w(")")
@@ -86,12 +86,10 @@ func (me *sqlStmt) selCount(tableName string, colName q.C, distinct bool) *sqlSt
 	return me
 }
 
-func (me *sqlStmt) from(from string) *sqlStmt {
+func (me *sqlStmt) from(desc *structDesc) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
-	if from != "" {
-		w(" FROM ")
-		w(from)
-	}
+	w(" FROM ")
+	w(desc.tableName)
 	return me
 }
 
@@ -105,19 +103,19 @@ func (me *sqlStmt) limit(max int) *sqlStmt {
 	return me
 }
 
-func (me *sqlStmt) where(tableName string, where q.Query, f2c func(q.F) q.C, args pgx.NamedArgs) *sqlStmt {
+func (me *sqlStmt) where(desc *structDesc, where q.Query, args pgx.NamedArgs) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	if where != nil {
 		w(" WHERE (")
 		where.Sql((*str.Buf)(me), func(fld q.F) q.C {
-			return q.C(tableName) + "." + f2c(fld)
+			return q.C(desc.tableName) + "." + desc.fieldNameToColName(fld)
 		}, args)
 		w(")")
 	}
 	return me
 }
 
-func (me *sqlStmt) orderBy(tableName string, f2c func(q.F) q.C, orderBy ...q.OrderBy) *sqlStmt {
+func (me *sqlStmt) orderBy(desc *structDesc, orderBy ...q.OrderBy) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	if len(orderBy) > 0 {
 		w(" ORDER BY ")
@@ -125,10 +123,10 @@ func (me *sqlStmt) orderBy(tableName string, f2c func(q.F) q.C, orderBy ...q.Ord
 			if i > 0 {
 				w(", ")
 			}
-			w(tableName)
+			w(desc.tableName)
 			w(".")
 			if fld := o.Field(); fld != "" {
-				w(string(f2c(fld)))
+				w(string(desc.fieldNameToColName(fld)))
 			} else {
 				w(string(o.Col()))
 			}
