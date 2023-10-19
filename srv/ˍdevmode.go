@@ -11,7 +11,24 @@ import (
 	"yo/util/str"
 )
 
-func ViaHttp[TIn any, TOut any](ctx *Ctx, methodPath string, args *TIn, client *http.Client) *TOut {
+type viaHttpClient[TIn any, TOut any] interface {
+	ViaHttp(apiMethod ApiMethod, ctx *Ctx, args *TIn, client *http.Client) *TOut
+}
+
+func (me *apiMethod[TIn, TOut]) ViaHttp(apiMethod ApiMethod, ctx *Ctx, args *TIn, client *http.Client) *TOut {
+	for method_path, api_method := range api {
+		if api_method == apiMethod {
+			return viaHttp[TIn, TOut](method_path, ctx, args, client)
+		}
+	}
+	panic("no methodPath for that method")
+}
+
+func ViaHttp[TIn any, TOut any](apiMethod ApiMethod, ctx *Ctx, args *TIn, client *http.Client) *TOut {
+	return apiMethod.(viaHttpClient[TIn, TOut]).ViaHttp(apiMethod, ctx, args, client)
+}
+
+func viaHttp[TIn any, TOut any](methodPath string, ctx *Ctx, args *TIn, client *http.Client) *TOut {
 	json_raw, err := yojson.Marshal(args)
 	if err != nil {
 		panic(err)
