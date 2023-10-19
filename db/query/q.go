@@ -38,6 +38,7 @@ func (me C) Eval(obj any, c2f func(C) F) any { return c2f(me).Eval(obj, c2f) }
 
 type F string
 
+func (me F) F() F                           { return me }
 func (me F) Equal(other any) Query          { return Equal(me, other) }
 func (me F) NotEqual(other any) Query       { return NotEqual(me, other) }
 func (me F) LessThan(other any) Query       { return LessThan(me, other) }
@@ -49,8 +50,18 @@ func (me F) In(set ...any) Query            { return In(me, set...) }
 func (me F) NotIn(set ...any) Query         { return NotIn(me, set...) }
 func (me F) Asc() OrderBy                   { return &orderBy[F]{fld: me} }
 func (me F) Desc() OrderBy                  { return &orderBy[F]{fld: me, desc: true} }
-func (me F) Eval(obj any, _ func(C) F) any  { return ReflField(obj, string(me)).Interface() }
-func (me F) F() F                           { return me }
+func (me F) Eval(obj any, _ func(C) F) (ret any) {
+	ret = ReflField(obj, string(me)).Interface()
+	if ref, is := ret.(DbRef); is {
+		return ref.IdRaw()
+	}
+	return
+}
+
+type DbRef interface {
+	IsDbRef() bool
+	IdRaw() int64
+}
 
 type V struct{ Value any }
 

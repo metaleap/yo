@@ -54,6 +54,7 @@ func (me *Ref[_, OnDel]) onDelSql() string {
 	return dummy.onDelSql()
 }
 func (me Ref[_, _]) Id() I64       { return me.id }
+func (me Ref[_, _]) IdRaw() int64  { return int64(me.id) }
 func (me Ref[_, _]) IsDbRef() bool { return true } // no direct callers, but checked for by `yo/srv` during codegen
 func (me *Ref[_, _]) SetId(id I64) { me.self, me.id = nil, id }
 func (me *Ref[T, _]) Get(ctx *yoctx.Ctx) *T {
@@ -80,7 +81,7 @@ func (me *Ref[_, _]) UnmarshalJSON(json []byte) error {
 
 type dbRef interface {
 	Id() I64
-	IsDbRef() bool
+	q.DbRef
 }
 type jsonDbValue interface {
 	init(selfPtr any)
