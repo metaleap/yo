@@ -105,11 +105,13 @@ func (me *sqlStmt) limit(max int) *sqlStmt {
 	return me
 }
 
-func (me *sqlStmt) where(where q.Query, f2c func(q.F) q.C, args pgx.NamedArgs) *sqlStmt {
+func (me *sqlStmt) where(tableName string, where q.Query, f2c func(q.F) q.C, args pgx.NamedArgs) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	if where != nil {
 		w(" WHERE (")
-		where.Sql((*str.Buf)(me), f2c, args)
+		where.Sql((*str.Buf)(me), func(fld q.F) q.C {
+			return q.C(tableName) + "." + f2c(fld)
+		}, args)
 		w(")")
 	}
 	return me

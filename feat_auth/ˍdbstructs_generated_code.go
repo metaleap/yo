@@ -3,15 +3,6 @@ package yoauth
 
 import q "yo/db/query"
 
-type UserAuthCol = q.C
-
-const (
-	UserAuthColId             = UserAuthCol("id_")
-	UserAuthColCreated        = UserAuthCol("created_")
-	UserAuthColEmailAddr      = UserAuthCol("email_addr_")
-	UserAuthColPasswordHashed = UserAuthCol("password_hashed_")
-)
-
 type UserAuthField q.F
 
 const (

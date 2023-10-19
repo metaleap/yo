@@ -308,7 +308,7 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 			}
 			buf.WriteByte(')')
 		} else {
-			panic(operand)
+			panic(str.Fmt("%T being %#v", operand, operand))
 		}
 	}
 

@@ -32,7 +32,7 @@ func init() {
 
 func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I64) {
 	ctx.DbTx()
-	if yodb.Exists[UserAuth](ctx, UserAuthColEmailAddr.Equal(emailAddr)) {
+	if yodb.Exists[UserAuth](ctx, UserAuthFieldEmailAddr.Equal(emailAddr)) {
 		panic(Err___yo_authRegister_EmailAddrAlreadyExists)
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
@@ -53,7 +53,7 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I6
 }
 
 func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jwt.Token) {
-	user_auth := yodb.FindOne[UserAuth](ctx, UserAuthColEmailAddr.Equal(emailAddr))
+	user_auth := yodb.FindOne[UserAuth](ctx, UserAuthFieldEmailAddr.Equal(emailAddr))
 	if user_auth == nil {
 		panic(Err___yo_authLogin_AccountDoesNotExist)
 	}
