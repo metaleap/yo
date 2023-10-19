@@ -6,10 +6,10 @@ import q "yo/db/query"
 type UserAuthField q.F
 
 const (
-	UserAuthFieldId             UserAuthField = "Id"
-	UserAuthFieldCreated        UserAuthField = "Created"
-	UserAuthFieldEmailAddr      UserAuthField = "EmailAddr"
-	userAuthFieldPasswordHashed UserAuthField = "passwordHashed"
+	UserAuthId        UserAuthField = "Id"
+	UserAuthCreated   UserAuthField = "Created"
+	UserAuthEmailAddr UserAuthField = "EmailAddr"
+	userAuthPwdHashed UserAuthField = "pwdHashed"
 )
 
 func (me UserAuthField) AsField() q.F                 { return ((q.F)(me)).AsField() }

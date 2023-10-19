@@ -178,10 +178,10 @@ func codegenCloneMethod(buf *str.Buf, desc *structDesc, method *reflect.Method) 
 }
 
 func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc) {
-	infix := "Field"
+	type_name_suffix := "Field"
 	buf.WriteString("type ")
 	buf.WriteString(desc.ty.Name())
-	buf.WriteString(infix)
+	buf.WriteString(type_name_suffix)
 	buf.WriteString(" q.F\n\n")
 	buf.WriteString("const (\n")
 	var ref_fields []Pair[q.F, *structDesc]
@@ -211,12 +211,12 @@ func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc) {
 			buf.WriteString(str.Lo(desc.ty.Name()[:1]))
 			buf.WriteString(desc.ty.Name()[1:])
 		}
-		buf.WriteString(infix)
+		// buf.WriteString(type_name_suffix)
 		buf.WriteString(str.Up(string(field_name[:1])))
 		buf.WriteString(string(field_name[1:]))
 		buf.WriteString(" ")
 		buf.WriteString(desc.ty.Name())
-		buf.WriteString(infix)
+		buf.WriteString(type_name_suffix)
 		buf.WriteString(" = ")
 		buf.WriteString("\"")
 		buf.WriteString(string(field_name))
@@ -232,7 +232,7 @@ func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc) {
 				buf.WriteString(str.Lo(desc.ty.Name()[:1]))
 				buf.WriteString(desc.ty.Name()[1:])
 			}
-			buf.WriteString(infix)
+			buf.WriteString(type_name_suffix)
 			buf.WriteString(str.Up(string(field_name[:1])))
 			buf.WriteString(string(field_name[1:]))
 			buf.WriteByte('_')
@@ -240,7 +240,7 @@ func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc) {
 			buf.WriteString(" ")
 			buf.WriteString(" = ")
 			buf.WriteString(desc.ty.Name())
-			buf.WriteString(infix)
+			buf.WriteString(type_name_suffix)
 			buf.WriteString("(\"")
 			buf.WriteString(string(field_name))
 			buf.WriteByte('.')

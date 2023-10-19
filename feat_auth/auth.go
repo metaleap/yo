@@ -22,17 +22,17 @@ type UserAuth struct {
 	Id      yodb.I64
 	Created *yodb.DateTime
 
-	EmailAddr      yodb.Text
-	passwordHashed yodb.Bytes
+	EmailAddr yodb.Text
+	pwdHashed yodb.Bytes
 }
 
 func init() {
-	yodb.Ensure[UserAuth, UserAuthField]("", nil, []UserAuthField{UserAuthFieldEmailAddr})
+	yodb.Ensure[UserAuth, UserAuthField]("", nil, yodb.Unique[UserAuthField]{UserAuthEmailAddr}, nil)
 }
 
 func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I64) {
 	ctx.DbTx()
-	if yodb.Exists[UserAuth](ctx, UserAuthFieldEmailAddr.Equal(emailAddr)) {
+	if yodb.Exists[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr)) {
 		panic(Err___yo_authRegister_EmailAddrAlreadyExists)
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
@@ -44,8 +44,8 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I6
 		}
 	}
 	if ret = yodb.I64(yodb.CreateOne[UserAuth](ctx, &UserAuth{
-		EmailAddr:      yodb.Text(emailAddr),
-		passwordHashed: hash,
+		EmailAddr: yodb.Text(emailAddr),
+		pwdHashed: hash,
 	})); ret <= 0 {
 		panic(ErrDbNotStored)
 	}
@@ -53,12 +53,12 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I6
 }
 
 func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jwt.Token) {
-	user_auth := yodb.FindOne[UserAuth](ctx, UserAuthFieldEmailAddr.Equal(emailAddr))
+	user_auth := yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr))
 	if user_auth == nil {
 		panic(Err___yo_authLogin_AccountDoesNotExist)
 	}
 
-	err := bcrypt.CompareHashAndPassword(user_auth.passwordHashed, []byte(passwordPlain))
+	err := bcrypt.CompareHashAndPassword(user_auth.pwdHashed, []byte(passwordPlain))
 	if err != nil {
 		panic(Err___yo_authLogin_WrongPassword)
 	}
@@ -95,7 +95,7 @@ func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, pas
 			panic(Err___yo_authChangePassword_NewPasswordInvalid)
 		}
 	}
-	user_account.passwordHashed = hash
+	user_account.pwdHashed = hash
 	if (yodb.Update[UserAuth](ctx, user_account, false, nil)) < 1 {
 		panic(ErrDbNotStored)
 	}

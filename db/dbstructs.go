@@ -134,6 +134,9 @@ var (
 	ensureDescs []*structDesc
 )
 
+type Unique[T q.Field] []T
+type Index[T q.Field] []T
+
 type structDesc struct {
 	ty        reflect.Type
 	tableName string // defaults to db.NameFrom(structTypeName)
@@ -357,7 +360,7 @@ func (me scanner) Scan(it any) error {
 	return nil
 }
 
-func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField map[q.C]q.F, uniques []TFld, indexed ...TFld) {
+func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField map[q.C]q.F, uniques Unique[TFld], indexed Index[TFld]) {
 	if inited {
 		panic("db.Ensure called after db.Init")
 	}
@@ -407,6 +410,7 @@ func doEnsureDbStructTables() {
 	for _, desc := range ensureDescs {
 		ctx := yoctx.NewCtxNonHttp(Cfg.DB_REQ_TIMEOUT, "db.Mig: "+desc.tableName) // yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
 		defer ctx.OnDone(nil)
+		ctx.Db.PrintRawSqlInDevMode = true
 		ctx.TimingsNoPrintInDevMode = true
 		ctx.Timings.Step("open TX")
 		ctx.DbTx()

@@ -60,12 +60,18 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 
 	indexed_cols_and_order := map[q.C]string{ColCreated: "DESC"}
 	for i, field_name := range desc.fields { // always index foreign-key cols due to ON DELETE trigger perf
+		if sl.Has(desc.uniques, field_name) { // uniques already get indices
+			continue
+		}
 		field, _ := desc.ty.FieldByName(string(field_name))
 		if "" != isDbRefType(field.Type) {
 			indexed_cols_and_order[desc.cols[i]] = ""
 		}
 	}
 	for _, field_name := range desc.indexed { // indexes supplied to `Ensure`
+		if sl.Has(desc.uniques, field_name) { // uniques already get indices
+			continue
+		}
 		field, _ := desc.ty.FieldByName(string(field_name))
 		order_by := If(field.Type == tyDateTime, "DESC", "")
 		col_name := desc.cols[sl.IdxOf(desc.fields, field_name)]
@@ -74,7 +80,9 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 	for col_name, order_by := range indexed_cols_and_order {
 		stmt_create_index := new(sqlStmt)
 		w := (*str.Buf)(stmt_create_index).WriteString
-		w("CREATE INDEX IF NOT EXISTS idx_")
+		w("CREATE INDEX IF NOT EXISTS idx_t")
+		w(desc.tableName)
+		w("_c")
 		w(string(col_name))
 		w(" ON ")
 		w(desc.tableName)
@@ -219,25 +227,26 @@ func sqlColTypeFrom(ty reflect.Type) string {
 
 func sqlColTypeDeclFrom(ty reflect.Type, isUnique bool) string {
 	sql_data_type_name := sqlColTypeFrom(ty)
+	unique_maybe := If(isUnique, " UNIQUE", "")
 	switch ty {
 	case tyBool:
-		return sql_data_type_name + " NOT NULL DEFAULT (false)"
+		return sql_data_type_name + " NOT NULL DEFAULT (false)" + unique_maybe
 	case tyBytes, tyDateTime:
-		return sql_data_type_name + " NULL DEFAULT (NULL)"
+		return sql_data_type_name + " NULL DEFAULT (NULL)" + unique_maybe
 	case tyF32, tyF64, tyI16, tyI32, tyI64, tyI8, tyU16, tyU32, tyU8:
-		return sql_data_type_name + " NOT NULL DEFAULT (0)"
+		return sql_data_type_name + " NOT NULL DEFAULT (0)" + unique_maybe
 	case tyText:
-		return sql_data_type_name + " NOT NULL DEFAULT ('')"
+		return sql_data_type_name + " NOT NULL DEFAULT ('')" + unique_maybe
 	default:
 		if is_db_json_dict_type, is_db_json_arr_type, is_db_json_obj_type := isWhatDbJsonType(ty); is_db_json_obj_type || is_db_json_dict_type || is_db_json_arr_type {
-			return sql_data_type_name + " NULL DEFAULT (NULL)"
+			return sql_data_type_name + " NULL DEFAULT (NULL)" + unique_maybe
 		} else if isDbRefType(ty) != "" {
 			dummy := reflect.New(ty).Interface().(interface {
 				structDesc() *structDesc
 				refOnDel
 			})
 			desc := dummy.structDesc()
-			return sql_data_type_name + " NULL DEFAULT (NULL) REFERENCES " + desc.tableName + " ON DELETE " + dummy.onDelSql()
+			return sql_data_type_name + " NULL DEFAULT (NULL)" + unique_maybe + " REFERENCES " + desc.tableName + " ON DELETE " + dummy.onDelSql()
 		}
 		panic(ty)
 	}
