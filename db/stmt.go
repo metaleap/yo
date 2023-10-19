@@ -1,7 +1,5 @@
 package yodb
 
-// TODO: select user_.* from user_ join user_auth_  on user_.auth_ = user_auth_.id_ where user_auth_.email_addr_ = 'foo321@bar.baz'
-
 import (
 	q "yo/db/query"
 	. "yo/util"
