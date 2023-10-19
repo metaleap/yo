@@ -50,7 +50,7 @@ func (me F) NotIn(set ...any) Query         { return NotIn(me, set...) }
 func (me F) Asc() OrderBy                   { return &orderBy[F]{fld: me} }
 func (me F) Desc() OrderBy                  { return &orderBy[F]{fld: me, desc: true} }
 func (me F) Eval(obj any, _ func(C) F) any  { return ReflField(obj, string(me)).Interface() }
-func (me F) AsField() F                     { return me }
+func (me F) F() F                           { return me }
 
 type V struct{ Value any }
 
@@ -258,7 +258,7 @@ type Operand interface {
 type Field interface {
 	~string
 	Operand
-	AsField() F
+	F() F
 	Asc() OrderBy
 	Desc() OrderBy
 }
@@ -294,8 +294,8 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 			sub_stmt.Sql(buf)
 		} else if col_name, is := operand.(C); is {
 			buf.WriteString(string(col_name))
-		} else if fld, is := operand.(interface{ AsField() F }); is {
-			buf.WriteString(string(fld2col(fld.AsField())))
+		} else if fld, is := operand.(interface{ F() F }); is {
+			buf.WriteString(string(fld2col(fld.F())))
 		} else if v, is := operand.(V); is {
 			if v.Value == true {
 				buf.WriteString("(true::boolean)")

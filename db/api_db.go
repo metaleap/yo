@@ -143,7 +143,7 @@ func apiUpdateOne[TObj any, TFld q.Field](this *ApiCtx[ApiUpdateArgs[TObj], retC
 	if this.Args.Id <= 0 {
 		panic(Err(yoctx.ErrDbUpdExpectedIdGt0))
 	}
-	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, ColID.Equal(this.Args.Id))
+	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, ColID.Equal(this.Args.Id), !this.Args.IncludingEmptyOrMissingFields)
 }
 
 func apiUpdateMany[TObj any, TFld q.Field](this *ApiCtx[struct {
@@ -151,7 +151,7 @@ func apiUpdateMany[TObj any, TFld q.Field](this *ApiCtx[struct {
 	Changes                       TObj
 	IncludingEmptyOrMissingFields bool
 }, retCount]) {
-	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, this.Args.IncludingEmptyOrMissingFields, this.Args.toDbQ())
+	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, this.Args.toDbQ(), !this.Args.IncludingEmptyOrMissingFields)
 }
 
 type ApiOrderBy[TObj any, TFld q.Field] struct {

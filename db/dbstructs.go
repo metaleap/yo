@@ -134,14 +134,14 @@ var (
 	ensureDescs []*structDesc
 )
 
-type Constraints interface{ toQFs() []q.F }
+type Constraints interface{ qFs() []q.F }
 type Unique[T q.Field] []T
 type Index[T q.Field] []T
 type ReadOnly[T q.Field] []T
 
-func (me Unique[TFld]) toQFs() []q.F   { return sl.To(me, func(it TFld) q.F { return it.AsField() }) }
-func (me Index[TFld]) toQFs() []q.F    { return sl.To(me, func(it TFld) q.F { return it.AsField() }) }
-func (me ReadOnly[TFld]) toQFs() []q.F { return sl.To(me, func(it TFld) q.F { return it.AsField() }) }
+func (me Unique[TFld]) qFs() []q.F   { return sl.To(me, func(it TFld) q.F { return it.F() }) }
+func (me Index[TFld]) qFs() []q.F    { return sl.To(me, func(it TFld) q.F { return it.F() }) }
+func (me ReadOnly[TFld]) qFs() []q.F { return sl.To(me, func(it TFld) q.F { return it.F() }) }
 
 type structDesc struct {
 	ty          reflect.Type
@@ -380,11 +380,11 @@ func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField
 	for _, constraints := range constraints {
 		switch constraints := constraints.(type) {
 		case Index[TFld]:
-			desc.constraints.indexed = constraints.toQFs()
+			desc.constraints.indexed = constraints.qFs()
 		case Unique[TFld]:
-			desc.constraints.uniques = constraints.toQFs()
+			desc.constraints.uniques = constraints.qFs()
 		case ReadOnly[TFld]:
-			desc.constraints.readOnly = constraints.toQFs()
+			desc.constraints.readOnly = constraints.qFs()
 		default:
 			panic(constraints)
 		}

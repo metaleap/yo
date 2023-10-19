@@ -41,15 +41,14 @@ func (me *sqlStmt) update(desc *structDesc, colNames ...string) *sqlStmt {
 	w(desc.tableName)
 	w(" SET ")
 	var num_cols int
-	for i, col_name := range colNames {
+	for _, col_name := range colNames {
 		field_name := desc.fields[sl.IdxOf(desc.cols, q.C(col_name))]
 		if sl.Has(desc.constraints.readOnly, field_name) {
 			continue
 		}
-		num_cols++
 		field, _ := desc.ty.FieldByName(string(field_name))
 
-		if i > 0 {
+		if num_cols > 0 {
 			w(", ")
 		}
 		w(col_name)
@@ -62,9 +61,10 @@ func (me *sqlStmt) update(desc *structDesc, colNames ...string) *sqlStmt {
 			w("@")
 			w(col_name)
 		}
+		num_cols++
 	}
 	if num_cols == 0 {
-		panic("buggy update call: len(colNames)==0, include the check at the call site")
+		panic("buggy update call: len(colNames)==0, include the check at the call site>>>>" + me.String())
 	}
 	return me
 }

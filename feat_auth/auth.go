@@ -96,7 +96,7 @@ func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, pas
 		}
 	}
 	user_account.pwdHashed = hash
-	if (yodb.Update[UserAuth](ctx, user_account, false, nil)) < 1 {
+	if (yodb.Update[UserAuth](ctx, user_account, nil, true, userAuthPwdHashed.F())) < 1 {
 		panic(ErrDbNotStored)
 	}
 }

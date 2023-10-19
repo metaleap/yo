@@ -122,13 +122,14 @@ func Delete[T any](ctx *Ctx, where q.Query) int64 {
 	return num_rows_affected
 }
 
-func Update[T any](ctx *Ctx, upd *T, includingEmptyOrMissingFields bool, where q.Query) int64 {
-	// TODO: neverUpdateFields
+func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyFields ...q.F) int64 {
 	desc, args := desc[T](), dbArgs{}
 	col_names, col_vals := []string{}, []any{}
 	if upd != nil {
 		ForEachColField[T](upd, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
-			if (colName != ColID) && (colName != ColCreated) && (includingEmptyOrMissingFields || !isZero) {
+			if only := (len(onlyFields) > 0); (colName != ColID) && (colName != ColCreated) &&
+				((!only) || sl.Has(onlyFields, fieldName)) &&
+				((!isZero) || (!skipNullsyFields) || only) {
 				col_names, col_vals = append(col_names, string(colName)), append(col_vals, fieldValue)
 			}
 		})
