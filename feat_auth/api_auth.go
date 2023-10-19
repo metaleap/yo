@@ -136,3 +136,5 @@ func CurrentlyLoggedIn(ctx *Ctx) bool {
 	user_email_addr, user_auth_id := CurrentlyLoggedInUser(ctx)
 	return (user_email_addr != "") && (user_auth_id > 0)
 }
+
+func CurrentlyNotLoggedIn(ctx *Ctx) bool { return !CurrentlyLoggedIn(ctx) }

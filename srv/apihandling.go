@@ -56,7 +56,7 @@ type ApiMethod interface {
 	KnownErrs() []Err
 	Checks(...Fails) ApiMethod
 	CouldFailWith(...Err) ApiMethod
-	PreCheck(Pair[Err, func(*Ctx) bool]) ApiMethod // pre-checks run just before handler invocation, thus after PreServe handlers and input payload validations
+	FailIf(Err, func(*Ctx) bool) ApiMethod
 }
 
 type ApiCtx[TIn any, TOut any] struct {
@@ -121,9 +121,9 @@ func (me *apiMethod[TIn, TOut]) Checks(failIfs ...Fails) ApiMethod {
 	}
 	return me
 }
-func (me *apiMethod[TIn, TOut]) PreCheck(preCheck Pair[Err, func(*Ctx) bool]) ApiMethod {
-	me.CouldFailWith(preCheck.Key)
-	me.preChecks = append(me.preChecks, preCheck)
+func (me *apiMethod[TIn, TOut]) FailIf(withErr Err, inCaseOf func(*Ctx) bool) ApiMethod {
+	me.CouldFailWith(withErr)
+	me.preChecks = append(me.preChecks, Pair[Err, func(*Ctx) bool]{withErr, inCaseOf})
 	return me
 }
 func (me *apiMethod[TIn, TOut]) PkgName() string {
@@ -214,9 +214,9 @@ func method[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), ret *apiMethod[TIn, T
 	*ret = apiMethod[TIn, TOut]{
 		handleFunc: func(ctx *Ctx, in any) any {
 			ctx.Http.ApiMethod = ret
-			for _, pre_check := range ret.preChecks {
-				if !pre_check.It(ctx) {
-					panic(pre_check.Key)
+			for _, fail_check := range ret.preChecks {
+				if fail_check.It(ctx) {
+					panic(fail_check.Key)
 				}
 			}
 			var output TOut
