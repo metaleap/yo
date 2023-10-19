@@ -4,6 +4,7 @@ import (
 	"reflect"
 	. "yo/ctx"
 	q "yo/db/query"
+	. "yo/util"
 	"yo/util/sl"
 	"yo/util/str"
 )
@@ -55,15 +56,20 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 	w("\n)")
 	ret = append(ret, stmt_create_table)
 
-	var indexed_cols []q.C
+	indexed_cols_and_order := map[q.C]string{ColCreated: "DESC"}
 	for i, field_name := range desc.fields { // always index foreign-key cols due to ON DELETE trigger perf
 		field, _ := desc.ty.FieldByName(string(field_name))
 		if "" != isDbRefType(field.Type) {
-			indexed_cols = append(indexed_cols, desc.cols[i])
+			indexed_cols_and_order[desc.cols[i]] = ""
 		}
 	}
-
-	for _, col_name := range indexed_cols {
+	for _, field_name := range desc.indexed { // indexes supplied to `Ensure`
+		field, _ := desc.ty.FieldByName(string(field_name))
+		order_by := If(field.Type == tyDateTime, "DESC", "")
+		col_name := desc.cols[sl.IdxOf(desc.fields, field_name)]
+		indexed_cols_and_order[col_name] = order_by
+	}
+	for col_name, order_by := range indexed_cols_and_order {
 		stmt_create_index := new(sqlStmt)
 		w := (*str.Buf)(stmt_create_index).WriteString
 		w("CREATE INDEX IF NOT EXISTS idx_")
@@ -72,6 +78,10 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 		w(desc.tableName)
 		w(" (")
 		w(string(col_name))
+		if order_by != "" {
+			w(" ")
+			w(order_by)
+		}
 		w(")")
 		ret = append(ret, stmt_create_index)
 	}
