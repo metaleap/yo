@@ -118,7 +118,8 @@ func codegenQueryFns() bool {
 	var buf bytes.Buffer
 	buf.WriteString("package q\n")
 	for _, line := range str.Split(str.Trim(string(src_raw)), "\n") {
-		if pref := "\tFn"; (line != "") && str.Begins(line, pref) && str.Ends(line, `"`) && str.Has(line, ` fn = "`) {
+		if pref := "\tFn"; (line != "") && str.Begins(line, pref) &&
+			(str.Ends(line, `"`) || str.Has(line, "\" //")) && str.Has(line, ` fn = "`) {
 			name := line[len(pref):str.Idx(line, ' ')]
 			for _, operand_type_name := range []string{"C", "F", "V"} {
 				buf.WriteString("\nfunc(me ")

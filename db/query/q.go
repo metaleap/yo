@@ -77,6 +77,7 @@ type fn string
 
 const (
 	FnStrLen fn = "octet_length"
+	FnLen    fn = "TODO:Len" // will fail, will notice, will fix
 )
 
 type fun struct {
@@ -110,6 +111,9 @@ func (me *fun) Eval(obj any, c2f func(C) F) any {
 		return me.Alt(sl.To(me.Args, func(it Operand) any { return it.Eval(obj, c2f) })...)
 	}
 	switch me.Fn {
+	case FnLen:
+		rv := reflect.ValueOf(me.Args[0].Eval(obj, c2f))
+		return rv.Len()
 	case FnStrLen:
 		str := me.Args[0].Eval(obj, c2f).(string)
 		return len(str)

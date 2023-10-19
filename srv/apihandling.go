@@ -54,6 +54,7 @@ type ApiMethod interface {
 	methodNameUp0() string
 	From(ApiPkgInfo) ApiMethod
 	KnownErrs() []Err
+	Checks(...Fails) ApiMethod
 	CouldFailWith(...Err) ApiMethod
 	PreCheck(Pair[Err, func(*Ctx) bool]) ApiMethod // pre-checks run just before handler invocation, thus after PreServe handlers and input payload validations
 }
@@ -78,13 +79,7 @@ type ApiPkgInfo interface {
 func Api[TIn any, TOut any](f func(*ApiCtx[TIn, TOut]), failIfs ...Fails) ApiMethod {
 	var ret apiMethod[TIn, TOut]
 	method[TIn, TOut](f, &ret)
-	for _, fail := range failIfs {
-		ret.errsOwn = sl.With(ret.errsOwn, fail.Err)
-		if sl.HasWhere(ret.failIfs, func(it Fails) bool { return (it.Err == fail.Err) }) {
-			panic("duplicate Err '" + string(fail.Err) + "' in `failIfs`")
-		}
-		ret.failIfs = append(ret.failIfs, fail)
-	}
+	ret.Checks(failIfs...)
 	return &ret
 }
 
@@ -114,6 +109,16 @@ func (me *apiMethod[TIn, TOut]) failsIf() []Fails       { return me.failIfs }
 func (me *apiMethod[TIn, TOut]) handler() apiHandleFunc { return me.handleFunc }
 func (me *apiMethod[TIn, TOut]) From(pkgInfo ApiPkgInfo) ApiMethod {
 	me.PkgInfo = pkgInfo
+	return me
+}
+func (me *apiMethod[TIn, TOut]) Checks(failIfs ...Fails) ApiMethod {
+	for _, fail := range failIfs {
+		me.errsOwn = sl.With(me.errsOwn, fail.Err)
+		if sl.HasWhere(me.failIfs, func(it Fails) bool { return (it.Err == fail.Err) }) {
+			panic("duplicate Err '" + string(fail.Err) + "' in `failIfs`")
+		}
+		me.failIfs = append(me.failIfs, fail)
+	}
 	return me
 }
 func (me *apiMethod[TIn, TOut]) PreCheck(preCheck Pair[Err, func(*Ctx) bool]) ApiMethod {
