@@ -169,7 +169,7 @@ func isDbJsonType(ty reflect.Type) bool {
 }
 
 func isWhatDbJsonType(ty reflect.Type) (isDbJsonDictType bool, isDbJsonArrType bool, isDbJsonObjType bool) {
-	if field_type_name := ty.Name(); ty.PkgPath() == ThisPkg.PkgPath() {
+	if field_type_name := ty.Name(); ty.PkgPath() == yodbPkg.PkgPath() {
 		if isDbJsonArrType = str.Begins(field_type_name, "Arr[") && str.Ends(field_type_name, "]"); !isDbJsonArrType {
 			isDbJsonDictType = str.Begins(field_type_name, "Dict[") && str.Ends(field_type_name, "]")
 		}
@@ -177,7 +177,7 @@ func isWhatDbJsonType(ty reflect.Type) (isDbJsonDictType bool, isDbJsonArrType b
 	if (!(isDbJsonArrType || isDbJsonDictType)) && (ty.Kind() == reflect.Struct) {
 		for i, l := 0, ty.NumField(); i < l; i++ {
 			if field := ty.Field(i); field.Anonymous {
-				if field_type := field.Type; (field_type.PkgPath() == ThisPkg.PkgPath()) &&
+				if field_type := field.Type; (field_type.PkgPath() == yodbPkg.PkgPath()) &&
 					str.Begins(field_type.Name(), "IsJsonOf[") && str.Ends(field_type.Name(), "]") {
 					isDbJsonObjType = true
 					break
@@ -190,7 +190,7 @@ func isWhatDbJsonType(ty reflect.Type) (isDbJsonDictType bool, isDbJsonArrType b
 
 func isDbRefType(ty reflect.Type) string {
 	type_name := ty.Name()
-	if idx := str.IdxSub(type_name, "Ref["); (idx == 0) && ty.PkgPath() == ThisPkg.PkgPath() && str.Ends(type_name, "]") {
+	if idx := str.IdxSub(type_name, "Ref["); (idx == 0) && ty.PkgPath() == yodbPkg.PkgPath() && str.Ends(type_name, "]") {
 		ret := type_name[idx+len("Ref[") : len(type_name)-1]
 		return ret[:str.Idx(ret, ',')]
 	}

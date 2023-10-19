@@ -125,13 +125,15 @@ func codegenGo(apiRefl *apiRefl) {
 		buf.WriteString(codegenEmitTopCommentLine)
 		buf.WriteString("package " + pkg_name + "\n")
 		buf.WriteString("import reflect \"reflect\"\n")
+		buf.WriteString("import yosrv \"yo/srv\"\n")
 		buf.WriteString("import util \"yo/util\"\n")
 		buf.WriteString("import q \"yo/db/query\"\n")
 		buf.WriteString("type _ = q.F // just in case of no other generated import users\n")
 		buf.WriteString("type apiPkgInfo util.Void\n")
 		buf.WriteString("func (apiPkgInfo) PkgName() string { return \"" + pkg_name + "\" }\n")
 		buf.WriteString("func (me apiPkgInfo) PkgPath() string { return reflect.TypeOf(me).PkgPath() }\n")
-		buf.WriteString("var ThisPkg = apiPkgInfo{}\n")
+		buf.WriteString("var " + pkg_name + "Pkg = apiPkgInfo{}\n")
+		buf.WriteString("func api[TIn any,TOut any](f func(*yosrv.ApiCtx[TIn, TOut]), failIfs ...yosrv.Fails) yosrv.ApiMethod{return yosrv.Api[TIn,TOut](f,failIfs...).From(" + pkg_name + "Pkg)}\n")
 
 		// emit known `Err`s
 		err_emitted := map[Err]bool{}

@@ -29,33 +29,30 @@ var (
 
 func init() {
 	Apis(ApiMethods{
-		MethodPathLogout: Api(ApiUserLogout).From(ThisPkg),
+		MethodPathLogout: api(ApiUserLogout),
 
-		MethodPathLogin: Api(ApiUserLogin,
+		MethodPathLogin: api(ApiUserLogin,
 			Fails{Err: "EmailRequiredButMissing", If: ___yo_authRegisterEmailAddr.Equal("")},
 			Fails{Err: "EmailInvalid", If: isEmailishEnough(___yo_authLoginEmailAddr).Not()},
 			Fails{Err: "WrongPassword",
 				If: ___yo_authLoginPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN).Or(
 					___yo_authLoginPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN))},
 		).
-			From(ThisPkg).
 			CouldFailWith("OkButFailedToCreateSignedToken", "AccountDoesNotExist"),
 
-		MethodPathRegister: Api(ApiUserRegister,
+		MethodPathRegister: api(ApiUserRegister,
 			Fails{Err: "EmailRequiredButMissing", If: ___yo_authRegisterEmailAddr.Equal("")},
 			Fails{Err: "EmailInvalid", If: isEmailishEnough(___yo_authRegisterEmailAddr).Not()},
 			Fails{Err: "PasswordTooShort", If: ___yo_authRegisterPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 			Fails{Err: "PasswordTooLong", If: ___yo_authRegisterPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
 		).
-			From(ThisPkg).
 			CouldFailWith("EmailAddrAlreadyExists", "PasswordInvalid", ErrDbNotStored),
 
-		MethodPathChangePassword: Api(apiChangePassword,
+		MethodPathChangePassword: api(apiChangePassword,
 			Fails{Err: "NewPasswordExpectedToDiffer", If: ___yo_authChangePasswordPasswordNewPlain.Equal(___yo_authChangePasswordPasswordPlain)},
 			Fails{Err: "NewPasswordTooShort", If: ___yo_authChangePasswordPasswordNewPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 			Fails{Err: "NewPasswordTooLong", If: ___yo_authChangePasswordPasswordNewPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
 		).
-			From(ThisPkg).
 			CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "NewPasswordInvalid", ErrUnauthorized, ErrDbNotStored),
 	})
 

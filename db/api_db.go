@@ -29,7 +29,7 @@ func init() {
 		return Err(errBinOpPrefix + it)
 	})...)
 	Apis(ApiMethods{
-		"__/yo/db/getTable": Api(apiGetTable).From(ThisPkg),
+		"__/yo/db/getTable": api(apiGetTable),
 	})
 }
 
@@ -47,33 +47,23 @@ func registerApiHandlers[TObj any, TFld q.Field](desc *structDesc) {
 	type_name := desc.ty.Name()
 
 	Apis(ApiMethods{
-		apiMethodPath(type_name, "findById"): Api(apiFindById[TObj, TFld]).
-			From(ThisPkg),
-		apiMethodPath(type_name, "findOne"): Api(apiFindOne[TObj, TFld]).
-			From(ThisPkg).
+		apiMethodPath(type_name, "findById"): api(apiFindById[TObj, TFld]),
+		apiMethodPath(type_name, "findOne"): api(apiFindOne[TObj, TFld]).
 			CouldFailWith(":" + ErrSetQuery),
-		apiMethodPath(type_name, "findMany"): Api(apiFindMany[TObj, TFld]).
-			From(ThisPkg).
+		apiMethodPath(type_name, "findMany"): api(apiFindMany[TObj, TFld]).
 			CouldFailWith(":" + ErrSetQuery),
-		apiMethodPath(type_name, "deleteOne"): Api(apiDeleteOne[TObj, TFld]).
-			From(ThisPkg).
+		apiMethodPath(type_name, "deleteOne"): api(apiDeleteOne[TObj, TFld]).
 			CouldFailWith(":" + ErrSetDbDelete),
-		apiMethodPath(type_name, "deleteMany"): Api(apiDeleteMany[TObj, TFld]).
-			From(ThisPkg).
+		apiMethodPath(type_name, "deleteMany"): api(apiDeleteMany[TObj, TFld]).
 			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbDelete),
-		apiMethodPath(type_name, "updateOne"): Api(apiUpdateOne[TObj, TFld]).
-			From(ThisPkg).
+		apiMethodPath(type_name, "updateOne"): api(apiUpdateOne[TObj, TFld]).
 			CouldFailWith(":"+ErrSetDbUpdate, yoctx.ErrDbNotStored, yoctx.ErrDbUpdExpectedIdGt0),
-		apiMethodPath(type_name, "updateMany"): Api(apiUpdateMany[TObj, TFld]).
-			From(ThisPkg).
+		apiMethodPath(type_name, "updateMany"): api(apiUpdateMany[TObj, TFld]).
 			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbUpdate),
-		apiMethodPath(type_name, "count"): Api(apiCount[TObj, TFld]).
-			From(ThisPkg).
+		apiMethodPath(type_name, "count"): api(apiCount[TObj, TFld]).
 			CouldFailWith(":" + ErrSetQuery),
-		apiMethodPath(type_name, "createOne"): Api(apiCreateOne[TObj, TFld]).
-			From(ThisPkg),
-		apiMethodPath(type_name, "createMany"): Api(apiCreateMany[TObj, TFld]).
-			From(ThisPkg),
+		apiMethodPath(type_name, "createOne"):  api(apiCreateOne[TObj, TFld]),
+		apiMethodPath(type_name, "createMany"): api(apiCreateMany[TObj, TFld]),
 	})
 }
 

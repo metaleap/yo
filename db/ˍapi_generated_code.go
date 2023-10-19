@@ -2,6 +2,7 @@
 package yodb
 
 import reflect "reflect"
+import yosrv "yo/srv"
 import util "yo/util"
 import q "yo/db/query"
 
@@ -11,7 +12,11 @@ type apiPkgInfo util.Void
 func (apiPkgInfo) PkgName() string    { return "yodb" }
 func (me apiPkgInfo) PkgPath() string { return reflect.TypeOf(me).PkgPath() }
 
-var ThisPkg = apiPkgInfo{}
+var yodbPkg = apiPkgInfo{}
+
+func api[TIn any, TOut any](f func(*yosrv.ApiCtx[TIn, TOut]), failIfs ...yosrv.Fails) yosrv.ApiMethod {
+	return yosrv.Api[TIn, TOut](f, failIfs...).From(yodbPkg)
+}
 
 const ErrQuery_ExpectedOneOrNoneButNotMultipleOfFldOrStrOrBoolOrInt util.Err = "Query_ExpectedOneOrNoneButNotMultipleOfFldOrStrOrBoolOrInt"
 const ErrQuery_ExpectedOnlyEitherQueryOrQueryFromButNotBoth util.Err = "Query_ExpectedOnlyEitherQueryOrQueryFromButNotBoth"

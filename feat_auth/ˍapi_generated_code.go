@@ -2,6 +2,7 @@
 package yoauth
 
 import reflect "reflect"
+import yosrv "yo/srv"
 import util "yo/util"
 import q "yo/db/query"
 
@@ -11,7 +12,11 @@ type apiPkgInfo util.Void
 func (apiPkgInfo) PkgName() string    { return "yoauth" }
 func (me apiPkgInfo) PkgPath() string { return reflect.TypeOf(me).PkgPath() }
 
-var ThisPkg = apiPkgInfo{}
+var yoauthPkg = apiPkgInfo{}
+
+func api[TIn any, TOut any](f func(*yosrv.ApiCtx[TIn, TOut]), failIfs ...yosrv.Fails) yosrv.ApiMethod {
+	return yosrv.Api[TIn, TOut](f, failIfs...).From(yoauthPkg)
+}
 
 const ErrDbUpdate_ExpectedChangesForUpdate util.Err = "DbUpdate_ExpectedChangesForUpdate"
 const ErrDbUpdate_ExpectedQueryForUpdate util.Err = "DbUpdate_ExpectedQueryForUpdate"
