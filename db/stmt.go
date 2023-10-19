@@ -171,13 +171,13 @@ func (me *sqlStmt) limit(max int) *sqlStmt {
 
 func (me *sqlStmt) where(desc *structDesc, isMut bool, where q.Query, args pgx.NamedArgs, orderBy ...q.OrderBy) *sqlStmt {
 	joins := map[q.F]Pair[string, *structDesc]{}
-	var f2c func(d *structDesc, fieldName q.F) q.C
-	f2c = func(d *structDesc, fieldName q.F) q.C {
+	var f2c func(*structDesc, q.F, bool) q.C
+	f2c = func(d *structDesc, fieldName q.F, noTableName bool) q.C {
 		if lhs, rhs, ok := str.Cut(string(fieldName), "."); ok {
 			join := joins[q.F(lhs)]
-			return q.C(join.Key) + "." + f2c(join.It, q.F(rhs))
+			return q.C(join.Key) + "." + f2c(join.It, q.F(rhs), true)
 		}
-		return d.cols[sl.IdxOf(d.fields, fieldName)]
+		return If(noTableName, "", q.C(desc.tableName)+".") + d.cols[sl.IdxOf(d.fields, fieldName)]
 	}
 
 	w := (*str.Buf)(me).WriteString
@@ -185,10 +185,8 @@ func (me *sqlStmt) where(desc *structDesc, isMut bool, where q.Query, args pgx.N
 		w(" FROM ")
 		w(desc.tableName)
 	}
-
 	// select user_.* from user_ join user_auth_  on user_.auth_ = user_auth_.id_
 	//													where user_auth_.email_addr_ = 'foo321@bar.baz'
-
 	// add JOINs if any
 	dotteds := where.(interface{ AllDottedFs() map[q.F][]string }).AllDottedFs()
 	var idx_join int
@@ -197,17 +195,27 @@ func (me *sqlStmt) where(desc *structDesc, isMut bool, where q.Query, args pgx.N
 		for field_name := range dotteds {
 			field, _ := desc.ty.FieldByName(string(field_name))
 			join_name := "__j__" + str.FromInt(idx_join)
-			sub_desc := descs[field.Type]
+			type_refd := isDbRefType(field.Type)
+			var sub_desc *structDesc
+			for ty, sd := range descs {
+				if (ty.PkgPath() + "." + ty.Name()) == type_refd {
+					sub_desc = sd
+					break
+				}
+			}
+			if sub_desc == nil {
+				panic("bad join: " + desc.ty.String() + "." + string(field_name) + " due to no desc for '" + type_refd + "'")
+			}
 			joins[field_name] = Pair[string, *structDesc]{join_name, sub_desc}
 			w(sub_desc.tableName)
+			w(" AS ")
+			w(join_name)
 			w(" ON ")
-			w(sub_desc.tableName)
+			w(join_name)
 			w(".")
 			w(string(ColID))
 			w(" = ")
-			w(desc.tableName)
-			w(".")
-			w(string(f2c(field_name)))
+			w(string(f2c(desc, field_name, false)))
 			w(" ")
 			idx_join++
 		}
@@ -216,7 +224,7 @@ func (me *sqlStmt) where(desc *structDesc, isMut bool, where q.Query, args pgx.N
 	if where != nil {
 		w(" WHERE (")
 		where.Sql((*str.Buf)(me), func(fld q.F) q.C {
-			return q.C(desc.tableName) + "." + f2c(fld)
+			return f2c(desc, fld, false)
 		}, args)
 		w(")")
 	}
@@ -226,11 +234,11 @@ func (me *sqlStmt) where(desc *structDesc, isMut bool, where q.Query, args pgx.N
 			if i > 0 {
 				w(", ")
 			}
-			w(desc.tableName)
-			w(".")
 			if fld := o.Field(); fld != "" {
-				w(string(f2c(fld)))
+				w(string(f2c(desc, fld, false)))
 			} else {
+				w(desc.tableName)
+				w(".")
 				w(string(o.Col()))
 			}
 			w(If(o.Desc(), " DESC", " ASC"))
