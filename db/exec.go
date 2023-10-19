@@ -27,7 +27,7 @@ func ById[T any](ctx *Ctx, id I64) *T {
 
 func Exists[T any](ctx *Ctx, query q.Query) bool {
 	desc, args := desc[T](), dbArgs{}
-	result := doSelect[T](ctx, new(sqlStmt).selCols(desc, ColID).from(desc).where(desc, query, args).limit(1), args, 1, ColID)
+	result := doSelect[T](ctx, new(sqlStmt).selCols(desc, ColID).where(desc, false, query, args).limit(1), args, 1, ColID)
 	return (len(result) > 0)
 }
 
@@ -42,12 +42,12 @@ func FindOne[T any](ctx *Ctx, query q.Query, orderBy ...q.OrderBy) *T {
 func FindMany[T any](ctx *Ctx, query q.Query, maxResults int, orderBy ...q.OrderBy) []*T {
 	desc, args := desc[T](), dbArgs{}
 	return doSelect[T](ctx,
-		new(sqlStmt).selCols(desc, desc.cols...).from(desc).where(desc, query, args).orderBy(desc, orderBy...).limit(maxResults), args, maxResults)
+		new(sqlStmt).selCols(desc, desc.cols...).where(desc, false, query, args, orderBy...).limit(maxResults), args, maxResults)
 }
 
 func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.OrderBy, onRecord func(rec *T, enough *bool)) {
 	desc, args := desc[T](), dbArgs{}
-	doStream[T](ctx, new(sqlStmt).selCols(desc, desc.cols...).from(desc).where(desc, query, args).orderBy(desc, orderBy...).limit(maxResults), onRecord, args)
+	doStream[T](ctx, new(sqlStmt).selCols(desc, desc.cols...).where(desc, false, query, args, orderBy...).limit(maxResults), onRecord, args)
 }
 
 func Page[T any](ctx *Ctx, query q.Query, limit int, orderBy q.OrderBy, pageTok any) (resultsPage []*T, nextPageTok any) {
@@ -70,7 +70,7 @@ func Count[T any](ctx *Ctx, query q.Query, nonNullColumn q.C, distinct *q.C) int
 	if distinct != nil {
 		col = *distinct
 	}
-	results := doSelect[int64](ctx, new(sqlStmt).selCount(desc, col, distinct != nil).from(desc).where(desc, query, args), args, 1)
+	results := doSelect[int64](ctx, new(sqlStmt).selCount(desc, col, distinct != nil).where(desc, false, query, args), args, 1)
 	return *results[0]
 }
 
@@ -114,7 +114,7 @@ func Delete[T any](ctx *Ctx, where q.Query) int64 {
 		panic(ErrDbDelete_ExpectedQueryForDelete)
 	}
 	desc, args := desc[T](), dbArgs{}
-	result := doExec(ctx, new(sqlStmt).delete(desc.tableName).where(desc, where, args), args)
+	result := doExec(ctx, new(sqlStmt).delete(desc.tableName).where(desc, true, where, args), args)
 	num_rows_affected, err := result.RowsAffected()
 	if err != nil {
 		panic(err)
@@ -147,7 +147,7 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 	for i, col_name := range col_names {
 		args[col_name] = col_vals[i]
 	}
-	result := doExec(ctx, new(sqlStmt).update(desc, col_names...).where(desc, where, args), args)
+	result := doExec(ctx, new(sqlStmt).update(desc, col_names...).where(desc, true, where, args), args)
 	num_rows_affected, err := result.RowsAffected()
 	if err != nil {
 		panic(err)

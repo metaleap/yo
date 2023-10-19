@@ -263,6 +263,8 @@ type Field interface {
 	Desc() OrderBy
 }
 
+type field interface{ F() F }
+
 type stmt interface {
 	Sql(*str.Buf)
 }
@@ -271,6 +273,23 @@ type query struct {
 	op       string
 	conds    []Query
 	operands []Operand
+}
+
+func (me *query) AllDottedFs() map[F][]string {
+	ret := map[F][]string{}
+	for _, operand := range me.operands {
+		if fld, is := operand.(field); is {
+			if lhs, rhs, ok := str.Cut(string(fld.F()), "."); ok && (len(lhs) > 0) {
+				ret[F(lhs)] = append(ret[F(lhs)], rhs)
+			}
+		}
+	}
+	for _, sub_query := range me.conds {
+		for k, v := range sub_query.(*query).AllDottedFs() {
+			ret[k] = append(ret[k], v...)
+		}
+	}
+	return ret
 }
 
 func (me *query) And(conds ...Query) Query { return AllTrue(append([]Query{me}, conds...)...) }
@@ -294,7 +313,7 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 			sub_stmt.Sql(buf)
 		} else if col_name, is := operand.(C); is {
 			buf.WriteString(string(col_name))
-		} else if fld, is := operand.(interface{ F() F }); is {
+		} else if fld, is := operand.(field); is {
 			buf.WriteString(string(fld2col(fld.F())))
 		} else if v, is := operand.(V); is {
 			if v.Value == true {

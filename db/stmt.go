@@ -33,6 +33,63 @@ func (me *sqlStmt) delete(from string) *sqlStmt {
 	return me
 }
 
+func (me *sqlStmt) insert(desc *structDesc, numRows int, cols ...q.C) *sqlStmt {
+	w := (*str.Buf)(me).WriteString
+	w("INSERT INTO ")
+	w(desc.tableName)
+	if numRows < 1 {
+		panic(numRows)
+	}
+	if len(cols) == 0 {
+		if numRows != 1 {
+			panic("invalid INSERT: multiple rows but no cols specified")
+		}
+		w(" DEFAULT VALUES")
+	} else {
+		w(" (")
+		for i, col_name := range cols {
+			if i > 0 {
+				w(", ")
+			}
+			w(string(col_name))
+		}
+		w(")")
+		w(" VALUES ")
+		for j := 0; j < numRows; j++ {
+			if j > 0 {
+				w(", ")
+			}
+			w("(")
+			for i, col_name := range cols {
+				field_name := desc.fields[sl.IdxOf(desc.cols, q.C(col_name))]
+				field, _ := desc.ty.FieldByName(string(field_name))
+				is_json_field := isDbJsonType(field.Type)
+
+				if i > 0 {
+					w(", ")
+				}
+				if is_json_field {
+					w("jsonb_strip_nulls(")
+				}
+				w("@A")
+				w(string(col_name))
+				if numRows > 1 {
+					w(str.FromInt(j))
+				}
+				if is_json_field {
+					w(")")
+				}
+			}
+			w(")")
+		}
+	}
+	if numRows == 1 {
+		w(" RETURNING ")
+		w(string(ColID))
+	}
+	return me
+}
+
 func (me *sqlStmt) update(desc *structDesc, colNames ...string) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	w("UPDATE ")
@@ -102,13 +159,6 @@ func (me *sqlStmt) selCount(desc *structDesc, colName q.C, distinct bool) *sqlSt
 	return me
 }
 
-func (me *sqlStmt) from(desc *structDesc) *sqlStmt {
-	w := (*str.Buf)(me).WriteString
-	w(" FROM ")
-	w(desc.tableName)
-	return me
-}
-
 func (me *sqlStmt) limit(max int) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	if max > 0 {
@@ -119,20 +169,57 @@ func (me *sqlStmt) limit(max int) *sqlStmt {
 	return me
 }
 
-func (me *sqlStmt) where(desc *structDesc, where q.Query, args pgx.NamedArgs) *sqlStmt {
+func (me *sqlStmt) where(desc *structDesc, isMut bool, where q.Query, args pgx.NamedArgs, orderBy ...q.OrderBy) *sqlStmt {
+	joins := map[q.F]Pair[string, *structDesc]{}
+	var f2c func(d *structDesc, fieldName q.F) q.C
+	f2c = func(d *structDesc, fieldName q.F) q.C {
+		if lhs, rhs, ok := str.Cut(string(fieldName), "."); ok {
+			join := joins[q.F(lhs)]
+			return q.C(join.Key) + "." + f2c(join.It, q.F(rhs))
+		}
+		return d.cols[sl.IdxOf(d.fields, fieldName)]
+	}
+
 	w := (*str.Buf)(me).WriteString
+	if !isMut {
+		w(" FROM ")
+		w(desc.tableName)
+	}
+
+	// select user_.* from user_ join user_auth_  on user_.auth_ = user_auth_.id_
+	//													where user_auth_.email_addr_ = 'foo321@bar.baz'
+
+	// add JOINs if any
+	dotteds := where.(interface{ AllDottedFs() map[q.F][]string }).AllDottedFs()
+	var idx_join int
+	if len(dotteds) > 0 {
+		w(" JOIN ")
+		for field_name := range dotteds {
+			field, _ := desc.ty.FieldByName(string(field_name))
+			join_name := "__j__" + str.FromInt(idx_join)
+			sub_desc := descs[field.Type]
+			joins[field_name] = Pair[string, *structDesc]{join_name, sub_desc}
+			w(sub_desc.tableName)
+			w(" ON ")
+			w(sub_desc.tableName)
+			w(".")
+			w(string(ColID))
+			w(" = ")
+			w(desc.tableName)
+			w(".")
+			w(string(f2c(field_name)))
+			w(" ")
+			idx_join++
+		}
+	}
+
 	if where != nil {
 		w(" WHERE (")
 		where.Sql((*str.Buf)(me), func(fld q.F) q.C {
-			return q.C(desc.tableName) + "." + desc.fieldNameToColName(fld)
+			return q.C(desc.tableName) + "." + f2c(fld)
 		}, args)
 		w(")")
 	}
-	return me
-}
-
-func (me *sqlStmt) orderBy(desc *structDesc, orderBy ...q.OrderBy) *sqlStmt {
-	w := (*str.Buf)(me).WriteString
 	if len(orderBy) > 0 {
 		w(" ORDER BY ")
 		for i, o := range orderBy {
@@ -142,69 +229,12 @@ func (me *sqlStmt) orderBy(desc *structDesc, orderBy ...q.OrderBy) *sqlStmt {
 			w(desc.tableName)
 			w(".")
 			if fld := o.Field(); fld != "" {
-				w(string(desc.fieldNameToColName(fld)))
+				w(string(f2c(fld)))
 			} else {
 				w(string(o.Col()))
 			}
 			w(If(o.Desc(), " DESC", " ASC"))
 		}
-	}
-	return me
-}
-
-func (me *sqlStmt) insert(desc *structDesc, numRows int, cols ...q.C) *sqlStmt {
-	w := (*str.Buf)(me).WriteString
-	w("INSERT INTO ")
-	w(desc.tableName)
-	if numRows < 1 {
-		panic(numRows)
-	}
-	if len(cols) == 0 {
-		if numRows != 1 {
-			panic("invalid INSERT: multiple rows but no cols specified")
-		}
-		w(" DEFAULT VALUES")
-	} else {
-		w(" (")
-		for i, col_name := range cols {
-			if i > 0 {
-				w(", ")
-			}
-			w(string(col_name))
-		}
-		w(")")
-		w(" VALUES ")
-		for j := 0; j < numRows; j++ {
-			if j > 0 {
-				w(", ")
-			}
-			w("(")
-			for i, col_name := range cols {
-				field_name := desc.fields[sl.IdxOf(desc.cols, q.C(col_name))]
-				field, _ := desc.ty.FieldByName(string(field_name))
-				is_json_field := isDbJsonType(field.Type)
-
-				if i > 0 {
-					w(", ")
-				}
-				if is_json_field {
-					w("jsonb_strip_nulls(")
-				}
-				w("@A")
-				w(string(col_name))
-				if numRows > 1 {
-					w(str.FromInt(j))
-				}
-				if is_json_field {
-					w(")")
-				}
-			}
-			w(")")
-		}
-	}
-	if numRows == 1 {
-		w(" RETURNING ")
-		w(string(ColID))
 	}
 	return me
 }

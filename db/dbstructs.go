@@ -159,15 +159,6 @@ type structDesc struct {
 	}
 }
 
-func (me *structDesc) fieldNameToColName(fieldName q.F) q.C {
-	for i, field_name := range me.fields {
-		if field_name == fieldName {
-			return me.cols[i]
-		}
-	}
-	panic(fieldName)
-}
-
 func isColField(fieldType reflect.Type) bool {
 	return sl.Has(okTypes, fieldType) || isDbJsonType(fieldType) || ("" != isDbRefType(fieldType))
 }
