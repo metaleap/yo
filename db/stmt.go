@@ -37,14 +37,16 @@ func (me *sqlStmt) delete(from string) *sqlStmt {
 
 func (me *sqlStmt) update(desc *structDesc, colNames ...string) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
-	if len(colNames) == 0 {
-		panic("buggy update call: len(colNames)==0, include the check at the call site")
-	}
 	w("UPDATE ")
 	w(desc.tableName)
 	w(" SET ")
+	var num_cols int
 	for i, col_name := range colNames {
 		field_name := desc.fields[sl.IdxOf(desc.cols, q.C(col_name))]
+		if sl.Has(desc.constraints.readOnly, field_name) {
+			continue
+		}
+		num_cols++
 		field, _ := desc.ty.FieldByName(string(field_name))
 
 		if i > 0 {
@@ -60,6 +62,9 @@ func (me *sqlStmt) update(desc *structDesc, colNames ...string) *sqlStmt {
 			w("@")
 			w(col_name)
 		}
+	}
+	if num_cols == 0 {
+		panic("buggy update call: len(colNames)==0, include the check at the call site")
 	}
 	return me
 }

@@ -48,7 +48,9 @@ func init() {
 		codegenGo(&api_refl)
 		codegenTsSdk(&api_refl)
 	}
+}
 
+func reflEnums() {
 	enum_pkgs := str.Dict{}
 	WalkCodeFiles(true, true, func(path string, dirEntry fs.DirEntry) {
 		is_app_side := str.Begins(path, str.TrimR(curMainDir, "/")+"/")

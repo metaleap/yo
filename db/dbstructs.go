@@ -134,17 +134,26 @@ var (
 	ensureDescs []*structDesc
 )
 
+type Constraints interface{ toQFs() []q.F }
 type Unique[T q.Field] []T
 type Index[T q.Field] []T
+type ReadOnly[T q.Field] []T
+
+func (me Unique[TFld]) toQFs() []q.F   { return sl.To(me, func(it TFld) q.F { return it.AsField() }) }
+func (me Index[TFld]) toQFs() []q.F    { return sl.To(me, func(it TFld) q.F { return it.AsField() }) }
+func (me ReadOnly[TFld]) toQFs() []q.F { return sl.To(me, func(it TFld) q.F { return it.AsField() }) }
 
 type structDesc struct {
-	ty        reflect.Type
-	tableName string // defaults to db.NameFrom(structTypeName)
-	fields    []q.F  // struct fields marked persistish by being of a `yo/db`-exported type
-	cols      []q.C  // for each field above, its db.NameFrom()
-	uniques   []q.F
-	indexed   []q.F
-	mig       struct {
+	ty          reflect.Type
+	tableName   string // defaults to db.NameFrom(structTypeName)
+	fields      []q.F  // struct fields marked persistish by being of a `yo/db`-exported type
+	cols        []q.C  // for each field above, its db.NameFrom()
+	constraints struct {
+		uniques  []q.F
+		indexed  []q.F
+		readOnly []q.F
+	}
+	mig struct {
 		oldTableName            string
 		renamesOldColToNewField map[q.C]q.F
 	}
@@ -360,13 +369,26 @@ func (me scanner) Scan(it any) error {
 	return nil
 }
 
-func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField map[q.C]q.F, uniques Unique[TFld], indexed Index[TFld]) {
+func Ens[TFld q.Field](constraints ...Constraints) {
+}
+
+func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField map[q.C]q.F, constraints ...Constraints) {
 	if inited {
 		panic("db.Ensure called after db.Init")
 	}
 	desc := desc[TObj]()
-	desc.indexed = sl.To(indexed, func(it TFld) q.F { return it.AsField() })
-	desc.uniques = sl.To(uniques, func(it TFld) q.F { return it.AsField() })
+	for _, constraints := range constraints {
+		switch constraints := constraints.(type) {
+		case Index[TFld]:
+			desc.constraints.indexed = constraints.toQFs()
+		case Unique[TFld]:
+			desc.constraints.uniques = constraints.toQFs()
+		case ReadOnly[TFld]:
+			desc.constraints.readOnly = constraints.toQFs()
+		default:
+			panic(constraints)
+		}
+	}
 	ensureDescs = append(ensureDescs, desc)
 	desc.mig.oldTableName, desc.mig.renamesOldColToNewField = oldTableName, renamesOldColToNewField
 	if (len(desc.cols) < 1) || (desc.cols[0] != ColID) {

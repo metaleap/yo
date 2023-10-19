@@ -51,7 +51,7 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 			w("timestamp without time zone NOT NULL DEFAULT (current_timestamp)")
 		default:
 			field := desc.ty.Field(i)
-			is_unique := sl.Has(desc.uniques, q.F(field.Name))
+			is_unique := sl.Has(desc.constraints.uniques, q.F(field.Name))
 			w(sqlColTypeDeclFrom(field.Type, is_unique))
 		}
 	}
@@ -60,7 +60,7 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 
 	indexed_cols_and_order := map[q.C]string{ColCreated: "DESC"}
 	for i, field_name := range desc.fields { // always index foreign-key cols due to ON DELETE trigger perf
-		if sl.Has(desc.uniques, field_name) { // uniques already get indices
+		if sl.Has(desc.constraints.uniques, field_name) { // uniques already get indices
 			continue
 		}
 		field, _ := desc.ty.FieldByName(string(field_name))
@@ -68,8 +68,8 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 			indexed_cols_and_order[desc.cols[i]] = ""
 		}
 	}
-	for _, field_name := range desc.indexed { // indexes supplied to `Ensure`
-		if sl.Has(desc.uniques, field_name) { // uniques already get indices
+	for _, field_name := range desc.constraints.indexed { // indexes supplied to `Ensure`
+		if sl.Has(desc.constraints.uniques, field_name) { // uniques already get indices
 			continue
 		}
 		field, _ := desc.ty.FieldByName(string(field_name))
@@ -166,7 +166,7 @@ func schemaAlterTable(desc *structDesc, curTable []*TableColumn, oldTableName st
 			w(string(col_name))
 			w(" ")
 			field, _ := desc.ty.FieldByName(string(field_name))
-			is_unique := sl.Has(desc.uniques, q.F(field.Name))
+			is_unique := sl.Has(desc.constraints.uniques, q.F(field.Name))
 			w(sqlColTypeDeclFrom(field.Type, is_unique))
 			w(",")
 		}
