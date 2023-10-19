@@ -211,14 +211,12 @@ func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc) {
 			buf.WriteString(str.Lo(desc.ty.Name()[:1]))
 			buf.WriteString(desc.ty.Name()[1:])
 		}
-		// buf.WriteString(type_name_suffix)
 		buf.WriteString(str.Up(string(field_name[:1])))
 		buf.WriteString(string(field_name[1:]))
 		buf.WriteString(" ")
 		buf.WriteString(desc.ty.Name())
 		buf.WriteString(type_name_suffix)
-		buf.WriteString(" = ")
-		buf.WriteString("\"")
+		buf.WriteString(" = \"")
 		buf.WriteString(string(field_name))
 		buf.WriteString("\"\n")
 	}
@@ -238,14 +236,13 @@ func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc) {
 			buf.WriteByte('_')
 			buf.WriteString(string(sub_field))
 			buf.WriteString(" ")
-			buf.WriteString(" = ")
 			buf.WriteString(desc.ty.Name())
 			buf.WriteString(type_name_suffix)
-			buf.WriteString("(\"")
+			buf.WriteString(" = \"")
 			buf.WriteString(string(field_name))
 			buf.WriteByte('.')
 			buf.WriteString(string(sub_field))
-			buf.WriteString("\")\n")
+			buf.WriteString("\"\n")
 		}
 	}
 	buf.WriteString(")\n\n")

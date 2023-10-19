@@ -82,7 +82,7 @@ func init() {
 								if str.IsLo(enumerant_name[:1]) {
 									continue
 								}
-								if (str.Lo(enumerant_name) != str.Lo(value)) && (str.Lo(name) != str.Lo(value)) {
+								if (str.Lo(enumerant_name) != str.Lo(value)) && (str.Lo(name) != str.Lo(value) && !str.Has(value, ".")) {
 									panic(value + "!=" + enumerant_name + " && " + value + "!=" + name)
 								}
 								apiReflAllEnums[pkg_name+"."+type_name] = append(apiReflAllEnums[pkg_name+"."+type_name], value)
