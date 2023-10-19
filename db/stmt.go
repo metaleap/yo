@@ -51,28 +51,33 @@ func (me *sqlStmt) update(tableName string, colNames ...string) *sqlStmt {
 	return me
 }
 
-func (me *sqlStmt) selCols(cols ...q.C) *sqlStmt {
+func (me *sqlStmt) selCols(tableName string, cols ...q.C) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	w("SELECT ")
 	if len(cols) == 0 {
-		w("*")
+		w(tableName)
+		w(".*")
 	} else {
 		for i, col := range cols {
 			if i > 0 {
 				w(", ")
 			}
+			w(tableName)
+			w(".")
 			w(string(col))
 		}
 	}
 	return me
 }
 
-func (me *sqlStmt) selCount(colName q.C, distinct bool) *sqlStmt {
+func (me *sqlStmt) selCount(tableName string, colName q.C, distinct bool) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	if colName == "" && !distinct {
 		colName = "*"
 	}
 	w("SELECT COUNT(")
+	w(tableName)
+	w(".")
 	w(string(colName))
 	w(")")
 	if distinct {
@@ -110,7 +115,7 @@ func (me *sqlStmt) where(where q.Query, f2c func(q.F) q.C, args pgx.NamedArgs) *
 	return me
 }
 
-func (me *sqlStmt) orderBy(f2c func(q.F) q.C, orderBy ...q.OrderBy) *sqlStmt {
+func (me *sqlStmt) orderBy(tableName string, f2c func(q.F) q.C, orderBy ...q.OrderBy) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	if len(orderBy) > 0 {
 		w(" ORDER BY ")
@@ -118,6 +123,8 @@ func (me *sqlStmt) orderBy(f2c func(q.F) q.C, orderBy ...q.OrderBy) *sqlStmt {
 			if i > 0 {
 				w(", ")
 			}
+			w(tableName)
+			w(".")
 			if fld := o.Field(); fld != "" {
 				w(string(f2c(fld)))
 			} else {

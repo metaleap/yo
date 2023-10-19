@@ -254,6 +254,10 @@ type Operand interface {
 	NotIn(set ...any) Query
 }
 
+type stmt interface {
+	Sql(*str.Buf)
+}
+
 type query struct {
 	op       string
 	conds    []Query
@@ -277,7 +281,7 @@ func (me *query) String(fld2col func(F) C, args pgx.NamedArgs) string {
 func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 	var do_arg func(operand Operand)
 	do_arg = func(operand Operand) {
-		if sub_stmt, _ := operand.(interface{ Sql(*str.Buf) }); sub_stmt != nil {
+		if sub_stmt, _ := operand.(stmt); sub_stmt != nil {
 			sub_stmt.Sql(buf)
 		} else if col_name, is := operand.(C); is {
 			buf.WriteString(string(col_name))

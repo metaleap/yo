@@ -32,7 +32,7 @@ func ListTables(ctx *Ctx, tableName string) map[Text][]*TableColumn {
 	}
 
 	args := dbArgs{}
-	stmt := new(sqlStmt).selCols(desc.cols...).from(desc.tableName).
+	stmt := new(sqlStmt).selCols(desc.tableName, desc.cols...).from(desc.tableName).
 		where(IfF(tableName != "",
 			func() q.Query { return q.C("table_name").Equal(tableName) },
 			func() q.Query {
@@ -44,7 +44,7 @@ func ListTables(ctx *Ctx, tableName string) map[Text][]*TableColumn {
 				)
 			},
 		), desc.fieldNameToColName, args).
-		orderBy(desc.fieldNameToColName, q.C("table_name").Asc(), q.C("ordinal_position").Asc())
+		orderBy(desc.tableName, desc.fieldNameToColName, q.C("table_name").Asc(), q.C("ordinal_position").Asc())
 	flat_results := doSelect[TableColumn](ctx, stmt, args, If(tableName == "", 0, 1))
 	for _, result := range flat_results {
 		ret[result.tableName] = append(ret[result.tableName], result)

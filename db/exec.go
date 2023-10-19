@@ -27,7 +27,7 @@ func ById[T any](ctx *Ctx, id I64) *T {
 
 func Exists[T any](ctx *Ctx, query q.Query) bool {
 	desc, args := desc[T](), dbArgs{}
-	result := doSelect[T](ctx, new(sqlStmt).selCols(ColID).from(desc.tableName).where(query, desc.fieldNameToColName, args).limit(1), args, 1, ColID)
+	result := doSelect[T](ctx, new(sqlStmt).selCols(desc.tableName, ColID).from(desc.tableName).where(query, desc.fieldNameToColName, args).limit(1), args, 1, ColID)
 	return (len(result) > 0)
 }
 
@@ -42,12 +42,12 @@ func FindOne[T any](ctx *Ctx, query q.Query, orderBy ...q.OrderBy) *T {
 func FindMany[T any](ctx *Ctx, query q.Query, maxResults int, orderBy ...q.OrderBy) []*T {
 	desc, args := desc[T](), dbArgs{}
 	return doSelect[T](ctx,
-		new(sqlStmt).selCols(desc.cols...).from(desc.tableName).where(query, desc.fieldNameToColName, args).orderBy(desc.fieldNameToColName, orderBy...).limit(maxResults), args, maxResults)
+		new(sqlStmt).selCols(desc.tableName, desc.cols...).from(desc.tableName).where(query, desc.fieldNameToColName, args).orderBy(desc.tableName, desc.fieldNameToColName, orderBy...).limit(maxResults), args, maxResults)
 }
 
 func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.OrderBy, onRecord func(rec *T, enough *bool)) {
 	desc, args := desc[T](), dbArgs{}
-	doStream[T](ctx, new(sqlStmt).selCols(desc.cols...).from(desc.tableName).where(query, desc.fieldNameToColName, args).orderBy(desc.fieldNameToColName, orderBy...).limit(maxResults), onRecord, args)
+	doStream[T](ctx, new(sqlStmt).selCols(desc.tableName, desc.cols...).from(desc.tableName).where(query, desc.fieldNameToColName, args).orderBy(desc.tableName, desc.fieldNameToColName, orderBy...).limit(maxResults), onRecord, args)
 }
 
 func Page[T any](ctx *Ctx, query q.Query, limit int, orderBy q.OrderBy, pageTok any) (resultsPage []*T, nextPageTok any) {
@@ -70,7 +70,7 @@ func Count[T any](ctx *Ctx, query q.Query, nonNullColumn q.C, distinct *q.C) int
 	if distinct != nil {
 		col = *distinct
 	}
-	results := doSelect[int64](ctx, new(sqlStmt).selCount(col, distinct != nil).from(desc.tableName).where(query, desc.fieldNameToColName, args), args, 1)
+	results := doSelect[int64](ctx, new(sqlStmt).selCount(desc.tableName, col, distinct != nil).from(desc.tableName).where(query, desc.fieldNameToColName, args), args, 1)
 	return *results[0]
 }
 
