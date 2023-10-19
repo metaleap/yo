@@ -230,7 +230,6 @@ func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc) {
 				buf.WriteString(str.Lo(desc.ty.Name()[:1]))
 				buf.WriteString(desc.ty.Name()[1:])
 			}
-			buf.WriteString(type_name_suffix)
 			buf.WriteString(str.Up(string(field_name[:1])))
 			buf.WriteString(string(field_name[1:]))
 			buf.WriteByte('_')

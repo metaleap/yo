@@ -77,20 +77,22 @@ func init() {
 				} else if str.Begins(line, "\t") && str.Ends(line, "\"") && str.Has(line, " = \"") {
 					if name_and_type, value, ok := str.Cut(line[1:len(line)-1], " = \""); ok && value != "" {
 						if name, type_name, ok := str.Cut(name_and_type, " "); ok {
-							if name, type_name = str.Trim(name), str.Trim(type_name); type_name != "" && type_name != "string" && name != type_name && str.Begins(name, type_name) {
-								enumerant_name := name[len(type_name):]
-								if str.IsLo(enumerant_name[:1]) {
-									continue
+							if name, type_name = str.Trim(name), str.Trim(type_name); type_name != "" && type_name != "string" && name != type_name {
+								if type_name_stripped := str.TrimR(type_name, "Field"); str.Begins(name, type_name) || str.Begins(name, type_name_stripped) {
+									enumerant_name := name[len(type_name_stripped):]
+									if str.IsLo(enumerant_name[:1]) {
+										continue
+									}
+									if (str.Lo(enumerant_name) != str.Lo(value)) && (str.Lo(name) != str.Lo(value) && !str.Has(value, ".")) {
+										panic(value + "!=" + enumerant_name + " && " + value + "!=" + name)
+									}
+									apiReflAllEnums[pkg_name+"."+type_name] = append(apiReflAllEnums[pkg_name+"."+type_name], value)
+									if existing := enum_pkgs[type_name]; existing != "" && existing != pkg_name {
+										panic("enum name clash: '" + pkg_name + "." + type_name + "' vs '" + existing + "." + type_name + "'")
+									}
+									enum_pkgs[type_name] = pkg_name
+									apiReflAllEnums[type_name] = append(apiReflAllEnums[type_name], value)
 								}
-								if (str.Lo(enumerant_name) != str.Lo(value)) && (str.Lo(name) != str.Lo(value) && !str.Has(value, ".")) {
-									panic(value + "!=" + enumerant_name + " && " + value + "!=" + name)
-								}
-								apiReflAllEnums[pkg_name+"."+type_name] = append(apiReflAllEnums[pkg_name+"."+type_name], value)
-								if existing := enum_pkgs[type_name]; existing != "" && existing != pkg_name {
-									panic("enum name clash: '" + pkg_name + "." + type_name + "' vs '" + existing + "." + type_name + "'")
-								}
-								enum_pkgs[type_name] = pkg_name
-								apiReflAllEnums[type_name] = append(apiReflAllEnums[type_name], value)
 							}
 						}
 					}
