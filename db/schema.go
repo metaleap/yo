@@ -4,7 +4,6 @@ import (
 	"reflect"
 	. "yo/ctx"
 	q "yo/db/query"
-	. "yo/util"
 	"yo/util/sl"
 	"yo/util/str"
 )
@@ -19,12 +18,6 @@ type TableColumn struct {
 }
 
 func GetTable(ctx *Ctx, tableName string) []*TableColumn {
-	tables := ListTables(ctx, tableName)
-	return tables[(Text)(tableName)]
-}
-
-func ListTables(ctx *Ctx, tableName string) map[Text][]*TableColumn {
-	ret := map[Text][]*TableColumn{}
 	desc := desc[TableColumn]()
 	desc.tableName = "information_schema.columns"
 	for i, col_name := range desc.cols {
@@ -33,23 +26,9 @@ func ListTables(ctx *Ctx, tableName string) map[Text][]*TableColumn {
 
 	args := dbArgs{}
 	stmt := new(sqlStmt).selCols(desc.tableName, desc.cols...).from(desc.tableName).
-		where(desc.tableName, IfF(tableName != "",
-			func() q.Query { return q.C("table_name").Equal(tableName) },
-			func() q.Query {
-				return q.C("table_name").In(
-					new(sqlStmt).selCols("table_name").from("information_schema.tables").
-						where(desc.tableName, q.C("table_type").Equal("BASE TABLE").And(
-							q.C("table_schema").NotIn("pg_catalog", "information_schema"),
-						), desc.fieldNameToColName, args),
-				)
-			},
-		), desc.fieldNameToColName, args).
+		where(desc.tableName, q.C("table_name").Equal(tableName), desc.fieldNameToColName, args).
 		orderBy(desc.tableName, desc.fieldNameToColName, q.C("table_name").Asc(), q.C("ordinal_position").Asc())
-	flat_results := doSelect[TableColumn](ctx, stmt, args, If(tableName == "", 0, 1))
-	for _, result := range flat_results {
-		ret[result.tableName] = append(ret[result.tableName], result)
-	}
-	return ret
+	return doSelect[TableColumn](ctx, stmt, args, 0)
 }
 
 func (me *sqlStmt) createTable(desc *structDesc) *sqlStmt {

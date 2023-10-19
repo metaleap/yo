@@ -12,6 +12,7 @@ const (
 	userAuthFieldPasswordHashed UserAuthField = "passwordHashed"
 )
 
+func (me UserAuthField) AsField() q.F                 { return ((q.F)(me)).AsField() }
 func (me UserAuthField) Asc() q.OrderBy               { return ((q.F)(me)).Asc() }
 func (me UserAuthField) Desc() q.OrderBy              { return ((q.F)(me)).Desc() }
 func (me UserAuthField) Equal(a1 interface{}) q.Query { return ((q.F)(me)).Equal(a1) }

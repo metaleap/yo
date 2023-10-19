@@ -29,14 +29,14 @@ func init() {
 		return Err(errBinOpPrefix + it)
 	})...)
 	Apis(ApiMethods{
-		"__/yo/db/listTables": Api(apiListTables, PkgInfo),
+		"__/yo/db/getTable": Api(apiGetTable, PkgInfo),
 	})
 }
 
-func apiListTables(this *ApiCtx[struct {
+func apiGetTable(this *ApiCtx[struct {
 	Name string
-}, Return[map[Text][]*TableColumn]]) {
-	this.Ret.Result = ListTables(this.Ctx, this.Args.Name)
+}, Return[[]*TableColumn]]) {
+	this.Ret.Result = GetTable(this.Ctx, this.Args.Name)
 }
 
 func apiMethodPath(typeName string, relMethodPath string) string {
