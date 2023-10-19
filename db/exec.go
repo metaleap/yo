@@ -138,11 +138,21 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 		panic(ErrDbUpdate_ExpectedChangesForUpdate)
 	}
 	id_maybe, _ := reflFieldValueOf(upd, "Id").(I64)
-	if where == nil && id_maybe == 0 {
-		panic(ErrDbUpdate_ExpectedQueryForUpdate)
-	}
-	if where == nil {
+	if where == nil && id_maybe != 0 {
 		where = q.C(ColID).Equal(id_maybe)
+	} else if where == nil {
+		for _, unique_field := range desc.constraints.uniques {
+			if field, _ := desc.ty.FieldByName(string(unique_field)); "" != isDbRefType(field.Type) {
+				if id_other := reflFieldValueOf(upd, q.F(field.Name)).(dbRef).Id(); id_other != 0 {
+					where = unique_field.Equal(id_other)
+					break
+				}
+
+			}
+		}
+		if where == nil {
+			panic(ErrDbUpdate_ExpectedQueryForUpdate)
+		}
 	}
 	for i, col_name := range col_names {
 		args[col_name] = col_vals[i]
@@ -267,7 +277,10 @@ func dbArgsCleanUpForPgx(args dbArgs) dbArgs {
 		if b, is := v.(Bytes); is {
 			args[k] = ([]byte)(b)
 		} else if dt, is := v.(*DateTime); is {
-			args[k] = (*time.Time)(dt)
+			if dt == nil {
+				args[k] = nil
+			}
+			args[k] = time.Time(*dt)
 		} else if db_ref, _ := v.(dbRef); db_ref != nil {
 			id := db_ref.Id()
 			args[k] = If[any](id == 0, nil, id)
