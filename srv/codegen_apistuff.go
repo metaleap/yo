@@ -111,7 +111,7 @@ func codegenGo(apiRefl *apiRefl) {
 
 		pkg_methods := map[string]ApiMethod{}
 		for method_path, method := range api {
-			if method.PkgName() == pkg_name {
+			if pkg_info := method.pkgInfo(); (pkg_info != nil) && (pkg_info.PkgName() == pkg_name) {
 				pkg_methods[method_path] = method
 			}
 		}
@@ -131,7 +131,7 @@ func codegenGo(apiRefl *apiRefl) {
 		buf.WriteString("type apiPkgInfo util.Void\n")
 		buf.WriteString("func (apiPkgInfo) PkgName() string { return \"" + pkg_name + "\" }\n")
 		buf.WriteString("func (me apiPkgInfo) PkgPath() string { return reflect.TypeOf(me).PkgPath() }\n")
-		buf.WriteString("var PkgInfo = apiPkgInfo{}\n")
+		buf.WriteString("var ThisPkg = apiPkgInfo{}\n")
 
 		// emit known `Err`s
 		err_emitted := map[Err]bool{}

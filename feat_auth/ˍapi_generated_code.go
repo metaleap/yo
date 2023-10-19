@@ -11,7 +11,7 @@ type apiPkgInfo util.Void
 func (apiPkgInfo) PkgName() string    { return "yoauth" }
 func (me apiPkgInfo) PkgPath() string { return reflect.TypeOf(me).PkgPath() }
 
-var PkgInfo = apiPkgInfo{}
+var ThisPkg = apiPkgInfo{}
 
 const ErrDbUpdate_ExpectedChangesForUpdate util.Err = "DbUpdate_ExpectedChangesForUpdate"
 const ErrDbUpdate_ExpectedQueryForUpdate util.Err = "DbUpdate_ExpectedQueryForUpdate"

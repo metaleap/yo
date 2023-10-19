@@ -11,4 +11,4 @@ type apiPkgInfo util.Void
 func (apiPkgInfo) PkgName() string    { return "yo" }
 func (me apiPkgInfo) PkgPath() string { return reflect.TypeOf(me).PkgPath() }
 
-var PkgInfo = apiPkgInfo{}
+var ThisPkg = apiPkgInfo{}

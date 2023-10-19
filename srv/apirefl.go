@@ -17,7 +17,7 @@ var apiReflAppDbStructs []reflect.Type
 
 func init() {
 	Apis(ApiMethods{
-		yoAdminApisUrlPrefix + "refl": Api(apiHandleReflReq, nil),
+		yoAdminApisUrlPrefix + "refl": Api(apiHandleReflReq),
 	})
 }
 

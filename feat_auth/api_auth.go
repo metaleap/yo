@@ -29,28 +29,34 @@ var (
 
 func init() {
 	Apis(ApiMethods{
-		MethodPathLogout: Api(ApiUserLogout, PkgInfo),
+		MethodPathLogout: Api(ApiUserLogout).From(ThisPkg),
 
-		MethodPathLogin: Api(ApiUserLogin, PkgInfo,
+		MethodPathLogin: Api(ApiUserLogin,
 			Fails{Err: "EmailRequiredButMissing", If: ___yo_authRegisterEmailAddr.Equal("")},
 			Fails{Err: "EmailInvalid", If: isEmailishEnough(___yo_authLoginEmailAddr).Not()},
 			Fails{Err: "WrongPassword",
 				If: ___yo_authLoginPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN).Or(
 					___yo_authLoginPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN))},
-		).CouldFailWith("OkButFailedToCreateSignedToken", "AccountDoesNotExist"),
+		).
+			From(ThisPkg).
+			CouldFailWith("OkButFailedToCreateSignedToken", "AccountDoesNotExist"),
 
-		MethodPathRegister: Api(ApiUserRegister, PkgInfo,
+		MethodPathRegister: Api(ApiUserRegister,
 			Fails{Err: "EmailRequiredButMissing", If: ___yo_authRegisterEmailAddr.Equal("")},
 			Fails{Err: "EmailInvalid", If: isEmailishEnough(___yo_authRegisterEmailAddr).Not()},
 			Fails{Err: "PasswordTooShort", If: ___yo_authRegisterPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 			Fails{Err: "PasswordTooLong", If: ___yo_authRegisterPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
-		).CouldFailWith("EmailAddrAlreadyExists", "PasswordInvalid", ErrDbNotStored),
+		).
+			From(ThisPkg).
+			CouldFailWith("EmailAddrAlreadyExists", "PasswordInvalid", ErrDbNotStored),
 
-		MethodPathChangePassword: Api(apiChangePassword, PkgInfo,
+		MethodPathChangePassword: Api(apiChangePassword,
 			Fails{Err: "NewPasswordExpectedToDiffer", If: ___yo_authChangePasswordPasswordNewPlain.Equal(___yo_authChangePasswordPasswordPlain)},
 			Fails{Err: "NewPasswordTooShort", If: ___yo_authChangePasswordPasswordNewPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 			Fails{Err: "NewPasswordTooLong", If: ___yo_authChangePasswordPasswordNewPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
-		).CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "NewPasswordInvalid", ErrUnauthorized, ErrDbNotStored),
+		).
+			From(ThisPkg).
+			CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "NewPasswordInvalid", ErrUnauthorized, ErrDbNotStored),
 	})
 
 	PreApiHandling = append(PreApiHandling, Middleware{Name: "authCheck", Do: func(ctx *Ctx) {

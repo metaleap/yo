@@ -29,7 +29,7 @@ func init() {
 		return Err(errBinOpPrefix + it)
 	})...)
 	Apis(ApiMethods{
-		"__/yo/db/getTable": Api(apiGetTable, PkgInfo),
+		"__/yo/db/getTable": Api(apiGetTable).From(ThisPkg),
 	})
 }
 
@@ -47,23 +47,33 @@ func registerApiHandlers[TObj any, TFld q.Field](desc *structDesc) {
 	type_name := desc.ty.Name()
 
 	Apis(ApiMethods{
-		apiMethodPath(type_name, "findById"): Api(apiFindById[TObj, TFld], PkgInfo),
-		apiMethodPath(type_name, "findOne"): Api(apiFindOne[TObj, TFld], PkgInfo).
+		apiMethodPath(type_name, "findById"): Api(apiFindById[TObj, TFld]).
+			From(ThisPkg),
+		apiMethodPath(type_name, "findOne"): Api(apiFindOne[TObj, TFld]).
+			From(ThisPkg).
 			CouldFailWith(":" + ErrSetQuery),
-		apiMethodPath(type_name, "findMany"): Api(apiFindMany[TObj, TFld], PkgInfo).
+		apiMethodPath(type_name, "findMany"): Api(apiFindMany[TObj, TFld]).
+			From(ThisPkg).
 			CouldFailWith(":" + ErrSetQuery),
-		apiMethodPath(type_name, "deleteOne"): Api(apiDeleteOne[TObj, TFld], PkgInfo).
+		apiMethodPath(type_name, "deleteOne"): Api(apiDeleteOne[TObj, TFld]).
+			From(ThisPkg).
 			CouldFailWith(":" + ErrSetDbDelete),
-		apiMethodPath(type_name, "deleteMany"): Api(apiDeleteMany[TObj, TFld], PkgInfo).
+		apiMethodPath(type_name, "deleteMany"): Api(apiDeleteMany[TObj, TFld]).
+			From(ThisPkg).
 			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbDelete),
-		apiMethodPath(type_name, "updateOne"): Api(apiUpdateOne[TObj, TFld], PkgInfo).
+		apiMethodPath(type_name, "updateOne"): Api(apiUpdateOne[TObj, TFld]).
+			From(ThisPkg).
 			CouldFailWith(":"+ErrSetDbUpdate, yoctx.ErrDbNotStored, yoctx.ErrDbUpdExpectedIdGt0),
-		apiMethodPath(type_name, "updateMany"): Api(apiUpdateMany[TObj, TFld], PkgInfo).
+		apiMethodPath(type_name, "updateMany"): Api(apiUpdateMany[TObj, TFld]).
+			From(ThisPkg).
 			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbUpdate),
-		apiMethodPath(type_name, "count"): Api(apiCount[TObj, TFld], PkgInfo).
+		apiMethodPath(type_name, "count"): Api(apiCount[TObj, TFld]).
+			From(ThisPkg).
 			CouldFailWith(":" + ErrSetQuery),
-		apiMethodPath(type_name, "createOne"):  Api(apiCreateOne[TObj, TFld], PkgInfo),
-		apiMethodPath(type_name, "createMany"): Api(apiCreateMany[TObj, TFld], PkgInfo),
+		apiMethodPath(type_name, "createOne"): Api(apiCreateOne[TObj, TFld]).
+			From(ThisPkg),
+		apiMethodPath(type_name, "createMany"): Api(apiCreateMany[TObj, TFld]).
+			From(ThisPkg),
 	})
 }
 

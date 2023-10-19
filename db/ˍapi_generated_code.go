@@ -11,7 +11,7 @@ type apiPkgInfo util.Void
 func (apiPkgInfo) PkgName() string    { return "yodb" }
 func (me apiPkgInfo) PkgPath() string { return reflect.TypeOf(me).PkgPath() }
 
-var PkgInfo = apiPkgInfo{}
+var ThisPkg = apiPkgInfo{}
 
 const ErrQuery_ExpectedOneOrNoneButNotMultipleOfFldOrStrOrBoolOrInt util.Err = "Query_ExpectedOneOrNoneButNotMultipleOfFldOrStrOrBoolOrInt"
 const ErrQuery_ExpectedOnlyEitherQueryOrQueryFromButNotBoth util.Err = "Query_ExpectedOnlyEitherQueryOrQueryFromButNotBoth"
