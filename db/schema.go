@@ -47,7 +47,7 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 		switch col_name {
 		case ColID:
 			w("bigserial PRIMARY KEY")
-		case ColCreated:
+		case ColCreatedAt:
 			w("timestamp without time zone NOT NULL DEFAULT (current_timestamp)")
 		default:
 			field := desc.ty.Field(i)
@@ -58,7 +58,7 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 	w("\n)")
 	ret = append(ret, stmt_create_table)
 
-	indexed_cols_and_order := map[q.C]string{ColCreated: "DESC"}
+	indexed_cols_and_order := map[q.C]string{ColCreatedAt: "DESC"}
 	for i, field_name := range desc.fields { // always index foreign-key cols due to ON DELETE trigger perf
 		if sl.Has(desc.constraints.uniques, field_name) { // uniques already get indices
 			continue
@@ -114,7 +114,7 @@ func schemaAlterTable(desc *structDesc, curTable []*TableColumn, oldTableName st
 	cols_gone, fields_new, col_type_changes := []q.C{}, []q.F{}, []q.C{}
 	for _, table_col := range curTable {
 		col_name := q.C(table_col.ColumnName)
-		if (col_name == ColID) || (col_name == ColCreated) {
+		if (col_name == ColID) || (col_name == ColCreatedAt) {
 			continue
 		}
 		if !sl.Has(desc.cols, col_name) {

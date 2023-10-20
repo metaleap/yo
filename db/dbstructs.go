@@ -15,8 +15,13 @@ import (
 )
 
 const (
-	ColID      = q.C("id_")
-	ColCreated = q.C("created_")
+	ColID         = q.C("id_")
+	ColCreatedAt  = q.C("dt_made_")
+	ColModifiedAt = q.C("dt_mod_")
+
+	FieldID         = q.F("Id")
+	FieldCreatedAt  = q.F("DtMade")
+	FieldModifiedAt = q.F("DtMod")
 )
 
 type Bool bool
@@ -365,9 +370,6 @@ func (me scanner) Scan(it any) error {
 	return nil
 }
 
-func Ens[TFld q.Field](constraints ...Constraints) {
-}
-
 func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField map[q.C]q.F, constraints ...Constraints) {
 	if inited {
 		panic("db.Ensure called after db.Init")
@@ -385,15 +387,17 @@ func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField
 			panic(constraints)
 		}
 	}
-	ensureDescs = append(ensureDescs, desc)
 	desc.mig.oldTableName, desc.mig.renamesOldColToNewField = oldTableName, renamesOldColToNewField
 	if (len(desc.cols) < 1) || (desc.cols[0] != ColID) {
 		panic(desc.tableName + ": first column must be '" + string(ColID))
-	} else if (len(desc.cols) < 2) || (desc.cols[1] != ColCreated) {
-		panic(desc.tableName + ": second column must be '" + string(ColCreated))
-	} else if len(desc.cols) < 3 {
+	} else if (len(desc.cols) < 2) || (desc.cols[1] != ColCreatedAt) {
+		panic(desc.tableName + ": second column must be '" + string(ColCreatedAt))
+	} else if (len(desc.cols) < 3) || (desc.cols[1] != ColModifiedAt) {
+		panic(desc.tableName + ": third column must be '" + string(ColModifiedAt))
+	} else if len(desc.cols) < 4 {
 		panic(desc.tableName + ": no custom columns")
 	}
+	ensureDescs = append(ensureDescs, desc)
 	registerApiHandlers[TObj, TFld](desc)
 }
 
