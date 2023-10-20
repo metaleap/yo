@@ -89,6 +89,7 @@ type fn string
 const (
 	FnStrLen fn = "octet_length"
 	FnLen    fn = "jsonb_array_length"
+	FnArr    fn = "jsonb_array_elements"
 	FnArrAll fn = "TodoFnArrAll"
 	FnArrAny fn = "TodoFnArrAny"
 )
@@ -172,22 +173,17 @@ type Query interface {
 }
 
 const (
-	opEq                             = " = "
-	opNeq                            = " != "
-	opLt                             = " < "
-	opLeq                            = " <= "
-	opGt                             = " > "
-	opGeq                            = " >= "
-	opIn                             = " IN "
-	opNotIn                          = " NOT IN "
-	opAnd                            = " AND "
-	opOr                             = " OR "
-	opNot                            = "NOT "
-	opJsonHas                        = " @> " // where to @> 123
-	opJsonIsIn                       = " <@ "
-	opJsonHasStrKeyOrElem            = " ? "
-	opJsonHasAnyStrsAsKeysOrArrItems = " ?| "
-	opJsonHasAllStrsAsKeysOrArrItems = " ?& "
+	opEq    = " = "
+	opNeq   = " != "
+	opLt    = " < "
+	opLeq   = " <= "
+	opGt    = " > "
+	opGeq   = " >= "
+	opIn    = " IN "
+	opNotIn = " NOT IN "
+	opAnd   = " AND "
+	opOr    = " OR "
+	opNot   = "NOT "
 )
 
 func Equal(lhs any, rhs any) Query {
@@ -220,23 +216,11 @@ func inNotIn(op string, lhs Operand, rhs ...Operand) Query {
 	_, is_literal := rhs[0].(V)
 	return &query{op: If(((len(rhs) == 1) && (sub_stmt == nil) && ((rhs[0] == nil) || is_literal)), opEq, op), operands: append([]Operand{lhs}, rhs...)}
 }
-func JsonHas(lhs any, rhs any) Query {
-	return &query{op: opJsonHas, operands: operandsFrom(lhs, rhs)}
-}
-func JsonHasStrKeyOrElem(lhs any, rhs any) Query {
-	return &query{op: opJsonHasStrKeyOrElem, operands: operandsFrom(lhs, rhs)}
-}
-func JsonHasAnyStrsAsKeysOrArrItems(lhs any, rhs any) Query {
-	return &query{op: opJsonHasAnyStrsAsKeysOrArrItems, operands: operandsFrom(lhs, rhs)}
-}
-func JsonHasAllStrsAsKeysOrArrItems(lhs any, rhs any) Query {
-	return &query{op: opJsonHasAllStrsAsKeysOrArrItems, operands: operandsFrom(lhs, rhs)}
-}
-func JsonIsIn(lhs any, rhs any) Query {
-	return &query{op: opJsonIsIn, operands: operandsFrom(lhs, rhs)}
-}
-func Empty(arr any) Query {
+func JsonArrEmpty(arr any) Query {
 	return operandFrom(arr).Equal(nil).Or(Fn(FnLen, arr).Equal(0))
+}
+func JsonArrHas(arr any, needle any) Query {
+	return In(needle, Fn(FnArr, arr))
 }
 func AllTrue(conds ...Query) Query {
 	if len(conds) == 0 {

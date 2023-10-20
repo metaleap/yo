@@ -13,6 +13,7 @@ const (
 	userAuthPwdHashed UserAuthField = "pwdHashed"
 )
 
+func (me UserAuthField) Arr(a1 ...interface{}) q.Operand    { return ((q.F)(me)).Arr(a1...) }
 func (me UserAuthField) ArrAll(a1 ...interface{}) q.Operand { return ((q.F)(me)).ArrAll(a1...) }
 func (me UserAuthField) ArrAny(a1 ...interface{}) q.Operand { return ((q.F)(me)).ArrAny(a1...) }
 func (me UserAuthField) Asc() q.OrderBy                     { return ((q.F)(me)).Asc() }
