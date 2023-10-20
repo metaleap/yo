@@ -170,7 +170,7 @@ type structDesc struct {
 }
 
 func isColField(fieldType reflect.Type) bool {
-	return sl.Has(okTypes, fieldType) || isDbJsonType(fieldType) || ("" != isDbRefType(fieldType))
+	return sl.Has(okTypes, fieldType) || isDbJsonType(fieldType) || isDbRefType(fieldType)
 }
 
 func isDbJsonType(ty reflect.Type) bool {
@@ -198,7 +198,8 @@ func isWhatDbJsonType(ty reflect.Type) (isDbJsonDictType bool, isDbJsonArrType b
 	return
 }
 
-func isDbRefType(ty reflect.Type) string {
+func isDbRefType(ty reflect.Type) bool { return (dbRefType(ty) != "") }
+func dbRefType(ty reflect.Type) string {
 	type_name := ty.Name()
 	if idx := str.IdxSub(type_name, "Ref["); (idx == 0) && ty.PkgPath() == yodbPkg.PkgPath() && str.Ends(type_name, "]") {
 		ret := type_name[idx+len("Ref[") : len(type_name)-1]
@@ -243,7 +244,7 @@ type scanner struct {
 
 func reflFieldValueOf[T any](it *T, fieldName q.F) any {
 	field, _ := reflect.TypeOf(it).Elem().FieldByName(string(fieldName))
-	return reflFieldValue(reflect.ValueOf(it).Elem().FieldByName(string(fieldName)), ("" != isDbRefType(field.Type)))
+	return reflFieldValue(reflect.ValueOf(it).Elem().FieldByName(string(fieldName)), isDbRefType(field.Type))
 }
 
 func reflFieldValue(rvField reflect.Value, isDbRef bool) any {
@@ -332,7 +333,7 @@ func (me scanner) Scan(it any) error {
 		case tyI64:
 			setPtr(me.ptr, (I64)(it))
 		default:
-			if isDbRefType(me.ty) != "" {
+			if isDbRefType(me.ty) {
 				setPtr(me.ptr, (I64)(it))
 			} else {
 				panic(str.Fmt("scanner.Scan %T into %s", it, me.ty.String()))
@@ -419,7 +420,7 @@ func ForEachColField[T any](it *T, do func(fieldName q.F, colName q.C, fieldValu
 	}
 	for i, field_name := range desc.fields {
 		field, _ := desc.ty.FieldByName(string(field_name))
-		value := reflFieldValue(rv.FieldByName(string(field_name)), ("" != isDbRefType(field.Type)))
+		value := reflFieldValue(rv.FieldByName(string(field_name)), isDbRefType(field.Type))
 		frv := reflect.ValueOf(value)
 		do(field_name, desc.cols[i], value, (!frv.IsValid()) || frv.IsZero())
 	}

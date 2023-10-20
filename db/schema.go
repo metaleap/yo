@@ -61,6 +61,7 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 	}
 
 	{ // modified-at timestamp column auto-update
+		onlySomeCols := false
 		var stmt_make_trigger str.Buf
 		stmt_make_trigger.WriteString(str.Repl(`
 				CREATE OR REPLACE FUNCTION on_yo_db_obj_upd()
@@ -76,8 +77,10 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 					END IF;
 				END
 				$func$;
-				CREATE OR REPLACE TRIGGER {table_name}onUpdate BEFORE UPDATE ON {table_name} FOR EACH ROW EXECUTE FUNCTION on_yo_db_obj_upd();
-		`,
+		`+If(onlySomeCols,
+			`CREATE OR REPLACE TRIGGER {table_name}onUpdate BEFORE UPDATE ON {table_name} FOR EACH ROW EXECUTE FUNCTION on_yo_db_obj_upd();`,
+			`CREATE OR REPLACE TRIGGER {table_name}onUpdate BEFORE UPDATE ON {table_name} FOR EACH ROW EXECUTE FUNCTION on_yo_db_obj_upd();`,
+		),
 			str.Dict{"col_name": string(ColModifiedAt), "table_name": desc.tableName}))
 		ret = append(ret, (*sqlStmt)(&stmt_make_trigger))
 	}
@@ -89,7 +92,7 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 				continue
 			}
 			field, _ := desc.ty.FieldByName(string(field_name))
-			if "" != isDbRefType(field.Type) {
+			if isDbRefType(field.Type) {
 				indexed_cols_and_order[desc.cols[i]] = ""
 			}
 		}
@@ -244,7 +247,7 @@ func sqlColTypeFrom(ty reflect.Type) string {
 	default:
 		if isDbJsonType(ty) {
 			return "jsonb"
-		} else if isDbRefType(ty) != "" {
+		} else if isDbRefType(ty) {
 			return "int8"
 		}
 		panic(ty)
@@ -266,7 +269,7 @@ func sqlColTypeDeclFrom(ty reflect.Type, isUnique bool) string {
 	default:
 		if is_db_json_dict_type, is_db_json_arr_type, is_db_json_obj_type := isWhatDbJsonType(ty); is_db_json_obj_type || is_db_json_dict_type || is_db_json_arr_type {
 			return sql_data_type_name + " NULL DEFAULT (NULL)" + unique_maybe
-		} else if isDbRefType(ty) != "" {
+		} else if isDbRefType(ty) {
 			dummy := reflect.New(ty).Interface().(interface {
 				structDesc() *structDesc
 				refOnDel

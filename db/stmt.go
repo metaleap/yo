@@ -193,7 +193,7 @@ func (me *sqlStmt) where(desc *structDesc, isMut bool, where q.Query, args pgx.N
 		for field_name := range dotteds {
 			field, _ := desc.ty.FieldByName(string(field_name))
 			join_name := "__j__" + str.FromInt(idx_join)
-			type_refd := isDbRefType(field.Type)
+			type_refd := dbRefType(field.Type)
 			var sub_desc *structDesc
 			for ty, sd := range descs {
 				if (ty.PkgPath() + "." + ty.Name()) == type_refd {

@@ -148,7 +148,7 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 		where = q.C(ColID).Equal(id_maybe)
 	} else if where == nil {
 		for _, unique_field := range desc.constraints.uniques {
-			if field, _ := desc.ty.FieldByName(string(unique_field)); "" != isDbRefType(field.Type) {
+			if field, _ := desc.ty.FieldByName(string(unique_field)); isDbRefType(field.Type) {
 				if id_other := reflFieldValueOf(upd, q.F(field.Name)).(dbRef).Id(); id_other != 0 {
 					where = unique_field.Equal(id_other)
 					break
@@ -239,7 +239,7 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 			field := rv.FieldByName(string(struct_desc.fields[sl.IdxOf(struct_desc.cols, col)]))
 			var json_db_val jsonDbValue
 			unsafe_addr := field.UnsafeAddr()
-			if isDbRefType(field.Type()) != "" {
+			if isDbRefType(field.Type()) {
 				unsafe_addr = field.FieldByName("id").UnsafeAddr()
 			} else if is_db_json_dict_type, is_db_json_arr_type, is_db_json_obj_type := isWhatDbJsonType(field.Type()); is_db_json_dict_type || is_db_json_arr_type {
 				ptr := reflect.New(field.Type())

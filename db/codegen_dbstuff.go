@@ -189,7 +189,7 @@ func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc) {
 
 	for _, field_name := range desc.fields {
 		field, _ := desc.ty.FieldByName(string(field_name))
-		if ref_of_type := isDbRefType(field.Type); "" != ref_of_type {
+		if ref_of_type := dbRefType(field.Type); "" != ref_of_type {
 			var sub_desc *structDesc
 			for _, desc := range descs {
 				if ty_ident := desc.ty.PkgPath() + "." + desc.ty.Name(); ty_ident == ref_of_type {
