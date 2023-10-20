@@ -17,8 +17,8 @@ import (
 const QueryArgForceFail = "yoFail"
 const QueryArgForceUser = "yoUser"
 const StaticFilesDirNameYo = "__yostatic"
+const StaticFilesDirNameApp = "__static"
 
-var StaticFilesDirNameApp string
 var StaticFileDirYo fs.FS
 var StaticFileDirApp fs.FS
 
