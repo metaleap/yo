@@ -32,7 +32,7 @@ func GetTable(ctx *Ctx, tableName string) []*TableColumn {
 	return doSelect[TableColumn](ctx, stmt, args, 0)
 }
 
-func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
+func schemaCreateTable(desc *structDesc, didWriteUpdTriggerFuncYet *bool) (ret []*sqlStmt) {
 	{ // create table
 		stmt_create_table := new(sqlStmt)
 		w := (*str.Buf)(stmt_create_table).WriteString
@@ -61,9 +61,12 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 	}
 
 	{ // modified-at timestamp column auto-update
-		onlySomeCols := false
+		var upd_trigger_on_flds []q.F
+		if len(desc.constraints.noUpdTrigger) > 0 {
+			upd_trigger_on_flds = sl.Without(desc.fields, desc.constraints.noUpdTrigger...)
+		}
 		var stmt_make_trigger str.Buf
-		stmt_make_trigger.WriteString(str.Repl(`
+		stmt_make_trigger.WriteString(str.Repl(If(*didWriteUpdTriggerFuncYet, "", `
 				CREATE OR REPLACE FUNCTION on_yo_db_obj_upd()
 				RETURNS TRIGGER
 				LANGUAGE plpgsql AS
@@ -77,11 +80,13 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 					END IF;
 				END
 				$func$;
-		`+If(onlySomeCols,
-			`CREATE OR REPLACE TRIGGER {table_name}onUpdate BEFORE UPDATE ON {table_name} FOR EACH ROW EXECUTE FUNCTION on_yo_db_obj_upd();`,
-			`CREATE OR REPLACE TRIGGER {table_name}onUpdate BEFORE UPDATE ON {table_name} FOR EACH ROW EXECUTE FUNCTION on_yo_db_obj_upd();`,
-		),
-			str.Dict{"col_name": string(ColModifiedAt), "table_name": desc.tableName}))
+		`)+If((upd_trigger_on_flds != nil) && (len(upd_trigger_on_flds) == 0), "",
+			`CREATE OR REPLACE TRIGGER {table_name}onUpdate BEFORE UPDATE {of_cols} ON {table_name} FOR EACH ROW EXECUTE FUNCTION on_yo_db_obj_upd();`),
+			str.Dict{"col_name": string(ColModifiedAt), "table_name": desc.tableName,
+				"of_cols": If(len(upd_trigger_on_flds) == 0, "",
+					"OF "+str.Join(sl.To(upd_trigger_on_flds, func(it q.F) string { return string(desc.cols[sl.IdxOf(desc.fields, it)]) }), ", "),
+				)}))
+		*didWriteUpdTriggerFuncYet = true
 		ret = append(ret, (*sqlStmt)(&stmt_make_trigger))
 	}
 

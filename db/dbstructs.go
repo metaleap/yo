@@ -447,13 +447,14 @@ func doEnsureDbStructTables() {
 		is_table_rename := (desc.mig.oldTableName != "")
 		ctx.Timings.Step("get cur table")
 		cur_table := GetTable(ctx, If(is_table_rename, desc.mig.oldTableName, desc.tableName))
+		var did_write_upd_trigger_func_yet bool
 		if cur_table == nil {
 			ctx.TimingsNoPrintInDevMode = false
 			if is_table_rename {
 				panic("outdated table rename: '" + desc.mig.oldTableName + "'")
 			}
 			ctx.Timings.Step("createTable")
-			for _, stmt := range schemaCreateTable(desc) {
+			for _, stmt := range schemaCreateTable(desc, &did_write_upd_trigger_func_yet) {
 				_ = doExec(ctx, stmt, nil)
 			}
 		} else if stmts := schemaAlterTable(desc, cur_table, desc.mig.oldTableName, desc.mig.renamesOldColToNewField); len(stmts) > 0 {
