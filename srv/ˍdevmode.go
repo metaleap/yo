@@ -49,7 +49,7 @@ func viaHttp[TIn any, TOut any](methodPath string, ctx *Ctx, args *TIn, client *
 
 	req, err := http.NewRequestWithContext(ctx, "POST",
 		"http://localhost:"+str.FromInt(Cfg.YO_API_HTTP_PORT)+"/"+str.TrimL(AppApiUrlPrefix+methodPath, "/")+
-			"?"+QueryArgNoCtxPrt, //+"=1",
+			"?"+QueryArgNoCtxPrt+"=1",
 		bytes.NewReader(json_raw))
 	if err != nil {
 		panic(err)
