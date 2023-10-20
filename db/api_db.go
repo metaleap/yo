@@ -133,13 +133,13 @@ func apiDeleteMany[TObj any, TFld q.Field](this *ApiCtx[argQuery[TObj, TFld], re
 	this.Ret.Count = Delete[TObj](this.Ctx, this.Args.toDbQ())
 }
 
-type ApiUpdateArgs[TObj any] struct {
+type ApiUpdateArgs[TObj any, TFld q.Field] struct {
 	ApiArgId
 	Changes                       TObj
 	IncludingEmptyOrMissingFields bool
 }
 
-func apiUpdateOne[TObj any, TFld q.Field](this *ApiCtx[ApiUpdateArgs[TObj], retCount]) {
+func apiUpdateOne[TObj any, TFld q.Field](this *ApiCtx[ApiUpdateArgs[TObj, TFld], retCount]) {
 	if this.Args.Id <= 0 {
 		panic(Err(yoctx.ErrDbUpdExpectedIdGt0))
 	}
