@@ -22,6 +22,7 @@ var (
 	Idx      = strings.IndexByte
 	IdxSub   = strings.Index
 	IdxLast  = strings.LastIndexByte
+	IdxRune  = strings.IndexRune
 	Join     = strings.Join
 	Split    = strings.Split
 	Cut      = strings.Cut
@@ -59,15 +60,6 @@ func ReSuffix(s string, oldSuffix string, newSuffix string) string {
 func DurationMs(nanos int64) string {
 	ms := float64(nanos) * 0.000001
 	return FromFloat(ms, 2) + "ms"
-}
-
-func IdxRune(s string, r rune) int {
-	for i, it := range s {
-		if it == r {
-			return i
-		}
-	}
-	return -1
 }
 
 func IsLo(s string) bool {
