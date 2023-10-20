@@ -88,7 +88,7 @@ type fn string
 
 const (
 	FnStrLen fn = "octet_length"
-	FnLen    fn = "TodoFnLen"
+	FnLen    fn = "jsonb_array_length"
 	FnArrAll fn = "TodoFnArrAll"
 	FnArrAny fn = "TodoFnArrAny"
 )
@@ -120,7 +120,6 @@ func (me *fun) Not() Query                     { return me.Equal(false) }
 func (me *fun) In(set ...any) Query            { return In(me, set...) }
 func (me *fun) NotIn(set ...any) Query         { return NotIn(me, set...) }
 func (me *fun) Eval(obj any, c2f func(C) F) any {
-
 	if me.Alt != nil {
 		return me.Alt(sl.To(me.Args, func(it Operand) any { return it.Eval(obj, c2f) })...)
 	}
@@ -221,27 +220,35 @@ func inNotIn(op string, lhs Operand, rhs ...Operand) Query {
 	_, is_literal := rhs[0].(V)
 	return &query{op: If(((len(rhs) == 1) && (sub_stmt == nil) && ((rhs[0] == nil) || is_literal)), opEq, op), operands: append([]Operand{lhs}, rhs...)}
 }
-func JsonHas(lhs Operand, rhs Operand) Query {
+func JsonHas(lhs any, rhs any) Query {
 	return &query{op: opJsonHas, operands: operandsFrom(lhs, rhs)}
 }
-func JsonHasStrKeyOrElem(lhs Operand, rhs Operand) Query {
+func JsonHasStrKeyOrElem(lhs any, rhs any) Query {
 	return &query{op: opJsonHasStrKeyOrElem, operands: operandsFrom(lhs, rhs)}
 }
-func JsonHasAnyStrsAsKeysOrArrItems(lhs Operand, rhs Operand) Query {
+func JsonHasAnyStrsAsKeysOrArrItems(lhs any, rhs any) Query {
 	return &query{op: opJsonHasAnyStrsAsKeysOrArrItems, operands: operandsFrom(lhs, rhs)}
 }
-func JsonHasAllStrsAsKeysOrArrItems(lhs Operand, rhs Operand) Query {
+func JsonHasAllStrsAsKeysOrArrItems(lhs any, rhs any) Query {
 	return &query{op: opJsonHasAllStrsAsKeysOrArrItems, operands: operandsFrom(lhs, rhs)}
 }
-
-func JsonIsIn(lhs Operand, rhs Operand) Query {
+func JsonIsIn(lhs any, rhs any) Query {
 	return &query{op: opJsonIsIn, operands: operandsFrom(lhs, rhs)}
 }
+func Empty(arr any) Query {
+	return operandFrom(arr).Equal(nil).Or(Fn(FnLen, arr).Equal(0))
+}
 func AllTrue(conds ...Query) Query {
-	return If((len(conds) == 0), nil, If((len(conds) == 1), conds[0], (Query)(&query{op: opAnd, conds: conds})))
+	if len(conds) == 0 {
+		panic("q.AllTrue reached the no-conds situation, double-check call-site and prototyped q.AllTrue impl")
+	}
+	return If((len(conds) == 0), V{true}.Equal(true), If((len(conds) == 1), conds[0], (Query)(&query{op: opAnd, conds: conds})))
 }
 func EitherOr(conds ...Query) Query {
-	return If(len(conds) == 1, conds[0], (Query)(&query{op: opOr, conds: conds}))
+	if len(conds) == 0 {
+		panic("q.EitherOr reached the no-conds situation, double-check call-site and prototyped q.EitherOr impl")
+	}
+	return If((len(conds) == 0), V{true}.Equal(true), If(len(conds) == 1, conds[0], (Query)(&query{op: opOr, conds: conds})))
 }
 func Not(cond Query) Query {
 	switch q := cond.(*query); q.op {
