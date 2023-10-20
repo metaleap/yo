@@ -60,26 +60,26 @@ func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
 		ret = append(ret, stmt_create_table)
 	}
 
-	{ // mod-time column on update trigger + func
-		stmt_make_trigger := new(sqlStmt)
-		w := (*str.Buf)(stmt_make_trigger).WriteString
-		w(str.Repl(`
-				create or replace function onYoDbObjUpd()
-				returns trigger
+	{ // modified-at timestamp column auto-update
+		var stmt_make_trigger str.Buf
+		stmt_make_trigger.WriteString(str.Repl(`
+				CREATE OR REPLACE FUNCTION on_yo_db_obj_upd()
+				RETURNS TRIGGER
 				LANGUAGE plpgsql AS
 				$func$
-				begin
-					NEW.{col_name} = now();
-					return NEW;
-				end
+				BEGIN
+					IF NEW IS DISTINCT FROM OLD THEN
+						NEW.{col_name} = now();
+						RETURN NEW;
+					ELSE
+						RETURN NULL;
+					END IF;
+				END
 				$func$;
-
-				create or replace trigger {table_name}onUpdate before UPDATE on {table_name} for each row EXECUTE function onYoDbObjUpd();
+				CREATE OR REPLACE TRIGGER {table_name}onUpdate BEFORE UPDATE ON {table_name} FOR EACH ROW EXECUTE FUNCTION on_yo_db_obj_upd();
 		`,
 			str.Dict{"col_name": string(ColModifiedAt), "table_name": desc.tableName}))
-
-		w("\n)")
-		ret = append(ret, stmt_make_trigger)
+		ret = append(ret, (*sqlStmt)(&stmt_make_trigger))
 	}
 
 	{ // indices

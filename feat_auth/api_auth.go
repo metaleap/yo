@@ -46,14 +46,14 @@ func init() {
 			Fails{Err: "PasswordTooShort", If: ___yo_authRegisterPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 			Fails{Err: "PasswordTooLong", If: ___yo_authRegisterPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
 		).
-			CouldFailWith("EmailAddrAlreadyExists", "PasswordInvalid", ErrDbNotStored),
+			CouldFailWith("EmailAddrAlreadyExists", "PasswordInvalid"),
 
 		MethodPathChangePassword: api(apiChangePassword,
 			Fails{Err: "NewPasswordExpectedToDiffer", If: ___yo_authChangePasswordPasswordNewPlain.Equal(___yo_authChangePasswordPasswordPlain)},
 			Fails{Err: "NewPasswordTooShort", If: ___yo_authChangePasswordPasswordNewPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 			Fails{Err: "NewPasswordTooLong", If: ___yo_authChangePasswordPasswordNewPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
 		).
-			CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "NewPasswordInvalid", ErrUnauthorized, ErrDbNotStored),
+			CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "NewPasswordInvalid", ErrUnauthorized),
 	})
 
 	PreApiHandling = append(PreApiHandling, Middleware{Name: "authCheck", Do: func(ctx *Ctx) {

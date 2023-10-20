@@ -18,6 +18,7 @@ const (
 	ColID         = q.C("id_")
 	ColCreatedAt  = q.C("dt_made_")
 	ColModifiedAt = q.C("dt_mod_")
+	numStdCols    = 3
 
 	FieldID         = q.F("Id")
 	FieldCreatedAt  = q.F("DtMade")

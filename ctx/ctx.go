@@ -16,7 +16,6 @@ import (
 const (
 	ErrMustBeAdmin        = Err("MustBeAdmin")
 	ErrTimedOut           = Err("TimedOut")
-	ErrDbNotStored        = Err("DbWriteRequestAcceptedWithoutErrButNotStoredEither")
 	ErrDbUpdExpectedIdGt0 = Err("DbUpdExpectedIdGt0")
 	CtxKeyForcedTestUser  = "yoUserTest" // handled only with IsDevMode==true
 )

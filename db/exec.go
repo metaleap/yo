@@ -74,19 +74,22 @@ func Count[T any](ctx *Ctx, query q.Query, nonNullColumn q.C, distinct *q.C) int
 	return *results[0]
 }
 
-func CreateOne[T any](ctx *Ctx, rec *T) I64 {
+func CreateOne[T any](ctx *Ctx, rec *T) (ret I64) {
 	desc := desc[T]()
-	args := make(dbArgs, len(desc.cols)-2)
+	args := make(dbArgs, len(desc.cols)-numStdCols)
 	ForEachColField[T](rec, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
 		if (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) {
 			args["A"+string(colName)] = fieldValue
 		}
 	})
-	result := doSelect[int64](ctx, new(sqlStmt).insert(desc, 1, desc.cols[2:]...), args, 1)
+	result := doSelect[int64](ctx, new(sqlStmt).insert(desc, 1, desc.cols[numStdCols:]...), args, 1)
 	if (len(result) > 0) && (result[0] != nil) {
-		return I64(*result[0])
+		ret = I64(*result[0])
 	}
-	return 0
+	if ret <= 0 {
+		panic("new bug: INSERT INTO did not fail yet returned record id of 0")
+	}
+	return
 }
 
 func CreateMany[T any](ctx *Ctx, recs ...*T) {
@@ -98,7 +101,7 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 		return
 	}
 	desc := desc[T]()
-	args := make(dbArgs, len(recs)*(len(desc.cols)-2))
+	args := make(dbArgs, len(recs)*(len(desc.cols)-numStdCols))
 	for j := range recs {
 		ForEachColField[T](recs[j], func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
 			if (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) {
@@ -106,7 +109,7 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 			}
 		})
 	}
-	_ = doExec(ctx, new(sqlStmt).insert(desc, len(recs), desc.cols[2:]...), args)
+	_ = doExec(ctx, new(sqlStmt).insert(desc, len(recs), desc.cols[numStdCols:]...), args)
 }
 
 func Delete[T any](ctx *Ctx, where q.Query) int64 {
@@ -138,11 +141,8 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 		panic(ErrDbUpdate_ExpectedChangesForUpdate)
 	}
 	id_maybe, _ := reflFieldValueOf(upd, FieldID).(I64)
-	if id_maybe <= 0 {
-		id_maybe = reflFieldValueOf(upd, q.F(str.Lo(string(FieldID)))).(I64)
-	}
-	if id_maybe <= 0 {
-		id_maybe = reflFieldValueOf(upd, q.F(str.Up(string(FieldID)))).(I64)
+	if lower := q.F(str.Lo(string(FieldID))); (id_maybe <= 0) && sl.Has(desc.fields, lower) {
+		id_maybe = reflFieldValueOf(upd, lower).(I64)
 	}
 	if where == nil && id_maybe > 0 {
 		where = q.C(ColID).Equal(id_maybe)
@@ -284,8 +284,9 @@ func dbArgsCleanUpForPgx(args dbArgs) dbArgs {
 		} else if dt, is := v.(*DateTime); is {
 			if dt == nil {
 				args[k] = nil
+			} else {
+				args[k] = time.Time(*dt)
 			}
-			args[k] = time.Time(*dt)
 		} else if db_ref, _ := v.(dbRef); db_ref != nil {
 			id := db_ref.Id()
 			args[k] = If[any](id == 0, nil, id)

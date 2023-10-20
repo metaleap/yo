@@ -27,7 +27,7 @@ var (
 		"": {ErrTimedOut},
 	}
 	ErrsNoPrefix  = errsNoCodegen
-	errsNoCodegen = []Err{ErrTimedOut, ErrUnauthorized, ErrDbNotStored, ErrDbUpdExpectedIdGt0, ErrMustBeAdmin}
+	errsNoCodegen = []Err{ErrTimedOut, ErrUnauthorized, ErrDbUpdExpectedIdGt0, ErrMustBeAdmin}
 )
 
 type ApiMethods map[string]ApiMethod

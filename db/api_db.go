@@ -57,7 +57,7 @@ func registerApiHandlers[TObj any, TFld q.Field](desc *structDesc) {
 		apiMethodPath(type_name, "deleteMany"): api(apiDeleteMany[TObj, TFld]).
 			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbDelete),
 		apiMethodPath(type_name, "updateOne"): api(apiUpdateOne[TObj, TFld]).
-			CouldFailWith(":"+ErrSetDbUpdate, yoctx.ErrDbNotStored, yoctx.ErrDbUpdExpectedIdGt0),
+			CouldFailWith(":"+ErrSetDbUpdate, yoctx.ErrDbUpdExpectedIdGt0),
 		apiMethodPath(type_name, "updateMany"): api(apiUpdateMany[TObj, TFld]).
 			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbUpdate),
 		apiMethodPath(type_name, "count"): api(apiCount[TObj, TFld]).
