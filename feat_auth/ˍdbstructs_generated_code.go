@@ -7,7 +7,8 @@ type UserAuthField q.F
 
 const (
 	UserAuthId        UserAuthField = "Id"
-	UserAuthCreated   UserAuthField = "Created"
+	UserAuthDtMade    UserAuthField = "DtMade"
+	UserAuthDtMod     UserAuthField = "DtMod"
 	UserAuthEmailAddr UserAuthField = "EmailAddr"
 	userAuthPwdHashed UserAuthField = "pwdHashed"
 )

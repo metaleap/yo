@@ -19,8 +19,9 @@ type JwtPayload struct {
 }
 
 type UserAuth struct {
-	Id      yodb.I64
-	Created *yodb.DateTime
+	Id     yodb.I64
+	DtMade *yodb.DateTime
+	DtMod  *yodb.DateTime
 
 	EmailAddr yodb.Text
 	pwdHashed yodb.Bytes

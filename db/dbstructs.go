@@ -392,7 +392,7 @@ func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField
 		panic(desc.tableName + ": first column must be '" + string(ColID))
 	} else if (len(desc.cols) < 2) || (desc.cols[1] != ColCreatedAt) {
 		panic(desc.tableName + ": second column must be '" + string(ColCreatedAt))
-	} else if (len(desc.cols) < 3) || (desc.cols[1] != ColModifiedAt) {
+	} else if (len(desc.cols) < 3) || (desc.cols[2] != ColModifiedAt) {
 		panic(desc.tableName + ": third column must be '" + string(ColModifiedAt))
 	} else if len(desc.cols) < 4 {
 		panic(desc.tableName + ": no custom columns")

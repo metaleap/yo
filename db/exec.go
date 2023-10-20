@@ -78,7 +78,7 @@ func CreateOne[T any](ctx *Ctx, rec *T) I64 {
 	desc := desc[T]()
 	args := make(dbArgs, len(desc.cols)-2)
 	ForEachColField[T](rec, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
-		if (colName != ColID) && (colName != ColCreatedAt) {
+		if (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) {
 			args["A"+string(colName)] = fieldValue
 		}
 	})
@@ -101,7 +101,7 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 	args := make(dbArgs, len(recs)*(len(desc.cols)-2))
 	for j := range recs {
 		ForEachColField[T](recs[j], func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
-			if (colName != ColID) && (colName != ColCreatedAt) {
+			if (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) {
 				args["A"+string(colName)+str.FromInt(j)] = fieldValue
 			}
 		})
@@ -127,7 +127,7 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 	col_names, col_vals := []string{}, []any{}
 	if upd != nil {
 		ForEachColField[T](upd, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
-			if only := (len(onlyFields) > 0); (colName != ColID) && (colName != ColCreatedAt) &&
+			if only := (len(onlyFields) > 0); (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) &&
 				((!only) || sl.Has(onlyFields, fieldName)) &&
 				((!isZero) || (!skipNullsyFields) || only) {
 				col_names, col_vals = append(col_names, string(colName)), append(col_vals, fieldValue)
