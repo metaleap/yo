@@ -128,17 +128,15 @@ func (me *sqlStmt) selCols(desc *structDesc, cols ...q.C) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	w("SELECT ")
 	if len(cols) == 0 {
-		w(desc.tableName)
-		w(".*")
-	} else {
-		for i, col := range cols {
-			if i > 0 {
-				w(", ")
-			}
-			w(desc.tableName)
-			w(".")
-			w(string(col))
+		cols = desc.cols
+	}
+	for i, col := range cols {
+		if i > 0 {
+			w(", ")
 		}
+		w(desc.tableName)
+		w(".")
+		w(string(col))
 	}
 	return me
 }

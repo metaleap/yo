@@ -42,12 +42,12 @@ func FindOne[T any](ctx *Ctx, query q.Query, orderBy ...q.OrderBy) *T {
 func FindMany[T any](ctx *Ctx, query q.Query, maxResults int, orderBy ...q.OrderBy) []*T {
 	desc, args := desc[T](), dbArgs{}
 	return doSelect[T](ctx,
-		new(sqlStmt).selCols(desc, desc.cols...).where(desc, false, query, args, orderBy...).limit(maxResults), args, maxResults)
+		new(sqlStmt).selCols(desc).where(desc, false, query, args, orderBy...).limit(maxResults), args, maxResults)
 }
 
 func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.OrderBy, onRecord func(rec *T, enough *bool)) {
 	desc, args := desc[T](), dbArgs{}
-	doStream[T](ctx, new(sqlStmt).selCols(desc, desc.cols...).where(desc, false, query, args, orderBy...).limit(maxResults), onRecord, args)
+	doStream[T](ctx, new(sqlStmt).selCols(desc).where(desc, false, query, args, orderBy...).limit(maxResults), onRecord, args)
 }
 
 func Page[T any](ctx *Ctx, query q.Query, limit int, orderBy q.OrderBy, pageTok any) (resultsPage []*T, nextPageTok any) {
@@ -172,14 +172,6 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 
 func UpdateIfSameVersion[T any](ctx *Ctx, newVersion *T, oldVersion *T) {
 	panic("TODO")
-	// var conds []q.Query
-	// old, new := map[q.C]any{}, map[q.C]any{}
-	// ForEachField[T](oldVersion, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
-	// 	old[colName] = fieldValue
-	// })
-	// ForEachField[T](newVersion, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
-	// 	new[colName] = fieldValue
-	// })
 }
 
 func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {
