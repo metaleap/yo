@@ -33,70 +33,95 @@ func GetTable(ctx *Ctx, tableName string) []*TableColumn {
 }
 
 func schemaCreateTable(desc *structDesc) (ret []*sqlStmt) {
-	stmt_create_table := new(sqlStmt)
-	w := (*str.Buf)(stmt_create_table).WriteString
-	w("CREATE TABLE IF NOT EXISTS ")
-	w(desc.tableName)
-	w(" (\n\t")
-	for i, col_name := range desc.cols {
-		if i > 0 {
-			w(",\n\t")
-		}
-		w(string(col_name))
-		w(" ")
-		switch col_name {
-		case ColID:
-			w("bigserial PRIMARY KEY")
-		case ColCreatedAt, ColModifiedAt:
-			w("timestamp without time zone NOT NULL DEFAULT (current_timestamp)")
-		default:
-			field := desc.ty.Field(i)
-			is_unique := sl.Has(desc.constraints.uniques, q.F(field.Name))
-			w(sqlColTypeDeclFrom(field.Type, is_unique))
-		}
-	}
-	w("\n)")
-	ret = append(ret, stmt_create_table)
-
-	indexed_cols_and_order := map[q.C]string{ColCreatedAt: "DESC", ColModifiedAt: "DESC"}
-	for i, field_name := range desc.fields { // always index foreign-key cols due to ON DELETE trigger perf
-		if sl.Has(desc.constraints.uniques, field_name) { // uniques already get indices
-			continue
-		}
-		field, _ := desc.ty.FieldByName(string(field_name))
-		if "" != isDbRefType(field.Type) {
-			indexed_cols_and_order[desc.cols[i]] = ""
-		}
-	}
-	for _, field_name := range desc.constraints.indexed { // indexes supplied to `Ensure`
-		if sl.Has(desc.constraints.uniques, field_name) { // uniques already get indices
-			continue
-		}
-		field, _ := desc.ty.FieldByName(string(field_name))
-		order_by := If(field.Type == tyDateTime, "DESC", "")
-		col_name := desc.cols[sl.IdxOf(desc.fields, field_name)]
-		indexed_cols_and_order[col_name] = order_by
-	}
-	for col_name, order_by := range indexed_cols_and_order {
-		stmt_create_index := new(sqlStmt)
-		w := (*str.Buf)(stmt_create_index).WriteString
-		w("CREATE INDEX IF NOT EXISTS idx_t")
+	{ // create table
+		stmt_create_table := new(sqlStmt)
+		w := (*str.Buf)(stmt_create_table).WriteString
+		w("CREATE TABLE IF NOT EXISTS ")
 		w(desc.tableName)
-		w("_c")
-		w(string(col_name))
-		w(" ON ")
-		w(desc.tableName)
-		w(" (")
-		w(string(col_name))
-		if order_by != "" {
+		w(" (\n\t")
+		for i, col_name := range desc.cols {
+			if i > 0 {
+				w(",\n\t")
+			}
+			w(string(col_name))
 			w(" ")
-			w(order_by)
-			w(" NULLS LAST")
+			switch col_name {
+			case ColID:
+				w("bigserial PRIMARY KEY")
+			case ColCreatedAt, ColModifiedAt:
+				w("timestamp without time zone NOT NULL DEFAULT (current_timestamp)")
+			default:
+				field := desc.ty.Field(i)
+				is_unique := sl.Has(desc.constraints.uniques, q.F(field.Name))
+				w(sqlColTypeDeclFrom(field.Type, is_unique))
+			}
 		}
-		w(")")
-		ret = append(ret, stmt_create_index)
+		w("\n)")
+		ret = append(ret, stmt_create_table)
 	}
 
+	{ // mod-time column on update trigger + func
+		stmt_make_trigger := new(sqlStmt)
+		w := (*str.Buf)(stmt_make_trigger).WriteString
+		w(str.Repl(`
+				create or replace function onYoDbObjUpd()
+				returns trigger
+				LANGUAGE plpgsql AS
+				$func$
+				begin
+					NEW.{col_name} = now();
+					return NEW;
+				end
+				$func$;
+
+				create or replace trigger {table_name}onUpdate before UPDATE on {table_name} for each row EXECUTE function onYoDbObjUpd();
+		`,
+			str.Dict{"col_name": string(ColModifiedAt), "table_name": desc.tableName}))
+
+		w("\n)")
+		ret = append(ret, stmt_make_trigger)
+	}
+
+	{ // indices
+		indexed_cols_and_order := map[q.C]string{ColCreatedAt: "DESC", ColModifiedAt: "DESC"}
+		for i, field_name := range desc.fields { // always index foreign-key cols due to ON DELETE trigger perf
+			if sl.Has(desc.constraints.uniques, field_name) { // uniques already get indices
+				continue
+			}
+			field, _ := desc.ty.FieldByName(string(field_name))
+			if "" != isDbRefType(field.Type) {
+				indexed_cols_and_order[desc.cols[i]] = ""
+			}
+		}
+		for _, field_name := range desc.constraints.indexed { // indexes supplied to `Ensure`
+			if sl.Has(desc.constraints.uniques, field_name) { // uniques already get indices
+				continue
+			}
+			field, _ := desc.ty.FieldByName(string(field_name))
+			order_by := If(field.Type == tyDateTime, "DESC", "")
+			col_name := desc.cols[sl.IdxOf(desc.fields, field_name)]
+			indexed_cols_and_order[col_name] = order_by
+		}
+		for col_name, order_by := range indexed_cols_and_order {
+			stmt_create_index := new(sqlStmt)
+			w := (*str.Buf)(stmt_create_index).WriteString
+			w("CREATE INDEX IF NOT EXISTS idx_t")
+			w(desc.tableName)
+			w("_c")
+			w(string(col_name))
+			w(" ON ")
+			w(desc.tableName)
+			w(" (")
+			w(string(col_name))
+			if order_by != "" {
+				w(" ")
+				w(order_by)
+				w(" NULLS LAST")
+			}
+			w(")")
+			ret = append(ret, stmt_create_index)
+		}
+	}
 	return
 }
 
