@@ -68,7 +68,6 @@ func registerApiHandlers[TObj any, TFld q.Field](desc *structDesc) {
 }
 
 type retCount struct{ Count int64 }
-type ApiArgId struct{ Id I64 }
 type argQuery[TObj any, TFld q.Field] struct {
 	Query     *ApiQueryExpr[TObj, TFld]
 	QueryFrom *TObj
@@ -96,7 +95,7 @@ func (me *argQuery[TObj, TFld]) toDbO() []q.OrderBy {
 	})
 }
 
-func apiFindById[TObj any, TFld q.Field](this *ApiCtx[ApiArgId, TObj]) {
+func apiFindById[TObj any, TFld q.Field](this *ApiCtx[struct{ Id I64 }, TObj]) {
 	this.Ret = ById[TObj](this.Ctx, this.Args.Id)
 }
 
@@ -125,7 +124,7 @@ func apiCreateMany[TObj any, TFld q.Field](this *ApiCtx[struct {
 	CreateMany[TObj](this.Ctx, sl.Ptrs(this.Args.Items)...)
 }
 
-func apiDeleteOne[TObj any, TFld q.Field](this *ApiCtx[ApiArgId, retCount]) {
+func apiDeleteOne[TObj any, TFld q.Field](this *ApiCtx[struct{ Id I64 }, retCount]) {
 	this.Ret.Count = Delete[TObj](this.Ctx, ColID.Equal(this.Args.Id))
 }
 
@@ -134,16 +133,16 @@ func apiDeleteMany[TObj any, TFld q.Field](this *ApiCtx[argQuery[TObj, TFld], re
 }
 
 type ApiUpdateArgs[TObj any, TFld q.Field] struct {
-	ApiArgId
-	Changes                       TObj
-	IncludingEmptyOrMissingFields bool
+	Id            I64
+	Changes       TObj
+	ChangedFields []TFld
 }
 
 func apiUpdateOne[TObj any, TFld q.Field](this *ApiCtx[ApiUpdateArgs[TObj, TFld], retCount]) {
 	if this.Args.Id <= 0 {
 		panic(Err(yoctx.ErrDbUpdExpectedIdGt0))
 	}
-	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, ColID.Equal(this.Args.Id), !this.Args.IncludingEmptyOrMissingFields)
+	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, ColID.Equal(this.Args.Id), (len(this.Args.ChangedFields) == 0), sl.To(this.Args.ChangedFields, TFld.F)...)
 }
 
 func apiUpdateMany[TObj any, TFld q.Field](this *ApiCtx[struct {
