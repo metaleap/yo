@@ -1,4 +1,4 @@
-import van from './vanjs/van-1.2.1.debug.js'
+import van from './vanjs/van-1.2.3.debug.js'
 import * as util from './util.js'
 
 const undef = void 0

@@ -48,7 +48,7 @@ var (
 )
 
 func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
-	reflEnums()
+	reflEnumsOnceOnInit()
 	apiReflAllDbStructs = dbStructs
 	for method_path := range api {
 		if (str.Trim(method_path) != method_path) || (method_path == "") || !str.IsPrtAscii(method_path) {

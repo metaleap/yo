@@ -50,7 +50,7 @@ func init() {
 	}
 }
 
-func reflEnums() {
+func reflEnumsOnceOnInit() {
 	enum_pkgs := str.Dict{}
 	WalkCodeFiles(true, true, func(path string, dirEntry fs.DirEntry) {
 		is_app_side := str.Begins(path, str.TrimR(curMainDir, "/")+"/")
@@ -77,7 +77,7 @@ func reflEnums() {
 				} else if str.Begins(line, "\t") && str.Ends(line, `"yo/srv"`) && pkg_name != "" {
 					pkgsImportingSrv[pkg_name] = true
 				} else if str.Begins(line, "\t") && str.Ends(line, "\"") && str.Has(line, " = \"") {
-					if name_and_type, value, ok := str.Cut(line[1:len(line)-1], " = \""); ok && value != "" {
+					if name_and_type, value, ok := str.Cut(line[1:len(line)-1], " = \""); ok && (value != "") && (str.Idx(value, '.') < 0) {
 						if name, type_name, ok := str.Cut(name_and_type, " "); ok {
 							if name, type_name = str.Trim(name), str.Trim(type_name); type_name != "" && type_name != "string" && name != type_name {
 								if type_name_stripped := str.TrimR(type_name, "Field"); str.Begins(name, type_name) || str.Begins(name, type_name_stripped) {
