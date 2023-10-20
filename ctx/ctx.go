@@ -33,9 +33,10 @@ type apiMethod interface {
 
 type Ctx struct {
 	context.Context
-	ctxDone func()
-	ctxVals map[string]any
-	Http    struct {
+	StartedAt time.Time
+	ctxDone   func()
+	ctxVals   map[string]any
+	Http      struct {
 		Req         *http.Request
 		Resp        http.ResponseWriter
 		UrlPath     string
@@ -53,7 +54,7 @@ type Ctx struct {
 }
 
 func newCtx(timeout time.Duration, timingsName string) *Ctx {
-	ctx := Ctx{Timings: NewTimings(timingsName, "init ctx"), Context: context.Background(), ctxVals: map[string]any{}}
+	ctx := Ctx{StartedAt: time.Now(), Timings: NewTimings(timingsName, "init ctx"), Context: context.Background(), ctxVals: map[string]any{}}
 	if timeout > 0 {
 		ctx.Context, ctx.ctxDone = context.WithTimeout(ctx.Context, timeout)
 	}

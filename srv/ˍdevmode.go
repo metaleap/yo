@@ -5,12 +5,24 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	. "yo/cfg"
 	. "yo/ctx"
 	yojson "yo/json"
 	"yo/util/str"
 )
+
+type DummyLocalDomainJar []*http.Cookie
+
+func (me *DummyLocalDomainJar) Cookies(*url.URL) []*http.Cookie { return []*http.Cookie(*me) }
+func (me *DummyLocalDomainJar) SetCookies(_ *url.URL, cookies []*http.Cookie) {
+	*me = DummyLocalDomainJar(cookies)
+}
+
+func NewClient() *http.Client {
+	return &http.Client{Timeout: 11 * time.Second, Jar: &DummyLocalDomainJar{}}
+}
 
 type viaHttpClient[TIn any, TOut any] interface {
 	ViaHttp(apiMethod ApiMethod, ctx *Ctx, args *TIn, client *http.Client) *TOut
@@ -37,7 +49,7 @@ func viaHttp[TIn any, TOut any](methodPath string, ctx *Ctx, args *TIn, client *
 
 	req, err := http.NewRequestWithContext(ctx, "POST",
 		"http://localhost:"+str.FromInt(Cfg.YO_API_HTTP_PORT)+"/"+str.TrimL(AppApiUrlPrefix+methodPath, "/")+
-			"?"+QueryArgNoCtxPrt+"=1&"+QueryArgForceUser+"="+url.QueryEscape(ctx.GetStr(CtxKeyForcedTestUser)),
+			"?"+QueryArgNoCtxPrt, //+"=1",
 		bytes.NewReader(json_raw))
 	if err != nil {
 		panic(err)
