@@ -370,6 +370,12 @@ func (me scanner) Scan(it any) error {
 				if err := me.jsonDbVal.scan(it); err != nil {
 					panic(str.Fmt("scanner.Scan %T into %s: %s", it, me.ty.String(), err.Error()))
 				}
+			} else if arr_item_type := dbArrType(me.ty); arr_item_type != nil {
+				dst := reflect.NewAt(me.ty, (unsafe.Pointer)(me.ptr)).Interface()
+				if err := yojson.Unmarshal(it, dst); err != nil {
+					panic(err)
+				}
+				return nil
 			} else {
 				panic(str.Fmt("scanner.Scan %T into %s", it, me.ty.String()))
 			}
@@ -379,22 +385,6 @@ func (me scanner) Scan(it any) error {
 		case tyText:
 			setPtr(me.ptr, it)
 		default:
-			arr_item_type := dbArrType(me.ty)
-			if arr_item_type != nil {
-				it = str.Trim(it)
-				idx_end := len(it) - 1
-				if it[0] == '{' && it[idx_end] == '}' {
-					it = "[" + it[1:idx_end] + "]"
-				}
-				if (it[0] != '[') || (it[idx_end] != ']') {
-					panic(it)
-				}
-				dst := reflect.NewAt(me.ty, (unsafe.Pointer)(me.ptr)).Interface()
-				if err := yojson.Unmarshal([]byte(it), dst); err != nil {
-					panic(err)
-				}
-				return nil
-			}
 			panic(str.Fmt("scanner.Scan %T '%q' into %s", it, it, me.ty.String()))
 		}
 	case time.Time:

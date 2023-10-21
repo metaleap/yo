@@ -134,9 +134,17 @@ func (me *sqlStmt) selCols(desc *structDesc, cols ...q.C) *sqlStmt {
 		if i > 0 {
 			w(", ")
 		}
+		field, _ := desc.ty.FieldByName(string(desc.fields[i]))
+		is_arr := isDbArrType(field.Type)
+		if is_arr {
+			w("array_to_json(")
+		}
 		w(desc.tableName)
 		w(".")
 		w(string(col))
+		if is_arr {
+			w(")")
+		}
 	}
 	return me
 }
