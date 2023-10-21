@@ -449,6 +449,7 @@ func doEnsureDbStructTables() {
 		cur_table := GetTable(ctx, If(is_table_rename, desc.mig.oldTableName, desc.tableName))
 		var did_write_upd_trigger_func_yet bool
 		if cur_table == nil {
+			ctx.Db.PrintRawSqlInDevMode = IsDevMode
 			ctx.TimingsNoPrintInDevMode = false
 			if is_table_rename {
 				panic("outdated table rename: '" + desc.mig.oldTableName + "'")
@@ -457,7 +458,9 @@ func doEnsureDbStructTables() {
 			for _, stmt := range schemaCreateTable(desc, &did_write_upd_trigger_func_yet) {
 				_ = doExec(ctx, stmt, nil)
 			}
+
 		} else if stmts := schemaAlterTable(desc, cur_table, desc.mig.oldTableName, desc.mig.renamesOldColToNewField); len(stmts) > 0 {
+			ctx.Db.PrintRawSqlInDevMode = IsDevMode
 			ctx.TimingsNoPrintInDevMode = false
 			for i, stmt := range stmts {
 				ctx.Timings.Step("alterTable " + str.FromInt(i+1) + "/" + str.FromInt(len(stmts)))

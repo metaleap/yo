@@ -32,6 +32,62 @@ func GetTable(ctx *Ctx, tableName string) []*TableColumn {
 	return doSelect[TableColumn](ctx, stmt, args, 0)
 }
 
+func schemaReCreateIndices(desc *structDesc, renamesOldColToNewField map[q.C]q.F) (ret []*sqlStmt) {
+	indexed_cols_and_order := map[q.C]string{ColCreatedAt: "DESC", ColModifiedAt: "DESC"}
+	for i, field_name := range desc.fields { // always index foreign-key cols for ON DELETE trigger perf
+		if sl.Has(desc.constraints.uniques, field_name) {
+			continue // uniques always auto-indexed by default
+		}
+		field, _ := desc.ty.FieldByName(string(field_name))
+		if isDbRefType(field.Type) {
+			indexed_cols_and_order[desc.cols[i]] = ""
+		}
+	}
+	for _, field_name := range desc.constraints.indexed { // indexes supplied to `Ensure`
+		if sl.Has(desc.constraints.uniques, field_name) {
+			continue // uniques always auto-indexed by default
+		}
+		field, _ := desc.ty.FieldByName(string(field_name))
+		order_by := If(field.Type == tyDateTime, "DESC", "")
+		col_name := desc.cols[sl.IdxOf(desc.fields, field_name)]
+		indexed_cols_and_order[col_name] = order_by
+	}
+
+	index_names := make(map[q.C]string, len(indexed_cols_and_order)+len(renamesOldColToNewField))
+	{
+		stmt_drop_indices := new(sqlStmt)
+		w := (*str.Buf)(stmt_drop_indices).WriteString
+		w("DROP INDEX IF EXISTS ")
+		for i, col_name := range append(Keys(indexed_cols_and_order), Keys(renamesOldColToNewField)...) {
+			index_name := "idx_t_" + desc.tableName + "_c_" + string(col_name)
+			index_names[col_name] = index_name
+			if i > 0 {
+				w(",")
+			}
+			w(index_name)
+		}
+		ret = append(ret, stmt_drop_indices)
+	}
+	for col_name, order_by := range indexed_cols_and_order {
+		stmt_create_index := new(sqlStmt)
+		w := (*str.Buf)(stmt_create_index).WriteString
+		w("CREATE INDEX IF NOT EXISTS ")
+		w(index_names[col_name])
+		w(" ON ")
+		w(desc.tableName)
+		w(" (")
+		w(string(col_name))
+		if order_by != "" {
+			w(" ")
+			w(order_by)
+			w(" NULLS LAST")
+		}
+		w(")")
+		ret = append(ret, stmt_create_index)
+	}
+	return
+}
+
 func schemaCreateTable(desc *structDesc, didWriteUpdTriggerFuncYet *bool) (ret []*sqlStmt) {
 	{ // create table
 		stmt_create_table := new(sqlStmt)
@@ -90,46 +146,7 @@ func schemaCreateTable(desc *structDesc, didWriteUpdTriggerFuncYet *bool) (ret [
 		ret = append(ret, (*sqlStmt)(&stmt_make_trigger))
 	}
 
-	{ // indices
-		indexed_cols_and_order := map[q.C]string{ColCreatedAt: "DESC", ColModifiedAt: "DESC"}
-		for i, field_name := range desc.fields { // always index foreign-key cols due to ON DELETE trigger perf
-			if sl.Has(desc.constraints.uniques, field_name) { // uniques already get indices
-				continue
-			}
-			field, _ := desc.ty.FieldByName(string(field_name))
-			if isDbRefType(field.Type) {
-				indexed_cols_and_order[desc.cols[i]] = ""
-			}
-		}
-		for _, field_name := range desc.constraints.indexed { // indexes supplied to `Ensure`
-			if sl.Has(desc.constraints.uniques, field_name) { // uniques already get indices
-				continue
-			}
-			field, _ := desc.ty.FieldByName(string(field_name))
-			order_by := If(field.Type == tyDateTime, "DESC", "")
-			col_name := desc.cols[sl.IdxOf(desc.fields, field_name)]
-			indexed_cols_and_order[col_name] = order_by
-		}
-		for col_name, order_by := range indexed_cols_and_order {
-			stmt_create_index := new(sqlStmt)
-			w := (*str.Buf)(stmt_create_index).WriteString
-			w("CREATE INDEX IF NOT EXISTS idx_t")
-			w(desc.tableName)
-			w("_c")
-			w(string(col_name))
-			w(" ON ")
-			w(desc.tableName)
-			w(" (")
-			w(string(col_name))
-			if order_by != "" {
-				w(" ")
-				w(order_by)
-				w(" NULLS LAST")
-			}
-			w(")")
-			ret = append(ret, stmt_create_index)
-		}
-	}
+	ret = append(ret, schemaReCreateIndices(desc, nil)...)
 	return
 }
 
@@ -224,6 +241,10 @@ func schemaAlterTable(desc *structDesc, curTable []*TableColumn, oldTableName st
 			w(NameFrom(string(new_field_name)))
 			ret = append(ret, stmt)
 		}
+	}
+
+	if len(ret) > 0 { // alterations have been made, re-create all indices
+		ret = append(ret, schemaReCreateIndices(desc, renamesOldColToNewField)...)
 	}
 
 	return
