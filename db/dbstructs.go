@@ -38,6 +38,7 @@ type F32 float32
 type F64 float64
 type Text string
 type DateTime time.Time
+type Arr[T any] sl.Slice[T]
 type JsonMap[T any] map[string]T
 type JsonArr[T any] sl.Slice[T]
 
@@ -498,16 +499,7 @@ func (me *DateTime) SetFrom(f func() time.Time) {
 	*me = (DateTime)(f())
 }
 
-func (me JsonArr[T]) Anys() (ret []any) {
-	ret = make([]any, len(me))
-	for i := range me {
-		ret[i] = me[i]
-	}
-	return
-}
-
-func (me JsonArr[T]) Any(pred func(T) bool) bool { return sl.Any(me, pred) }
-func (me JsonArr[T]) All(pred func(T) bool) bool { return sl.All(me, pred) }
+func (me *JsonArr[T]) It() *sl.Slice[T] { return (*sl.Slice[T])(me) }
 
 func (me *JsonArr[T]) EnsureAllUnique() {
 	this := *me
