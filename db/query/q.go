@@ -222,10 +222,10 @@ func ArrEmpty(arr any) Query {
 	return operandFrom(arr).Equal(nil).Or(Fn(FnArrLen, arr).Equal(0))
 }
 func ArrAreAnyIn(arr any, operator Operator, arg any) Query {
-	return &query{op: operator + opArrAny, operands: operandsFrom(arg, arr)}
+	return &query{op: operator + opArrAny, operands: operandsFrom(arr, arg)}
 }
 func ArrAreAllIn(arr any, operator Operator, arg any) Query {
-	return &query{op: operator + opArrAll, operands: operandsFrom(arg, arr)}
+	return &query{op: operator + opArrAll, operands: operandsFrom(arr, arg)}
 }
 func AllTrue(conds ...Query) Query {
 	if len(conds) == 0 {
@@ -412,6 +412,9 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 			is_arr_all, is_arr_any := str.Ends(string(me.op), string(opArrAll)), str.Ends(string(me.op), string(opArrAny))
 			operator, is_arrish := me.op, (me.op == OpInArr) || (me.op == OpNotInArr) || is_arr_all || is_arr_any
 			if is_arr_all || is_arr_any {
+				// our q-lang has arr left, comparand right but postgres has it the other way around
+				me.operands[0], me.operands[1] = me.operands[1], me.operands[0]
+				// thus, also gt becomes leq, etcpp
 				if op_flip := opFlips[operator[:len(operator)-len(opArrAll)]]; op_flip != "" {
 					operator = op_flip
 				}
@@ -489,24 +492,19 @@ func (me *query) Eval(obj any, c2f func(C) F) (falseDueTo Query) {
 	default:
 		is_arr_all, is_arr_any := str.Ends(string(me.op), string(opArrAll)), str.Ends(string(me.op), string(opArrAny))
 		if is_arr_all || is_arr_any {
-			arr, arg := reflect.ValueOf(me.operands[0].Eval(obj, c2f)), me.operands[1].Eval(obj, c2f)
+			arr := me.operands[0].Eval(obj, c2f)
+			refl_arr, arg := reflect.ValueOf(arr), me.operands[1].Eval(obj, c2f)
 			operator := me.op[:len(me.op)-len(opArrAny)] // assumes same strlen for both opArrAny & opArrAll
-			var any_failed Query
-			var any_ok bool
-			for i, l := 0, arr.Len(); i < l; i++ {
-				failed_with := (&query{op: operator, operands: []Operand{operandFrom(arr.Index(i).Interface()), operandFrom(arg)}}).Eval(obj, c2f)
-				if failed_with != nil {
-					any_failed = failed_with
-				} else {
-					any_ok = true
-				}
-				if is_arr_all && (any_failed != nil) {
-					return any_failed
-				} else if is_arr_any && any_ok {
+			for i, arr_len := 0, refl_arr.Len(); i < arr_len; i++ {
+				lhs, rhs := refl_arr.Index(i).Interface(), arg
+				failed_with := (&query{op: operator, operands: []Operand{operandFrom(lhs), operandFrom(rhs)}}).Eval(obj, c2f)
+				if (failed_with != nil) && is_arr_all {
+					return failed_with
+				} else if (failed_with == nil) && is_arr_any {
 					return nil
 				}
 			}
-			return any_failed
+			return If(is_arr_all, nil, me)
 		}
 		panic(me.op)
 	}
