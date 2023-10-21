@@ -318,7 +318,7 @@ func sqlColTypeDeclFrom(ty reflect.Type, isUnique bool) string {
 			if unique_maybe != "" {
 				panic("unique constraint on '" + ty.String() + "'")
 			}
-			return sql_data_type_name + " NOT NULL DEFAULT ('{}')"
+			return sql_data_type_name + " NULL DEFAULT NULL"
 		}
 		panic(ty)
 	}

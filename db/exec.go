@@ -76,7 +76,7 @@ func Count[T any](ctx *Ctx, query q.Query, nonNullColumn q.C, distinct *q.C) int
 
 func CreateOne[T any](ctx *Ctx, rec *T) (ret I64) {
 	desc := desc[T]()
-	args := dbArgsFill[T](make(dbArgs, len(desc.fields)), rec, "")
+	args := dbArgsFill[T](desc, make(dbArgs, len(desc.fields)), rec, "")
 	result := doSelect[int64](ctx, new(sqlStmt).insert(desc, 1, desc.cols[numStdCols:]...), args, 1)
 	if (len(result) > 0) && (result[0] != nil) {
 		ret = I64(*result[0])
@@ -85,15 +85,6 @@ func CreateOne[T any](ctx *Ctx, rec *T) (ret I64) {
 		panic("new bug: INSERT INTO did not fail yet returned record id of 0")
 	}
 	return
-}
-
-func dbArgsFill[T any](args dbArgs, rec *T, argNameSuffix string) dbArgs {
-	ForEachColField[T](rec, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
-		if (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) {
-			args["A"+string(colName)+argNameSuffix] = fieldValue
-		}
-	})
-	return args
 }
 
 func CreateMany[T any](ctx *Ctx, recs ...*T) {
@@ -107,7 +98,7 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 	desc := desc[T]()
 	args := make(dbArgs, len(desc.fields)*len(recs))
 	for j := range recs {
-		args = dbArgsFill(args, recs[j], str.FromInt(j))
+		args = dbArgsFill(desc, args, recs[j], str.FromInt(j))
 	}
 	_ = doExec(ctx, new(sqlStmt).insert(desc, len(recs), desc.cols[numStdCols:]...), args)
 }
@@ -294,6 +285,15 @@ func dbArgsCleanUpForPgx(args dbArgs) dbArgs {
 			}
 		}
 	}
+	return args
+}
+
+func dbArgsFill[T any](desc *structDesc, args dbArgs, rec *T, argNameSuffix string) dbArgs {
+	ForEachColField[T](rec, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
+		if (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) {
+			args["A"+string(colName)+argNameSuffix] = fieldValue
+		}
+	})
 	return args
 }
 
