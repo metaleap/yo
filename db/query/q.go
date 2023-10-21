@@ -424,7 +424,9 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 			}
 			for i, operand := range me.operands {
 				if i > 0 {
-					if buf.WriteString(string(operator)); is_in_or_notin {
+					if buf.WriteString(string(operator)); is_arrish {
+						buf.WriteByte('(') // ANY and ALL rhs operand (the array expr) must be in parens
+					} else if is_in_or_notin {
 						buf.WriteByte('(')
 						for j, operand := range me.operands[i:] {
 							if j > 0 {
@@ -434,14 +436,12 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 						}
 						buf.WriteByte(')')
 						break
-					} else if is_arrish {
-						buf.WriteByte('(')
 					}
 				}
 				do_arg(operand)
 			}
 			if is_arrish {
-				buf.WriteByte('(')
+				buf.WriteByte(')') // ANY and ALL rhs operand (the array expr) must be in parens
 			}
 		}
 	}
