@@ -438,6 +438,7 @@ func Q[T any](it *T) q.Query {
 }
 
 func doEnsureDbStructTables() {
+	var did_write_upd_trigger_func_yet bool
 	for _, desc := range ensureDescs {
 		ctx := yoctx.NewCtxNonHttp(Cfg.DB_REQ_TIMEOUT, "db.Mig: "+desc.tableName) // yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
 		defer ctx.OnDone(nil)
@@ -448,7 +449,6 @@ func doEnsureDbStructTables() {
 		is_table_rename := (desc.mig.oldTableName != "")
 		ctx.Timings.Step("get cur table")
 		cur_table := GetTable(ctx, If(is_table_rename, desc.mig.oldTableName, desc.tableName))
-		var did_write_upd_trigger_func_yet bool
 		if cur_table == nil {
 			ctx.Db.PrintRawSqlInDevMode = IsDevMode
 			ctx.TimingsNoPrintInDevMode = false
