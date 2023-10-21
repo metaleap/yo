@@ -9,6 +9,7 @@ export type U64 = number
 export type F32 = number
 export type F64 = number
 
+
 export let userEmailAddr = ''
 export let reqTimeoutMilliSec = 1234
 
