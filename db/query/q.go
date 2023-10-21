@@ -88,8 +88,7 @@ type fn string
 
 const (
 	FnStrLen fn = "octet_length"
-	FnLen    fn = "jsonb_array_length"
-	FnArr    fn = "jsonb_array_elements"
+	FnArrLen fn = "array_length"
 	FnArrAll fn = "TodoFnArrAll"
 	FnArrAny fn = "TodoFnArrAny"
 )
@@ -125,7 +124,7 @@ func (me *fun) Eval(obj any, c2f func(C) F) any {
 		return me.Alt(sl.To(me.Args, func(it Operand) any { return it.Eval(obj, c2f) })...)
 	}
 	switch me.Fn {
-	case FnLen:
+	case FnArrLen:
 		rv := reflect.ValueOf(me.Args[0].Eval(obj, c2f))
 		return rv.Len()
 	case FnStrLen:
@@ -215,12 +214,6 @@ func inNotIn(op string, lhs Operand, rhs ...Operand) Query {
 	sub_stmt, _ := rhs[0].(interface{ Sql(*str.Buf) })
 	_, is_literal := rhs[0].(V)
 	return &query{op: If(((len(rhs) == 1) && (sub_stmt == nil) && ((rhs[0] == nil) || is_literal)), opEq, op), operands: append([]Operand{lhs}, rhs...)}
-}
-func JsonArrEmpty(arr any) Query {
-	return operandFrom(arr).Equal(nil).Or(Fn(FnLen, arr).Equal(0))
-}
-func JsonArrHas(arr any, needle any) Query {
-	return In(needle, Fn(FnArr, arr))
 }
 func AllTrue(conds ...Query) Query {
 	if len(conds) == 0 {

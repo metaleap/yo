@@ -13,9 +13,6 @@ const (
 	userAuthPwdHashed UserAuthField = "pwdHashed"
 )
 
-func (me UserAuthField) Arr(a1 ...interface{}) q.Operand    { return ((q.F)(me)).Arr(a1...) }
-func (me UserAuthField) ArrAll(a1 ...interface{}) q.Operand { return ((q.F)(me)).ArrAll(a1...) }
-func (me UserAuthField) ArrAny(a1 ...interface{}) q.Operand { return ((q.F)(me)).ArrAny(a1...) }
 func (me UserAuthField) Asc() q.OrderBy                     { return ((q.F)(me)).Asc() }
 func (me UserAuthField) Desc() q.OrderBy                    { return ((q.F)(me)).Desc() }
 func (me UserAuthField) Equal(a1 interface{}) q.Query       { return ((q.F)(me)).Equal(a1) }
@@ -26,7 +23,7 @@ func (me UserAuthField) F() q.F                                { return ((q.F)(m
 func (me UserAuthField) GreaterOrEqual(a1 interface{}) q.Query { return ((q.F)(me)).GreaterOrEqual(a1) }
 func (me UserAuthField) GreaterThan(a1 interface{}) q.Query    { return ((q.F)(me)).GreaterThan(a1) }
 func (me UserAuthField) In(a1 ...interface{}) q.Query          { return ((q.F)(me)).In(a1...) }
-func (me UserAuthField) Len(a1 ...interface{}) q.Operand       { return ((q.F)(me)).Len(a1...) }
+func (me UserAuthField) ArrLen(a1 ...interface{}) q.Operand       { return ((q.F)(me)).ArrLen(a1...) }
 func (me UserAuthField) LessOrEqual(a1 interface{}) q.Query    { return ((q.F)(me)).LessOrEqual(a1) }
 func (me UserAuthField) LessThan(a1 interface{}) q.Query       { return ((q.F)(me)).LessThan(a1) }
 func (me UserAuthField) Not() q.Query                          { return ((q.F)(me)).Not() }

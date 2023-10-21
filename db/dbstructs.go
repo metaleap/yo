@@ -38,8 +38,8 @@ type F32 float32
 type F64 float64
 type Text string
 type DateTime time.Time
-type Dict[T any] map[string]T
-type Arr[T any] sl.Slice[T]
+type JsonMap[T any] map[string]T
+type JsonArr[T any] sl.Slice[T]
 
 type IsJsonOf[T any] struct{ self *T }
 
@@ -98,21 +98,21 @@ type jsonDbValue interface {
 func (me *IsJsonOf[T]) init(selfPtr any)        { me.self = selfPtr.(*T) }
 func (me *IsJsonOf[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me.self) }
 func (me *IsJsonOf[T]) get() any                { return me.self }
-func (me *Dict[T]) init(any)                    { *me = Dict[T]{} }
-func (me *Dict[T]) scan(jsonb []byte) error     { return yojson.Unmarshal(jsonb, me) }
-func (me *Dict[T]) get() any {
+func (me *JsonMap[T]) init(any)                 { *me = JsonMap[T]{} }
+func (me *JsonMap[T]) scan(jsonb []byte) error  { return yojson.Unmarshal(jsonb, me) }
+func (me *JsonMap[T]) get() any {
 	if (me == nil) || (*me == nil) {
-		return Dict[T]{}
+		return JsonMap[T]{}
 	}
-	return Dict[T](*me)
+	return JsonMap[T](*me)
 }
-func (me *Arr[T]) init(any)                { *me = []T{} }
-func (me *Arr[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me) }
-func (me *Arr[T]) get() any {
+func (me *JsonArr[T]) init(any)                { *me = []T{} }
+func (me *JsonArr[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me) }
+func (me *JsonArr[T]) get() any {
 	if (me == nil) || (*me == nil) {
-		return Arr[T]{}
+		return JsonArr[T]{}
 	}
-	return Arr[T](*me)
+	return JsonArr[T](*me)
 }
 
 var (
@@ -181,8 +181,8 @@ func isDbJsonType(ty reflect.Type) bool {
 
 func isWhatDbJsonType(ty reflect.Type) (isDbJsonDictType bool, isDbJsonArrType bool, isDbJsonObjType bool) {
 	if field_type_name := ty.Name(); ty.PkgPath() == yodbPkg.PkgPath() {
-		if isDbJsonArrType = str.Begins(field_type_name, "Arr[") && str.Ends(field_type_name, "]"); !isDbJsonArrType {
-			isDbJsonDictType = str.Begins(field_type_name, "Dict[") && str.Ends(field_type_name, "]")
+		if isDbJsonArrType = str.Begins(field_type_name, "JsonArr[") && str.Ends(field_type_name, "]"); !isDbJsonArrType {
+			isDbJsonDictType = str.Begins(field_type_name, "JsonMap[") && str.Ends(field_type_name, "]")
 		}
 	}
 	if (!(isDbJsonArrType || isDbJsonDictType)) && (ty.Kind() == reflect.Struct) {
@@ -498,7 +498,7 @@ func (me *DateTime) SetFrom(f func() time.Time) {
 	*me = (DateTime)(f())
 }
 
-func (me Arr[T]) Anys() (ret []any) {
+func (me JsonArr[T]) Anys() (ret []any) {
 	ret = make([]any, len(me))
 	for i := range me {
 		ret[i] = me[i]
@@ -506,10 +506,10 @@ func (me Arr[T]) Anys() (ret []any) {
 	return
 }
 
-func (me Arr[T]) Any(pred func(T) bool) bool { return sl.Any(me, pred) }
-func (me Arr[T]) All(pred func(T) bool) bool { return sl.All(me, pred) }
+func (me JsonArr[T]) Any(pred func(T) bool) bool { return sl.Any(me, pred) }
+func (me JsonArr[T]) All(pred func(T) bool) bool { return sl.All(me, pred) }
 
-func (me *Arr[T]) EnsureAllUnique() {
+func (me *JsonArr[T]) EnsureAllUnique() {
 	this := *me
 	var idxs_to_remove []int
 	for i := len(this) - 1; i >= 0; i-- {
