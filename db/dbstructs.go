@@ -214,14 +214,18 @@ func dbRefType(ty reflect.Type) string {
 	return ""
 }
 
-func isDbArrType(ty reflect.Type) bool { return (dbArrType(ty) != "") }
-func dbArrType(ty reflect.Type) string {
+func isDbArrType(ty reflect.Type) bool { return (dbArrType(ty) != nil) }
+func dbArrType(ty reflect.Type) reflect.Type {
 	type_name := ty.Name()
 	if idx := str.IdxSub(type_name, "Arr["); (idx == 0) && ty.PkgPath() == yodbPkg.PkgPath() && str.Ends(type_name, "]") {
 		ret := type_name[idx+len("Arr[") : len(type_name)-1]
-		return ret
+		item_type := sl.Where(okTypes, func(it reflect.Type) bool { return ret == (it.PkgPath() + "." + it.Name()) })
+		if len(item_type) == 0 {
+			return nil
+		}
+		return item_type[0]
 	}
-	return ""
+	return nil
 }
 
 func desc[T any]() (ret *structDesc) {
@@ -375,7 +379,23 @@ func (me scanner) Scan(it any) error {
 		case tyText:
 			setPtr(me.ptr, it)
 		default:
-			panic(str.Fmt("scanner.Scan %T into %s", it, me.ty.String()))
+			arr_item_type := dbArrType(me.ty)
+			if arr_item_type != nil {
+				it = str.Trim(it)
+				idx_end := len(it) - 1
+				if it[0] == '{' && it[idx_end] == '}' {
+					it = "[" + it[1:idx_end] + "]"
+				}
+				if (it[0] != '[') || (it[idx_end] != ']') {
+					panic(it)
+				}
+				dst := reflect.NewAt(me.ty, (unsafe.Pointer)(me.ptr)).Interface()
+				if err := yojson.Unmarshal([]byte(it), dst); err != nil {
+					panic(err)
+				}
+				return nil
+			}
+			panic(str.Fmt("scanner.Scan %T '%q' into %s", it, it, me.ty.String()))
 		}
 	case time.Time:
 		switch me.ty {

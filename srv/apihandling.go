@@ -18,6 +18,7 @@ const (
 	QueryArgNoCtxPrt         = "yoNoCtxPrt"
 	ErrUnauthorized      Err = "Unauthorized"
 	yoAdminApisUrlPrefix     = "__/yo/"
+	apisContentType          = "application/json"
 )
 
 var (

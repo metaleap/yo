@@ -67,13 +67,16 @@ func viaHttp[TIn any, TOut any](methodPath string, ctx *Ctx, args *TIn, client *
 	if err != nil {
 		panic(err)
 	}
+	if content_type := resp.Header.Get("Content-Type"); content_type != apisContentType {
+		panic(string(resp_raw))
+	}
+
 	if bytes.Equal(resp_raw, yojson.JsonTokNull) {
 		return nil
 	}
-
 	var ret TOut
 	if err = yojson.Unmarshal(resp_raw, &ret); err != nil {
-		panic(err)
+		panic(string(resp_raw) + "\n" + err.Error())
 	}
 	return &ret
 }

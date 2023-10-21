@@ -151,9 +151,10 @@ func schemaCreateTable(desc *structDesc, didWriteUpdTriggerFuncYet *bool) (ret [
 }
 
 var sqlDtAltNames = map[string]Text{
-	"int2": "smallint",
-	"int4": "integer",
-	"int8": "bigint",
+	"int2":   "smallint",
+	"int4":   "integer",
+	"int8":   "bigint",
+	"text[]": "ARRAY",
 }
 
 func init() {
@@ -281,12 +282,8 @@ func sqlColTypeFrom(ty reflect.Type) string {
 			return "jsonb"
 		} else if isDbRefType(ty) {
 			return "int8"
-		} else if arr_type := dbArrType(ty); arr_type != "" {
-			item_type := sl.Where(okTypes, func(it reflect.Type) bool { return arr_type == (it.PkgPath() + "." + it.Name()) })
-			if len(item_type) == 0 {
-				panic("invalid (non-`yo/db`) Arr[T] type '" + arr_type + "'")
-			}
-			return sqlColTypeFrom(item_type[0]) + "[]"
+		} else if arr_item_type := dbArrType(ty); arr_item_type != nil {
+			return sqlColTypeFrom(arr_item_type) + "[]"
 		}
 		panic(ty)
 	}

@@ -6,14 +6,14 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/jackc/pgx/v5/tracelog"
-
 	. "yo/cfg"
 	. "yo/ctx"
 	yolog "yo/log"
 	"yo/util/str"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/tracelog"
 )
 
 var (
