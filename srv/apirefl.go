@@ -29,7 +29,6 @@ type apiRefl struct {
 	KnownErrs map[string]map[Err]int
 
 	codeGen struct {
-		strLits      str.Dict
 		typesUsed    map[string]bool
 		typesEmitted map[string]bool
 	}

@@ -12,8 +12,8 @@ export type F64 = number
 export let userEmailAddr = ''
 export let reqTimeoutMilliSec = 1234
 
-export function setReqTimeoutMilliSec(timeout: number) {
-    reqTimeoutMilliSec = timeout
+export function setReqTimeoutMilliSec(timeoutMs: number) {
+    reqTimeoutMilliSec = timeoutMs
 }
 
 export async function req<TIn, TOut>(methodPath: string, payload: TIn, urlQueryArgs?: { [_: string]: string }): Promise<TOut> {
