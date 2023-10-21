@@ -156,9 +156,9 @@ var sqlDtAltNames = map[string]Text{
 	"int8": "bigint",
 }
 
-func schemaAlterTable(desc *structDesc, curTable []*TableColumn, oldTableName string, renamesOldColToNewField map[q.C]q.F) (ret []*sqlStmt) {
-	if oldTableName == desc.tableName {
-		panic("invalid table rename: " + oldTableName)
+func schemaAlterTable(desc *structDesc, curTable []*TableColumn) (ret []*sqlStmt) {
+	if desc.mig.oldTableName == desc.tableName {
+		panic("invalid table rename: " + desc.mig.oldTableName)
 	}
 
 	cols_gone, fields_new, col_type_changes := []q.C{}, []q.F{}, []q.C{}
@@ -181,8 +181,8 @@ func schemaAlterTable(desc *structDesc, curTable []*TableColumn, oldTableName st
 			fields_new = append(fields_new, desc.fields[i])
 		}
 	}
-	if renamesOldColToNewField != nil {
-		for old_col_name, new_field_name := range renamesOldColToNewField {
+	if desc.mig.renamesOldColToNewField != nil {
+		for old_col_name, new_field_name := range desc.mig.renamesOldColToNewField {
 			new_col_name := q.C(NameFrom(string(new_field_name)))
 			if new_col_name == old_col_name {
 				panic("invalid column rename: " + old_col_name)
@@ -195,11 +195,11 @@ func schemaAlterTable(desc *structDesc, curTable []*TableColumn, oldTableName st
 		}
 	}
 
-	if oldTableName != "" {
+	if desc.mig.oldTableName != "" {
 		stmt := new(sqlStmt)
 		w := (*str.Buf)(stmt).WriteString
 		w("ALTER TABLE ")
-		w(oldTableName)
+		w(desc.mig.oldTableName)
 		w(" RENAME TO ")
 		w(desc.tableName)
 
@@ -229,8 +229,8 @@ func schemaAlterTable(desc *structDesc, curTable []*TableColumn, oldTableName st
 		ret = append(ret, stmt)
 	}
 
-	if len(renamesOldColToNewField) > 0 {
-		for old_col_name, new_field_name := range renamesOldColToNewField {
+	if len(desc.mig.renamesOldColToNewField) > 0 {
+		for old_col_name, new_field_name := range desc.mig.renamesOldColToNewField {
 			stmt := new(sqlStmt)
 			w := (*str.Buf)(stmt).WriteString
 			w("ALTER TABLE ")
@@ -243,8 +243,8 @@ func schemaAlterTable(desc *structDesc, curTable []*TableColumn, oldTableName st
 		}
 	}
 
-	if len(ret) > 0 { // alterations have been made, re-create all indices
-		ret = append(ret, schemaReCreateIndices(desc, renamesOldColToNewField)...)
+	if (len(ret) > 0) || desc.mig.constraintsChanged { // alterations pertinent, re-create all indices
+		ret = append(ret, schemaReCreateIndices(desc, desc.mig.renamesOldColToNewField)...)
 	}
 
 	return

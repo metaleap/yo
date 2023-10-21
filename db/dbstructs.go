@@ -166,6 +166,7 @@ type structDesc struct {
 	mig struct {
 		oldTableName            string
 		renamesOldColToNewField map[q.C]q.F
+		constraintsChanged      bool
 	}
 }
 
@@ -375,7 +376,7 @@ func (me scanner) Scan(it any) error {
 	return nil
 }
 
-func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField map[q.C]q.F, constraints ...Constraints) {
+func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField map[q.C]q.F, constraintsChanged bool, constraints ...Constraints) {
 	if inited {
 		panic("db.Ensure called after db.Init")
 	}
@@ -394,7 +395,7 @@ func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField
 			panic(constraints)
 		}
 	}
-	desc.mig.oldTableName, desc.mig.renamesOldColToNewField = oldTableName, renamesOldColToNewField
+	desc.mig.oldTableName, desc.mig.renamesOldColToNewField, desc.mig.constraintsChanged = oldTableName, renamesOldColToNewField, constraintsChanged
 	if (len(desc.cols) < 1) || (desc.cols[0] != ColID) {
 		panic(desc.tableName + ": first column must be '" + string(ColID))
 	} else if (len(desc.cols) < 2) || (desc.cols[1] != ColCreatedAt) {
@@ -459,7 +460,7 @@ func doEnsureDbStructTables() {
 				_ = doExec(ctx, stmt, nil)
 			}
 
-		} else if stmts := schemaAlterTable(desc, cur_table, desc.mig.oldTableName, desc.mig.renamesOldColToNewField); len(stmts) > 0 {
+		} else if stmts := schemaAlterTable(desc, cur_table); len(stmts) > 0 {
 			ctx.Db.PrintRawSqlInDevMode = IsDevMode
 			ctx.TimingsNoPrintInDevMode = false
 			for i, stmt := range stmts {
