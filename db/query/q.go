@@ -10,21 +10,32 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type Operator string
+
 const (
-	opEq       = " = "
-	opNeq      = " != "
-	opLt       = " < "
-	opLeq      = " <= "
-	opGt       = " > "
-	opGeq      = " >= "
-	opIn       = " IN "
-	opNotIn    = " NOT IN "
-	opInArr    = " = ANY "
-	opNotInArr = " != ALL "
-	opAnd      = " AND "
-	opOr       = " OR "
-	opNot      = "NOT "
+	OpEq       Operator = " = "
+	OpNeq      Operator = " != "
+	OpLt       Operator = " < "
+	OpLeq      Operator = " <= "
+	OpGt       Operator = " > "
+	OpGeq      Operator = " >= "
+	OpIn       Operator = " IN "
+	OpNotIn    Operator = " NOT IN "
+	OpInArr    Operator = OpEq + opArrAny
+	OpNotInArr Operator = OpNeq + opArrAll
+	OpAnd      Operator = " AND "
+	OpOr       Operator = " OR "
+	OpNot      Operator = "NOT "
+	opArrAll   Operator = " ALL " // note: must be same strlen as opArrAny
+	opArrAny   Operator = " ANY " // note: must be same strlen as opArrAll
 )
+
+var opFlips = map[Operator]Operator{
+	OpLt:  OpGeq,
+	OpGt:  OpLeq,
+	OpLeq: OpGt,
+	OpGeq: OpLt,
+}
 
 type C string
 
@@ -172,84 +183,84 @@ type Query interface {
 }
 
 func Equal(lhs any, rhs any) Query {
-	return &query{op: opEq, operands: operandsFrom(lhs, rhs)}
+	return &query{op: OpEq, operands: operandsFrom(lhs, rhs)}
 }
 func NotEqual(lhs any, rhs any) Query {
-	return &query{op: opNeq, operands: operandsFrom(lhs, rhs)}
+	return &query{op: OpNeq, operands: operandsFrom(lhs, rhs)}
 }
 func LessThan(lhs any, rhs any) Query {
-	return &query{op: opLt, operands: operandsFrom(lhs, rhs)}
+	return &query{op: OpLt, operands: operandsFrom(lhs, rhs)}
 }
 func LessOrEqual(lhs any, rhs any) Query {
-	return &query{op: opLeq, operands: operandsFrom(lhs, rhs)}
+	return &query{op: OpLeq, operands: operandsFrom(lhs, rhs)}
 }
 func GreaterThan(lhs any, rhs any) Query {
-	return &query{op: opGt, operands: operandsFrom(lhs, rhs)}
+	return &query{op: OpGt, operands: operandsFrom(lhs, rhs)}
 }
 func GreaterOrEqual(lhs any, rhs any) Query {
-	return &query{op: opGeq, operands: operandsFrom(lhs, rhs)}
+	return &query{op: OpGeq, operands: operandsFrom(lhs, rhs)}
 }
-func In(lhs any, rhs ...any) Query { return inNotIn(opIn, operandFrom(lhs), operandsFrom(rhs...)...) }
+func In(lhs any, rhs ...any) Query { return inNotIn(OpIn, operandFrom(lhs), operandsFrom(rhs...)...) }
 func NotIn(lhs any, rhs ...any) Query {
-	return inNotIn(opNotIn, operandFrom(lhs), operandsFrom(rhs...)...)
+	return inNotIn(OpNotIn, operandFrom(lhs), operandsFrom(rhs...)...)
 }
-func inNotIn(op string, lhs Operand, rhs ...Operand) Query {
+func inNotIn(op Operator, lhs Operand, rhs ...Operand) Query {
 	if len(rhs) == 0 {
-		panic(str.Trim(str.Trim(op) + ": empty set"))
+		panic(op + ": empty set")
 	}
 	sub_stmt, _ := rhs[0].(interface{ Sql(*str.Buf) })
 	_, is_literal := rhs[0].(V)
-	return &query{op: If(((len(rhs) == 1) && (sub_stmt == nil) && ((rhs[0] == nil) || is_literal)), opEq, op), operands: append([]Operand{lhs}, rhs...)}
+	return &query{op: If(((len(rhs) == 1) && (sub_stmt == nil) && ((rhs[0] == nil) || is_literal)), OpEq, op), operands: append([]Operand{lhs}, rhs...)}
 }
 func InArr(lhs any, rhs any) Query {
-	return &query{op: opInArr, operands: operandsFrom(lhs, rhs)}
+	return &query{op: OpInArr, operands: operandsFrom(lhs, rhs)}
 }
 func NotInArr(lhs any, rhs any) Query {
-	return &query{op: opNotInArr, operands: operandsFrom(lhs, rhs)}
+	return &query{op: OpNotInArr, operands: operandsFrom(lhs, rhs)}
 }
-func ArrIsEmpty(arr any) Query {
+func ArrEmpty(arr any) Query {
 	return operandFrom(arr).Equal(nil).Or(Fn(FnArrLen, arr).Equal(0))
 }
-func ArrAny(arr any, operator func(any, any) Query) Query {
-	return nil
+func ArrAreAnyIn(arr any, operator Operator, arg any) Query {
+	return &query{op: operator + opArrAny, operands: operandsFrom(arg, arr)}
 }
-func ArrAll(arr any, operator func(any, any) Query) Query {
-	return nil
+func ArrAreAllIn(arr any, operator Operator, arg any) Query {
+	return &query{op: operator + opArrAll, operands: operandsFrom(arg, arr)}
 }
 func AllTrue(conds ...Query) Query {
 	if len(conds) == 0 {
 		panic("q.AllTrue reached the no-conds situation, double-check call-site and prototyped q.AllTrue impl")
 	}
-	return If((len(conds) == 0), V{true}.Equal(true), If((len(conds) == 1), conds[0], (Query)(&query{op: opAnd, conds: conds})))
+	return If((len(conds) == 0), V{true}.Equal(true), If((len(conds) == 1), conds[0], (Query)(&query{op: OpAnd, conds: conds})))
 }
 func EitherOr(conds ...Query) Query {
 	if len(conds) == 0 {
 		panic("q.EitherOr reached the no-conds situation, double-check call-site and prototyped q.EitherOr impl")
 	}
-	return If((len(conds) == 0), V{true}.Equal(true), If(len(conds) == 1, conds[0], (Query)(&query{op: opOr, conds: conds})))
+	return If((len(conds) == 0), V{true}.Equal(true), If(len(conds) == 1, conds[0], (Query)(&query{op: OpOr, conds: conds})))
 }
 func Not(cond Query) Query {
 	switch q := cond.(*query); q.op {
-	case opIn:
-		return inNotIn(opNotIn, q.operands[0], q.operands[1:]...)
-	case opNotIn:
-		return inNotIn(opIn, q.operands[0], q.operands[1:]...)
-	case opEq:
+	case OpIn:
+		return inNotIn(OpNotIn, q.operands[0], q.operands[1:]...)
+	case OpNotIn:
+		return inNotIn(OpIn, q.operands[0], q.operands[1:]...)
+	case OpEq:
 		return NotEqual(q.operands[0], q.operands[1])
-	case opNeq:
+	case OpNeq:
 		return Equal(q.operands[0], q.operands[1])
-	case opGt:
+	case OpGt:
 		return LessOrEqual(q.operands[0], q.operands[1])
-	case opLt:
+	case OpLt:
 		return GreaterOrEqual(q.operands[0], q.operands[1])
-	case opGeq:
+	case OpGeq:
 		return LessThan(q.operands[0], q.operands[1])
-	case opLeq:
+	case OpLeq:
 		return GreaterThan(q.operands[0], q.operands[1])
-	case opNot:
+	case OpNot:
 		return q.conds[0]
 	}
-	return &query{op: opNot, conds: []Query{cond}}
+	return &query{op: OpNot, conds: []Query{cond}}
 }
 
 func operandsFrom(it ...any) []Operand {
@@ -291,7 +302,7 @@ type stmt interface {
 }
 
 type query struct {
-	op       string
+	op       Operator
 	conds    []Query
 	operands []Operand
 }
@@ -366,13 +377,13 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 
 	if (str.Trim(string(me.op)) == "") || ((len(me.conds) == 0) && (len(me.operands) == 0)) ||
 		((len(me.conds) != 0) && (len(me.operands) != 0)) ||
-		((len(me.operands) != 0) && (len(me.operands) != 2) && (me.op != opIn) && (me.op != opNotIn)) {
+		((len(me.operands) != 0) && (len(me.operands) != 2) && (me.op != OpIn) && (me.op != OpNotIn)) {
 		panic(str.From(me))
 	}
 	buf.WriteByte('(')
 	switch me.op {
-	case opAnd, opOr, opNot:
-		is_not := (me.op == opNot)
+	case OpAnd, OpOr, OpNot:
+		is_not := (me.op == OpNot)
 		if is_not && (len(me.conds) != 1) {
 			panic(str.From(me))
 		}
@@ -385,8 +396,8 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 			buf.WriteByte(')')
 		}
 	default:
-		is_in_or_notin := (me.op == opIn) || (me.op == opNotIn)
-		is_eq, is_ne, lnull, rnull := (me.op == opEq), (me.op == opNeq), isNull(me.operands[0]), isNull(me.operands[1])
+		is_in_or_notin := (me.op == OpIn) || (me.op == OpNotIn)
+		is_eq, is_ne, lnull, rnull := (me.op == OpEq), (me.op == OpNeq), isNull(me.operands[0]), isNull(me.operands[1])
 		if (lnull || rnull) && (is_eq || is_ne) { // `IS NULL` not `= NULL`
 			if lnull && rnull {
 				buf.WriteString(If(is_eq, "true", "false"))
@@ -398,10 +409,16 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 				buf.WriteString(If(is_ne, " IS NOT NULL ", " IS NULL "))
 			}
 		} else {
-			is_arrish := (me.op == opInArr) || (me.op == opNotInArr)
+			is_arr_all, is_arr_any := str.Ends(string(me.op), string(opArrAll)), str.Ends(string(me.op), string(opArrAny))
+			operator, is_arrish := me.op, (me.op == OpInArr) || (me.op == OpNotInArr) || is_arr_all || is_arr_any
+			if is_arr_all || is_arr_any {
+				if op_flip := opFlips[operator[:len(operator)-len(opArrAll)]]; op_flip != "" {
+					operator = op_flip
+				}
+			}
 			for i, operand := range me.operands {
 				if i > 0 {
-					if buf.WriteString(string(me.op)); is_in_or_notin {
+					if buf.WriteString(string(operator)); is_in_or_notin {
 						buf.WriteByte('(')
 						for j, operand := range me.operands[i:] {
 							if j > 0 {
@@ -432,14 +449,14 @@ func (me *query) Eval(obj any, c2f func(C) F) (falseDueTo Query) {
 			(ReflGe(reflect.ValueOf(lhs), reflect.ValueOf(rhs)) && ReflLe(reflect.ValueOf(lhs), reflect.ValueOf(rhs)))
 	}
 	switch me.op {
-	case opAnd:
+	case OpAnd:
 		_ = sl.All(me.conds, func(it Query) bool {
 			maybe_failed := it.Eval(obj, c2f)
 			falseDueTo = If[Query]((maybe_failed == nil), falseDueTo, maybe_failed)
 			return (maybe_failed == nil)
 		})
 		return
-	case opOr:
+	case OpOr:
 		any_true := sl.Any(me.conds, func(it Query) bool {
 			maybe_failed := it.Eval(obj, c2f)
 			falseDueTo = If[Query]((maybe_failed == nil), falseDueTo, maybe_failed)
@@ -449,27 +466,48 @@ func (me *query) Eval(obj any, c2f func(C) F) (falseDueTo Query) {
 			falseDueTo = nil
 		}
 		return
-	case opNot:
+	case OpNot:
 		return If[Query]((me.conds[0].Eval(obj, c2f) == nil), me, nil)
-	case opIn:
+	case OpIn:
 		in_set := sl.Has(sl.To(me.operands, func(it Operand) any { return it.Eval(obj, c2f) }), me.operands[0].Eval(obj, c2f))
 		return If[Query](in_set, nil, me)
-	case opNotIn:
+	case OpNotIn:
 		in_set := sl.Has(sl.To(me.operands, func(it Operand) any { return it.Eval(obj, c2f) }), me.operands[0].Eval(obj, c2f))
 		return If[Query](in_set, me, nil)
-	case opEq:
+	case OpEq:
 		return If[Query](is_eq(), nil, me)
-	case opNeq:
+	case OpNeq:
 		return If[Query](is_eq(), me, nil)
-	case opGt:
+	case OpGt:
 		return If[Query](ReflGt(reflect.ValueOf(me.operands[0].Eval(obj, c2f)), reflect.ValueOf(me.operands[1].Eval(obj, c2f))), nil, me)
-	case opGeq:
+	case OpGeq:
 		return If[Query](ReflGe(reflect.ValueOf(me.operands[0].Eval(obj, c2f)), reflect.ValueOf(me.operands[1].Eval(obj, c2f))), nil, me)
-	case opLt:
+	case OpLt:
 		return If[Query](ReflLt(reflect.ValueOf(me.operands[0].Eval(obj, c2f)), reflect.ValueOf(me.operands[1].Eval(obj, c2f))), nil, me)
-	case opLeq:
+	case OpLeq:
 		return If[Query](ReflLe(reflect.ValueOf(me.operands[0].Eval(obj, c2f)), reflect.ValueOf(me.operands[1].Eval(obj, c2f))), nil, me)
 	default:
+		is_arr_all, is_arr_any := str.Ends(string(me.op), string(opArrAll)), str.Ends(string(me.op), string(opArrAny))
+		if is_arr_all || is_arr_any {
+			arr, arg := reflect.ValueOf(me.operands[0].Eval(obj, c2f)), me.operands[1].Eval(obj, c2f)
+			operator := me.op[:len(me.op)-len(opArrAny)] // assumes same strlen for both opArrAny & opArrAll
+			var any_failed Query
+			var any_ok bool
+			for i, l := 0, arr.Len(); i < l; i++ {
+				failed_with := (&query{op: operator, operands: []Operand{operandFrom(arr.Index(i).Interface()), operandFrom(arg)}}).Eval(obj, c2f)
+				if failed_with != nil {
+					any_failed = failed_with
+				} else {
+					any_ok = true
+				}
+				if is_arr_all && (any_failed != nil) {
+					return any_failed
+				} else if is_arr_any && any_ok {
+					return nil
+				}
+			}
+			return any_failed
+		}
 		panic(me.op)
 	}
 }
