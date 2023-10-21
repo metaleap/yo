@@ -10,16 +10,21 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func operandsFrom(it ...any) []Operand {
-	return sl.To(it, operandFrom)
-}
-
-func operandFrom(it any) Operand {
-	if operand, _ := it.(Operand); operand != nil {
-		return operand
-	}
-	return V{Value: it}
-}
+const (
+	opEq       = " = "
+	opNeq      = " != "
+	opLt       = " < "
+	opLeq      = " <= "
+	opGt       = " > "
+	opGeq      = " >= "
+	opIn       = " IN "
+	opNotIn    = " NOT IN "
+	opInArr    = " = ANY "
+	opNotInArr = " != ALL "
+	opAnd      = " AND "
+	opOr       = " OR "
+	opNot      = "NOT "
+)
 
 type C string
 
@@ -32,6 +37,8 @@ func (me C) GreaterOrEqual(other any) Query  { return GreaterOrEqual(me, other) 
 func (me C) Not() Query                      { return me.Equal(false) }
 func (me C) In(set ...any) Query             { return In(me, set...) }
 func (me C) NotIn(set ...any) Query          { return NotIn(me, set...) }
+func (me C) InArr(arr any) Query             { return InArr(me, arr) }
+func (me C) NotInArr(arr any) Query          { return NotInArr(me, arr) }
 func (me C) Asc() OrderBy                    { return &orderBy[C]{col: me} }
 func (me C) Desc() OrderBy                   { return &orderBy[C]{col: me, desc: true} }
 func (me C) Eval(obj any, c2f func(C) F) any { return c2f(me).Eval(obj, c2f) }
@@ -48,6 +55,8 @@ func (me F) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, other) }
 func (me F) Not() Query                     { return me.Equal(false) }
 func (me F) In(set ...any) Query            { return In(me, set...) }
 func (me F) NotIn(set ...any) Query         { return NotIn(me, set...) }
+func (me F) InArr(arr any) Query            { return InArr(me, arr) }
+func (me F) NotInArr(arr any) Query         { return NotInArr(me, arr) }
 func (me F) Asc() OrderBy                   { return &orderBy[F]{fld: me} }
 func (me F) Desc() OrderBy                  { return &orderBy[F]{fld: me, desc: true} }
 func (me F) Eval(obj any, _ func(C) F) (ret any) {
@@ -74,6 +83,8 @@ func (me V) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, other) }
 func (me V) Not() Query                     { return me.Equal(false) }
 func (me V) In(set ...any) Query            { return In(me, set...) }
 func (me V) NotIn(set ...any) Query         { return NotIn(me, set...) }
+func (me V) InArr(arr any) Query            { return InArr(me, arr) }
+func (me V) NotInArr(arr any) Query         { return NotInArr(me, arr) }
 func (me V) Eval(any, func(C) F) any        { return me.Value }
 
 func That(value any) Operand { return V{value} }
@@ -89,8 +100,6 @@ type fn string
 const (
 	FnStrLen fn = "octet_length"
 	FnArrLen fn = "array_length"
-	FnArrAll fn = "TodoFnArrAll"
-	FnArrAny fn = "TodoFnArrAny"
 )
 
 type fun struct {
@@ -119,6 +128,8 @@ func (me *fun) GreaterOrEqual(other any) Query { return GreaterOrEqual(me, other
 func (me *fun) Not() Query                     { return me.Equal(false) }
 func (me *fun) In(set ...any) Query            { return In(me, set...) }
 func (me *fun) NotIn(set ...any) Query         { return NotIn(me, set...) }
+func (me *fun) InArr(arr any) Query            { return InArr(me, arr) }
+func (me *fun) NotInArr(arr any) Query         { return NotInArr(me, arr) }
 func (me *fun) Eval(obj any, c2f func(C) F) any {
 	if me.Alt != nil {
 		return me.Alt(sl.To(me.Args, func(it Operand) any { return it.Eval(obj, c2f) })...)
@@ -130,17 +141,6 @@ func (me *fun) Eval(obj any, c2f func(C) F) any {
 	case FnStrLen:
 		str := me.Args[0].Eval(obj, c2f).(string)
 		return len(str)
-	case FnArrAll, FnArrAny:
-		arr := reflect.ValueOf(me.Args[0].Eval(obj, c2f))
-		fn := me.Args[1].Eval(obj, c2f).(func(any, any) Query)
-		rhs := me.Args[2].Eval(obj, c2f)
-		vals := make([]any, arr.Len())
-		for i := range vals {
-			vals[i] = arr.Index(i).Interface()
-		}
-		return (If(me.Fn == FnArrAll, sl.All[[]any, any], sl.Any[[]any, any]))(vals, func(lhs any) bool {
-			return (fn(lhs, rhs).Eval(obj, c2f) == nil)
-		})
 	default:
 		panic(me.Fn)
 	}
@@ -171,20 +171,6 @@ type Query interface {
 	Eval(any, func(C) F) Query
 }
 
-const (
-	opEq    = " = "
-	opNeq   = " != "
-	opLt    = " < "
-	opLeq   = " <= "
-	opGt    = " > "
-	opGeq   = " >= "
-	opIn    = " IN "
-	opNotIn = " NOT IN "
-	opAnd   = " AND "
-	opOr    = " OR "
-	opNot   = "NOT "
-)
-
 func Equal(lhs any, rhs any) Query {
 	return &query{op: opEq, operands: operandsFrom(lhs, rhs)}
 }
@@ -214,6 +200,21 @@ func inNotIn(op string, lhs Operand, rhs ...Operand) Query {
 	sub_stmt, _ := rhs[0].(interface{ Sql(*str.Buf) })
 	_, is_literal := rhs[0].(V)
 	return &query{op: If(((len(rhs) == 1) && (sub_stmt == nil) && ((rhs[0] == nil) || is_literal)), opEq, op), operands: append([]Operand{lhs}, rhs...)}
+}
+func InArr(lhs any, rhs any) Query {
+	return &query{op: opInArr, operands: operandsFrom(lhs, rhs)}
+}
+func NotInArr(lhs any, rhs any) Query {
+	return &query{op: opNotInArr, operands: operandsFrom(lhs, rhs)}
+}
+func ArrIsEmpty(arr any) Query {
+	return operandFrom(arr).Equal(nil).Or(Fn(FnArrLen, arr).Equal(0))
+}
+func ArrAny(arr any, operator func(any, any) Query) Query {
+	return nil
+}
+func ArrAll(arr any, operator func(any, any) Query) Query {
+	return nil
 }
 func AllTrue(conds ...Query) Query {
 	if len(conds) == 0 {
@@ -251,8 +252,15 @@ func Not(cond Query) Query {
 	return &query{op: opNot, conds: []Query{cond}}
 }
 
-func q() *query {
-	return &query{}
+func operandsFrom(it ...any) []Operand {
+	return sl.To(it, operandFrom)
+}
+
+func operandFrom(it any) Operand {
+	if operand, _ := it.(Operand); operand != nil {
+		return operand
+	}
+	return V{Value: it}
 }
 
 type Operand interface {
@@ -339,6 +347,9 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 				buf.WriteString(arg_name)
 			}
 		} else if fn, _ := operand.(*fun); fn != nil {
+			if fn.Fn == FnArrLen {
+				fn.Args = append(fn.Args, operandFrom(1))
+			}
 			buf.WriteString(string(fn.Fn))
 			buf.WriteByte('(')
 			for i, arg := range fn.Args {
@@ -387,6 +398,7 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 				buf.WriteString(If(is_ne, " IS NOT NULL ", " IS NULL "))
 			}
 		} else {
+			is_arrish := (me.op == opInArr) || (me.op == opNotInArr)
 			for i, operand := range me.operands {
 				if i > 0 {
 					if buf.WriteString(string(me.op)); is_in_or_notin {
@@ -399,9 +411,14 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 						}
 						buf.WriteByte(')')
 						break
+					} else if is_arrish {
+						buf.WriteByte('(')
 					}
 				}
 				do_arg(operand)
+			}
+			if is_arrish {
+				buf.WriteByte('(')
 			}
 		}
 	}

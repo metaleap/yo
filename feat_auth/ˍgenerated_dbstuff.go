@@ -26,9 +26,11 @@ func (me UserAuthField) F() q.F                                { return ((q.F)(m
 func (me UserAuthField) GreaterOrEqual(a1 interface{}) q.Query { return ((q.F)(me)).GreaterOrEqual(a1) }
 func (me UserAuthField) GreaterThan(a1 interface{}) q.Query    { return ((q.F)(me)).GreaterThan(a1) }
 func (me UserAuthField) In(a1 ...interface{}) q.Query          { return ((q.F)(me)).In(a1...) }
+func (me UserAuthField) InArr(a1 interface{}) q.Query          { return ((q.F)(me)).InArr(a1) }
 func (me UserAuthField) LessOrEqual(a1 interface{}) q.Query    { return ((q.F)(me)).LessOrEqual(a1) }
 func (me UserAuthField) LessThan(a1 interface{}) q.Query       { return ((q.F)(me)).LessThan(a1) }
 func (me UserAuthField) Not() q.Query                          { return ((q.F)(me)).Not() }
 func (me UserAuthField) NotEqual(a1 interface{}) q.Query       { return ((q.F)(me)).NotEqual(a1) }
 func (me UserAuthField) NotIn(a1 ...interface{}) q.Query       { return ((q.F)(me)).NotIn(a1...) }
+func (me UserAuthField) NotInArr(a1 interface{}) q.Query       { return ((q.F)(me)).NotInArr(a1) }
 func (me UserAuthField) StrLen(a1 ...interface{}) q.Operand    { return ((q.F)(me)).StrLen(a1...) }

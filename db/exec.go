@@ -161,10 +161,6 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 	return num_rows_affected
 }
 
-func UpdateIfSameVersion[T any](ctx *Ctx, newVersion *T, oldVersion *T) {
-	panic("TODO")
-}
-
 func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {
 	sql_raw := str.TrimR(stmt.String(), ",")
 	do_exec := DB.ExecContext
