@@ -52,7 +52,9 @@ type refOnDel interface{ onDelSql() string }
 type RefOnDelCascade struct{}
 type RefOnDelPrevent struct{}
 type RefOnDelSetNull struct{}
+type refOnDelNone struct{}
 
+func (refOnDelNone) onDelSql() string    { panic("unreachable") }
 func (RefOnDelCascade) onDelSql() string { return "CASCADE" }
 func (RefOnDelPrevent) onDelSql() string { return "RESTRICT" }
 func (RefOnDelSetNull) onDelSql() string { return "SET NULL" }
@@ -85,6 +87,8 @@ func (me *Ref[_, _]) UnmarshalJSON(json []byte) error {
 	}
 	return err
 }
+
+func DbRef[T any](id I64) dbRef { return Ref[T, refOnDelNone]{id: id} }
 
 type dbRef interface {
 	Id() I64
@@ -172,7 +176,7 @@ type structDesc struct {
 }
 
 func isColField(fieldType reflect.Type) bool {
-	return sl.Has(okTypes, fieldType) || isDbJsonType(fieldType) || isDbRefType(fieldType)
+	return sl.Has(okTypes, fieldType) || isDbJsonType(fieldType) || isDbRefType(fieldType) || isDbArrType(fieldType)
 }
 
 func isDbJsonType(ty reflect.Type) bool {
@@ -205,7 +209,17 @@ func dbRefType(ty reflect.Type) string {
 	type_name := ty.Name()
 	if idx := str.IdxSub(type_name, "Ref["); (idx == 0) && ty.PkgPath() == yodbPkg.PkgPath() && str.Ends(type_name, "]") {
 		ret := type_name[idx+len("Ref[") : len(type_name)-1]
-		return ret[:str.Idx(ret, ',')]
+		return ret[:str.IdxLast(ret, ',')]
+	}
+	return ""
+}
+
+func isDbArrType(ty reflect.Type) bool { return (dbArrType(ty) != "") }
+func dbArrType(ty reflect.Type) string {
+	type_name := ty.Name()
+	if idx := str.IdxSub(type_name, "Arr["); (idx == 0) && ty.PkgPath() == yodbPkg.PkgPath() && str.Ends(type_name, "]") {
+		ret := type_name[idx+len("Arr[") : len(type_name)-1]
+		return ret
 	}
 	return ""
 }
@@ -246,10 +260,10 @@ type scanner struct {
 
 func reflFieldValueOf[T any](it *T, fieldName q.F) any {
 	field, _ := reflect.TypeOf(it).Elem().FieldByName(string(fieldName))
-	return reflFieldValue(reflect.ValueOf(it).Elem().FieldByName(string(fieldName)), isDbRefType(field.Type))
+	return reflFieldValue(reflect.ValueOf(it).Elem().FieldByName(string(fieldName)), isDbRefType(field.Type), isDbArrType(field.Type))
 }
 
-func reflFieldValue(rvField reflect.Value, isDbRef bool) any {
+func reflFieldValue(rvField reflect.Value, isDbRef bool, isDbArr bool) any {
 	if !rvField.IsValid() {
 		return nil
 	}
@@ -422,7 +436,7 @@ func ForEachColField[T any](it *T, do func(fieldName q.F, colName q.C, fieldValu
 	}
 	for i, field_name := range desc.fields {
 		field, _ := desc.ty.FieldByName(string(field_name))
-		value := reflFieldValue(rv.FieldByName(string(field_name)), isDbRefType(field.Type))
+		value := reflFieldValue(rv.FieldByName(string(field_name)), isDbRefType(field.Type), isDbArrType(field.Type))
 		frv := reflect.ValueOf(value)
 		do(field_name, desc.cols[i], value, (!frv.IsValid()) || frv.IsZero())
 	}
@@ -497,20 +511,4 @@ func DtFrom(f func() time.Time) *DateTime {
 
 func (me *DateTime) SetFrom(f func() time.Time) {
 	*me = (DateTime)(f())
-}
-
-func (me *JsonArr[T]) It() *sl.Slice[T] { return (*sl.Slice[T])(me) }
-
-func (me *JsonArr[T]) EnsureAllUnique() {
-	this := *me
-	var idxs_to_remove []int
-	for i := len(this) - 1; i >= 0; i-- {
-		for j := 0; j < i; j++ {
-			if cur, other := reflect.ValueOf(this[i]), reflect.ValueOf(this[j]); reflect.DeepEqual(cur, other) {
-				idxs_to_remove = append(idxs_to_remove, j) // dont `break`, there might be more =)
-			}
-		}
-	}
-	this = sl.WithoutIdxs(this, idxs_to_remove...)
-	*me = this
 }

@@ -118,7 +118,7 @@ func reflEnumsOnceOnInit() {
 func codegenGo(apiRefl *apiRefl) {
 	var did_write_files []string
 	for pkg_name, pkg_dir_path := range pkgsFound {
-		out_file_path := filepath.Join(pkg_dir_path, "ˍapi_generated_code.go")
+		out_file_path := filepath.Join(pkg_dir_path, "ˍgenerated_apistuff.go")
 
 		pkg_methods := map[string]ApiMethod{}
 		for method_path, method := range api {

@@ -2,6 +2,7 @@ package sl
 
 import (
 	"cmp"
+	"reflect"
 	"slices"
 )
 
@@ -205,4 +206,22 @@ func (me Slice[T]) Anys() (ret []any) {
 		ret[i] = me[i]
 	}
 	return
+}
+
+func (me *Slice[T]) EnsureAllUnique(areEqual func(T, T) bool) {
+	if areEqual == nil {
+		areEqual = func(lhs T, rhs T) bool { return reflect.DeepEqual(reflect.ValueOf(lhs), reflect.ValueOf(rhs)) }
+	}
+
+	this := *me
+	var idxs_to_remove []int
+	for i := len(this) - 1; i >= 0; i-- {
+		for j := 0; j < i; j++ {
+			if areEqual(this[i], this[j]) {
+				idxs_to_remove = append(idxs_to_remove, j) // dont `break`, there might be more =)
+			}
+		}
+	}
+	this = WithoutIdxs(this, idxs_to_remove...)
+	*me = this
 }

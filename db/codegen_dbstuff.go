@@ -12,6 +12,7 @@ import (
 	q "yo/db/query"
 	yolog "yo/log"
 	. "yo/util"
+	"yo/util/sl"
 	"yo/util/str"
 )
 
@@ -31,7 +32,7 @@ func init() {
 				pkg_path := desc.ty.PkgPath()
 				by_pkg_path[pkg_path] = append(by_pkg_path[pkg_path], desc)
 			}
-			did_code_gen := codegenQueryFns()
+			did_code_gen := codegenDbPkgOwn()
 			for pkg_path, descs := range by_pkg_path {
 				did_code_gen = (codegenDBStructsFor(pkg_path, descs)) || did_code_gen
 			}
@@ -44,7 +45,7 @@ func init() {
 
 func codegenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	var src_dir_path, pkg_name string
-	for _, desc := range descs { // find src_dir_path in which to generate `ˍcodegend.go`
+	for _, desc := range descs { // find src_dir_path in which to emit `ˍgenerated_dbstuff.go`
 		found, needle := str.Dict{}, []byte("\ntype "+desc.ty.Name()+" struct {\n\t")
 
 		is_yo_own := (str.Begins(desc.ty.PkgPath(), "yo/") || (desc.ty.PkgPath() == "yo"))
@@ -75,7 +76,7 @@ func codegenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 		panic("no source dir found for " + pkgPath)
 	}
 
-	out_file_path := filepath.Join(src_dir_path, "ˍdbstructs_generated_code.go")
+	out_file_path := filepath.Join(src_dir_path, "ˍgenerated_dbstuff.go")
 	if len(descs) == 0 {
 		if IsFile(out_file_path) {
 			DelFile(out_file_path)
@@ -92,12 +93,7 @@ func codegenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	buf.WriteString("\n\nimport q \"yo/db/query\"\n\n")
 	for _, desc := range descs {
 		codegenWriteEnumDecl(&buf, desc)
-
-		for i, rt_fld := 0, reflect.TypeOf(q.F("")); i < rt_fld.NumMethod(); i++ {
-			if method := rt_fld.Method(i); (method.Name[0] >= 'A') && (method.Name[0] <= 'Z') {
-				codegenCloneMethod(&buf, desc, &method)
-			}
-		}
+		codegenCloneMethods(&buf, desc.ty.Name()+"Field", "q", reflect.TypeOf(q.F("")), false)
 	}
 
 	raw_src, err := format.Source([]byte(buf.String()))
@@ -112,37 +108,73 @@ func codegenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	return false
 }
 
-func codegenQueryFns() bool {
-	src_raw := ReadFile("../yo/db/query/q.go")
+func codegenDbPkgOwn() (didEmit bool) {
+	{
+		out_file_path := "../yo/db/query/ˍgenerated_dbstuff.go"
+		src_raw := ReadFile("../yo/db/query/q.go")
+		var buf bytes.Buffer
+		buf.WriteString("package q\n")
+		for _, line := range str.Split(str.Trim(string(src_raw)), "\n") {
+			if pref := "\tFn"; (line != "") && str.Begins(line, pref) &&
+				(str.Ends(line, `"`) || str.Has(line, "\" //")) && str.Has(line, ` fn = "`) {
+				name := line[len(pref):str.Idx(line, ' ')]
+				for _, operand_type_name := range []string{"C", "F", "V"} {
+					buf.WriteString("\nfunc(me ")
+					buf.WriteString(operand_type_name)
+					buf.WriteByte(')')
+					buf.WriteString(name)
+					buf.WriteString(`(args...any)Operand{return Fn(Fn` + name + `,append([]any{me},args...)...)}`)
+				}
+			}
+		}
+		src_old, src_new := ReadFile(out_file_path), buf.Bytes()
+		if src_fmt, err := format.Source(src_new); (err != nil) || !bytes.Equal(src_old, src_fmt) {
+			WriteFile(out_file_path, If(len(src_fmt) == 0, src_new, src_fmt))
+			didEmit = true
+		}
+	}
+	{
+		out_file_path := "../yo/db/ˍgenerated_dbstuff.go"
+		var buf str.Buf
+		buf.WriteString("package " + yodbPkg.PkgName() + "\n")
+		buf.WriteString("import sl \"yo/util/sl\"\n")
+		for _, arr_type_name := range []string{"JsonArr[T]", "Arr[T]"} {
+			codegenCloneMethods(&buf, arr_type_name, "sl", reflect.TypeOf(sl.Slice[map[Void]Void]{}), true)
+		}
 
-	var buf bytes.Buffer
-	buf.WriteString("package q\n")
-	for _, line := range str.Split(str.Trim(string(src_raw)), "\n") {
-		if pref := "\tFn"; (line != "") && str.Begins(line, pref) &&
-			(str.Ends(line, `"`) || str.Has(line, "\" //")) && str.Has(line, ` fn = "`) {
-			name := line[len(pref):str.Idx(line, ' ')]
-			for _, operand_type_name := range []string{"C", "F", "V"} {
-				buf.WriteString("\nfunc(me ")
-				buf.WriteString(operand_type_name)
-				buf.WriteByte(')')
-				buf.WriteString(name)
-				buf.WriteString(`(args...any)Operand{return Fn(Fn` + name + `,append([]any{me},args...)...)}`)
+		src_old, src_new := ReadFile(out_file_path), []byte(str.Replace(buf.String(), str.Dict{"map[util.Void]util.Void": "T", "map[yo/util.Void]yo/util.Void": "T"}))
+		if src_fmt, err := format.Source(src_new); (err != nil) || !bytes.Equal(src_old, src_fmt) {
+			WriteFile(out_file_path, If(len(src_fmt) == 0, src_new, src_fmt))
+			didEmit = true
+		}
+	}
+	return
+}
+
+func codegenCloneMethods(buf *str.Buf, typeNameReceiver string, pkgName string, ty reflect.Type, inclPtrMethods bool) {
+	type_name_underlying := pkgName + "." + ty.Name()
+	methods_generated := map[string]bool{}
+	for i := 0; i < ty.NumMethod(); i++ {
+		if method := ty.Method(i); (method.Name[0] >= 'A') && (method.Name[0] <= 'Z') {
+			codegenCloneMethod(buf, typeNameReceiver, type_name_underlying, &method)
+			methods_generated[method.Name] = true
+		}
+	}
+	if inclPtrMethods {
+		ty = reflect.PointerTo(ty)
+		type_name_underlying = "*" + pkgName + "." + ty.Elem().Name()
+		for i := 0; i < ty.NumMethod(); i++ {
+			if method := ty.Method(i); (method.Name[0] >= 'A') && (method.Name[0] <= 'Z') && !methods_generated[method.Name] {
+				codegenCloneMethod(buf, "*"+typeNameReceiver, type_name_underlying, &method)
 			}
 		}
 	}
-	out_file_path := "../yo/db/query/ˍgenerated_code.go"
-	src_old, src_new := ReadFile(out_file_path), buf.Bytes()
-	if src_new, _ = format.Source(src_new); !bytes.Equal(src_old, src_new) {
-		WriteFile(out_file_path, src_new)
-		return true
-	}
-	return false
 }
 
-func codegenCloneMethod(buf *str.Buf, desc *structDesc, method *reflect.Method) {
+func codegenCloneMethod(buf *str.Buf, typeNameReceiver string, typeNameUnderlying string, method *reflect.Method) {
 	buf.WriteString("func(me ")
-	buf.WriteString(desc.ty.Name())
-	buf.WriteString("Field) ")
+	buf.WriteString(typeNameReceiver)
+	buf.WriteString(") ")
 	buf.WriteString(method.Name)
 	buf.WriteByte('(')
 	for j, rt_fn := 1, method.Func.Type(); j < rt_fn.NumIn(); j++ {
@@ -159,11 +191,12 @@ func codegenCloneMethod(buf *str.Buf, desc *structDesc, method *reflect.Method) 
 	}
 	buf.WriteByte(')')
 	buf.WriteByte('(')
-	for j, rt_fn := 0, method.Func.Type(); j < rt_fn.NumOut(); j++ {
+	rt_fn := method.Func.Type()
+	for j := 0; j < rt_fn.NumOut(); j++ {
 		buf.WriteString(rt_fn.Out(j).String())
 	}
 	buf.WriteByte(')')
-	buf.WriteString("{return ((q.F)(me)).")
+	buf.WriteString("{" + If(rt_fn.NumOut() == 0, "", "return") + " ((" + typeNameUnderlying + ")(me)).")
 	buf.WriteString(method.Name)
 	buf.WriteByte('(')
 	for j, rt_fn := 1, method.Func.Type(); j < rt_fn.NumIn(); j++ {

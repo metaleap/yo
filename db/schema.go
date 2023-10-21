@@ -156,6 +156,12 @@ var sqlDtAltNames = map[string]Text{
 	"int8": "bigint",
 }
 
+func init() {
+	for k := range sqlDtAltNames {
+		sqlDtAltNames[k+"[]"] = "ARRAY"
+	}
+}
+
 func schemaAlterTable(desc *structDesc, curTable []*TableColumn) (ret []*sqlStmt) {
 	if desc.mig.oldTableName == desc.tableName {
 		panic("invalid table rename: " + desc.mig.oldTableName)
@@ -171,7 +177,7 @@ func schemaAlterTable(desc *structDesc, curTable []*TableColumn) (ret []*sqlStmt
 			cols_gone = append(cols_gone, col_name)
 		} else if field, ok := desc.ty.FieldByName(string(desc.fields[sl.IdxWhere(desc.cols, func(it q.C) bool { return (it == col_name) })])); !ok {
 			panic("impossible")
-		} else if sql_type_name := sqlColTypeFrom(field.Type); sql_type_name != string(table_col.DataType) && sqlDtAltNames[sql_type_name] != table_col.DataType {
+		} else if sql_type_name := sqlColTypeFrom(field.Type); (sql_type_name != string(table_col.DataType)) && (sqlDtAltNames[sql_type_name] != table_col.DataType) {
 			col_type_changes = append(col_type_changes, col_name)
 			panic(string(col_name) + "<<<oldDT:" + string(table_col.DataType) + ">>>newDT:" + sql_type_name)
 		}
@@ -275,6 +281,12 @@ func sqlColTypeFrom(ty reflect.Type) string {
 			return "jsonb"
 		} else if isDbRefType(ty) {
 			return "int8"
+		} else if arr_type := dbArrType(ty); arr_type != "" {
+			item_type := sl.Where(okTypes, func(it reflect.Type) bool { return arr_type == (it.PkgPath() + "." + it.Name()) })
+			if len(item_type) == 0 {
+				panic("invalid (non-`yo/db`) Arr[T] type '" + arr_type + "'")
+			}
+			return sqlColTypeFrom(item_type[0]) + "[]"
 		}
 		panic(ty)
 	}
@@ -302,6 +314,11 @@ func sqlColTypeDeclFrom(ty reflect.Type, isUnique bool) string {
 			})
 			desc := dummy.structDesc()
 			return sql_data_type_name + " NULL DEFAULT (NULL)" + unique_maybe + " REFERENCES " + desc.tableName + " ON DELETE " + dummy.onDelSql()
+		} else if isDbArrType(ty) {
+			if unique_maybe != "" {
+				panic("unique constraint on '" + ty.String() + "'")
+			}
+			return sql_data_type_name + " NOT NULL DEFAULT ('{}')"
 		}
 		panic(ty)
 	}
