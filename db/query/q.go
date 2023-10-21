@@ -221,6 +221,9 @@ func NotInArr(lhs any, rhs any) Query {
 func ArrIsEmpty(arr any) Query {
 	return operandFrom(arr).Equal(nil).Or(Fn(FnArrLen, arr).Equal(0))
 }
+func ArrHas(arr any, arg any) Query {
+	return ArrAreAnyIn(arr, OpEq, arg)
+}
 func ArrAreAnyIn(arr any, operator Operator, arg any) Query {
 	return &query{op: operator + opArrAny, operands: operandsFrom(arr, arg)}
 }
