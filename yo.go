@@ -41,8 +41,8 @@ func Init(staticFileDirApp fs.FS, staticFileDirYo fs.FS) (listenAndServe func())
 func runBrowser() {
 	port := str.FromInt(Cfg.YO_API_HTTP_PORT)
 	cmd := exec.Command("wbd",
+		// "http://localhost:"+port+"/__yostatic/yo.html?"+str.FromI64(time.Now().UnixNano(), 36),
 		"http://localhost:"+port+"?"+str.FromI64(time.Now().UnixNano(), 36),
-		"http://localhost:"+port+"/__yostatic/yo.html?"+str.FromI64(time.Now().UnixNano(), 36),
 	)
 	if err := cmd.Start(); err != nil {
 		panic(err)
