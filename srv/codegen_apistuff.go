@@ -14,8 +14,6 @@ import (
 	. "yo/util"
 	"yo/util/sl"
 	"yo/util/str"
-
-	esbuild "github.com/evanw/esbuild/pkg/api"
 )
 
 const (
@@ -62,29 +60,23 @@ func init() {
 
 func reflEnumsOnceOnInit() {
 	enum_pkgs := str.Dict{}
-	WalkCodeFiles(true, true, func(path string, dirEntry fs.DirEntry) {
-		is_app_side := str.Begins(path, str.TrimR(curMainDir, "/")+"/")
+	WalkCodeFiles(true, true, func(fsPath string, dirEntry fs.DirEntry) {
+		is_app_side := str.Begins(fsPath, str.TrimR(curMainDir, "/")+"/")
 
 		if (!(foundModifiedTsFilesYoSide && foundModifiedTsFilesAppSide)) && (!dirEntry.IsDir()) &&
-			str.Ends(path, ".ts") && (!str.Ends(path, ".d.ts")) {
-			fileinfo_ts, err := dirEntry.Info()
-			if err != nil || fileinfo_ts == nil {
-				panic(err)
-			}
-			fileinfo_js, err := os.Stat(path[:len(path)-len(".ts")] + ".js")
-			is_modified := ((fileinfo_js == nil) || (err != nil) ||
-				(fileinfo_ts.ModTime().After(fileinfo_js.ModTime())))
+			str.Ends(fsPath, ".ts") && (!str.Ends(fsPath, ".d.ts")) {
+			is_modified := IsNewer(fsPath, FilePathSwapExt(fsPath, ".ts", ".js"))
 			foundModifiedTsFilesYoSide = foundModifiedTsFilesYoSide || (is_modified && !is_app_side)
 			foundModifiedTsFilesAppSide = foundModifiedTsFilesAppSide || (is_modified && is_app_side)
 		}
 
-		if str.Ends(path, ".go") { // looking for enums' enumerants
-			data := ReadFile(path)
+		if str.Ends(fsPath, ".go") { // looking for enums' enumerants
+			data := ReadFile(fsPath)
 			pkg_name := ""
 			for _, line := range str.Split(str.Trim(string(data)), "\n") {
 				if str.Begins(line, "package ") {
 					pkg_name = line[len("package "):]
-					pkgsFound[pkg_name] = filepath.Dir(path)
+					pkgsFound[pkg_name] = filepath.Dir(fsPath)
 				} else if str.Begins(line, "\t") && str.Ends(line, `"yo/srv"`) && pkg_name != "" {
 					pkgsImportingSrv[pkg_name] = true
 				} else if str.Begins(line, "\t") && str.Ends(line, "\"") && str.Has(line, " = \"") {
@@ -213,31 +205,7 @@ func codegenTsToJs(inDirPath string, isAppSide bool, reasons ...string) {
 			(isAppSide && !str.Ends(path, "/"+filepath.Join(StaticFilesDirNameYo, yoSdkTsFileName))) {
 			return // nothing to do for this `path`
 		}
-
-		out_file_path := path[:len(path)-len(".ts")] + ".js"
-		ts_src_raw := ReadFile(path)
-		result := esbuild.Transform(string(ts_src_raw), esbuild.TransformOptions{
-			Color:             esbuild.ColorNever,
-			Sourcemap:         esbuild.SourceMapNone,
-			Target:            esbuild.ESNext,
-			Platform:          esbuild.PlatformBrowser,
-			Format:            esbuild.FormatESModule,
-			Charset:           esbuild.CharsetUTF8,
-			TreeShaking:       esbuild.TreeShakingFalse,
-			IgnoreAnnotations: true,
-			LegalComments:     esbuild.LegalCommentsNone,
-			TsconfigRaw:       string(ReadFile("tsconfig.json")),
-			Banner:            "// this js-from-ts by esbuild, not tsc\n",
-			Sourcefile:        path,
-			Loader:            esbuild.LoaderTS,
-		})
-		for _, msg := range result.Warnings {
-			panic("esbuild WARNs: " + str.From(msg))
-		}
-		for _, msg := range result.Errors {
-			panic("esbuild ERRs: " + msg.Text + " @ " + str.From(msg.Location))
-		}
-		WriteFile(out_file_path, result.Code)
+		TsFile2JsFileViaEsbuild(path)
 	})
 }
 

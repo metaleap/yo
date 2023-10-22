@@ -1,7 +1,12 @@
 {
     "compilerOptions": {
+        "isolatedModules": true,
         "noUnusedLocals": true,
         "target": "ESNext",
+        "esModuleInterop": true,
+        "alwaysStrict": true,
+        "strict": true,
+        "noEmit": true,
         "removeComments": true,
         "sourceMap": false,
         "noErrorTruncation": true

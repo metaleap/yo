@@ -10,7 +10,7 @@ import (
 
 var mut sync.Mutex
 
-func PrintlnBr(msg string, args ...any) {
+func PrintLnLn(msg string, args ...any) {
 	Println("")
 	Println(msg, args...)
 }

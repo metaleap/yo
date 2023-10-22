@@ -6,6 +6,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"yo/util/str"
+
+	esbuild "github.com/evanw/esbuild/pkg/api"
 )
 
 const IsDevMode = true
@@ -26,20 +29,35 @@ func DelDir(dirPath string) {
 	_ = os.RemoveAll(dirPath)
 }
 
-func fsIs(path string, check func(fs.FileInfo) bool, expect bool) bool {
-	info, err := os.Stat(path)
+func fsStat(path string) fs.FileInfo {
+	fs_info, err := os.Stat(path)
 	is_not_exist := os.IsNotExist(err)
 	if err != nil && !is_not_exist {
 		panic(err)
 	}
-	if is_not_exist || (info == nil) {
-		return false
+	return If(is_not_exist, nil, fs_info)
+}
+
+func fsIs(path string, check func(fs.FileInfo) bool, expect bool) bool {
+	fs_info := fsStat(path)
+	return (fs_info != nil) && (expect == check(fs_info))
+}
+
+func FilePathSwapExt(filePath string, oldExtInclDot string, newExtInclDot string) string {
+	if str.Ends(filePath, oldExtInclDot) {
+		filePath = filePath[:len(filePath)-len(oldExtInclDot)] + newExtInclDot
 	}
-	return (expect == check(info))
+	return filePath
 }
 
 func IsDir(dirPath string) bool   { return fsIs(dirPath, fs.FileInfo.IsDir, true) }
 func IsFile(filePath string) bool { return fsIs(filePath, fs.FileInfo.IsDir, false) }
+
+func IsNewer(file1Path string, file2Path string) bool {
+	fs_info_1, fs_info_2 := fsStat(file1Path), fsStat(file2Path)
+	return (fs_info_1 == nil) || (fs_info_1.IsDir()) || (fs_info_2 == nil) || (fs_info_2.IsDir()) ||
+		fs_info_1.ModTime().After(fs_info_2.ModTime())
+}
 
 func EnsureDir(dirPath string) (did bool) {
 	if IsDir(dirPath) { // wouldn't think you'd need this, with the below, but do
@@ -106,4 +124,31 @@ func WalkCodeFiles(yoDir bool, mainDir bool, onDirEntry func(string, fs.DirEntry
 	for _, dir_path := range dir_paths {
 		WalkDir(dir_path, onDirEntry)
 	}
+}
+
+func TsFile2JsFileViaEsbuild(tsFilePath string) {
+	out_file_path := FilePathSwapExt(tsFilePath, ".ts", ".js")
+	ts_src_raw := ReadFile(tsFilePath)
+	result := esbuild.Transform(string(ts_src_raw), esbuild.TransformOptions{
+		Color:             esbuild.ColorNever,
+		Sourcemap:         esbuild.SourceMapNone,
+		Target:            esbuild.ESNext,
+		Platform:          esbuild.PlatformBrowser,
+		Format:            esbuild.FormatESModule,
+		Charset:           esbuild.CharsetUTF8,
+		TreeShaking:       esbuild.TreeShakingFalse,
+		IgnoreAnnotations: true,
+		LegalComments:     esbuild.LegalCommentsNone,
+		TsconfigRaw:       string(ReadFile("tsconfig.json")),
+		Banner:            "// this js-from-ts by esbuild, not tsc\n",
+		Sourcefile:        tsFilePath,
+		Loader:            esbuild.LoaderTS,
+	})
+	for _, msg := range result.Warnings {
+		panic("esbuild WARNs: " + str.From(msg))
+	}
+	for _, msg := range result.Errors {
+		panic("esbuild ERRs: " + msg.Text + " @ " + str.From(msg.Location))
+	}
+	WriteFile(out_file_path, result.Code)
 }

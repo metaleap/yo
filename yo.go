@@ -10,6 +10,8 @@ import (
 	yosrv "yo/srv"
 )
 
+var ts2jsAppSideStaticDir func()
+
 func init() {
 	time.Local = time.UTC
 }
@@ -18,10 +20,13 @@ func Init(staticFileDirApp fs.FS, staticFileDirYo fs.FS) (listenAndServe func())
 	yosrv.StaticFileDirApp, yosrv.StaticFileDirYo =
 		staticFileDirApp, staticFileDirYo
 	time.Local = time.UTC // between above `init` and now, `time` might have its own `init`-time ideas about setting `time.Local`...
-	yolog.PrintlnBr("DB init...")
+	yolog.PrintLnLn("DB init...")
 	db_structs := yodb.InitAndConnectAndMigrateAndMaybeCodegen()
-	yolog.PrintlnBr("API init...")
+	yolog.PrintLnLn("API init...")
 	listenAndServe = yosrv.InitAndMaybeCodegen(db_structs)
-	yolog.PrintlnBr("yo.Init done")
+	if ts2jsAppSideStaticDir != nil { // set only in dev-mode
+		ts2jsAppSideStaticDir()
+	}
+	yolog.PrintLnLn("yo.Init done")
 	return
 }
