@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"net/http"
 	"reflect"
+	"time"
 
 	. "yo/cfg"
 	yoctx "yo/ctx"
@@ -103,7 +104,7 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	if static_fs != nil {
 		ctx.Timings.Step("static serve")
 		ctx.HttpOnPreWriteResponse()
-		http.FileServer(http.FS(static_fs)).ServeHTTP(rw, req)
+		httpFileServer(http.FileServer(http.FS(static_fs))).ServeHTTP(rw, req)
 		return
 	}
 
@@ -146,4 +147,25 @@ func authAdmin(ctx *yoctx.Ctx) {
 		ctx.Http.Resp.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
 		panic(yoctx.ErrMustBeAdmin)
 	}
+}
+
+var httpDevModeUncachedFileServingResponseHeaders = map[string]string{"Expires": time.Unix(0, 0).Format(time.RFC1123), "Cache-Control": "no-cache, private, max-age=0", "Pragma": "no-cache", "X-Accel-Expires": "0"}
+var httpDevModeUncachedFileServingRequestHeaders = []string{"ETag", "If-Modified-Since", "If-Match", "If-None-Match", "If-Range", "If-Unmodified-Since"}
+
+// stackoverflow.com/a/33881296
+func httpFileServer(fileServingHandler http.Handler) http.Handler {
+	if !IsDevMode {
+		return fileServingHandler
+	}
+	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		for _, etag_header_name := range httpDevModeUncachedFileServingRequestHeaders {
+			if req.Header.Get(etag_header_name) != "" {
+				req.Header.Del(etag_header_name)
+			}
+		}
+		for k, v := range httpDevModeUncachedFileServingResponseHeaders {
+			rw.Header().Set(k, v)
+		}
+		fileServingHandler.ServeHTTP(rw, req)
+	})
 }
