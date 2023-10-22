@@ -56,7 +56,7 @@ func init() {
 			CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "NewPasswordInvalid", ErrUnauthorized),
 	})
 
-	PreApiHandling = append(PreApiHandling, Middleware{Name: "authCheck", Do: func(ctx *Ctx) {
+	PreServes = append(PreServes, Middleware{Name: "authCheck", Do: func(ctx *Ctx) {
 		jwt_raw, forced_test_user := ctx.HttpGetCookie(HttpJwtCookieName), ctx.GetStr(CtxKeyForcedTestUser)
 		if IsDevMode && (forced_test_user != "") {
 			if cur_user_email_addr, cur_user_auth_id := httpUserFromJwtRaw(jwt_raw); (cur_user_auth_id == 0) ||
