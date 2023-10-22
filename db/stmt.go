@@ -76,6 +76,7 @@ func (me *sqlStmt) insert(desc *structDesc, numRows int, cols ...q.C) *sqlStmt {
 				if numRows > 1 {
 					w(str.FromInt(j))
 				}
+				w(" ")
 				if is_json_field {
 					w(")")
 				}
@@ -111,10 +112,11 @@ func (me *sqlStmt) update(desc *structDesc, colNames ...string) *sqlStmt {
 		if isDbJsonType(field.Type) {
 			w("jsonb_strip_nulls(@")
 			w(col_name)
-			w(")")
+			w(" )")
 		} else {
 			w("@")
 			w(col_name)
+			w(" ")
 		}
 		num_cols++
 	}
@@ -143,7 +145,8 @@ func (me *sqlStmt) selCols(desc *structDesc, cols ...q.C) *sqlStmt {
 		w(".")
 		w(string(col))
 		if is_arr {
-			w(")")
+			w(") AS ")
+			w(string(col))
 		}
 	}
 	return me
@@ -191,16 +194,17 @@ func (me *sqlStmt) where(desc *structDesc, isMut bool, where q.Query, args pgx.N
 		w(" FROM ")
 		w(desc.tableName)
 	}
-	// select user_.* from user_ join user_auth_  on user_.auth_ = user_auth_.id_
-	//													where user_auth_.email_addr_ = 'foo321@bar.baz'
 	// add JOINs if any
 	dotteds := where.(interface{ AllDottedFs() map[q.F][]string }).AllDottedFs()
 	var idx_join int
 	if len(dotteds) > 0 {
-		w(" JOIN ")
+		w(" LEFT OUTER JOIN ")
 		for field_name := range dotteds {
+			if idx_join > 0 {
+				w(" , ")
+			}
 			field, _ := desc.ty.FieldByName(string(field_name))
-			join_name := "__j__" + str.FromInt(idx_join)
+			join_name := "_j_" + str.FromInt(idx_join)
 			type_refd := dbRefType(field.Type)
 			var sub_desc *structDesc
 			for ty, sd := range descs {

@@ -359,6 +359,7 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 				arg_name := "@A" + str.FromInt(len(args))
 				args[arg_name[1:]] = v.Value
 				buf.WriteString(arg_name)
+				buf.WriteByte(' ')
 			}
 		} else if fn, _ := operand.(*fun); fn != nil {
 			if fn.Fn == FnArrLen {
