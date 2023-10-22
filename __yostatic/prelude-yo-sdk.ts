@@ -21,7 +21,7 @@ export async function req<TIn, TOut>(methodPath: string, payload: TIn, urlQueryA
     let rel_url = '/' + methodPath
     if (urlQueryArgs)
         rel_url += ('?' + new URLSearchParams(urlQueryArgs).toString())
-    console.log('callAPI:', rel_url, payload)
+    // console.log('callAPI:', rel_url, payload)
     const resp = await fetch(rel_url, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         cache: 'no-store', mode: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(reqTimeoutMilliSec)

@@ -95,7 +95,9 @@ func (me *argQuery[TObj, TFld]) toDbO() []q.OrderBy {
 	})
 }
 
-func apiFindById[TObj any, TFld q.Field](this *ApiCtx[struct{ Id I64 }, TObj]) {
+type ObjRef[TObj any] struct{ Id I64 }
+
+func apiFindById[TObj any, TFld q.Field](this *ApiCtx[ObjRef[TObj], TObj]) {
 	this.Ret = ById[TObj](this.Ctx, this.Args.Id)
 }
 
@@ -111,11 +113,9 @@ func apiCount[TObj any, TFld q.Field](this *ApiCtx[argQuery[TObj, TFld], retCoun
 	this.Ret.Count = Count[TObj](this.Ctx, this.Args.toDbQ(), "", nil)
 }
 
-func apiCreateOne[TObj any, TFld q.Field](this *ApiCtx[TObj, struct {
-	ID int64
-}]) {
+func apiCreateOne[TObj any, TFld q.Field](this *ApiCtx[TObj, ObjRef[TObj]]) {
 	id := CreateOne[TObj](this.Ctx, this.Args)
-	this.Ret.ID = int64(id)
+	this.Ret.Id = id
 }
 
 func apiCreateMany[TObj any, TFld q.Field](this *ApiCtx[struct {
@@ -124,7 +124,7 @@ func apiCreateMany[TObj any, TFld q.Field](this *ApiCtx[struct {
 	CreateMany[TObj](this.Ctx, sl.Ptrs(this.Args.Items)...)
 }
 
-func apiDeleteOne[TObj any, TFld q.Field](this *ApiCtx[struct{ Id I64 }, retCount]) {
+func apiDeleteOne[TObj any, TFld q.Field](this *ApiCtx[ObjRef[TObj], retCount]) {
 	this.Ret.Count = Delete[TObj](this.Ctx, ColID.Equal(this.Args.Id))
 }
 

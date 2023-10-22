@@ -57,7 +57,7 @@ type ApiMethod interface {
 	KnownErrs() []Err
 	Checks(...Fails) ApiMethod
 	CouldFailWith(...Err) ApiMethod
-	FailIf(Err, func(*Ctx) bool) ApiMethod
+	FailIf(func(*Ctx) bool, Err) ApiMethod
 }
 
 type ApiCtx[TIn any, TOut any] struct {
@@ -122,7 +122,7 @@ func (me *apiMethod[TIn, TOut]) Checks(failIfs ...Fails) ApiMethod {
 	}
 	return me
 }
-func (me *apiMethod[TIn, TOut]) FailIf(withErr Err, inCaseOf func(*Ctx) bool) ApiMethod {
+func (me *apiMethod[TIn, TOut]) FailIf(inCaseOf func(*Ctx) bool, withErr Err) ApiMethod {
 	me.CouldFailWith(withErr)
 	me.preChecks = append(me.preChecks, Pair[Err, func(*Ctx) bool]{withErr, inCaseOf})
 	return me

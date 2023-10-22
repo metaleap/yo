@@ -182,7 +182,9 @@ func doSelect[T any](ctx *Ctx, stmt *sqlStmt, args dbArgs, maxResults int, cols 
 		ret = make([]*T, 0, maxResults)
 	}
 	doStream[T](ctx, stmt, func(rec *T, endNow *bool) {
-		ret = append(ret, rec)
+		if ret = append(ret, rec); (maxResults > 0) && (len(ret) == maxResults) {
+			*endNow = true
+		}
 	}, args, cols...)
 	return
 }
@@ -215,6 +217,7 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 			if err := rows.Scan(&rec); err != nil {
 				panic(err)
 			}
+			abort = true
 			onRecord(&rec, &abort)
 			break
 		}
