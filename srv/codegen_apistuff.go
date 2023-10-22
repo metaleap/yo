@@ -29,19 +29,65 @@ const (
 )
 
 var (
-	foundModifiedTsFilesYoSide  = codegenForceFull
-	foundModifiedTsFilesAppSide = codegenForceFull
-	pkgsFound                   = str.Dict{}
-	pkgsImportingSrv            = map[string]bool{}
-	curMainDir                  = CurDirPath()
-	curMainName                 = filepath.Base(curMainDir)
-	curMainStaticDirPathYo      = filepath.Join(curMainDir, StaticFilesDirNameYo)
-	curMainStaticDirPathApp     = filepath.Join(curMainDir, StaticFilesDirNameApp)
+	foundModifiedTsFilesYoSide = codegenForceFull
+	pkgsFound                  = str.Dict{}
+	pkgsImportingSrv           = map[string]bool{}
+	curMainDir                 = CurDirPath()
+	curMainName                = filepath.Base(curMainDir)
+	curMainStaticDirPathYo     = filepath.Join(curMainDir, StaticFilesDirNameYo)
+	curMainStaticDirPathApp    = filepath.Join(curMainDir, StaticFilesDirNameApp)
 )
 
 func init() {
-	codegenMaybe = func() {
+	detectEnumsAndMaybeCodegen = func() {
 		yolog.Println("codegen (api stuff)")
+
+		{ // initial dir-walk & enums-detection
+			enum_pkgs := str.Dict{}
+			WalkCodeFiles(true, false, func(fsPath string, dirEntry fs.DirEntry) {
+				if (!foundModifiedTsFilesYoSide) && (!dirEntry.IsDir()) &&
+					str.Ends(fsPath, ".ts") && (!str.Ends(fsPath, ".d.ts")) {
+					is_yo_side := str.Begins(FsPathAbs(fsPath), str.TrimR(FsPathAbs(yoStaticDirPath), "/")+"/")
+					is_modified := IsNewer(fsPath, FilePathSwapExt(fsPath, ".ts", ".js"))
+					foundModifiedTsFilesYoSide = foundModifiedTsFilesYoSide || (is_modified && is_yo_side)
+				}
+
+				if str.Ends(fsPath, ".go") { // looking for enums' enumerants
+					data := ReadFile(fsPath)
+					pkg_name := ""
+					for _, line := range str.Split(str.Trim(string(data)), "\n") {
+						if str.Begins(line, "package ") {
+							pkg_name = line[len("package "):]
+							pkgsFound[pkg_name] = filepath.Dir(fsPath)
+						} else if str.Begins(line, "\t") && str.Ends(line, `"yo/srv"`) && pkg_name != "" {
+							pkgsImportingSrv[pkg_name] = true
+						} else if str.Begins(line, "\t") && str.Ends(line, "\"") && str.Has(line, " = \"") {
+							if name_and_type, value, ok := str.Cut(line[1:len(line)-1], " = \""); ok && (value != "") && (str.Idx(value, '.') < 0) {
+								if name, type_name, ok := str.Cut(name_and_type, " "); ok {
+									if name, type_name = str.Trim(name), str.Trim(type_name); type_name != "" && type_name != "string" && name != type_name {
+										if type_name_stripped := str.TrimR(type_name, "Field"); str.Begins(name, type_name) || str.Begins(name, type_name_stripped) {
+											enumerant_name := name[len(type_name_stripped):]
+											if str.IsLo(enumerant_name[:1]) {
+												continue
+											}
+											if (str.Lo(enumerant_name) != str.Lo(value)) && (str.Lo(name) != str.Lo(value) && !str.Has(value, ".")) {
+												panic(value + "!=" + enumerant_name + " && " + value + "!=" + name)
+											}
+											apiReflAllEnums[pkg_name+"."+type_name] = append(apiReflAllEnums[pkg_name+"."+type_name], value)
+											if existing := enum_pkgs[type_name]; existing != "" && existing != pkg_name {
+												panic("enum name clash: '" + pkg_name + "." + type_name + "' vs '" + existing + "." + type_name + "'")
+											}
+											enum_pkgs[type_name] = pkg_name
+											apiReflAllEnums[type_name] = append(apiReflAllEnums[type_name], value)
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			})
+		}
 
 		for _, rt := range apiReflAllDbStructs {
 			if pkg_path := rt.PkgPath(); str.Begins(pkg_path, "yo/") {
@@ -58,55 +104,6 @@ func init() {
 		codegenGo(&api_refl)
 		codegenTsSdk(&api_refl)
 	}
-}
-
-func reflEnumsOnceOnInit() {
-	enum_pkgs := str.Dict{}
-	WalkCodeFiles(true, true, func(fsPath string, dirEntry fs.DirEntry) {
-		is_app_side := str.Begins(fsPath, str.TrimR(curMainDir, "/")+"/")
-
-		if (!(foundModifiedTsFilesYoSide && foundModifiedTsFilesAppSide)) && (!dirEntry.IsDir()) &&
-			str.Ends(fsPath, ".ts") && (!str.Ends(fsPath, ".d.ts")) {
-			is_modified := IsNewer(fsPath, FilePathSwapExt(fsPath, ".ts", ".js"))
-			foundModifiedTsFilesYoSide = foundModifiedTsFilesYoSide || (is_modified && !is_app_side)
-			foundModifiedTsFilesAppSide = foundModifiedTsFilesAppSide || (is_modified && is_app_side)
-		}
-
-		if str.Ends(fsPath, ".go") { // looking for enums' enumerants
-			data := ReadFile(fsPath)
-			pkg_name := ""
-			for _, line := range str.Split(str.Trim(string(data)), "\n") {
-				if str.Begins(line, "package ") {
-					pkg_name = line[len("package "):]
-					pkgsFound[pkg_name] = filepath.Dir(fsPath)
-				} else if str.Begins(line, "\t") && str.Ends(line, `"yo/srv"`) && pkg_name != "" {
-					pkgsImportingSrv[pkg_name] = true
-				} else if str.Begins(line, "\t") && str.Ends(line, "\"") && str.Has(line, " = \"") {
-					if name_and_type, value, ok := str.Cut(line[1:len(line)-1], " = \""); ok && (value != "") && (str.Idx(value, '.') < 0) {
-						if name, type_name, ok := str.Cut(name_and_type, " "); ok {
-							if name, type_name = str.Trim(name), str.Trim(type_name); type_name != "" && type_name != "string" && name != type_name {
-								if type_name_stripped := str.TrimR(type_name, "Field"); str.Begins(name, type_name) || str.Begins(name, type_name_stripped) {
-									enumerant_name := name[len(type_name_stripped):]
-									if str.IsLo(enumerant_name[:1]) {
-										continue
-									}
-									if (str.Lo(enumerant_name) != str.Lo(value)) && (str.Lo(name) != str.Lo(value) && !str.Has(value, ".")) {
-										panic(value + "!=" + enumerant_name + " && " + value + "!=" + name)
-									}
-									apiReflAllEnums[pkg_name+"."+type_name] = append(apiReflAllEnums[pkg_name+"."+type_name], value)
-									if existing := enum_pkgs[type_name]; existing != "" && existing != pkg_name {
-										panic("enum name clash: '" + pkg_name + "." + type_name + "' vs '" + existing + "." + type_name + "'")
-									}
-									enum_pkgs[type_name] = pkg_name
-									apiReflAllEnums[type_name] = append(apiReflAllEnums[type_name], value)
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	})
 }
 
 func codegenGo(apiRefl *apiRefl) {
@@ -256,7 +253,7 @@ func codegenTsSdk(apiRefl *apiRefl) (didFsWrites []string) {
 
 	if foundModifiedTsFilesYoSide {
 		codegenTsToJs(yoStaticDirPath, false, "modTsYo")
-		didFsWrites = append(didFsWrites, "GEN:"+yoDirPath)
+		didFsWrites = append(didFsWrites, "GEN:"+yoStaticDirPath)
 	}
 
 	// post-generate: clean up app-side, by removing files no longer in yo side
@@ -291,12 +288,9 @@ func codegenTsSdk(apiRefl *apiRefl) (didFsWrites []string) {
 		}
 	})
 
-	if foundModifiedTsFilesYoSide || foundModifiedTsFilesAppSide || (len(didFsWrites) > 0) {
-		codegenTsToJs(curMainStaticDirPathYo, true, sl.Without(append(didFsWrites, []string{
-			If(foundModifiedTsFilesYoSide, "foundModTsYo", ""),
-			If(foundModifiedTsFilesAppSide, "foundModTsApp", ""),
-		}...), "")...)
-		didFsWrites = append(didFsWrites, curMainDir)
+	if foundModifiedTsFilesYoSide || (len(didFsWrites) > 0) {
+		codegenTsToJs(curMainStaticDirPathYo, true, append(didFsWrites, If(foundModifiedTsFilesYoSide, "modTsYo", ""))...)
+		didFsWrites = append(didFsWrites, curMainStaticDirPathYo)
 	}
 	return
 }

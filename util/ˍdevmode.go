@@ -43,6 +43,14 @@ func fsIs(path string, check func(fs.FileInfo) bool, expect bool) bool {
 	return (fs_info != nil) && (expect == check(fs_info))
 }
 
+func FsPathAbs(fsPath string) string {
+	ret, err := filepath.Abs(fsPath)
+	if err != nil {
+		panic(err)
+	}
+	return ret
+}
+
 func FilePathSwapExt(filePath string, oldExtInclDot string, newExtInclDot string) string {
 	if str.Ends(filePath, oldExtInclDot) {
 		filePath = filePath[:len(filePath)-len(oldExtInclDot)] + newExtInclDot
@@ -75,11 +83,8 @@ func EnsureLink(linkLocationPath string, pointsToPath string, pointsToIsDir bool
 		did = EnsureDir(pointsToPath)
 	} else if !IsFile(linkLocationPath) { // dito as the comment above in EnsureDir  =)
 		did = EnsureDir(filepath.Dir(linkLocationPath))
-		if points_to_path, err := filepath.Abs(pointsToPath); err != nil {
-			panic(err)
-		} else if link_location_path, err := filepath.Abs(linkLocationPath); err != nil {
-			panic(err)
-		} else if err = os.Symlink(points_to_path, link_location_path); (err != nil) && !os.IsExist(err) {
+		points_to_path, link_location_path := FsPathAbs(pointsToPath), FsPathAbs(linkLocationPath)
+		if err := os.Symlink(points_to_path, link_location_path); (err != nil) && !os.IsExist(err) {
 			panic(err)
 		} else {
 			did = (err == nil)

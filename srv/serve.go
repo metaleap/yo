@@ -28,7 +28,7 @@ type Middleware struct {
 }
 
 var (
-	codegenMaybe func() = nil // overwritten by apisdkgen.go in debug build mode
+	detectEnumsAndMaybeCodegen func() = nil // overwritten by codegen_apistuff.go in debug build mode
 
 	// requests to key+'/' will be served from the corresponding FS
 	apiStdRespHeaders = str.Dict{
@@ -48,15 +48,14 @@ var (
 )
 
 func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
-	reflEnumsOnceOnInit()
 	apiReflAllDbStructs = dbStructs
 	for method_path := range api {
 		if (str.Trim(method_path) != method_path) || (method_path == "") || !str.IsPrtAscii(method_path) {
 			panic("not a valid method path: '" + method_path + "'")
 		}
 	}
-	if codegenMaybe != nil {
-		codegenMaybe()
+	if detectEnumsAndMaybeCodegen != nil {
+		detectEnumsAndMaybeCodegen()
 	}
 	return listenAndServe
 }
