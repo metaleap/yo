@@ -122,7 +122,7 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 	if upd != nil {
 		ForEachColField[T](upd, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
 			if only := (len(onlyFields) > 0); (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) &&
-				((!only) || sl.Has(onlyFields, fieldName)) &&
+				((!only) || sl.Has(fieldName, onlyFields)) &&
 				((!isZero) || (!skipNullsyFields) || only) {
 				col_names, col_vals = append(col_names, string(colName)), append(col_vals, fieldValue)
 			}
@@ -132,7 +132,7 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 		panic(ErrDbUpdate_ExpectedChangesForUpdate)
 	}
 	id_maybe, _ := reflFieldValueOf(upd, FieldID).(I64)
-	if lower := q.F(str.Lo(string(FieldID))); (id_maybe <= 0) && sl.Has(desc.fields, lower) {
+	if lower := q.F(str.Lo(string(FieldID))); (id_maybe <= 0) && sl.Has(lower, desc.fields) {
 		id_maybe = reflFieldValueOf(upd, lower).(I64)
 	}
 	if where == nil && id_maybe > 0 {
@@ -223,7 +223,7 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 		}
 		rv, col_scanners := reflect.ValueOf(&rec).Elem(), make([]any, len(cols))
 		for i, col := range cols {
-			field := rv.FieldByName(string(struct_desc.fields[sl.IdxOf(struct_desc.cols, col)]))
+			field := rv.FieldByName(string(struct_desc.fields[sl.IdxOf(col, struct_desc.cols)]))
 			var json_db_val jsonDbValue
 			unsafe_addr := field.UnsafeAddr()
 			if isDbRefType(field.Type()) {

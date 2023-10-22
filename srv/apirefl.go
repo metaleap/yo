@@ -151,7 +151,7 @@ func apiReflType(it *apiRefl, rt reflect.Type, fldName string, parent string) st
 		ty_refl := str.Dict{}
 		it.Types[type_ident] = ty_refl
 		if (rt_kind == reflect.Struct) && !(ReflHasMethod(rt, "MarshalJSON") && ReflHasMethod(rt, "UnmarshalJSON")) {
-			if sl.Has(apiReflAllDbStructs, rt) && !str.In(type_ident, it.DbStructs...) {
+			if sl.Has(rt, apiReflAllDbStructs) && !str.In(type_ident, it.DbStructs...) {
 				it.DbStructs = append(it.DbStructs, type_ident)
 			}
 			var do_field func(field reflect.StructField)

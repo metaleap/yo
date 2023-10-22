@@ -35,6 +35,8 @@ var (
 	pkgsImportingSrv            = map[string]bool{}
 	curMainDir                  = CurDirPath()
 	curMainName                 = filepath.Base(curMainDir)
+	curMainStaticDirPathYo      = filepath.Join(curMainDir, StaticFilesDirNameYo)
+	curMainStaticDirPathApp     = filepath.Join(curMainDir, StaticFilesDirNameApp)
 )
 
 func init() {
@@ -253,7 +255,7 @@ func codegenTsSdk(apiRefl *apiRefl) (didFsWrites []string) {
 	}
 
 	if foundModifiedTsFilesYoSide {
-		codegenTsToJs(yoDirPath, false, "foundModTsYo")
+		codegenTsToJs(yoStaticDirPath, false, "modTsYo")
 		didFsWrites = append(didFsWrites, "GEN:"+yoDirPath)
 	}
 
@@ -290,7 +292,7 @@ func codegenTsSdk(apiRefl *apiRefl) (didFsWrites []string) {
 	})
 
 	if foundModifiedTsFilesYoSide || foundModifiedTsFilesAppSide || (len(didFsWrites) > 0) {
-		codegenTsToJs(curMainDir, true, sl.Without(append(didFsWrites, []string{
+		codegenTsToJs(curMainStaticDirPathYo, true, sl.Without(append(didFsWrites, []string{
 			If(foundModifiedTsFilesYoSide, "foundModTsYo", ""),
 			If(foundModifiedTsFilesAppSide, "foundModTsApp", ""),
 		}...), "")...)

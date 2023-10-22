@@ -151,7 +151,7 @@ func (me *apiMethod[TIn, TOut]) KnownErrs() (ret []Err) {
 	method_name := me.methodNameUp0()
 	err_name_prefix := Err(str.Up0(method_name)) + "_"
 
-	ret = append(sl.To(me.errsOwn, func(it Err) Err { return If(sl.Has(ErrsNoPrefix, it), it, err_name_prefix+it) }),
+	ret = append(sl.To(me.errsOwn, func(it Err) Err { return If(sl.Has(it, ErrsNoPrefix), it, err_name_prefix+it) }),
 		KnownErrSets[""]...)
 	for _, err_dep := range me.errsDeps {
 		if method := api[err_dep]; method != nil {

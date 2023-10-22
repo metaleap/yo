@@ -61,7 +61,7 @@ func (me *sqlStmt) insert(desc *structDesc, numRows int, cols ...q.C) *sqlStmt {
 			}
 			w("(")
 			for i, col_name := range cols {
-				field_name := desc.fields[sl.IdxOf(desc.cols, q.C(col_name))]
+				field_name := desc.fields[sl.IdxOf(q.C(col_name), desc.cols)]
 				field, _ := desc.ty.FieldByName(string(field_name))
 				is_json_field := isDbJsonType(field.Type)
 
@@ -97,8 +97,8 @@ func (me *sqlStmt) update(desc *structDesc, colNames ...string) *sqlStmt {
 	w(" SET ")
 	var num_cols int
 	for _, col_name := range colNames {
-		field_name := desc.fields[sl.IdxOf(desc.cols, q.C(col_name))]
-		if sl.Has(desc.constraints.readOnly, field_name) {
+		field_name := desc.fields[sl.IdxOf(q.C(col_name), desc.cols)]
+		if sl.Has(field_name, desc.constraints.readOnly) {
 			continue
 		}
 		field, _ := desc.ty.FieldByName(string(field_name))
@@ -183,7 +183,7 @@ func (me *sqlStmt) where(desc *structDesc, isMut bool, where q.Query, args pgx.N
 			join := joins[q.F(lhs)]
 			return q.C(join.Key) + "." + f2c(join.It, q.F(rhs), true)
 		}
-		return If(noTableName, "", q.C(desc.tableName)+".") + d.cols[sl.IdxOf(d.fields, fieldName)]
+		return If(noTableName, "", q.C(desc.tableName)+".") + d.cols[sl.IdxOf(fieldName, d.fields)]
 	}
 
 	w := (*str.Buf)(me).WriteString

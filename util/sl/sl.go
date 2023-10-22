@@ -6,7 +6,7 @@ import (
 	"slices"
 )
 
-func WithoutIdx[TSlice ~[]TItem, TItem any](slice TSlice, sansIdx int, noMake bool) (ret TSlice) {
+func WithoutIdx[TSlice ~[]TItem, TItem any](sansIdx int, slice TSlice, noMake bool) (ret TSlice) {
 	if (sansIdx < 0) || (sansIdx >= len(slice)) {
 		return slice
 	}
@@ -22,20 +22,20 @@ func WithoutIdx[TSlice ~[]TItem, TItem any](slice TSlice, sansIdx int, noMake bo
 	return
 }
 
-func WithoutIdxs[TSlice ~[]TItem, TItem any](slice TSlice, sansIdxs ...int) (ret TSlice) {
+func WithoutIdxs[TSlice ~[]TItem, TItem any](sansIdxs []int, slice TSlice) (ret TSlice) {
 	if len(sansIdxs) == 0 {
 		return slice
 	}
 	ret = make(TSlice, 0, len(slice)-len(sansIdxs))
 	for i := range slice {
-		if !Has(sansIdxs, i) {
+		if !Has(i, sansIdxs) {
 			ret = append(ret, slice[i])
 		}
 	}
 	return
 }
 
-func WithoutIdxRange[TSlice ~[]TItem, TItem any](slice TSlice, delFromIdx int, delUntilIdx int) TSlice {
+func WithoutIdxRange[TSlice ~[]TItem, TItem any](delFromIdx int, delUntilIdx int, slice TSlice) TSlice {
 	if (delFromIdx <= 0) && ((delUntilIdx < 0) || (delUntilIdx >= len(slice))) {
 		return TSlice{}
 	}
@@ -47,7 +47,7 @@ func Sorted[TSlice ~[]TItem, TItem cmp.Ordered](slice TSlice) TSlice {
 	return slice
 }
 
-func IdxOf[TSlice ~[]TItem, TItem comparable](s TSlice, v TItem) int {
+func IdxOf[TSlice ~[]TItem, TItem comparable](v TItem, s TSlice) int {
 	for i := range s {
 		if v == s[i] {
 			return i
@@ -69,7 +69,7 @@ func HasWhere[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) b
 	return (IdxWhere(slice, pred) >= 0)
 }
 
-func Has[TSlice ~[]TItem, TItem comparable](slice TSlice, needle TItem) bool {
+func Has[TSlice ~[]TItem, TItem comparable](needle TItem, slice TSlice) bool {
 	for i := range slice {
 		if slice[i] == needle {
 			return true
@@ -82,7 +82,7 @@ func HasAnyOf[TSlice ~[]TItem, TItem comparable](slice TSlice, of ...TItem) bool
 	if len(of) == 0 {
 		return true
 	} else if len(of) == 1 {
-		return Has(slice, of[0])
+		return Has(of[0], slice)
 	}
 	for i := range slice {
 		for j := range of {
@@ -98,7 +98,7 @@ func HasAllOf[TSlice ~[]TItem, TItem comparable](slice TSlice, of ...TItem) bool
 	if len(of) == 0 {
 		return true
 	} else if len(of) == 1 {
-		return Has(slice, of[0])
+		return Has(of[0], slice)
 	}
 	have := make([]bool, len(of))
 	for i := range slice {
@@ -152,7 +152,7 @@ func Without[TSlice ~[]TItem, TItem comparable](slice TSlice, without ...TItem) 
 		return slice
 	}
 	return Where(slice, func(item TItem) bool {
-		return !Has(without, item)
+		return !Has(item, without)
 	})
 }
 
@@ -170,7 +170,7 @@ func Where[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) (ret
 func With[TSlice ~[]TItem, TItem comparable](slice TSlice, items ...TItem) TSlice {
 	append_from := 0
 	for i := range items {
-		if IdxOf(slice, items[i]) < 0 {
+		if IdxOf(items[i], slice) < 0 {
 			slice = append(slice, items[append_from:i+1]...)
 		}
 		append_from = i + 1
@@ -222,6 +222,6 @@ func (me *Slice[T]) EnsureAllUnique(areEqual func(T, T) bool) {
 			}
 		}
 	}
-	this = WithoutIdxs(this, idxs_to_remove...)
+	this = WithoutIdxs(idxs_to_remove, this)
 	*me = this
 }

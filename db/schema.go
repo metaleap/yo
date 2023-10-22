@@ -35,7 +35,7 @@ func GetTable(ctx *Ctx, tableName string) []*TableColumn {
 func schemaReCreateIndices(desc *structDesc, renamesOldColToNewField map[q.C]q.F) (ret []*sqlStmt) {
 	indexed_cols_and_order := map[q.C]string{ColCreatedAt: "DESC", ColModifiedAt: "DESC"}
 	for i, field_name := range desc.fields { // always index foreign-key cols for ON DELETE trigger perf
-		if sl.Has(desc.constraints.uniques, field_name) {
+		if sl.Has(field_name, desc.constraints.uniques) {
 			continue // uniques always auto-indexed by default
 		}
 		field, _ := desc.ty.FieldByName(string(field_name))
@@ -44,12 +44,12 @@ func schemaReCreateIndices(desc *structDesc, renamesOldColToNewField map[q.C]q.F
 		}
 	}
 	for _, field_name := range desc.constraints.indexed { // indexes supplied to `Ensure`
-		if sl.Has(desc.constraints.uniques, field_name) {
+		if sl.Has(field_name, desc.constraints.uniques) {
 			continue // uniques always auto-indexed by default
 		}
 		field, _ := desc.ty.FieldByName(string(field_name))
 		order_by := If(field.Type == tyDateTime, "DESC", "")
-		col_name := desc.cols[sl.IdxOf(desc.fields, field_name)]
+		col_name := desc.cols[sl.IdxOf(field_name, desc.fields)]
 		indexed_cols_and_order[col_name] = order_by
 	}
 
@@ -108,7 +108,7 @@ func schemaCreateTable(desc *structDesc, didWriteUpdTriggerFuncYet *bool) (ret [
 				w("timestamp without time zone NOT NULL DEFAULT (current_timestamp)")
 			default:
 				field := desc.ty.Field(i)
-				is_unique := sl.Has(desc.constraints.uniques, q.F(field.Name))
+				is_unique := sl.Has(q.F(field.Name), desc.constraints.uniques)
 				w(sqlColTypeDeclFrom(field.Type, is_unique))
 			}
 		}
@@ -140,7 +140,7 @@ func schemaCreateTable(desc *structDesc, didWriteUpdTriggerFuncYet *bool) (ret [
 			`CREATE OR REPLACE TRIGGER {table_name}onUpdate BEFORE UPDATE {of_cols} ON {table_name} FOR EACH ROW EXECUTE FUNCTION on_yo_db_obj_upd();`),
 			str.Dict{"col_name": string(ColModifiedAt), "table_name": desc.tableName,
 				"of_cols": If(len(upd_trigger_on_flds) == 0, "",
-					"OF "+str.Join(sl.To(upd_trigger_on_flds, func(it q.F) string { return string(desc.cols[sl.IdxOf(desc.fields, it)]) }), ", "),
+					"OF "+str.Join(sl.To(upd_trigger_on_flds, func(it q.F) string { return string(desc.cols[sl.IdxOf(it, desc.fields)]) }), ", "),
 				)}))
 		*didWriteUpdTriggerFuncYet = true
 		ret = append(ret, (*sqlStmt)(&stmt_make_trigger))
@@ -174,7 +174,7 @@ func schemaAlterTable(desc *structDesc, curTable []*TableColumn) (ret []*sqlStmt
 		if (col_name == ColID) || (col_name == ColCreatedAt) || (col_name == ColModifiedAt) {
 			continue
 		}
-		if !sl.Has(desc.cols, col_name) {
+		if !sl.Has(col_name, desc.cols) {
 			cols_gone = append(cols_gone, col_name)
 		} else if field, ok := desc.ty.FieldByName(string(desc.fields[sl.IdxWhere(desc.cols, func(it q.C) bool { return (it == col_name) })])); !ok {
 			panic("impossible")
@@ -194,11 +194,11 @@ func schemaAlterTable(desc *structDesc, curTable []*TableColumn) (ret []*sqlStmt
 			if new_col_name == old_col_name {
 				panic("invalid column rename: " + old_col_name)
 			}
-			idx_old, idx_new := sl.IdxOf(cols_gone, old_col_name), sl.IdxOf(fields_new, new_field_name)
+			idx_old, idx_new := sl.IdxOf(old_col_name, cols_gone), sl.IdxOf(new_field_name, fields_new)
 			if idx_old < 0 || idx_new < 0 {
 				panic(str.Repl("outdated column rename: col '{col}' => field '{fld}'", str.Dict{"col": string(old_col_name), "fld": string(new_field_name)}))
 			}
-			cols_gone, fields_new = sl.WithoutIdx(cols_gone, idx_old, true), sl.WithoutIdx(fields_new, idx_new, true)
+			cols_gone, fields_new = sl.WithoutIdx(idx_old, cols_gone, true), sl.WithoutIdx(idx_new, fields_new, true)
 		}
 	}
 
@@ -219,12 +219,12 @@ func schemaAlterTable(desc *structDesc, curTable []*TableColumn) (ret []*sqlStmt
 		w("ALTER TABLE ")
 		w(desc.tableName)
 		for _, field_name := range fields_new {
-			col_name := desc.cols[sl.IdxOf(desc.fields, field_name)]
+			col_name := desc.cols[sl.IdxOf(field_name, desc.fields)]
 			w(" \n\tADD COLUMN IF NOT EXISTS ")
 			w(string(col_name))
 			w(" ")
 			field, _ := desc.ty.FieldByName(string(field_name))
-			is_unique := sl.Has(desc.constraints.uniques, q.F(field.Name))
+			is_unique := sl.Has(q.F(field.Name), desc.constraints.uniques)
 			w(sqlColTypeDeclFrom(field.Type, is_unique))
 			w(",")
 		}
