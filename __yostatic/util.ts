@@ -1,6 +1,9 @@
 const undef = void 0
 
 
+export type Fuark = { Bla: string }
+
+
 export function fEq(a: number, b: number): boolean {
     return (isNaN(a) || isNaN(b))
         ? (isNaN(a) && isNaN(b))

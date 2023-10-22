@@ -28,12 +28,11 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
     let last_textarea_payload_value = ''
     const state_email_addr_default = '(none)', state_email_addr = van.state(getCurUser() || state_email_addr_default)
     const auto_completes: { [_: string]: HTMLDataListElement } = {}
-
     const refreshAutoCompletes = () => {
         for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i)
+            const key = localStorage.key(i)!
             if (key.startsWith('yo.s:')) {
-                const json_strs = localStorage.getItem(key)
+                const json_strs = localStorage.getItem(key)!
                 const strs = JSON.parse(json_strs) as string[]
                 const str_name = key.substring('yo.s:'.length)
                 let is_new = false, datalist = auto_completes[str_name]
@@ -116,7 +115,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             refreshHistory(true, false)
         const method_path = select_method.selectedOptions[0].value
         document.title = "/" + method_path
-        const method = apiRefl.Methods.find((_) => (_.Path === method_path))
+        const method = apiRefl.Methods.find((_) => (_.Path === method_path))!
         table.style.visibility = (method ? 'visible' : 'hidden')
         buildApiTypeGui(td_input, true, method?.In)
         buildApiTypeGui(td_output, false, method?.Out)
@@ -175,8 +174,8 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         return false
     }
 
-    const refreshTree = (methodPath: string, obj: object, ulTree: HTMLUListElement, isForPayload: boolean) => {
-        const method = apiRefl.Methods.find((_) => (_.Path === methodPath))
+    const refreshTree = (methodPath: string, obj: object | null, ulTree: HTMLUListElement, isForPayload: boolean) => {
+        const method = apiRefl.Methods.find((_) => (_.Path === methodPath))!
         const type_name = (isForPayload ? method.In : method.Out)
         refreshTreeNode(type_name, obj, ulTree, isForPayload, '', obj)
     }
@@ -193,7 +192,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             const is_opt = itemTypeName.startsWith('?')
             while (itemTypeName.startsWith('?'))
                 itemTypeName = itemTypeName.substring(1)
-            let field_input: HTMLElement, checkbox: HTMLInputElement, get_val: (_: string) => any
+            let field_input: HTMLElement | null = null, checkbox: HTMLInputElement, get_val: undefined | ((_: string) => any) = undef
             const on_change = (evt: UIEvent) => {
                 const is_checkbox_change = (evt.currentTarget === checkbox)
                 let index: string | number = key, refresh_tree = false
@@ -215,7 +214,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                         is_array || ((typeof val === 'number') && (evt.currentTarget === field_input)))
                     if (v !== undef)
                         value[index] = v
-                    else if (is_array)
+                    else if (is_array && (typeof index === 'number'))
                         value[index] = null
                     else {
                         const new_val = fieldInputValue(newSampleVal(apiRefl, itemTypeName, [], isForPayload, false), is_array || is_checkbox_change || is_opt)
@@ -226,7 +225,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                     }
                 }
                 if (field_input)
-                    if (get_val) // field input control
+                    if (get_val) // have a field input control
                         field_input.style.visibility = (checkbox.checked ? 'visible' : 'hidden')
                     else // sub-tree
                         field_input.style.display = (checkbox.checked ? 'block' : 'none')
@@ -298,7 +297,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
                                 break
                             if (!new_map_key)
                                 return false
-                            const fake = {}
+                            const fake = {} as any
                             fake[new_map_key] = null
                             const [err_msg, _] = validate(apiRefl, itemTypeName, fake, '')
                             if ((!err_msg) && (coll[new_map_key] || (new_map_keys.indexOf(new_map_key) >= 0)))
@@ -357,16 +356,16 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         }
         textarea_response.value = "..."
         textarea_response.style.backgroundColor = '#f0f0f0'
-        let query_string: { [_: string]: string }, payload: object, is_validate_failed = false
+        let query_string: { [_: string]: string } | undefined, payload: object, is_validate_failed = false
         if (input_query_args.value && input_query_args.value.length)
             try { query_string = JSON.parse(input_query_args.value) } catch (err) {
                 return show_err(`URL query-string object:\n${err}`)
             }
         const method_path = select_method.selectedOptions[0].value
         try {
-            const method = apiRefl.Methods.find((_) => (_.Path == method_path))
+            const method = apiRefl.Methods.find((_) => (_.Path == method_path))!
             const [err_msg, _] = validate(apiRefl, method.In, payload = JSON.parse(textarea_payload.value), '')
-            if (is_validate_failed = (err_msg && err_msg !== "")) {
+            if (is_validate_failed = (err_msg !== "")) {
                 show_err(err_msg)
                 if (!confirm("failed to validate, send anyway?"))
                     return
@@ -492,7 +491,7 @@ function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: s
     const is_db_create = methodPath && methodPath.startsWith('__/yo/db/') && (methodPath.endsWith('/createOne') || methodPath.endsWith('/createMany'))
     const type_struc = refl.Types[type_name]
     if (type_struc) {
-        const obj = {}
+        const obj: { [_: string]: any } = {}
         if (recurse_protection.indexOf(type_name) >= 0)
             return null
         for (const field_name in type_struc) {
@@ -510,8 +509,8 @@ function newSampleVal(refl: YoReflApis, type_name: string, recurse_protection: s
     if (type_name.startsWith('[') && type_name.endsWith(']'))
         return [newSampleVal(refl, type_name.substring(1, type_name.length - 1), recurse_protection, isForPayload, false, methodPath)]
     if (type_name.startsWith('{') && type_name.endsWith('}') && type_name.includes(':')) {
-        const ret = {}, splits = type_name.substring(1, type_name.length - 1).split(':')
-        ret[newSampleVal(refl, splits[0], recurse_protection, isForPayload, false, methodPath)] = newSampleVal(refl, splits.slice(1).join(':'), recurse_protection, isForPayload, false, methodPath)
+        const ret: { [_: string]: any } = {}, splits = type_name.substring(1, type_name.length - 1).split(':')
+        ret[newSampleVal(refl, splits[0], recurse_protection, isForPayload, false, methodPath) as string] = newSampleVal(refl, splits.slice(1).join(':'), recurse_protection, isForPayload, false, methodPath)
         return ret
     }
     return type_name
@@ -540,11 +539,11 @@ function historyEntryStr(entry: HistoryEntry, maxLen: number = 0): string {
 function historyLatest() {
     let ret: undefined | (HistoryEntry & { methodPath: string }) = undef
     for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
+        const key = localStorage.key(i)!
         if (!key.startsWith('yo.h:'))
             continue
         const method_path = key.substring('yo.h:'.length)
-        const json_entries = localStorage.getItem(key)
+        const json_entries = localStorage.getItem(key)!
         const entries: HistoryEntry[] = JSON.parse(json_entries)
         for (const entry of entries)
             if ((!ret) || (entry.dateTime > ret.dateTime))
@@ -556,7 +555,7 @@ function historyLatest() {
 function historyCleanUp(apiRefl: YoReflApis, newDueToStoreMethodPath?: string, newDueToStoreHistoryEntry?: HistoryEntry) {
     const keys_to_remove: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
+        const key = localStorage.key(i)!
         if (!key.startsWith('yo.')) {
             keys_to_remove.push(key)
             continue
@@ -566,10 +565,10 @@ function historyCleanUp(apiRefl: YoReflApis, newDueToStoreMethodPath?: string, n
             if (!apiRefl.Methods.some((_) => (_.Path === method_path))) // methodPath no longer part of API
                 keys_to_remove.push(key)
             else {
-                let mut = false, entries: HistoryEntry[] = JSON.parse(localStorage.getItem(key))
+                let mut = false, entries: HistoryEntry[] = JSON.parse(localStorage.getItem(key)!)
                 for (let i = 0; i < entries.length; i++) {
                     // check for equality with current payload/queryString: anything the same can go
-                    const entry = entries[i], method = apiRefl.Methods.find((_) => (_.Path === method_path))
+                    const entry = entries[i], method = apiRefl.Methods.find((_) => (_.Path === method_path))!
                     const remove = ('' !== validate(apiRefl, method.In, entry.payload, method.In)[0]) ||
                         (newDueToStoreMethodPath && newDueToStoreHistoryEntry && (newDueToStoreMethodPath === method_path) && util.deepEq(entry.payload, newDueToStoreHistoryEntry.payload) && util.deepEq(entry.queryString, newDueToStoreHistoryEntry.queryString))
                     if (remove)
@@ -613,7 +612,7 @@ function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, 
 
     historyCleanUp(apiRefl, methodPath, entry)  // since we're anyway writing to localStorage, a good moment to clean out no-longer-needed history entries
 
-    const method = apiRefl.Methods.find((_) => (_.Path === methodPath))
+    const method = apiRefl.Methods.find((_) => (_.Path === methodPath))!
 
     let json_entries = localStorage.getItem('yo.h:' + methodPath)
     if (!(json_entries && json_entries.length))
@@ -793,7 +792,7 @@ function validate(apiRefl: YoReflApis, typeName: string, value: any, path: strin
             const field_type_name = type_struc[field_name]
             if (!field_type_name)
                 return [`${displayPath(path, field_name)}: '${typeName}' has no '${field_name}'` + ((type_struc_field_names.length < 1) ? " field" : (` but has: '${type_struc_field_names.join("' and '")}'`)), undef]
-            const [err_msg, _] = validate(apiRefl, field_type_name, (value as object)[field_name], path + '.' + field_name, true)
+            const [err_msg, _] = validate(apiRefl, field_type_name, value[field_name], path + '.' + field_name, true)
             if (err_msg !== '')
                 return [err_msg, undef]
         }

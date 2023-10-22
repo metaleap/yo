@@ -49,19 +49,19 @@ type QueryOperator = 'EQ' | 'NE' | 'LT' | 'LE' | 'GT' | 'GE' | 'IN' | 'AND' | 'O
 export interface QueryVal {
     __yoQLitValue?: any,
     __yoQFieldName?: any
-    toApiQueryExpr: () => object,
+    toApiQueryExpr: () => object | null,
 }
 
 export class QueryExpr {
     __yoQOp: QueryOperator
-    __yoQConds: QueryExpr[]
-    __yoQOperands: QueryVal[]
+    __yoQConds: QueryExpr[] = []
+    __yoQOperands: QueryVal[] = []
     private constructor() { }
     and(...conds: QueryExpr[]): QueryExpr { return qAll(...[this as QueryExpr].concat(conds)) }
     or(...conds: QueryExpr[]): QueryExpr { return qAny(...[this as QueryExpr].concat(conds)) }
     not(): QueryExpr { return qNot(this as QueryExpr) }
     toApiQueryExpr(): object {
-        const ret = {}
+        const ret = {} as any
         if (this.__yoQOp === 'NOT')
             ret['NOT'] = this.__yoQConds[0].toApiQueryExpr()
         else if ((this.__yoQOp === 'AND') || (this.__yoQOp === 'OR'))
@@ -82,7 +82,7 @@ export class QVal<T extends (string | number | boolean | null)>  {
     greaterThan(other: QueryVal): QueryExpr { return qGreaterThan(this, other) }
     greaterOrEqual(other: QueryVal): QueryExpr { return qGreaterOrEqual(this, other) }
     in(...set: QueryVal[]): QueryExpr { return qIn(this, ...set) }
-    toApiQueryExpr(): object {
+    toApiQueryExpr(): object | null {
         if (typeof this.__yoQLitValue === 'string')
             return { 'Str': this.__yoQLitValue ?? '' }
         if (typeof this.__yoQLitValue === 'number')
