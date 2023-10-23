@@ -46,6 +46,10 @@ func Sorted[TSlice ~[]TItem, TItem cmp.Ordered](slice TSlice) TSlice {
 	slices.Sort(slice)
 	return slice
 }
+func SortedPer[TSlice ~[]TItem, TItem any](slice TSlice, cmp func(TItem, TItem) int) TSlice {
+	slices.SortStableFunc(slice, cmp)
+	return slice
+}
 
 func IdxOf[TSlice ~[]TItem, TItem comparable](v TItem, s TSlice) int {
 	for i := range s {
