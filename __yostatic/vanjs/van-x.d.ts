@@ -1,4 +1,4 @@
-import type { State } from "./van-1.2.3.debug"
+import type { State } from "./van-1.2.3"
 
 declare const reactiveSym: unique symbol
 export interface ReactiveObj { [reactiveSym]: never }
