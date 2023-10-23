@@ -1,3 +1,4 @@
+// for now just re-exports stdlib's `encoding/json`, but this pkg allows for later adoptions of alt impls for perf... and changing back if need be
 package yojson
 
 import (

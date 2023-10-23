@@ -11,8 +11,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var jwtKey = []byte("my_secret_key")
-
 type JwtPayload struct {
 	jwt.StandardClaims
 	UserAuthId yodb.I64
@@ -73,7 +71,7 @@ func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jw
 
 func UserVerify(jwtRaw string) *JwtPayload {
 	token, _ := jwt.ParseWithClaims(jwtRaw, &JwtPayload{}, func(token *jwt.Token) (any, error) {
-		return []byte(jwtKey), nil
+		return []byte(Cfg.YO_AUTH_JWT_SIGN_KEY), nil
 	})
 	if (token != nil) && (token.Claims != nil) {
 		if payload, is := token.Claims.(*JwtPayload); is && (payload.Subject != "") {

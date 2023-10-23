@@ -28,9 +28,12 @@ func init() {
 	}, sl.To([]string{opAnd, opOr, opNot, opIn, opEq, opNe, opGt, opGe, opLt, opLe}, func(it string) Err {
 		return Err(errBinOpPrefix + it)
 	})...)
-	Apis(ApiMethods{
-		"__/yo/db/getTable": api(apiGetTable),
-	})
+
+	if IsDevMode {
+		Apis(ApiMethods{
+			"__/yo/db/getTable": api(apiGetTable),
+		})
+	}
 }
 
 func apiGetTable(this *ApiCtx[struct {
@@ -44,27 +47,29 @@ func apiMethodPath(typeName string, relMethodPath string) string {
 }
 
 func registerApiHandlers[TObj any, TFld q.Field](desc *structDesc) {
-	type_name := desc.ty.Name()
+	if IsDevMode {
+		type_name := desc.ty.Name()
 
-	Apis(ApiMethods{
-		apiMethodPath(type_name, "findById"): api(apiFindById[TObj, TFld]),
-		apiMethodPath(type_name, "findOne"): api(apiFindOne[TObj, TFld]).
-			CouldFailWith(":" + ErrSetQuery),
-		apiMethodPath(type_name, "findMany"): api(apiFindMany[TObj, TFld]).
-			CouldFailWith(":" + ErrSetQuery),
-		apiMethodPath(type_name, "deleteOne"): api(apiDeleteOne[TObj, TFld]).
-			CouldFailWith(":" + ErrSetDbDelete),
-		apiMethodPath(type_name, "deleteMany"): api(apiDeleteMany[TObj, TFld]).
-			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbDelete),
-		apiMethodPath(type_name, "updateOne"): api(apiUpdateOne[TObj, TFld]).
-			CouldFailWith(":"+ErrSetDbUpdate, yoctx.ErrDbUpdExpectedIdGt0),
-		apiMethodPath(type_name, "updateMany"): api(apiUpdateMany[TObj, TFld]).
-			CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbUpdate),
-		apiMethodPath(type_name, "count"): api(apiCount[TObj, TFld]).
-			CouldFailWith(":" + ErrSetQuery),
-		apiMethodPath(type_name, "createOne"):  api(apiCreateOne[TObj, TFld]),
-		apiMethodPath(type_name, "createMany"): api(apiCreateMany[TObj, TFld]),
-	})
+		Apis(ApiMethods{
+			apiMethodPath(type_name, "findById"): api(apiFindById[TObj, TFld]),
+			apiMethodPath(type_name, "findOne"): api(apiFindOne[TObj, TFld]).
+				CouldFailWith(":" + ErrSetQuery),
+			apiMethodPath(type_name, "findMany"): api(apiFindMany[TObj, TFld]).
+				CouldFailWith(":" + ErrSetQuery),
+			apiMethodPath(type_name, "deleteOne"): api(apiDeleteOne[TObj, TFld]).
+				CouldFailWith(":" + ErrSetDbDelete),
+			apiMethodPath(type_name, "deleteMany"): api(apiDeleteMany[TObj, TFld]).
+				CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbDelete),
+			apiMethodPath(type_name, "updateOne"): api(apiUpdateOne[TObj, TFld]).
+				CouldFailWith(":"+ErrSetDbUpdate, yoctx.ErrDbUpdExpectedIdGt0),
+			apiMethodPath(type_name, "updateMany"): api(apiUpdateMany[TObj, TFld]).
+				CouldFailWith(":"+ErrSetQuery, ":"+ErrSetDbUpdate),
+			apiMethodPath(type_name, "count"): api(apiCount[TObj, TFld]).
+				CouldFailWith(":" + ErrSetQuery),
+			apiMethodPath(type_name, "createOne"):  api(apiCreateOne[TObj, TFld]),
+			apiMethodPath(type_name, "createMany"): api(apiCreateMany[TObj, TFld]),
+		})
+	}
 }
 
 type retCount struct{ Count int64 }

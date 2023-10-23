@@ -58,7 +58,7 @@ func (dbLogger) Log(ctx context.Context, level tracelog.LogLevel, msg string, da
 
 func NameFrom(s string) string {
 	if s = str.Trim(s); s == "" || !str.IsPrtAscii(s) {
-		panic("DB names should be ASCII, not '" + s + "'")
+		panic("DB-side identifiers should be ASCII, not '" + s + "'")
 	}
 	var buf str.Buf
 	buf.Grow(len(s) + 2)

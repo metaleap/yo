@@ -8,7 +8,7 @@ import (
 
 type Timing struct {
 	Step string
-	Time int64 // careful! actually a timestamp in `Now`, all converted to Duration only in `Done`
+	Time int64 // careful! actually a timestamp in `Step`, all converted to Duration only in `AllDone`
 }
 
 type timings struct {
