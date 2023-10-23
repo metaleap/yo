@@ -519,10 +519,15 @@ func DtFrom(f func() time.Time) *DateTime {
 	return &ret
 }
 
-func (me DateTime) SinceNow() time.Duration {
-	return time.Since((time.Time)(me))
-}
+func DtNow() *DateTime { return DtFrom(time.Now) }
 
 func (me *DateTime) SetFrom(f func() time.Time) {
-	*me = (DateTime)(f())
+	if me != nil {
+		if time := f(); !time.IsZero() {
+			*me = (DateTime)(time)
+		}
+	}
 }
+
+func (me DateTime) SinceNow() time.Duration { return time.Since((time.Time)(me)) }
+func (me *DateTime) Time() *time.Time       { return (*time.Time)(me) }
