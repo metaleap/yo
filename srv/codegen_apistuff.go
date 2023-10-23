@@ -44,12 +44,13 @@ func init() {
 
 		{ // initial dir-walk & enums-detection
 			enum_pkgs := str.Dict{}
-			WalkCodeFiles(true, false, func(fsPath string, dirEntry fs.DirEntry) {
-				if (!foundModifiedTsFilesYoSide) && (!dirEntry.IsDir()) &&
+			WalkCodeFiles(true, true, func(fsPath string, dirEntry fs.DirEntry) {
+				if is_yo_side := str.Begins(FsPathAbs(fsPath), str.TrimR(FsPathAbs(yoStaticDirPath), "/")+"/"); is_yo_side &&
+					(!foundModifiedTsFilesYoSide) && (!dirEntry.IsDir()) &&
 					str.Ends(fsPath, ".ts") && (!str.Ends(fsPath, ".d.ts")) {
-					is_yo_side := str.Begins(FsPathAbs(fsPath), str.TrimR(FsPathAbs(yoStaticDirPath), "/")+"/")
+
 					is_modified := IsNewer(fsPath, FilePathSwapExt(fsPath, ".ts", ".js"))
-					foundModifiedTsFilesYoSide = foundModifiedTsFilesYoSide || (is_modified && is_yo_side)
+					foundModifiedTsFilesYoSide = foundModifiedTsFilesYoSide || is_modified
 				}
 
 				if str.Ends(fsPath, ".go") { // looking for enums' enumerants
