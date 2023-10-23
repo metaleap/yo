@@ -318,7 +318,7 @@ func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiRefl, method *apiReflMethod) {
 
 	buf.WriteString(str.Repl(`
 const errs{method_name} = {known_errs} as const
-export async function api{method_name}(payload: {in_type_ident}, query?: {[_:string]:string}): Promise<{out_type_ident}> {
+export async function api{method_name}(payload?: {in_type_ident}, query?: {[_:string]:string}): Promise<{out_type_ident}> {
 	try {
 		return await req<{in_type_ident}, {out_type_ident}>('{method_path_prefix}{method_path}', payload, query)
 	} catch(err: any) {
