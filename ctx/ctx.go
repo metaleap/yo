@@ -71,7 +71,9 @@ var NewCtxNonHttp = newCtx
 func (me *Ctx) OnDone(subTimings Timings) {
 	var fail any
 	if (!IsDevMode) || catchPanics {
-		fail = recover()
+		if fail = recover(); IsDevMode && (fail != nil) {
+			println(str.Fmt(">>>>>>>>>%v<<<<<<<<<", fail))
+		}
 	}
 	if err, _ := fail.(error); err == context.DeadlineExceeded {
 		fail = ErrTimedOut

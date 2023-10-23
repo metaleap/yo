@@ -23,22 +23,22 @@ export function deepEq(val1: any, val2: any, ignoreArrayOrder?: boolean): boolea
         return true
     if ((typeof val1) !== (typeof val2))
         return false
-    if (((typeof val1) == 'number') && ((typeof val2) == 'number'))
+    if (((typeof val1) === 'number') && ((typeof val2) === 'number'))
         return fEq(val1, val2)
-    if (((typeof val1) == 'object') && ((typeof val2) == 'object')) {
-        const arr1 = Array.isArray(val1), arr2 = Array.isArray(val2)
+    if (((typeof val1) === 'object') && ((typeof val2) === 'object')) {
+        const is_arr_1 = Array.isArray(val1), is_arr_2 = Array.isArray(val2)
 
-        if ((arr1 != arr2) || (arr1 && arr2 && val1.length != val2.length))
+        if ((is_arr_1 != is_arr_2) || (is_arr_1 && is_arr_2 && val1.length != val2.length))
             return false
 
-        else if (!(arr1 && arr2)) { // 2 objects
+        else if (!(is_arr_1 && is_arr_2)) { // 2 objects
             let len1 = 0, len2 = 0
             for (const _ in val2)
                 len2++
             for (const k in val1)
                 if (((++len1) > len2) || !deepEq(val1[k], val2[k], ignoreArrayOrder))
                     return false
-            return (len1 == len2)
+            return (len1 === len2)
 
         } else if (!ignoreArrayOrder) { // 2 arrays, in order
             for (let i = 0; i < val1.length; i++)
