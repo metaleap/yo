@@ -11,7 +11,7 @@ export type F64 = number
 
 
 export let userEmailAddr = ''
-export let reqTimeoutMilliSec = 1234
+export let reqTimeoutMilliSec = 4321
 
 export function setReqTimeoutMilliSec(timeoutMs: number) {
     reqTimeoutMilliSec = timeoutMs
