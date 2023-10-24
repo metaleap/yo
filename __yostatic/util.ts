@@ -95,6 +95,6 @@ export function deepEq(val1: any, val2: any, ignoreArrayOrder?: boolean, dbgPrin
     }
 
     if (dbgPrintDiff)
-        console.log("unhandled:", val1, "?=", val2)
+        throw ("unhandled:" + JSON.stringify(val1) + "?=" + JSON.stringify(val2))
     return false
 }
