@@ -343,12 +343,17 @@ func codegenTsSdkType(buf *str.Buf, apiRefl *apiRefl, typeName string, structFie
 		buf.WriteString(str.Repl("\nexport type {lhs} = {rhs}",
 			str.Dict{"lhs": codegenTsSdkTypeName(apiRefl, typeName), "rhs": codegenTsSdkTypeName(apiRefl, ".string")}))
 	} else if structFields != nil {
+		is_api_input := sl.Any(apiRefl.Methods, func(it apiReflMethod) bool {
+			return (it.In == typeName) && !str.Begins(it.Path, "__/yo/")
+		})
 		buf.WriteString(str.Repl("\nexport type {lhs} = {", str.Dict{"lhs": codegenTsSdkTypeName(apiRefl, typeName)}))
 		struct_fields := sl.Sorted(Keys(structFields))
 		for _, field_name := range struct_fields {
 			field_type := structFields[field_name]
+			is_optional := str.Begins(field_type, "?") || (is_api_input &&
+				(str.Begins(field_type, ".") || str.Begins(field_type, "{")))
 			buf.WriteString(str.Repl("\n\t{fld}{?}: {tfld}",
-				str.Dict{"fld": ToIdent(field_name), "?": If(str.Begins(field_type, "?"), "?", ""), "tfld": codegenTsSdkTypeName(apiRefl, field_type)}))
+				str.Dict{"fld": ToIdent(field_name), "?": If(is_optional, "?", ""), "tfld": codegenTsSdkTypeName(apiRefl, field_type)}))
 		}
 		buf.WriteString("\n}\n")
 	} else {
