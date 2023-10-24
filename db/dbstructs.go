@@ -513,18 +513,18 @@ func (me Text) But(f func(string) string) Text {
 	return (Text)(f((string)(me)))
 }
 
-func DtFrom(f func() time.Time) *DateTime {
+func DtFrom(t time.Time) *DateTime {
 	var ret DateTime
-	ret.SetFrom(f)
+	ret.SetFrom(t)
 	return &ret
 }
 
-func DtNow() *DateTime { return DtFrom(time.Now) }
+func DtNow() *DateTime { return DtFrom(time.Now()) }
 
-func (me *DateTime) SetFrom(f func() time.Time) {
+func (me *DateTime) SetFrom(t time.Time) {
 	if me != nil {
-		if time := f(); !time.IsZero() {
-			*me = (DateTime)(time)
+		if !t.IsZero() {
+			*me = (DateTime)(t)
 		}
 	}
 }
