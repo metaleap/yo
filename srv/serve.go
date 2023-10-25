@@ -46,7 +46,7 @@ var (
 	// PreHandling funcs are run just prior to loading api request payload, handling that request, and serving the handler's response
 	PreApiHandling = []Middleware{}
 
-	StaticFileFilters = map[string]func([]byte) []byte{}
+	StaticFileFilters = map[string]func([]byte) (string, []byte){}
 
 	// set by app for home and vanity-URL (non-file, non-API) requests
 	AppSideStaticRePathFor func(string) string
@@ -152,9 +152,9 @@ func handleHttpStaticFileRequestMaybe(ctx *yoctx.Ctx) bool {
 				if err != nil {
 					panic(err)
 				}
-				data = static_file_filter(data)
+				file_ext, data := static_file_filter(data)
 				ctx.HttpOnPreWriteResponse()
-				http.ServeContent(ctx.Http.Resp, ctx.Http.Req, ctx.Http.UrlPath, time.Now(), bytes.NewReader(data))
+				http.ServeContent(ctx.Http.Resp, ctx.Http.Req, ctx.Http.UrlPath+file_ext, time.Now(), bytes.NewReader(data))
 				return true
 			}
 		}
