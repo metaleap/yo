@@ -467,6 +467,7 @@ func doEnsureDbStructTables() {
 	for _, desc := range ensureDescs {
 		ctx := yoctx.NewCtxNonHttp(Cfg.DB_REQ_TIMEOUT, "db.Mig: "+desc.tableName) // yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
 		defer ctx.OnDone(nil)
+		ctx.DevModeNoCatch = IsDevMode
 		ctx.TimingsNoPrintInDevMode = true
 		ctx.Timings.Step("open TX")
 		ctx.DbTx()
@@ -493,7 +494,7 @@ func doEnsureDbStructTables() {
 		}
 	}
 	if did_alterations {
-		panic("performed DB alterations, restart after cleaning up the provoking `Ensure` calls")
+		panic("performed DB alterations, redeploy & restart after cleaning up the provoking `Ensure` calls")
 	}
 }
 

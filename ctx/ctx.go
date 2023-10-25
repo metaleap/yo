@@ -49,6 +49,7 @@ type Ctx struct {
 	}
 	Timings                 Timings
 	TimingsNoPrintInDevMode bool // never printed in non-dev-mode anyway
+	DevModeNoCatch          bool
 }
 
 func newCtx(timeout time.Duration, timingsName string) *Ctx {
@@ -70,9 +71,11 @@ var NewCtxNonHttp = newCtx
 
 func (me *Ctx) OnDone(subTimings Timings) {
 	var fail any
-	if (!IsDevMode) || catchPanics {
-		if fail = recover(); IsDevMode && (fail != nil) {
-			println(str.Fmt(">>>>>>>>>%v<<<<<<<<<", fail))
+	if (!IsDevMode) || catchPanics { // comptime branch
+		if !me.DevModeNoCatch { // runtime branch, keep sep from above one
+			if fail = recover(); IsDevMode && (fail != nil) {
+				println(str.Fmt(">>>>>>>>>%v<<<<<<<<<", fail))
+			}
 		}
 	}
 	if err, _ := fail.(error); err == context.DeadlineExceeded {
