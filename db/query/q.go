@@ -219,7 +219,7 @@ func NotInArr(lhs any, rhs any) Query {
 	return &query{op: OpNotInArr, operands: operandsFrom(lhs, rhs)}
 }
 func ArrIsEmpty(arr any) Query {
-	return operandFrom(arr).Equal(nil).Or(Fn(FnArrLen, arr).Equal(0))
+	return operandFrom(arr).Equal(nil).Or(Fn(FnArrLen, arr).Equal(nil)) // ensuring `IS NULL` instead of `= 0` even for non-NULL empty [] arrs, thanks sql...
 }
 func ArrHas(arr any, arg any) Query {
 	return ArrAreAnyIn(arr, OpEq, arg)
