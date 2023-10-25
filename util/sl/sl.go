@@ -204,7 +204,7 @@ func (me Slice[T]) Without(pred func(T) bool) Slice[T] {
 	return Where(me, func(it T) bool { return !pred(it) })
 }
 
-func (me Slice[T]) Anys() (ret []any) {
+func (me Slice[T]) ToAnys() (ret []any) {
 	ret = make([]any, len(me))
 	for i := range me {
 		ret[i] = me[i]
