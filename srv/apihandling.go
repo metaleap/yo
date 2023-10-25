@@ -14,21 +14,23 @@ import (
 )
 
 const (
-	QueryArgValidateOnly     = "yoValiOnly"
-	QueryArgNoCtxPrt         = "yoNoCtxPrt"
-	ErrUnauthorized      Err = "Unauthorized"
-	yoAdminApisUrlPrefix     = "__/yo/"
-	apisContentType          = "application/json"
+	QueryArgValidateOnly                   = "yoValiOnly"
+	QueryArgNoCtxPrt                       = "yoNoCtxPrt"
+	ErrUnauthorized                    Err = "Unauthorized"
+	ErrMissingOrExcessiveContentLength Err = "MissingOrExcessiveContentLength"
+	yoAdminApisUrlPrefix                   = "__/yo/"
+	apisContentType                        = "application/json"
 )
 
 var (
-	api             = ApiMethods{}
-	AppApiUrlPrefix = ""
-	KnownErrSets    = map[string][]Err{
-		"": {ErrTimedOut},
+	api                              = ApiMethods{}
+	AppApiUrlPrefix                  = ""
+	ApiMaxRequestContentLength int64 = 1024 * 1024
+	KnownErrSets                     = map[string][]Err{
+		"": {ErrTimedOut, ErrMissingOrExcessiveContentLength},
 	}
 	ErrsNoPrefix  = errsNoCodegen
-	errsNoCodegen = []Err{ErrTimedOut, ErrUnauthorized, ErrDbUpdExpectedIdGt0, ErrMustBeAdmin}
+	errsNoCodegen = []Err{ErrTimedOut, ErrMissingOrExcessiveContentLength, ErrUnauthorized, ErrDbUpdExpectedIdGt0, ErrMustBeAdmin}
 )
 
 type ApiMethods map[string]ApiMethod
@@ -245,8 +247,8 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 		return
 	}
 
-	if (ctx.Http.Req.ContentLength < 0) || (ctx.Http.Req.ContentLength > (1000 * 1000)) {
-		ctx.HttpErr(406, "missing or invalid Content-Length header value")
+	if (ctx.Http.Req.ContentLength < 0) || (ctx.Http.Req.ContentLength > ApiMaxRequestContentLength) {
+		ctx.HttpErr(406, "missing or excessive Content-Length header value")
 		return
 	}
 
