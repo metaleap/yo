@@ -82,7 +82,7 @@ export function deepEq(val1: any, val2: any, ignoreArrayOrder?: boolean, dbgPrin
             for (const item1 of val1) {
                 let found = false
                 for (const item2 of val2)
-                    if (found = deepEq(item1, item2, ignoreArrayOrder, dbgPrintDiff))
+                    if (found = deepEq(item1, item2, ignoreArrayOrder, false))
                         break
                 if (!found) {
                     if (dbgPrintDiff)
