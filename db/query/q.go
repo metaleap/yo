@@ -219,7 +219,7 @@ func NotInArr(lhs any, rhs any) Query {
 	return &query{op: OpNotInArr, operands: operandsFrom(lhs, rhs)}
 }
 func ArrIsEmpty(arr any) Query {
-	return operandFrom(arr).Equal(nil).Or(Fn(FnArrLen, arr).Equal(nil)) // ensuring `IS NULL` instead of `= 0` even for non-NULL empty [] arrs, thanks sql...
+	return operandFrom(arr).Equal(nil).Or(Fn(FnArrLen, arr).Equal(0))
 }
 func ArrHas(arr any, arg any) Query {
 	return ArrAreAnyIn(arr, OpEq, arg)
@@ -424,6 +424,15 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 				}
 			}
 			for i, operand := range me.operands {
+				if i == 0 { // ensuring `IS NULL` instead of `= 0` even for non-NULL empty [] arrs, thanks sql...
+					if fn, _ := operand.(*fun); (fn != nil) && (fn.Fn == FnArrLen) && (is_eq || is_ne) {
+						if lit, is := me.operands[1].(V); is && lit.Value == 0 {
+							do_arg(operand)
+							buf.WriteString(If(is_ne, " IS NOT NULL", " IS NULL"))
+							break
+						}
+					}
+				}
 				if i > 0 {
 					if buf.WriteString(string(operator)); is_arrish {
 						buf.WriteByte('(') // ANY and ALL rhs operand (the array expr) must be in parens
