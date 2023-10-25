@@ -1,7 +1,9 @@
 package yosrv
 
 import (
+	"bytes"
 	"crypto/subtle"
+	"io"
 	"io/fs"
 	"net/http"
 	"reflect"
@@ -44,6 +46,8 @@ var (
 	// PreHandling funcs are run just prior to loading api request payload, handling that request, and serving the handler's response
 	PreApiHandling = []Middleware{}
 
+	StaticFileFilters = map[string]func([]byte) []byte{}
+
 	// set by app for home and vanity-URL (non-file, non-API) requests
 	AppSideStaticRePathFor func(string) string
 )
@@ -63,10 +67,10 @@ func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
 
 func listenAndServe() {
 	yolog.Println("live @ port %d", Cfg.YO_API_HTTP_PORT)
-	panic(http.ListenAndServe(":"+str.FromInt(Cfg.YO_API_HTTP_PORT), http.HandlerFunc(handleHTTPRequest)))
+	panic(http.ListenAndServe(":"+str.FromInt(Cfg.YO_API_HTTP_PORT), http.HandlerFunc(handleHttpRequest)))
 }
 
-func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
+func handleHttpRequest(rw http.ResponseWriter, req *http.Request) {
 	ctx := yoctx.NewCtxForHttp(req, rw, Cfg.YO_API_IMPL_TIMEOUT)
 	defer ctx.OnDone(nil)
 
@@ -88,25 +92,11 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	ctx.Timings.Step("static check")
-	if (AppSideStaticRePathFor != nil) && !str.Begins(ctx.Http.UrlPath, "_") {
-		if re_path := AppSideStaticRePathFor(ctx.Http.UrlPath); (re_path != "") && (re_path != ctx.Http.UrlPath) {
-			ctx.Http.UrlPath = re_path
-			req.RequestURI = "/" + re_path // loses query-args, which aren't expected for purely static content anyway
-			req.URL.Path = "/" + re_path
-		}
-	}
-	var static_fs fs.FS
-	if static_prefix := StaticFilesDirNameYo + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && (ctx.Http.UrlPath != static_prefix) {
-		static_fs = StaticFileDirYo
-	} else if (StaticFileDirApp != nil) && (StaticFilesDirNameApp != "") && str.Begins(ctx.Http.UrlPath, StaticFilesDirNameApp+"/") {
-		static_fs = StaticFileDirApp
-	}
-	if static_fs != nil {
-		ctx.Timings.Step("static serve")
-		ctx.HttpOnPreWriteResponse()
-		httpFileServer(http.FileServer(http.FS(static_fs))).ServeHTTP(rw, req)
+	if handleHttpStaticFileRequestMaybe(ctx) {
 		return
 	}
+
+	// no static content was requested or served, so it's an api call
 
 	for _, pre_serve := range PreApiHandling {
 		if pre_serve.Do != nil {
@@ -115,7 +105,6 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	// no static content was requested or served, so it's an api call
 	if result, handler_called := apiHandleRequest(ctx); handler_called { // if not, `apiHandleRequest` did `http.Error()` and nothing more to do here
 		ctx.Timings.Step("jsonify resp")
 		resp_data, err := yojson.MarshalIndent(result, "", "  ")
@@ -132,6 +121,49 @@ func handleHTTPRequest(rw http.ResponseWriter, req *http.Request) {
 		ctx.HttpOnPreWriteResponse()
 		_, _ = rw.Write(resp_data)
 	}
+}
+
+func handleHttpStaticFileRequestMaybe(ctx *yoctx.Ctx) bool {
+	if (AppSideStaticRePathFor != nil) && !str.Begins(ctx.Http.UrlPath, "_") {
+		if re_path := AppSideStaticRePathFor(ctx.Http.UrlPath); (re_path != "") && (re_path != ctx.Http.UrlPath) {
+			ctx.Http.UrlPath = re_path
+			ctx.Http.Req.RequestURI = "/" + re_path // loses query-args, which aren't expected for purely static content anyway
+			ctx.Http.Req.URL.Path = "/" + re_path
+		}
+	}
+	var static_fs fs.FS
+	if static_prefix := StaticFilesDirNameYo + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && (ctx.Http.UrlPath != static_prefix) {
+		static_fs = StaticFileDirYo
+	} else if (StaticFileDirApp != nil) && (StaticFilesDirNameApp != "") && str.Begins(ctx.Http.UrlPath, StaticFilesDirNameApp+"/") {
+		static_fs = StaticFileDirApp
+	}
+	if static_fs != nil {
+		ctx.Timings.Step("static serve")
+		for query_arg_name, static_file_filter := range StaticFileFilters {
+			if ctx.GetStr(query_arg_name) != "" {
+				file, err := static_fs.Open(ctx.Http.UrlPath)
+				if file != nil {
+					defer file.Close()
+				}
+				if err != nil {
+					panic(err)
+				}
+				data, err := io.ReadAll(file)
+				if err != nil {
+					panic(err)
+				}
+				data = static_file_filter(data)
+				ctx.HttpOnPreWriteResponse()
+				http.ServeContent(ctx.Http.Resp, ctx.Http.Req, ctx.Http.UrlPath, time.Now(), bytes.NewReader(data))
+				return true
+			}
+		}
+
+		ctx.HttpOnPreWriteResponse()
+		httpFileServer(http.FileServer(http.FS(static_fs))).ServeHTTP(ctx.Http.Resp, ctx.Http.Req)
+		return true
+	}
+	return false
 }
 
 func authAdmin(ctx *yoctx.Ctx) {
