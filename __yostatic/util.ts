@@ -29,10 +29,10 @@ export function deepEq(val1: any, val2: any, ignoreArrayOrder?: boolean, dbgPrin
     }
 
     if (((typeof val1) === 'number') && ((typeof val2) === 'number')) {
-        const ret = fEq(val1, val2)
-        if ((!ret) && dbgPrintDiff)
+        const is_float_eq = fEq(val1, val2)
+        if ((!is_float_eq) && dbgPrintDiff)
             console.log("!fEq", val1, val2)
-        return ret
+        return is_float_eq
     }
 
     if (((typeof val1) === 'object') && ((typeof val2) === 'object')) {
@@ -95,6 +95,6 @@ export function deepEq(val1: any, val2: any, ignoreArrayOrder?: boolean, dbgPrin
     }
 
     if (dbgPrintDiff)
-        throw ("unhandled:" + JSON.stringify(val1) + "?=" + JSON.stringify(val2))
+        console.log(JSON.stringify(val1) + ':' + (typeof val1) + " !== " + JSON.stringify(val2) + ':' + (typeof val2))
     return false
 }
