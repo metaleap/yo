@@ -46,7 +46,7 @@ func FindMany[T any](ctx *Ctx, query q.Query, maxResults int, onlyFields []q.F, 
 		cols[i] = desc.cols[sl.IdxOf(field_name, desc.fields)]
 	}
 	return doSelect[T](ctx,
-		new(sqlStmt).selCols(desc, cols...).where(desc, false, query, args, orderBy...).limit(maxResults), args, maxResults)
+		new(sqlStmt).selCols(desc, cols...).where(desc, false, query, args, orderBy...).limit(maxResults), args, maxResults, cols...)
 }
 
 func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.OrderBy, onRecord func(rec *T, enough *bool)) {
@@ -214,6 +214,9 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 	if !is_i64_returned_from_insert_or_count {
 		struct_desc = desc[T]()
 	}
+	if (len(cols) == 0) && struct_desc != nil {
+		cols = struct_desc.cols
+	}
 	var abort bool
 	for rows.Next() {
 		var rec T
@@ -224,9 +227,6 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 			abort = true
 			onRecord(&rec, &abort)
 			break
-		}
-		if len(cols) == 0 {
-			cols = struct_desc.cols
 		}
 		rv, col_scanners := reflect.ValueOf(&rec).Elem(), make([]any, len(cols))
 		for i, col := range cols {
