@@ -26,8 +26,8 @@ const (
 	OpAnd      Operator = " AND "
 	OpOr       Operator = " OR "
 	OpNot      Operator = "NOT "
-	opArrAll   Operator = " ALL " // note: must be same strlen as opArrAny
-	opArrAny   Operator = " ANY " // note: must be same strlen as opArrAll
+	opArrAll   Operator = " ALL" // note: must be same strlen as opArrAny
+	opArrAny   Operator = " ANY" // note: must be same strlen as opArrAll
 )
 
 var opFlips = map[Operator]Operator{
