@@ -129,6 +129,10 @@ func To[TSlice ~[]TItem, TItem any, TOut any](slice TSlice, f func(TItem) TOut) 
 	return
 }
 
+func ToAnys[TSlice ~[]TItem, TItem any](slice TSlice) []any {
+	return To(slice, func(it TItem) any { return it })
+}
+
 func All[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) bool {
 	for i := range slice {
 		if !pred(slice[i]) {
@@ -205,11 +209,7 @@ func (me Slice[T]) Without(pred func(T) bool) Slice[T] {
 }
 
 func (me Slice[T]) ToAnys() (ret []any) {
-	ret = make([]any, len(me))
-	for i := range me {
-		ret[i] = me[i]
-	}
-	return
+	return ToAnys(me)
 }
 
 func (me *Slice[T]) EnsureAllUnique(areEqual func(T, T) bool) {

@@ -111,7 +111,7 @@ func apiFindOne[TObj any, TFld q.Field](this *ApiCtx[argQuery[TObj, TFld], Retur
 }
 
 func apiFindMany[TObj any, TFld q.Field](this *ApiCtx[argQuery[TObj, TFld], Return[[]*TObj]]) {
-	this.Ret.Result = FindMany[TObj](this.Ctx, this.Args.toDbQ(), int(this.Args.Max), this.Args.toDbO()...)
+	this.Ret.Result = FindMany[TObj](this.Ctx, this.Args.toDbQ(), int(this.Args.Max), nil, this.Args.toDbO()...)
 }
 
 func apiCount[TObj any, TFld q.Field](this *ApiCtx[argQuery[TObj, TFld], retCount]) {

@@ -32,17 +32,21 @@ func Exists[T any](ctx *Ctx, query q.Query) bool {
 }
 
 func FindOne[T any](ctx *Ctx, query q.Query, orderBy ...q.OrderBy) *T {
-	results := FindMany[T](ctx, query, 1, orderBy...)
+	results := FindMany[T](ctx, query, 1, nil, orderBy...)
 	if len(results) == 0 {
 		return nil
 	}
 	return results[0]
 }
 
-func FindMany[T any](ctx *Ctx, query q.Query, maxResults int, orderBy ...q.OrderBy) []*T {
+func FindMany[T any](ctx *Ctx, query q.Query, maxResults int, onlyFields []q.F, orderBy ...q.OrderBy) []*T {
 	desc, args := desc[T](), dbArgs{}
+	cols := make([]q.C, len(onlyFields))
+	for i, field_name := range onlyFields {
+		cols[i] = desc.cols[sl.IdxOf(field_name, desc.fields)]
+	}
 	return doSelect[T](ctx,
-		new(sqlStmt).selCols(desc).where(desc, false, query, args, orderBy...).limit(maxResults), args, maxResults)
+		new(sqlStmt).selCols(desc, cols...).where(desc, false, query, args, orderBy...).limit(maxResults), args, maxResults)
 }
 
 func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.OrderBy, onRecord func(rec *T, enough *bool)) {
@@ -55,7 +59,7 @@ func Page[T any](ctx *Ctx, query q.Query, limit int, orderBy q.OrderBy, pageTok 
 		lt_or_gt := If(orderBy.Desc(), q.LessThan, q.GreaterThan)
 		query = lt_or_gt(orderBy.Col(), pageTok).And(query)
 	}
-	resultsPage = FindMany[T](ctx, query, limit, orderBy)
+	resultsPage = FindMany[T](ctx, query, limit, nil, orderBy)
 	if len(resultsPage) > 0 {
 		if nextPageTok = reflFieldValueOf(resultsPage[len(resultsPage)-1], orderBy.Field()); nextPageTok == nil && IsDevMode {
 			panic("buggy Paged call: shouldn't page on nullable field")
