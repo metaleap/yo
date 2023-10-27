@@ -11,10 +11,12 @@ export type F64 = number
 
 
 export let userEmailAddr = ''
-export let reqTimeoutMilliSec = 4321
+export let reqTimeoutMilliSecForJsonApis = 4321
+export let reqTimeoutMilliSecForMultipartForms = 54321
 
-export function setReqTimeoutMilliSec(timeoutMs: number) {
-    reqTimeoutMilliSec = timeoutMs
+export function setReqTimeoutMilliSec(reqTimeoutMsForJsonApis: number, reqTimeoutMsForMultipartForms: number) {
+    reqTimeoutMilliSecForJsonApis = reqTimeoutMsForJsonApis
+    reqTimeoutMilliSecForMultipartForms = reqTimeoutMsForMultipartForms
 }
 
 export async function req<TIn, TOut>(methodPath: string, payload?: TIn | {}, formData?: FormData, urlQueryArgs?: { [_: string]: string }): Promise<TOut> {
@@ -29,7 +31,7 @@ export async function req<TIn, TOut>(methodPath: string, payload?: TIn | {}, for
         formData.set("_", payload_json)
     const resp = await fetch(rel_url, {
         method: 'POST', headers: (formData ? undefined : ({ 'Content-Type': 'application/json' })), body: (formData ? formData : payload_json),
-        cache: 'no-store', mode: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(reqTimeoutMilliSec),
+        cache: 'no-store', mode: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(formData ? reqTimeoutMilliSecForMultipartForms : reqTimeoutMilliSecForJsonApis),
     })
     if (resp.status !== 200) {
         let body_text: string = '', body_err: any

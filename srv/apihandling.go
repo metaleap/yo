@@ -257,7 +257,7 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 
 	max_payload_size := (1024 * 1024 * int64(Cfg.YO_API_MAX_REQ_CONTENTLENGTH_MB))
 	if (ctx.Http.Req.ContentLength < 0) || (ctx.Http.Req.ContentLength > max_payload_size) {
-		ctx.HttpErr(406, "missing or excessive Content-Length header value")
+		ctx.HttpErr(406, string(ErrMissingOrExcessiveContentLength))
 		return
 	}
 
