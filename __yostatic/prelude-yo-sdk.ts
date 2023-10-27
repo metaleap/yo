@@ -23,7 +23,6 @@ export async function req<TIn, TOut>(methodPath: string, payload?: TIn | {}, for
     let rel_url = '/' + methodPath
     if (urlQueryArgs)
         rel_url += ('?' + new URLSearchParams(urlQueryArgs).toString())
-    // console.log('callAPI:', rel_url, payload)
     if (!payload)
         payload = {}
     const payload_json = JSON.stringify(payload)
@@ -35,7 +34,7 @@ export async function req<TIn, TOut>(methodPath: string, payload?: TIn | {}, for
     })
     if (resp.status !== 200) {
         let body_text: string = '', body_err: any
-        try { body_text = await resp.text() } catch (err) { if (err) body_err = err }
+        try { body_text = await resp.text() } catch (err) { body_err = err }
         throw ({ 'status_code': resp?.status, 'status_text': resp?.statusText, 'body_text': body_text.trim(), 'body_err': body_err })
     }
     userEmailAddr = resp?.headers?.get('X-Yo-User') ?? ''
