@@ -42,6 +42,9 @@ func FromFloat(f float64, prec int) string { return strconv.FormatFloat(f, 'f', 
 func Base36(i int) string                  { return FromI64(int64(i), 36) }
 
 func Replace(s string, repl Dict) string {
+	if len(repl) == 0 {
+		return s
+	}
 	repl_old_new := make([]string, 0, len(repl)*2)
 	for k, v := range repl {
 		repl_old_new = append(repl_old_new, k, v)
