@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"time"
 
+	yojson "yo/json"
 	. "yo/util"
 	"yo/util/str"
 )
@@ -21,6 +22,7 @@ var Cfg struct {
 	YO_API_ADMIN_PWD        string
 	DB_REQ_TIMEOUT          time.Duration
 	DATABASE_URL            string
+	FILE_STORAGE_DIR_PATHS  []string
 }
 
 func init() {
@@ -56,7 +58,7 @@ func init() {
 			}
 		}
 		var new_val any
-		switch t := struc.Field(i).Interface().(type) {
+		switch struc.Field(i).Interface().(type) {
 		case string:
 			new_val = env_val
 		case int:
@@ -72,7 +74,11 @@ func init() {
 			}
 			new_val = v
 		default:
-			panic(t)
+			ptr := reflect.New(struc.Field(i).Type()).Interface()
+			if err := yojson.Unmarshal([]byte(env_val), ptr); err != nil {
+				panic(err)
+			}
+			new_val = reflect.ValueOf(ptr).Elem().Interface()
 		}
 		struc.Field(i).Set(reflect.ValueOf(new_val))
 	}
