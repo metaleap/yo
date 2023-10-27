@@ -21,7 +21,7 @@ type YoReflMethod = {
     Path: string
 }
 
-export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodPath: string, payload: any, urlQueryArgs?: { [_: string]: string }) => Promise<any>, getCurUser: () => string) {
+export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodPath: string, payload: any, form?: FormData, urlQueryArgs?: { [_: string]: string }) => Promise<any>, getCurUser: () => string) {
     let select_method: HTMLSelectElement, select_history: HTMLSelectElement, td_input: HTMLTableCellElement, td_output: HTMLTableCellElement,
         table: HTMLTableElement, input_query_args: HTMLInputElement, textarea_payload: HTMLTextAreaElement, textarea_response: HTMLTextAreaElement,
         tree_payload: HTMLUListElement, tree_response: HTMLUListElement, div_validate_error_msg: HTMLDivElement
@@ -397,7 +397,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         }
         try {
             time_started = new Date().getTime()
-            const result = await yoReq(method_path, payload, query_string)
+            const result = await yoReq(method_path, payload, undef, query_string)
             on_done()
             if (!is_validate_failed)
                 textarea_response.style.backgroundColor = '#c0f0c0'
