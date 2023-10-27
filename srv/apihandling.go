@@ -55,6 +55,8 @@ type ApiMethod interface {
 	failsIf() []Fails
 	methodPath() string
 	methodNameUp0() string
+	isMultipartForm() bool
+	IsMultipartForm() ApiMethod
 	From(ApiPkgInfo) ApiMethod
 	KnownErrs() []Err
 	Checks(...Fails) ApiMethod
@@ -99,12 +101,13 @@ func FailsOf(methodPaths ...string) (ret []Fails) {
 }
 
 type apiMethod[TIn any, TOut any] struct {
-	handleFunc apiHandleFunc
-	errsOwn    []Err
-	errsDeps   []string // methodPath refs to other methods
-	failIfs    []Fails
-	preChecks  []Pair[Err, func(*Ctx) bool]
-	PkgInfo    ApiPkgInfo
+	handleFunc    apiHandleFunc
+	errsOwn       []Err
+	errsDeps      []string // methodPath refs to other methods
+	failIfs       []Fails
+	preChecks     []Pair[Err, func(*Ctx) bool]
+	multipartForm bool
+	PkgInfo       ApiPkgInfo
 }
 
 func (me *apiMethod[TIn, TOut]) pkgInfo() ApiPkgInfo    { return me.PkgInfo }
@@ -112,6 +115,11 @@ func (me *apiMethod[TIn, TOut]) failsIf() []Fails       { return me.failIfs }
 func (me *apiMethod[TIn, TOut]) handler() apiHandleFunc { return me.handleFunc }
 func (me *apiMethod[TIn, TOut]) From(pkgInfo ApiPkgInfo) ApiMethod {
 	me.PkgInfo = pkgInfo
+	return me
+}
+func (me *apiMethod[TIn, TOut]) isMultipartForm() bool { return me.multipartForm }
+func (me *apiMethod[TIn, TOut]) IsMultipartForm() ApiMethod {
+	me.multipartForm = true
 	return me
 }
 func (me *apiMethod[TIn, TOut]) Checks(failIfs ...Fails) ApiMethod {
@@ -247,16 +255,27 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 		return
 	}
 
-	if (ctx.Http.Req.ContentLength < 0) || (ctx.Http.Req.ContentLength > (1024 * 1024 * int64(Cfg.YO_API_MAX_REQ_CONTENTLENGTH_MB))) {
+	max_payload_size := (1024 * 1024 * int64(Cfg.YO_API_MAX_REQ_CONTENTLENGTH_MB))
+	if (ctx.Http.Req.ContentLength < 0) || (ctx.Http.Req.ContentLength > max_payload_size) {
 		ctx.HttpErr(406, "missing or excessive Content-Length header value")
 		return
 	}
 
-	ctx.Timings.Step("read req")
-	payload_data, err := io.ReadAll(ctx.Http.Req.Body)
-	if err != nil {
-		ctx.HttpErr(500, err.Error())
-		return
+	var payload_data []byte
+	var err error
+	if api_method.isMultipartForm() {
+		if err = ctx.Http.Req.ParseMultipartForm(max_payload_size); err != nil {
+			ctx.HttpErr(400, err.Error())
+			return
+		}
+		payload_data = []byte(ctx.Http.Req.MultipartForm.Value["_"][0])
+	} else {
+		ctx.Timings.Step("read req")
+		payload_data, err = io.ReadAll(ctx.Http.Req.Body)
+		if err != nil {
+			ctx.HttpErr(500, err.Error())
+			return
+		}
 	}
 
 	ctx.Timings.Step("parse req")

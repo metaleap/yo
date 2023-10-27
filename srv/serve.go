@@ -97,8 +97,6 @@ func handleHttpRequest(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// no static content was requested or served, so it's an api call
-
 	for _, pre_serve := range PreApiHandling {
 		if pre_serve.Do != nil {
 			ctx.Timings.Step("pre:" + pre_serve.Name)
