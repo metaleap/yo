@@ -24,6 +24,7 @@ const StaticFilesDirNameApp = "__static"
 
 var StaticFileDirYo fs.FS
 var StaticFileDirApp fs.FS
+var StaticFileDirs = map[string]fs.FS{}
 
 type Middleware struct {
 	Name string
@@ -131,36 +132,50 @@ func handleHttpStaticFileRequestMaybe(ctx *yoctx.Ctx) bool {
 			ctx.Http.Req.URL.Path = "/" + re_path
 		}
 	}
-	var static_fs fs.FS
-	if static_prefix := StaticFilesDirNameYo + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && (ctx.Http.UrlPath != static_prefix) {
-		static_fs = StaticFileDirYo
-	} else if (StaticFileDirApp != nil) && (StaticFilesDirNameApp != "") && str.Begins(ctx.Http.UrlPath, StaticFilesDirNameApp+"/") {
-		static_fs = StaticFileDirApp
+
+	var fs_static fs.FS
+	var fs_handler http.Handler
+	var fs_strip_name string
+	for dir_name, fs := range StaticFileDirs {
+		if static_prefix := dir_name + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && (ctx.Http.UrlPath != static_prefix) {
+			fs_strip_name = dir_name
+			fs_static, fs_handler = fs, http.StripPrefix("/"+fs_strip_name, http.FileServer(http.FS(fs)))
+			break
+		}
 	}
-	if static_fs != nil {
+	if fs_handler == nil {
+		if static_prefix := StaticFilesDirNameYo + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && (ctx.Http.UrlPath != static_prefix) {
+			fs_static, fs_handler = StaticFileDirYo, http.FileServer(http.FS(StaticFileDirYo))
+		} else if (StaticFileDirApp != nil) && (StaticFilesDirNameApp != "") && str.Begins(ctx.Http.UrlPath, StaticFilesDirNameApp+"/") {
+			fs_static, fs_handler = StaticFileDirApp, http.FileServer(http.FS(StaticFileDirApp))
+		}
+	}
+	if fs_handler != nil {
 		ctx.Timings.Step("static serve")
-		for query_arg_name, static_file_filter := range StaticFileFilters {
-			if ctx.GetStr(query_arg_name) != "" {
-				file, err := static_fs.Open(ctx.Http.UrlPath)
-				if file != nil {
-					defer file.Close()
+		if ctx.Http.Req.URL.RawQuery != "" {
+			for query_arg_name, static_file_filter := range StaticFileFilters {
+				if ctx.GetStr(query_arg_name) != "" {
+					file, err := fs_static.Open(str.TrimL(ctx.Http.UrlPath, fs_strip_name+"/"))
+					if file != nil {
+						defer file.Close()
+					}
+					if err != nil {
+						panic(err)
+					}
+					data, err := io.ReadAll(file)
+					if err != nil {
+						panic(err)
+					}
+					file_ext, data := static_file_filter(data)
+					ctx.HttpOnPreWriteResponse()
+					http.ServeContent(ctx.Http.Resp, ctx.Http.Req, ctx.Http.UrlPath+file_ext, time.Now(), bytes.NewReader(data))
+					return true
 				}
-				if err != nil {
-					panic(err)
-				}
-				data, err := io.ReadAll(file)
-				if err != nil {
-					panic(err)
-				}
-				file_ext, data := static_file_filter(data)
-				ctx.HttpOnPreWriteResponse()
-				http.ServeContent(ctx.Http.Resp, ctx.Http.Req, ctx.Http.UrlPath+file_ext, time.Now(), bytes.NewReader(data))
-				return true
 			}
 		}
 
 		ctx.HttpOnPreWriteResponse()
-		httpFileServer(http.FileServer(http.FS(static_fs))).ServeHTTP(ctx.Http.Resp, ctx.Http.Req)
+		httpFileServer(fs_handler).ServeHTTP(ctx.Http.Resp, ctx.Http.Req)
 		return true
 	}
 	return false
@@ -189,6 +204,7 @@ func httpFileServer(fileServingHandler http.Handler) http.Handler {
 	if !IsDevMode {
 		return fileServingHandler
 	}
+	// local dev: dont want cache-encouraging headers; also send cache-discouraging ones
 	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		for _, etag_header_name := range httpDevModeUncachedFileServingRequestHeaders {
 			if req.Header.Get(etag_header_name) != "" {

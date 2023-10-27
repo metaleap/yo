@@ -5,6 +5,7 @@ import (
 	"io"
 	"reflect"
 
+	. "yo/cfg"
 	. "yo/ctx"
 	q "yo/db/query"
 	yojson "yo/json"
@@ -23,10 +24,9 @@ const (
 )
 
 var (
-	api                              = ApiMethods{}
-	AppApiUrlPrefix                  = ""
-	ApiMaxRequestContentLength int64 = 1024 * 1024
-	KnownErrSets                     = map[string][]Err{
+	api             = ApiMethods{}
+	AppApiUrlPrefix = ""
+	KnownErrSets    = map[string][]Err{
 		"": {ErrTimedOut, ErrMissingOrExcessiveContentLength},
 	}
 	ErrsNoPrefix  = errsNoCodegen
@@ -247,7 +247,7 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 		return
 	}
 
-	if (ctx.Http.Req.ContentLength < 0) || (ctx.Http.Req.ContentLength > ApiMaxRequestContentLength) {
+	if (ctx.Http.Req.ContentLength < 0) || (ctx.Http.Req.ContentLength > (1024 * 1024 * int64(Cfg.YO_API_MAX_REQ_CONTENTLENGTH_MB))) {
 		ctx.HttpErr(406, "missing or excessive Content-Length header value")
 		return
 	}
