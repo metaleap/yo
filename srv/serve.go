@@ -47,6 +47,10 @@ var (
 	// PreHandling funcs are run just prior to loading api request payload, handling that request, and serving the handler's response
 	PreApiHandling = []Middleware{}
 
+	// PostApiHandling funcs are run in order only after a non-erroring request had its response fully sent.
+	// They should kick off any IO-involving operations in a separate goroutine (but those shouldn't take the `Ctx`).
+	PostApiHandling = []Middleware{}
+
 	StaticFileFilters = map[string]func([]byte) (string, []byte){}
 
 	// set by app for home and vanity-URL (non-file, non-API) requests
@@ -119,6 +123,12 @@ func handleHttpRequest(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Set("Content-Length", str.FromInt(len(resp_data)))
 		ctx.HttpOnPreWriteResponse()
 		_, _ = rw.Write(resp_data)
+
+		if len(PostApiHandling) != 0 {
+			for _, middleware := range PostApiHandling {
+				middleware.Do(ctx)
+			}
+		}
 	}
 }
 
