@@ -3,6 +3,7 @@ package yosrv
 import (
 	"bytes"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"time"
@@ -31,7 +32,7 @@ type viaHttpClient[TIn any, TOut any] interface {
 func (me *apiMethod[TIn, TOut]) ViaHttp(apiMethod ApiMethod, ctx *Ctx, args *TIn, client *http.Client) *TOut {
 	for method_path, api_method := range api {
 		if api_method == apiMethod {
-			return viaHttp[TIn, TOut](method_path, ctx, args, client)
+			return viaHttp[TIn, TOut](method_path, ctx, args, client, apiMethod.isMultipartForm())
 		}
 	}
 	panic("no methodPath for that method")
@@ -41,19 +42,32 @@ func ViaHttp[TIn any, TOut any](apiMethod ApiMethod, ctx *Ctx, args *TIn, client
 	return apiMethod.(viaHttpClient[TIn, TOut]).ViaHttp(apiMethod, ctx, args, client)
 }
 
-func viaHttp[TIn any, TOut any](methodPath string, ctx *Ctx, args *TIn, client *http.Client) *TOut {
-	json_raw, err := yojson.Marshal(args)
+func viaHttp[TIn any, TOut any](methodPath string, ctx *Ctx, args *TIn, client *http.Client, isMultipartForm bool) *TOut {
+	payload_bytes, err := yojson.Marshal(args)
 	if err != nil {
 		panic(err)
+	}
+
+	req_content_type := apisContentType
+	if isMultipartForm {
+		var buf bytes.Buffer
+		mpw := multipart.NewWriter(&buf)
+		mpw.FormDataContentType()
+		if err := mpw.WriteField("_", string(payload_bytes)); err != nil {
+			panic(err)
+		}
+		mpw.Close()
+		req_content_type, payload_bytes = mpw.FormDataContentType(), buf.Bytes()
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST",
 		"http://localhost:"+str.FromInt(Cfg.YO_API_HTTP_PORT)+"/"+str.TrimL(AppApiUrlPrefix+methodPath, "/")+
 			"?"+QueryArgNoCtxPrt+"=1",
-		bytes.NewReader(json_raw))
+		bytes.NewReader(payload_bytes))
 	if err != nil {
 		panic(err)
 	}
+	req.Header.Set("Content-Type", req_content_type)
 
 	resp, err := client.Do(req)
 	if resp != nil && resp.Body != nil {
