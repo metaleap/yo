@@ -264,10 +264,10 @@ type scanner struct {
 
 func reflFieldValueOf[T any](it *T, fieldName q.F) any {
 	field, _ := reflect.TypeOf(it).Elem().FieldByName(string(fieldName))
-	return reflFieldValue(reflect.ValueOf(it).Elem().FieldByName(string(fieldName)), isDbRefType(field.Type), isDbArrType(field.Type))
+	return reflFieldValue(reflect.ValueOf(it).Elem().FieldByName(string(fieldName)), field.Type)
 }
 
-func reflFieldValue(rvField reflect.Value, isDbRef bool, isDbArr bool) any {
+func reflFieldValue(rvField reflect.Value, fieldType reflect.Type) any {
 	if !rvField.IsValid() {
 		return nil
 	}
@@ -299,8 +299,10 @@ func reflFieldValue(rvField reflect.Value, isDbRef bool, isDbArr bool) any {
 	case **DateTime:
 		return *getPtr[*DateTime](addr)
 	default:
-		if isDbRef {
+		if isDbRefType(fieldType) {
 			return *getPtr[I64](addr)
+		} else if json_db_val, _ := val.(jsonDbValue); json_db_val != nil {
+			return json_db_val.get()
 		}
 		panic(str.Fmt("reflFieldValue:%T", val))
 	}
@@ -446,7 +448,7 @@ func ForEachColField[T any](it *T, do func(fieldName q.F, colName q.C, fieldValu
 	}
 	for i, field_name := range desc.fields {
 		field, _ := desc.ty.FieldByName(string(field_name))
-		value := reflFieldValue(rv.FieldByName(string(field_name)), isDbRefType(field.Type), isDbArrType(field.Type))
+		value := reflFieldValue(rv.FieldByName(string(field_name)), field.Type)
 		frv := reflect.ValueOf(value)
 		do(field_name, desc.cols[i], value, (!frv.IsValid()) || frv.IsZero())
 	}

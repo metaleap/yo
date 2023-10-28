@@ -245,10 +245,10 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 					json_db_val = field.Addr().Interface().(jsonDbValue)
 				} else if is_db_json_arr_type {
 					ReflSet[JsonArr[any]](field, ReflGet[JsonArr[any]](ptr.Elem()))
-					json_db_val = getPtr[JsonArr[any]](ptr.UnsafeAddr())
+					json_db_val = getPtr[JsonArr[any]](ptr.Elem().UnsafeAddr())
 				} else if is_db_json_dict_type {
 					ReflSet[JsonMap[any]](field, ReflGet[JsonMap[any]](ptr.Elem()))
-					json_db_val = getPtr[JsonMap[any]](ptr.UnsafeAddr())
+					json_db_val = getPtr[JsonMap[any]](ptr.Elem().UnsafeAddr())
 				}
 			} else if is_db_json_obj_type {
 				ptr := field.Addr().Interface()
