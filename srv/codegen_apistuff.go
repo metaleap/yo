@@ -304,7 +304,7 @@ func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiRefl, method *apiReflMethod) {
 const errs{method_name} = {known_errs} as const
 export async function api{method_name}(payload?: {in_type_ident}, formData?: FormData, query?: {[_:string]:string}): Promise<{out_type_ident}> {
 	try {
-		return await req<{in_type_ident}, {out_type_ident}>('{method_path_prefix}{method_path}', payload, formData, query)
+		return await req<{in_type_ident}, {out_type_ident}, {enum_type_name}>('{method_path_prefix}{method_path}', payload, formData, query)
 	} catch(err: any) {
 		if (err && err['body_text'] && (errs{method_name}.indexOf(err.body_text) >= 0))
 			throw(new Err<{enum_type_name}>(err.body_text as {enum_type_name}))
