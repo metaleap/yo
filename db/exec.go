@@ -267,6 +267,8 @@ func dbArgsCleanUpForPgx(args dbArgs) dbArgs {
 		}
 		if b, is := v.(Bytes); is {
 			args[k] = ([]byte)(b)
+		} else if _, is := v.(DateTime); is {
+			panic("buggy code: non-pointer DateTime met in dbArgsCleanUpForPgx")
 		} else if dt, is := v.(*DateTime); is {
 			if dt == nil {
 				args[k] = nil
