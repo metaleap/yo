@@ -230,7 +230,9 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 		}
 		rv, col_scanners := reflect.ValueOf(&rec).Elem(), make([]any, len(cols))
 		for i, col := range cols {
-			field := rv.FieldByName(string(struct_desc.fields[sl.IdxOf(col, struct_desc.cols)]))
+			field_name := string(struct_desc.fields[sl.IdxOf(col, struct_desc.cols)])
+			field := rv.FieldByName(field_name)
+			field_t, _ := struct_desc.ty.FieldByName(field_name)
 			var json_db_val jsonDbValue
 			unsafe_addr := field.UnsafeAddr()
 			if isDbRefType(field.Type()) {
@@ -238,8 +240,16 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 			} else if is_db_json_dict_type, is_db_json_arr_type, is_db_json_obj_type := isWhatDbJsonType(field.Type()); is_db_json_dict_type || is_db_json_arr_type {
 				ptr := reflect.New(field.Type())
 				ptr.Interface().(jsonDbValue).init(nil)
-				field.Set(ptr.Elem())
-				json_db_val = field.Addr().Interface().(jsonDbValue)
+				if field_t.IsExported() {
+					field.Set(ptr.Elem())
+					json_db_val = field.Addr().Interface().(jsonDbValue)
+				} else if is_db_json_arr_type {
+					ReflSet[JsonArr[any]](field, ReflGet[JsonArr[any]](ptr.Elem()))
+					json_db_val = getPtr[JsonArr[any]](ptr.UnsafeAddr())
+				} else if is_db_json_dict_type {
+					ReflSet[JsonMap[any]](field, ReflGet[JsonMap[any]](ptr.Elem()))
+					json_db_val = getPtr[JsonMap[any]](ptr.UnsafeAddr())
+				}
 			} else if is_db_json_obj_type {
 				ptr := field.Addr().Interface()
 				json_db_val = ptr.(jsonDbValue)

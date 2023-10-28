@@ -65,8 +65,8 @@ func ReflGet[T any](rv reflect.Value) T {
 	return *getPtr[T](rv.UnsafeAddr())
 }
 
-func ReflSet[T any](rv reflect.Value, to T) {
-	setPtr(rv.UnsafeAddr(), to)
+func ReflSet[T any](dst reflect.Value, to T) {
+	setPtr(dst.UnsafeAddr(), to)
 }
 
 func ReflWalk(rv reflect.Value, path []any, skipMaps bool, onValue func(path []any, curVal reflect.Value)) {
