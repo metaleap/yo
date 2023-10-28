@@ -13,6 +13,8 @@ export type F64 = number
 export let userEmailAddr = ''
 export let reqTimeoutMilliSecForJsonApis = 4321
 export let reqTimeoutMilliSecForMultipartForms = 54321
+export let reqMaxReqPayloadSizeMb = 0                   // declaration only, generated code sets the value
+export let errMaxReqPayloadSizeExceeded: Err<string>    // declaration only, generated code sets the value
 
 export function setReqTimeoutMilliSec(reqTimeoutMsForJsonApis: number, reqTimeoutMsForMultipartForms: number) {
     reqTimeoutMilliSecForJsonApis = reqTimeoutMsForJsonApis
@@ -23,11 +25,31 @@ export async function req<TIn, TOut>(methodPath: string, payload?: TIn | {}, for
     let rel_url = '/' + methodPath
     if (urlQueryArgs)
         rel_url += ('?' + new URLSearchParams(urlQueryArgs).toString())
+
     if (!payload)
         payload = {}
     const payload_json = JSON.stringify(payload)
-    if (formData)
+
+    if ((reqMaxReqPayloadSizeMb > 0) && errMaxReqPayloadSizeExceeded && (payload_json.length > (1024 * 1024 * reqMaxReqPayloadSizeMb)))
+        throw errMaxReqPayloadSizeExceeded
+
+    if (formData) {
         formData.set("_", payload_json)
+        if ((reqMaxReqPayloadSizeMb > 0) && errMaxReqPayloadSizeExceeded) {
+            let req_payload_size = 0
+            formData.forEach(_ => {
+                const value = _.valueOf()
+                const file = value as File
+                if (typeof value === 'string')
+                    req_payload_size += value.length
+                else if (file && file.name && file.size && (typeof file.size === 'number') && (file.size > 0))
+                    req_payload_size += file.size
+            })
+            if (req_payload_size > (1024 * 1024 * reqMaxReqPayloadSizeMb))
+                throw errMaxReqPayloadSizeExceeded
+        }
+    }
+
     const resp = await fetch(rel_url, {
         method: 'POST', headers: (formData ? undefined : ({ 'Content-Type': 'application/json' })), body: (formData ? formData : payload_json),
         cache: 'no-store', mode: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(formData ? reqTimeoutMilliSecForMultipartForms : reqTimeoutMilliSecForJsonApis),
@@ -38,8 +60,7 @@ export async function req<TIn, TOut>(methodPath: string, payload?: TIn | {}, for
         throw ({ 'status_code': resp?.status, 'status_text': resp?.statusText, 'body_text': body_text.trim(), 'body_err': body_err })
     }
     userEmailAddr = resp?.headers?.get('X-Yo-User') ?? ''
-    const json_resp = await resp.json()
-    return json_resp as TOut
+    return (await resp.json()) as TOut
 }
 
 export class Err<T extends string> extends Error {

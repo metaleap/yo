@@ -264,10 +264,11 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	var payload_data []byte
 	var err error
 	if api_method.isMultipartForm() {
-		if err = ctx.Http.Req.ParseMultipartForm(max_payload_size); err != nil {
+		if err = ctx.Http.Req.ParseMultipartForm(ctx.Http.Req.ContentLength); err != nil {
 			ctx.HttpErr(400, err.Error())
 			return
 		}
+		defer ctx.Http.Req.MultipartForm.RemoveAll()
 		payload_data = []byte(ctx.Http.Req.MultipartForm.Value["_"][0])
 	} else {
 		ctx.Timings.Step("read req")
