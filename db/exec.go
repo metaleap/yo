@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"reflect"
 	"time"
+	"unsafe"
 
 	. "yo/ctx"
 	q "yo/db/query"
@@ -135,18 +136,23 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 	if len(col_names) == 0 {
 		panic(ErrDbUpdate_ExpectedChangesForUpdate)
 	}
-	id_maybe, _ := reflFieldValueOf(upd, FieldID).(I64)
-	if lower := q.F(str.Lo(string(FieldID))); (id_maybe <= 0) && sl.Has(lower, desc.fields) {
-		id_maybe = reflFieldValueOf(upd, lower).(I64)
-	}
-	if where == nil && id_maybe > 0 {
-		where = q.C(ColID).Equal(id_maybe)
-	} else if where == nil {
-		for _, unique_field := range desc.constraints.uniques {
-			if field, _ := desc.ty.FieldByName(string(unique_field)); isDbRefType(field.Type) {
-				if id_other := reflFieldValueOf(upd, q.F(field.Name)).(dbRef).Id(); id_other != 0 {
-					where = unique_field.Equal(id_other)
-					break
+
+	{ // ensuring the query has either the obj id...
+		id_maybe, _ := reflFieldValueOf(upd, FieldID).(I64)
+		if lower := q.F(str.Lo(string(FieldID))); (id_maybe <= 0) && sl.Has(lower, desc.fields) {
+			id_maybe = reflFieldValueOf(upd, lower).(I64)
+		}
+		if where == nil && id_maybe > 0 {
+			where = q.C(ColID).Equal(id_maybe)
+		} else if (where == nil) && (len(onlyFields) > 0) { // ...or else another unique field (that isnt in onlyFields and so is an exists-in-db queryable)
+			for _, unique_field_name := range desc.constraints.uniques {
+				if !sl.Has(unique_field_name, onlyFields) {
+					if field, _ := desc.ty.FieldByName(string(unique_field_name)); isDbRefType(field.Type) {
+						if id_other := reflFieldValueOf(upd, q.F(field.Name)).(dbRef).Id(); id_other != 0 {
+							where = unique_field_name.Equal(id_other)
+							break
+						}
+					}
 				}
 			}
 		}
@@ -154,6 +160,7 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 			panic(ErrDbUpdate_ExpectedQueryForUpdate)
 		}
 	}
+
 	for i, col_name := range col_names {
 		args[col_name] = col_vals[i]
 	}
@@ -233,26 +240,23 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 			field_name := string(struct_desc.fields[sl.IdxOf(col, struct_desc.cols)])
 			field := rv.FieldByName(field_name)
 			field_t, _ := struct_desc.ty.FieldByName(field_name)
-			var json_db_val jsonDbValue
+			var json_db_val dbJsonValue
 			unsafe_addr := field.UnsafeAddr()
 			if isDbRefType(field.Type()) {
 				unsafe_addr = field.FieldByName("id").UnsafeAddr()
 			} else if is_db_json_dict_type, is_db_json_arr_type, is_db_json_obj_type := isWhatDbJsonType(field.Type()); is_db_json_dict_type || is_db_json_arr_type {
 				ptr := reflect.New(field.Type())
-				ptr.Interface().(jsonDbValue).init(nil)
+				dummy := ptr.Interface().(dbJsonValue)
+				dummy.init(nil)
 				if field_t.IsExported() {
 					field.Set(ptr.Elem())
-					json_db_val = field.Addr().Interface().(jsonDbValue)
-				} else if is_db_json_arr_type {
-					ReflSet[JsonArr[any]](field, ReflGet[JsonArr[any]](ptr.Elem()))
-					json_db_val = getPtr[JsonArr[any]](ptr.Elem().UnsafeAddr())
-				} else if is_db_json_dict_type {
-					ReflSet[JsonMap[any]](field, ReflGet[JsonMap[any]](ptr.Elem()))
-					json_db_val = getPtr[JsonMap[any]](ptr.Elem().UnsafeAddr())
+					json_db_val = field.Addr().Interface().(dbJsonValue)
+				} else {
+					json_db_val = dummy.initOther(unsafe.Pointer(unsafe_addr))
 				}
 			} else if is_db_json_obj_type {
 				ptr := field.Addr().Interface()
-				json_db_val = ptr.(jsonDbValue)
+				json_db_val = ptr.(dbJsonValue)
 				json_db_val.init(ptr)
 			}
 			col_scanners[i] = scanner{ptr: unsafe_addr, jsonDbVal: json_db_val, ty: field.Type()}

@@ -94,22 +94,44 @@ type dbRef interface {
 	Id() I64
 	q.DbRef
 }
-type jsonDbValue interface {
+type dbJsonValue interface {
 	init(selfPtr any)
 	get() any
 	scan([]byte) error
+	initOther(unsafe.Pointer) dbJsonValue
+	getOther(unsafe.Pointer) any
 }
 
-func (me *IsJsonOf[T]) init(selfPtr any)        { me.self = selfPtr.(*T) }
-func (me *IsJsonOf[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me.self) }
-func (me *IsJsonOf[T]) get() any                { return me.self }
-func (me *JsonMap[T]) init(any)                 { *me = JsonMap[T]{} }
-func (me *JsonMap[T]) scan(jsonb []byte) error  { return yojson.Unmarshal(jsonb, me) }
+var (
+	_ dbJsonValue = &IsJsonOf[any]{}
+	_ dbJsonValue = &JsonMap[any]{}
+	_ dbJsonValue = &JsonArr[any]{}
+)
+
+func (me *IsJsonOf[T]) init(selfPtr any)                               { me.self = selfPtr.(*T) }
+func (me *IsJsonOf[T]) scan(jsonb []byte) error                        { return yojson.Unmarshal(jsonb, me.self) }
+func (me *IsJsonOf[T]) get() any                                       { return me.self }
+func (*IsJsonOf[T]) getOther(ptr unsafe.Pointer) any                   { panic("TODO") }
+func (me *IsJsonOf[T]) initOther(dst unsafe.Pointer) (ret dbJsonValue) { panic("TODO") }
+func (me *JsonMap[T]) init(any)                                        { *me = JsonMap[T]{} }
+func (me *JsonMap[T]) scan(jsonb []byte) error                         { return yojson.Unmarshal(jsonb, me) }
 func (me *JsonMap[T]) get() any {
 	if (me == nil) || (*me == nil) {
 		return JsonMap[T]{}
 	}
 	return JsonMap[T](*me)
+}
+func (*JsonMap[T]) getOther(ptr unsafe.Pointer) any { return ((*JsonMap[T])(ptr)).get() }
+func (*JsonArr[T]) getOther(ptr unsafe.Pointer) any { return ((*JsonArr[T])(ptr)).get() }
+func (me *JsonMap[T]) initOther(dst unsafe.Pointer) (ret dbJsonValue) {
+	ret = ((*JsonMap[T])(dst))
+	ret.init(nil)
+	return
+}
+func (me *JsonArr[T]) initOther(dst unsafe.Pointer) (ret dbJsonValue) {
+	ret = ((*JsonArr[T])(dst))
+	ret.init(nil)
+	return
 }
 func (me *JsonArr[T]) init(any)                { *me = []T{} }
 func (me *JsonArr[T]) scan(jsonb []byte) error { return yojson.Unmarshal(jsonb, me) }
@@ -258,7 +280,7 @@ func desc[T any]() (ret *structDesc) {
 
 type scanner struct {
 	ptr       uintptr
-	jsonDbVal jsonDbValue
+	jsonDbVal dbJsonValue
 	ty        reflect.Type
 }
 
@@ -274,6 +296,7 @@ func reflFieldValue(rvField reflect.Value, fieldType reflect.Type) any {
 	if rvField.CanInterface() { // below unsafe-pointering won't do for jsonDbValue impls, so they must be in public/exported fields
 		return rvField.Interface()
 	}
+
 	addr := rvField.UnsafeAddr()
 	switch val := reflect.New(rvField.Type()).Interface().(type) {
 	case *Bool:
@@ -301,8 +324,8 @@ func reflFieldValue(rvField reflect.Value, fieldType reflect.Type) any {
 	default:
 		if isDbRefType(fieldType) {
 			return *getPtr[I64](addr)
-		} else if json_db_val, _ := val.(jsonDbValue); json_db_val != nil {
-			return json_db_val.get()
+		} else if json_db_val, _ := val.(dbJsonValue); json_db_val != nil {
+			return json_db_val.getOther(unsafe.Pointer(addr))
 		}
 		panic(str.Fmt("reflFieldValue:%T", val))
 	}
