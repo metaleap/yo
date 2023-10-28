@@ -13,15 +13,15 @@ export type F64 = number
 export let userEmailAddr = ''
 export let reqTimeoutMilliSecForJsonApis = 4321
 export let reqTimeoutMilliSecForMultipartForms = 54321
-export let reqMaxReqPayloadSizeMb = 0                   // declaration only, generated code sets the value
-export let errMaxReqPayloadSizeExceeded: Err<string>    // declaration only, generated code sets the value
+export let reqMaxReqPayloadSizeMb = 0           // declaration only, generated code sets the value
+export let errMaxReqPayloadSizeExceeded = ""    // declaration only, generated code sets the value
 
 export function setReqTimeoutMilliSec(reqTimeoutMsForJsonApis: number, reqTimeoutMsForMultipartForms: number) {
     reqTimeoutMilliSecForJsonApis = reqTimeoutMsForJsonApis
     reqTimeoutMilliSecForMultipartForms = reqTimeoutMsForMultipartForms
 }
 
-export async function req<TIn, TOut>(methodPath: string, payload?: TIn | {}, formData?: FormData, urlQueryArgs?: { [_: string]: string }): Promise<TOut> {
+export async function req<TIn, TOut, TErr extends string>(methodPath: string, payload?: TIn | {}, formData?: FormData, urlQueryArgs?: { [_: string]: string }): Promise<TOut> {
     let rel_url = '/' + methodPath
     if (urlQueryArgs)
         rel_url += ('?' + new URLSearchParams(urlQueryArgs).toString())
@@ -31,7 +31,7 @@ export async function req<TIn, TOut>(methodPath: string, payload?: TIn | {}, for
     const payload_json = JSON.stringify(payload)
 
     if ((reqMaxReqPayloadSizeMb > 0) && errMaxReqPayloadSizeExceeded && (payload_json.length > (1024 * 1024 * reqMaxReqPayloadSizeMb)))
-        throw errMaxReqPayloadSizeExceeded
+        throw new Err<TErr>(errMaxReqPayloadSizeExceeded as TErr)
 
     if (formData) {
         formData.set("_", payload_json)
@@ -46,7 +46,7 @@ export async function req<TIn, TOut>(methodPath: string, payload?: TIn | {}, for
                     req_payload_size += file.size
             })
             if (req_payload_size > (1024 * 1024 * reqMaxReqPayloadSizeMb))
-                throw errMaxReqPayloadSizeExceeded
+                throw new Err<TErr>(errMaxReqPayloadSizeExceeded as TErr)
         }
     }
 

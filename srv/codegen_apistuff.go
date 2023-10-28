@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	. "yo/cfg"
 	yolog "yo/log"
 	. "yo/util"
 	"yo/util/sl"
@@ -186,29 +187,6 @@ func codegenGo(apiRefl *apiRefl) {
 	}
 }
 
-func codegenTsToJs(inDirPath string, isAppSide bool, reasons ...string) {
-	const use_tsc = false // ideally false, as our ts typechecking happens editor-side, and we want a *rapid*, dumb type-stripping-only transpilation in local dev, no bundling, no cross-checking, no polyfill-emits etc
-
-	yolog.Println("ts2js in " + inDirPath + " (" + str.Join(reasons, " , ") + ")")
-	if use_tsc { // the rare "slow path"
-		cmd_tsc := exec.Command("tsc")
-		cmd_tsc.Dir = inDirPath
-		if output, err := cmd_tsc.CombinedOutput(); err != nil {
-			panic(err.Error() + "\n" + string(output))
-		}
-		return
-	}
-
-	// the "esbuild Transform API" way
-	WalkDir(inDirPath, func(path string, fsEntry fs.DirEntry) {
-		if (fsEntry.IsDir()) || str.Ends(path, ".d.ts") || (!str.Ends(path, ".ts")) ||
-			(isAppSide && !str.Ends(path, "/"+filepath.Join(StaticFilesDirNameYo, yoSdkTsFileName))) {
-			return // nothing to do for this `path`
-		}
-		TsFile2JsFileViaEsbuild(path)
-	})
-}
-
 func codegenTsSdk(apiRefl *apiRefl) (didFsWrites []string) {
 	if EnsureDir(StaticFilesDirNameYo) {
 		didFsWrites = append(didFsWrites, "MK:"+StaticFilesDirNameYo)
@@ -220,7 +198,13 @@ func codegenTsSdk(apiRefl *apiRefl) (didFsWrites []string) {
 	apiRefl.codeGen.typesUsed, apiRefl.codeGen.typesEmitted = map[string]bool{}, map[string]bool{}
 
 	buf.Write([]byte(codegenEmitTopCommentLine))
-	buf.Write(ReadFile(filepath.Join(yoStaticDirPath, yoSdkTsPreludeFileName))) // read yo-side version (source-of-truth)
+	buf.Write(ReadFile(filepath.Join(yoStaticDirPath, yoSdkTsPreludeFileName))) // emit yo-side code prelude
+
+	buf.WriteString("\nerrMaxReqPayloadSizeExceeded = '" + string(ErrMissingOrExcessiveContentLength) + "'\n")
+	if Cfg.YO_API_MAX_REQ_CONTENTLENGTH_MB > 0 {
+		buf.WriteString("\nreqMaxReqPayloadSizeMb = " + str.FromInt(Cfg.YO_API_MAX_REQ_CONTENTLENGTH_MB) + "\n")
+	}
+
 	// emit methods
 	for _, method := range apiRefl.Methods {
 		codegenTsSdkMethod(&buf, apiRefl, &method)
@@ -399,4 +383,27 @@ func codegenTsSdkTypeName(apiRefl *apiRefl, typeName string) string {
 		return str.Repl("{ [_:{lhs}]: {rhs} }", str.Dict{"lhs": codegenTsSdkTypeName(apiRefl, key_part), "rhs": codegenTsSdkTypeName(apiRefl, val_part)})
 	}
 	return ToIdent(typeName[str.Idx(typeName, '.')+1:])
+}
+
+func codegenTsToJs(inDirPath string, isAppSide bool, reasons ...string) {
+	const use_tsc = false // ideally false, as our ts typechecking happens editor-side, and we want a *rapid*, dumb type-stripping-only transpilation in local dev, no bundling, no cross-checking, no polyfill-emits etc
+
+	yolog.Println("ts2js in " + inDirPath + " (" + str.Join(reasons, " , ") + ")")
+	if use_tsc { // the rare "slow path"
+		cmd_tsc := exec.Command("tsc")
+		cmd_tsc.Dir = inDirPath
+		if output, err := cmd_tsc.CombinedOutput(); err != nil {
+			panic(err.Error() + "\n" + string(output))
+		}
+		return
+	}
+
+	// the "esbuild Transform API" way
+	WalkDir(inDirPath, func(path string, fsEntry fs.DirEntry) {
+		if (fsEntry.IsDir()) || str.Ends(path, ".d.ts") || (!str.Ends(path, ".ts")) ||
+			(isAppSide && !str.Ends(path, "/"+filepath.Join(StaticFilesDirNameYo, yoSdkTsFileName))) {
+			return // nothing to do for this `path`
+		}
+		TsFile2JsFileViaEsbuild(path)
+	})
 }
