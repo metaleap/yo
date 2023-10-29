@@ -42,6 +42,15 @@ func WithoutIdxRange[TSlice ~[]TItem, TItem any](delFromIdx int, delUntilIdx int
 	return append(append(make(TSlice, 0, len(slice)-(delUntilIdx-delFromIdx)), slice[:delFromIdx]...), slice[delUntilIdx:]...)
 }
 
+func Reversed[TSlice ~[]TItem, TItem any](slice TSlice) TSlice {
+	for i := range slice[:len(slice)/2] {
+		idx_opp := (len(slice) - 1) - i
+		item_opp := slice[idx_opp]
+		slice[idx_opp], slice[i] = slice[i], item_opp
+	}
+	return slice
+}
+
 func Sorted[TSlice ~[]TItem, TItem cmp.Ordered](slice TSlice) TSlice {
 	slices.Sort(slice)
 	return slice
