@@ -72,6 +72,17 @@ func apiHandleReflReq(this *ApiCtx[Void, apiReflect]) {
 		return cmp.Compare(a.Path, b.Path)
 	})
 
+	var mark_as_input func(string)
+	mark_as_input = func(typeName string) {
+		this.Ret.allInputTypes[typeName] = true
+		for _, field_type_name := range this.Ret.Types[typeName] {
+			mark_as_input(field_type_name)
+		}
+	}
+	for _, method := range this.Ret.Methods {
+		mark_as_input(method.In)
+	}
+
 	// (pre)fix up method paths for http callers
 	if (!is_devmode_at_codegen_time) && (AppApiUrlPrefix != "") {
 		for i := range this.Ret.Methods {
@@ -193,11 +204,4 @@ func apiReflEnum(it *apiReflect, rt reflect.Type, typeIdent string) string {
 		}
 	}
 	return ""
-}
-
-func (me *apiReflect) isInputType(typeName string) (is bool) {
-	is = sl.Any(me.Methods, func(it apiReflMethod) bool {
-		return (it.In == typeName) && !str.Begins(it.Path, "__/yo/")
-	})
-	return
 }

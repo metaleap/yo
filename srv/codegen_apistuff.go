@@ -331,7 +331,7 @@ func codegenTsSdkType(buf *str.Buf, apiRefl *apiReflect, typeName string, struct
 		struct_fields := sl.Sorted(Keys(structFields))
 		for _, field_name := range struct_fields {
 			field_type := structFields[field_name]
-			is_optional := apiRefl.isInputType(typeName) // str.Begins(field_type, "?") || (is_api_input && (str.Begins(field_type, ".") || str.Begins(field_type, "{")))
+			is_optional := apiRefl.allInputTypes[typeName] // str.Begins(field_type, "?") || (is_api_input && (str.Begins(field_type, ".") || str.Begins(field_type, "{")))
 			buf.WriteString(str.Repl("\n\t{fld}{?}: {tfld}",
 				str.Dict{"fld": ToIdent(field_name), "?": If(is_optional, "?", ""), "tfld": codegenTsSdkTypeName(apiRefl, field_type)}))
 		}
