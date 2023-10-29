@@ -21,12 +21,13 @@ func init() {
 	})
 }
 
-type apiRefl struct {
-	Methods   []apiReflMethod
-	Types     map[string]str.Dict
-	Enums     map[string][]string
-	DbStructs []string
-	KnownErrs map[string]map[Err]int
+type apiReflect struct {
+	Methods       []apiReflMethod
+	Types         map[string]str.Dict
+	Enums         map[string][]string
+	DbStructs     []string
+	KnownErrs     map[string]map[Err]int
+	allInputTypes map[string]bool
 
 	codeGen struct {
 		typesUsed    map[string]bool
@@ -34,7 +35,7 @@ type apiRefl struct {
 	}
 }
 
-func (me *apiRefl) method(methodPath string) *apiReflMethod {
+func (me *apiReflect) method(methodPath string) *apiReflMethod {
 	return &me.Methods[sl.IdxWhere(me.Methods, func(it apiReflMethod) bool { return (it.Path == methodPath) })]
 }
 
@@ -47,9 +48,9 @@ type apiReflMethod struct {
 func (me *apiReflMethod) ident() string    { return ToIdent(me.Path) }
 func (me *apiReflMethod) identUp0() string { return str.Up0(me.ident()) }
 
-func apiHandleReflReq(this *ApiCtx[Void, apiRefl]) {
+func apiHandleReflReq(this *ApiCtx[Void, apiReflect]) {
 	is_devmode_at_codegen_time := IsDevMode && (this.Ctx == nil) && (this.Args == nil)
-	this.Ret.Types, this.Ret.Enums, this.Ret.KnownErrs = map[string]str.Dict{}, map[string][]string{}, map[string]map[Err]int{}
+	this.Ret.Types, this.Ret.Enums, this.Ret.KnownErrs, this.Ret.allInputTypes = map[string]str.Dict{}, map[string][]string{}, map[string]map[Err]int{}, map[string]bool{}
 	for _, method_path := range sl.Sorted(Keys(api)) {
 		if !str.IsPrtAscii(method_path) {
 			panic("not printable ASCII: '" + method_path + "'")
@@ -95,7 +96,7 @@ func apiReflErrs(method ApiMethod, methodRefl apiReflMethod) (ret map[Err]int) {
 	return
 }
 
-func apiReflType(it *apiRefl, rt reflect.Type, fldName string, parent string) string {
+func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string) string {
 	if maybe_db_ref, _ := reflect.New(rt).Interface().(interface{ IsDbRef() bool }); (maybe_db_ref != nil) && maybe_db_ref.IsDbRef() {
 		return apiReflType(it, reflect.TypeOf(int64(0)), fldName, parent)
 	}
@@ -178,7 +179,7 @@ func apiReflType(it *apiRefl, rt reflect.Type, fldName string, parent string) st
 	return type_ident
 }
 
-func apiReflEnum(it *apiRefl, rt reflect.Type, typeIdent string) string {
+func apiReflEnum(it *apiReflect, rt reflect.Type, typeIdent string) string {
 	if !str.IsPrtAscii(typeIdent) {
 		panic("not printable ASCII: '" + typeIdent + "'")
 	}
@@ -192,4 +193,11 @@ func apiReflEnum(it *apiRefl, rt reflect.Type, typeIdent string) string {
 		}
 	}
 	return ""
+}
+
+func (me *apiReflect) isInputType(typeName string) (is bool) {
+	is = sl.Any(me.Methods, func(it apiReflMethod) bool {
+		return (it.In == typeName) && !str.Begins(it.Path, "__/yo/")
+	})
+	return
 }

@@ -101,14 +101,14 @@ func init() {
 			}
 		}
 
-		api_refl := apiRefl{}
-		apiHandleReflReq(&ApiCtx[Void, apiRefl]{Ret: &api_refl})
+		api_refl := apiReflect{}
+		apiHandleReflReq(&ApiCtx[Void, apiReflect]{Ret: &api_refl})
 		codegenGo(&api_refl)
 		codegenTsSdk(&api_refl)
 	}
 }
 
-func codegenGo(apiRefl *apiRefl) {
+func codegenGo(apiRefl *apiReflect) {
 	var did_write_files []string
 	for pkg_name, pkg_dir_path := range pkgsFound {
 		out_file_path := filepath.Join(pkg_dir_path, "ˍgenerated_apistuff.go")
@@ -187,7 +187,7 @@ func codegenGo(apiRefl *apiRefl) {
 	}
 }
 
-func codegenTsSdk(apiRefl *apiRefl) (didFsWrites []string) {
+func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 	if EnsureDir(StaticFilesDirNameYo) {
 		didFsWrites = append(didFsWrites, "MK:"+StaticFilesDirNameYo)
 	}
@@ -282,7 +282,7 @@ func codegenTsSdk(apiRefl *apiRefl) (didFsWrites []string) {
 	return
 }
 
-func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiRefl, method *apiReflMethod) {
+func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiReflect, method *apiReflMethod) {
 	is_app_api := !str.Begins(method.Path, yoAdminApisUrlPrefix)
 	if !is_app_api {
 		return
@@ -315,7 +315,7 @@ export type {enum_type_name} = typeof errs{method_name}[number]
 `, repl))
 }
 
-func codegenTsSdkType(buf *str.Buf, apiRefl *apiRefl, typeName string, structFields str.Dict, enumMembers []string) bool {
+func codegenTsSdkType(buf *str.Buf, apiRefl *apiReflect, typeName string, structFields str.Dict, enumMembers []string) bool {
 	for str.Begins(typeName, "?") {
 		typeName = typeName[1:]
 	}
@@ -327,14 +327,11 @@ func codegenTsSdkType(buf *str.Buf, apiRefl *apiRefl, typeName string, structFie
 		buf.WriteString(str.Repl("\nexport type {lhs} = {rhs}",
 			str.Dict{"lhs": codegenTsSdkTypeName(apiRefl, typeName), "rhs": codegenTsSdkTypeName(apiRefl, ".string")}))
 	} else if structFields != nil {
-		is_api_input := sl.Any(apiRefl.Methods, func(it apiReflMethod) bool {
-			return (it.In == typeName) && !str.Begins(it.Path, "__/yo/")
-		})
 		buf.WriteString(str.Repl("\nexport type {lhs} = {", str.Dict{"lhs": codegenTsSdkTypeName(apiRefl, typeName)}))
 		struct_fields := sl.Sorted(Keys(structFields))
 		for _, field_name := range struct_fields {
 			field_type := structFields[field_name]
-			is_optional := is_api_input // str.Begins(field_type, "?") || (is_api_input && (str.Begins(field_type, ".") || str.Begins(field_type, "{")))
+			is_optional := apiRefl.isInputType(typeName) // str.Begins(field_type, "?") || (is_api_input && (str.Begins(field_type, ".") || str.Begins(field_type, "{")))
 			buf.WriteString(str.Repl("\n\t{fld}{?}: {tfld}",
 				str.Dict{"fld": ToIdent(field_name), "?": If(is_optional, "?", ""), "tfld": codegenTsSdkTypeName(apiRefl, field_type)}))
 		}
@@ -348,7 +345,7 @@ func codegenTsSdkType(buf *str.Buf, apiRefl *apiRefl, typeName string, structFie
 	return true
 }
 
-func codegenTsSdkTypeName(apiRefl *apiRefl, typeName string) string {
+func codegenTsSdkTypeName(apiRefl *apiReflect, typeName string) string {
 	for str.Begins(typeName, "?") {
 		typeName = typeName[1:]
 	}
