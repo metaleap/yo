@@ -21,14 +21,6 @@ func CurDirPath() string {
 	return ret
 }
 
-func DelFile(filePath string) {
-	_ = os.Remove(filePath)
-}
-
-func DelDir(dirPath string) {
-	_ = os.RemoveAll(dirPath)
-}
-
 func fsStat(path string) fs.FileInfo {
 	fs_info, err := os.Stat(path)
 	is_not_exist := os.IsNotExist(err)
