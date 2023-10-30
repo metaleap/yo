@@ -221,9 +221,6 @@ func NotInArr(lhs any, rhs any) Query {
 func ArrIsEmpty(arr any) Query {
 	return operandFrom(arr).Equal(nil).Or(Fn(FnArrLen, arr).Equal(0))
 }
-func ArrHas(arr any, arg any) Query {
-	return ArrAreAnyIn(arr, OpEq, arg)
-}
 func ArrAreAnyIn(arr any, operator Operator, arg any) Query {
 	return &query{op: operator + opArrAny, operands: operandsFrom(arr, arg)}
 }
@@ -411,14 +408,6 @@ func (me *query) Sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 		} else {
 			is_arr_all, is_arr_any := str.Ends(string(me.op), string(opArrAll)), str.Ends(string(me.op), string(opArrAny))
 			operator, is_arrish := me.op, (me.op == OpInArr) || (me.op == OpNotInArr) || is_arr_all || is_arr_any
-			if is_arr_all || is_arr_any {
-				// our q-lang has arr left, comparand right but postgres has it the other way around
-				me.operands[0], me.operands[1] = me.operands[1], me.operands[0]
-				// thus, also gt becomes leq, etcpp
-				if op_flip := opFlips[operator[:len(operator)-len(opArrAll)]]; op_flip != "" {
-					operator = op_flip
-				}
-			}
 			for i, operand := range me.operands {
 				if i == 0 { // ensuring `IS NULL` instead of `= 0` even for non-NULL empty [] arrs, thanks sql...
 					if fn, _ := operand.(*fun); (fn != nil) && (fn.Fn == FnArrLen) && (is_eq || is_ne) {
