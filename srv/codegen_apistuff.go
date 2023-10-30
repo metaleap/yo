@@ -153,6 +153,15 @@ func codegenGo(apiRefl *apiReflect) {
 			}
 		}
 
+		var do_fields func(str.Dict, string, string)
+		do_fields = func(typeRefl str.Dict, namePrefix string, fieldStrPrefix string) {
+			for _, field_name := range sl.Sorted(Keys(typeRefl)) {
+				ident := namePrefix + ToIdent(field_name)
+				buf.WriteString("const " + ident + " = q.F(\"" + fieldStrPrefix + field_name + "\")\n")
+				do_fields(apiRefl.Types[typeRefl[field_name]], ident, fieldStrPrefix+field_name+".")
+			}
+		}
+
 		// emit api method input fields for FailIf conditions
 		for _, method_path := range sl.Sorted(Keys(pkg_methods)) {
 			method := apiRefl.method(method_path)
@@ -167,9 +176,7 @@ func codegenGo(apiRefl *apiReflect) {
 			if is_app_dep {
 				continue
 			}
-			for _, field_name := range sl.Sorted(Keys(input_type)) {
-				buf.WriteString("const " + name_prefix + ToIdent(field_name) + " = q.F(\"" + field_name + "\")\n")
-			}
+			do_fields(input_type, name_prefix, "")
 		}
 
 		src_raw, err := format.Source([]byte(buf.String()))
