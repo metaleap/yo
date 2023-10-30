@@ -3,6 +3,10 @@ package yoauth
 
 import q "yo/db/query"
 
+import sl "yo/util/sl"
+
+func UserAuthFields(fields ...UserAuthField) []q.F { return sl.To(fields, UserAuthField.F) }
+
 type UserAuthField q.F
 
 const (

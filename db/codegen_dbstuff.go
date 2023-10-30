@@ -90,7 +90,7 @@ func codegenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	buf.WriteString(codegenEmitTopCommentLine)
 	buf.WriteString("package ")
 	buf.WriteString(pkg_name)
-	buf.WriteString("\n\nimport q \"yo/db/query\"\n\n")
+	buf.WriteString("\n\nimport q \"yo/db/query\"\n\nimport sl \"yo/util/sl\"\n\n")
 	for _, desc := range descs {
 		codegenWriteEnumDecl(&buf, desc)
 		codegenCloneMethods(&buf, desc.ty.Name()+"Field", "q", reflect.TypeOf(q.F("")), false)
@@ -212,9 +212,11 @@ func codegenCloneMethod(buf *str.Buf, typeNameReceiver string, typeNameUnderlyin
 }
 
 func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc) {
-	type_name_suffix := "Field"
+	type_name_suffix, type_name := "Field", desc.ty.Name()
+
+	buf.WriteString("\nfunc " + type_name + "Fields(fields..." + type_name + "Field)[]q.F{return sl.To(fields," + type_name + "Field.F)}\n\n")
 	buf.WriteString("type ")
-	buf.WriteString(desc.ty.Name())
+	buf.WriteString(type_name)
 	buf.WriteString(type_name_suffix)
 	buf.WriteString(" q.F\n\n")
 	buf.WriteString("const (\n")
@@ -224,9 +226,9 @@ func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc) {
 		field, _ := desc.ty.FieldByName(string(field_name))
 		if ref_of_type := dbRefType(field.Type); "" != ref_of_type {
 			var sub_desc *structDesc
-			for _, desc := range descs {
-				if ty_ident := desc.ty.PkgPath() + "." + desc.ty.Name(); ty_ident == ref_of_type {
-					sub_desc = desc
+			for _, sub_desc_maybe := range descs {
+				if ty_ident := sub_desc_maybe.ty.PkgPath() + "." + sub_desc_maybe.ty.Name(); ty_ident == ref_of_type {
+					sub_desc = sub_desc_maybe
 					break
 				}
 			}
@@ -240,15 +242,15 @@ func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc) {
 	for _, field_name := range desc.fields {
 		buf.WriteByte('\t')
 		if !str.IsLo(string(field_name[:1])) {
-			buf.WriteString(desc.ty.Name())
+			buf.WriteString(type_name)
 		} else {
-			buf.WriteString(str.Lo(desc.ty.Name()[:1]))
-			buf.WriteString(desc.ty.Name()[1:])
+			buf.WriteString(str.Lo(type_name[:1]))
+			buf.WriteString(type_name[1:])
 		}
 		buf.WriteString(str.Up(string(field_name[:1])))
 		buf.WriteString(string(field_name[1:]))
 		buf.WriteString(" ")
-		buf.WriteString(desc.ty.Name())
+		buf.WriteString(type_name)
 		buf.WriteString(type_name_suffix)
 		buf.WriteString(" = \"")
 		buf.WriteString(string(field_name))
@@ -259,17 +261,17 @@ func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc) {
 		for _, sub_field := range ref_field.It.fields {
 			buf.WriteByte('\t')
 			if !str.IsLo(string(sub_field[:1])) {
-				buf.WriteString(desc.ty.Name())
+				buf.WriteString(type_name)
 			} else {
-				buf.WriteString(str.Lo(desc.ty.Name()[:1]))
-				buf.WriteString(desc.ty.Name()[1:])
+				buf.WriteString(str.Lo(type_name[:1]))
+				buf.WriteString(type_name[1:])
 			}
 			buf.WriteString(str.Up(string(field_name[:1])))
 			buf.WriteString(string(field_name[1:]))
 			buf.WriteByte('_')
 			buf.WriteString(string(sub_field))
 			buf.WriteString(" ")
-			buf.WriteString(desc.ty.Name())
+			buf.WriteString(type_name)
 			buf.WriteString(type_name_suffix)
 			buf.WriteString(" = \"")
 			buf.WriteString(string(field_name))
