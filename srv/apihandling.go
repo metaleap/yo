@@ -294,8 +294,11 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	})
 
 	ctx.Timings.Step("validate req")
-	_, err_validation := api_method.validatePayload(payload)
+	failed_condition, err_validation := api_method.validatePayload(payload)
 	if err_validation != "" {
+		if IsDevMode {
+			println(">>>FAILCOND>>>" + q.SqlReprForDebugging(failed_condition))
+		}
 		ctx.HttpErr(err_validation.HttpStatusCodeOr(400), err_validation.Error())
 		return
 	}

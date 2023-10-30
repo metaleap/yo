@@ -70,12 +70,17 @@ func (me F) InArr(arr any) Query            { return InArr(me, arr) }
 func (me F) NotInArr(arr any) Query         { return NotInArr(me, arr) }
 func (me F) Asc() OrderBy                   { return &orderBy[F]{fld: me} }
 func (me F) Desc() OrderBy                  { return &orderBy[F]{fld: me, desc: true} }
-func (me F) Eval(obj any, _ func(C) F) (ret any) {
-	ret = ReflField(obj, string(me)).Interface()
-	if ref, is := ret.(DbRef); is {
+func (me F) Eval(it any, c2f func(C) F) any {
+	for _, field_sub := range str.Split(string(me), ".") {
+		if str.Has(string(me), ".") {
+			println(">>>>" + field_sub + " OF " + string(me) + " IN " + str.Fmt("%T", it))
+		}
+		it = ReflField(it, field_sub).Interface()
+	}
+	if ref, is := it.(DbRef); is {
 		return ref.IdRaw()
 	}
-	return
+	return it
 }
 
 type DbRef interface {
@@ -331,17 +336,13 @@ func (me *query) And(conds ...Query) Query { return AllTrue(append([]Query{me}, 
 func (me *query) Or(conds ...Query) Query  { return EitherOr(append([]Query{me}, conds...)...) }
 func (me *query) Not() Query               { return Not(me) }
 
-func (me *query) Sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
-	me.sql(buf, fld2col, args)
-}
-
 func (me *query) String(fld2col func(F) C, args pgx.NamedArgs) string {
 	var buf str.Buf
 	me.Sql(&buf, fld2col, args)
 	return buf.String()
 }
 
-func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
+func (me *query) Sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 	var do_arg func(operand Operand)
 	do_arg = func(operand Operand) {
 		if sub_stmt, _ := operand.(stmt); sub_stmt != nil {
@@ -396,7 +397,7 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 				buf.WriteString(string(me.op))
 			}
 			buf.WriteByte('(')
-			cond.(*query).sql(buf, fld2col, args)
+			cond.(*query).Sql(buf, fld2col, args)
 			buf.WriteByte(')')
 		}
 	default:
@@ -458,9 +459,17 @@ func (me *query) sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 	buf.WriteByte(')')
 }
 
+func SqlReprForDebugging(q Query) string {
+	var buf str.Buf
+	args := pgx.NamedArgs{}
+	q.Sql(&buf, func(f F) C { return C(f) }, args)
+	return buf.String() + "<<<<<<<<<" + str.From(args)
+}
+
 func (me *query) Eval(obj any, c2f func(C) F) (falseDueTo Query) {
 	is_eq := func() bool {
-		lhs, rhs := me.operands[0].Eval(obj, c2f), me.operands[1].Eval(obj, c2f)
+		lhs := me.operands[0].Eval(obj, c2f)
+		rhs := me.operands[1].Eval(obj, c2f)
 		return reflect.DeepEqual(lhs, rhs) || // the below oddity catches convertible comparables such as string-vs-yodb.Text, int64-vs-yodb.I64 etc
 			(ReflGe(reflect.ValueOf(lhs), reflect.ValueOf(rhs)) && ReflLe(reflect.ValueOf(lhs), reflect.ValueOf(rhs)))
 	}
@@ -505,8 +514,10 @@ func (me *query) Eval(obj any, c2f func(C) F) (falseDueTo Query) {
 	default:
 		is_arr_all, is_arr_any := str.Ends(string(me.op), string(opArrAll)), str.Ends(string(me.op), string(opArrAny))
 		if is_arr_all || is_arr_any {
+			println(">>>>>>>>>" + SqlReprForDebugging(me))
 			arr := me.operands[0].Eval(obj, c2f)
-			refl_arr, arg := reflect.ValueOf(arr), me.operands[1].Eval(obj, c2f)
+			arg := me.operands[1].Eval(obj, c2f)
+			refl_arr := reflect.ValueOf(arr)
 			operator := me.op[:len(me.op)-len(opArrAny)] // assumes same strlen for both opArrAny & opArrAll
 			for i, arr_len := 0, refl_arr.Len(); i < arr_len; i++ {
 				lhs, rhs := refl_arr.Index(i).Interface(), arg
