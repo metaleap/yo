@@ -531,7 +531,7 @@ func (me *DateTime) MarshalJSON() ([]byte, error) {
 	return ((*time.Time)(me)).MarshalJSON()
 }
 
-func (me *Text) Do(f func(string) string) {
+func (me *Text) Set(f func(string) string) {
 	*me = (Text)(f((string)(*me)))
 }
 

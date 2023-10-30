@@ -158,7 +158,8 @@ func codegenGo(apiRefl *apiReflect) {
 			for _, field_name := range sl.Sorted(Keys(typeRefl)) {
 				ident := namePrefix + ToIdent(field_name)
 				buf.WriteString("const " + ident + " = q.F(\"" + fieldStrPrefix + field_name + "\")\n")
-				do_fields(apiRefl.Types[typeRefl[field_name]], ident, fieldStrPrefix+field_name+".")
+				// this below would generate dotted literal constants for sub-field paths, but without the q side able to handle this, we for now dont emit those
+				// do_fields(apiRefl.Types[typeRefl[field_name]], ident, fieldStrPrefix+field_name+".")
 			}
 		}
 

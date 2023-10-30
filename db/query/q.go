@@ -70,17 +70,12 @@ func (me F) InArr(arr any) Query            { return InArr(me, arr) }
 func (me F) NotInArr(arr any) Query         { return NotInArr(me, arr) }
 func (me F) Asc() OrderBy                   { return &orderBy[F]{fld: me} }
 func (me F) Desc() OrderBy                  { return &orderBy[F]{fld: me, desc: true} }
-func (me F) Eval(it any, c2f func(C) F) any {
-	for _, field_sub := range str.Split(string(me), ".") {
-		if str.Has(string(me), ".") {
-			println(">>>>" + field_sub + " OF " + string(me) + " IN " + str.Fmt("%T", it))
-		}
-		it = ReflField(it, field_sub).Interface()
-	}
-	if ref, is := it.(DbRef); is {
+func (me F) Eval(it any, c2f func(C) F) (ret any) {
+	ret = ReflField(it, string(me)).Interface()
+	if ref, is_ref := ret.(DbRef); is_ref {
 		return ref.IdRaw()
 	}
-	return it
+	return ret
 }
 
 type DbRef interface {
@@ -514,10 +509,9 @@ func (me *query) Eval(obj any, c2f func(C) F) (falseDueTo Query) {
 	default:
 		is_arr_all, is_arr_any := str.Ends(string(me.op), string(opArrAll)), str.Ends(string(me.op), string(opArrAny))
 		if is_arr_all || is_arr_any {
-			println(">>>>>>>>>" + SqlReprForDebugging(me))
 			arr := me.operands[0].Eval(obj, c2f)
-			arg := me.operands[1].Eval(obj, c2f)
 			refl_arr := reflect.ValueOf(arr)
+			arg := me.operands[1].Eval(obj, c2f)
 			operator := me.op[:len(me.op)-len(opArrAny)] // assumes same strlen for both opArrAny & opArrAll
 			for i, arr_len := 0, refl_arr.Len(); i < arr_len; i++ {
 				lhs, rhs := refl_arr.Index(i).Interface(), arg

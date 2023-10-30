@@ -31,8 +31,6 @@ func IfF[T any](b bool, t func() T, f func() T) T {
 	return f()
 }
 
-func Ptr[T any](it T) *T { return &it }
-
 func Min[T cmp.Ordered](values ...T) (ret T) {
 	ret = values[0]
 	for _, value := range values[1:] {
