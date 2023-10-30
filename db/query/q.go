@@ -355,9 +355,6 @@ func (me *query) Sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 				buf.WriteByte(' ')
 			}
 		} else if fn, _ := operand.(*fun); fn != nil {
-			if fn.Fn == FnArrLen {
-				fn.Args = append(fn.Args, operandFrom(1))
-			}
 			buf.WriteString(string(fn.Fn))
 			buf.WriteByte('(')
 			for i, arg := range fn.Args {
@@ -365,6 +362,9 @@ func (me *query) Sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 					buf.WriteByte(',')
 				}
 				do_arg(arg)
+			}
+			if fn.Fn == FnArrLen {
+				buf.WriteString(",1")
 			}
 			buf.WriteByte(')')
 		} else {
