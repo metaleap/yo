@@ -75,6 +75,8 @@ type Handler interface {
 	// All `stream()[_].Details` are of type *TTaskDetails (that this `Handler` was `Register`ed with).
 	// All `stream()[_].Results` are of type *TTaskResults (that this `Handler` was `Register`ed with).
 	JobResults(ctx *Context, stream func() <-chan *Task) (JobResults, error)
+
+	IsTaskErrRetryable(err error) bool
 }
 
 type Context struct {

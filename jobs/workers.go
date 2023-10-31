@@ -597,7 +597,8 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 		task.State = Cancelled
 	} else if (!alreadyCancelled) &&
 		((ctxErr != nil && errors.Is(ctxErr, context.DeadlineExceeded)) ||
-			(task.Attempts[0].Err != nil && isErrRetryable(task.Attempts[0].Err))) {
+			((task.Attempts[0].Err != nil) && (task.job.spec.handler != nil) &&
+				task.job.spec.handler.IsTaskErrRetryable(task.Attempts[0].Err))) {
 		_ = task.markForRetryOrAsFailed(task.job.spec)
 	}
 	if task.Attempts[0].Err == nil {

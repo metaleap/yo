@@ -37,6 +37,8 @@ func (exampleHandler) dice() byte {
 	return b[0]
 }
 
+func (it exampleHandler) IsTaskErrRetryable(error) bool { return false }
+
 func (it exampleHandler) JobDetails(ctx *Context) (JobDetails, error) {
 	if it.dice()%2 == 0 {
 		return &exampleJobDetails{MsgFmt: ">>>>>>>>>>>>>IT WAS %s JUST %s AGO"}, nil
