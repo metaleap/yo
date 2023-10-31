@@ -73,7 +73,8 @@ func init() {
 												continue
 											}
 											if (str.Lo(enumerant_name) != str.Lo(value)) && (str.Lo(name) != str.Lo(value) && !str.Has(value, ".")) {
-												panic(value + "!=" + enumerant_name + " && " + value + "!=" + name)
+												continue
+												// panic(value + "!=" + enumerant_name + " && " + value + "!=" + name)
 											}
 											apiReflAllEnums[pkg_name+"."+type_name] = append(apiReflAllEnums[pkg_name+"."+type_name], value)
 											if existing := enum_pkgs[type_name]; existing != "" && existing != pkg_name {

@@ -24,10 +24,10 @@ const (
 type CancellationReason string
 
 const (
-	CancellationReasonDuplicate            CancellationReason = "job_duplicate"
-	CancellationReasonSpecInvalidOrGone    CancellationReason = "jobspec_invalid_or_gone"
-	CancellationReasonSpecChanged          CancellationReason = "jobspec_changed"
-	CancellationReasonJobTypeInvalidOrGone CancellationReason = "jobtype_invalid_or_gone"
+	CancellationReasonDuplicate            CancellationReason = "JobDuplicate"
+	CancellationReasonSpecInvalidOrGone    CancellationReason = "JobspecInvalidOrGone"
+	CancellationReasonSpecChanged          CancellationReason = "JobspecChanged"
+	CancellationReasonJobTypeInvalidOrGone CancellationReason = "JobtypeInvalidOrGone"
 )
 
 type Job struct {
