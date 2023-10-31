@@ -65,10 +65,10 @@ func (it *JobSpec) EnsureValid() (errs []error) { // not quite the same as "vali
 	if it.handler == nil && !it.Disabled {
 		errs = append(errs, errNotFoundHandler(it.ID, it.HandlerID))
 	}
-	it.Timeouts.TaskRun = clamp(11*time.Second, 22*time.Hour, it.Timeouts.TaskRun)
-	it.Timeouts.JobPrepAndFinalize = clamp(22*time.Second, 11*time.Hour, it.Timeouts.JobPrepAndFinalize)
-	it.TaskRetries = clamp(0, 1234, it.TaskRetries)
-	it.DeleteAfterDays = clamp(0, math.MaxInt32, it.DeleteAfterDays)
+	it.Timeouts.TaskRun = Clamp(11*time.Second, 22*time.Hour, it.Timeouts.TaskRun)
+	it.Timeouts.JobPrepAndFinalize = Clamp(22*time.Second, 11*time.Hour, it.Timeouts.JobPrepAndFinalize)
+	it.TaskRetries = Clamp(0, 1234, it.TaskRetries)
+	it.DeleteAfterDays = Clamp(0, math.MaxInt32, it.DeleteAfterDays)
 	for i, sched := range it.Schedules {
 		if sched.Crontab = strings.TrimSpace(sched.Crontab); sched.Crontab == "" {
 			errs = append(errs, errors.New(str.Fmt("job spec '%s' schedule %d/%d requires a `rule`", it, i+1, len(it.Schedules))))

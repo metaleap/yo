@@ -5,7 +5,6 @@ import (
 	"errors"
 	"math"
 	"math/rand"
-	"reflect"
 	"time"
 
 	. "yo/util"
@@ -41,14 +40,10 @@ func firstNonNil[T any](collection ...*T) (found *T) {
 
 func timeNow() *time.Time { return ToPtr(time.Now().In(Timezone)) }
 
-func clamp[T cmp.Ordered](min T, max T, i T) T {
-	return If(i > max, max, If(i < min, min, i))
-}
-
 func sanitize[TStruct any, TField cmp.Ordered](min TField, max TField, parse func(string) (TField, error), fields map[string]*TField) (err error) {
-	typeOfStruct := typeOf[TStruct]()
+	typeOfStruct := ReflType[TStruct]()
 	for fieldName, fieldPtr := range fields {
-		if clamped := clamp(min, max, *fieldPtr); clamped != *fieldPtr {
+		if clamped := Clamp(min, max, *fieldPtr); clamped != *fieldPtr {
 			field, _ := typeOfStruct.FieldByName(fieldName)
 			if *fieldPtr, err = parse(field.Tag.Get("default")); err != nil {
 				return
@@ -56,9 +51,4 @@ func sanitize[TStruct any, TField cmp.Ordered](min TField, max TField, parse fun
 		}
 	}
 	return
-}
-
-func typeOf[T any]() reflect.Type {
-	var none T
-	return reflect.TypeOf(none)
 }

@@ -90,7 +90,7 @@ func (it *JobStats) PercentDone() int {
 	case it.TasksByState[Done] + it.TasksByState[Cancelled]:
 		return 100
 	default:
-		return clamp(1, 99, int(float64(it.TasksByState[Done]+it.TasksByState[Cancelled])*(100.0/float64(it.TasksTotal))))
+		return Clamp(1, 99, int(float64(it.TasksByState[Done]+it.TasksByState[Cancelled])*(100.0/float64(it.TasksTotal))))
 	}
 }
 
@@ -109,7 +109,7 @@ func (it *JobStats) PercentSuccess() *int {
 	case it.TasksFailed:
 		return ToPtr(0)
 	default:
-		return ToPtr(clamp(1, 99, int(float64(it.TasksSucceeded)*(100.0/float64(it.TasksTotal)))))
+		return ToPtr(Clamp(1, 99, int(float64(it.TasksSucceeded)*(100.0/float64(it.TasksTotal)))))
 	}
 }
 

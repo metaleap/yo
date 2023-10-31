@@ -110,7 +110,7 @@ func (it *engine) Resume() {
 	doAfter(it.options.IntervalRunTasks, it.runTasks)
 	doAfter(it.options.IntervalExpireOrRetryDeadTasks, it.expireOrRetryDeadTasks)
 	doAfter(it.options.IntervalDeleteStorageExpiredJobs/10, it.deleteStorageExpiredJobs)
-	doAfter(clamp(22*time.Second, 44*time.Second, it.options.IntervalEnsureJobSchedules), it.ensureJobSchedules)
+	doAfter(Clamp(22*time.Second, 44*time.Second, it.options.IntervalEnsureJobSchedules), it.ensureJobSchedules)
 }
 
 func (it *engine) CancelJobs(ctx context.Context, tenant string, jobIDs ...string) (errs []error) {

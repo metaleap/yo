@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	. "yo/util"
 	"yo/util/str"
 )
 
@@ -103,7 +104,7 @@ var (
 )
 
 func Register[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](newHandler func(handlerID string, tenant string) THandler) error {
-	return register[THandler, TJobDetails, TJobResults, TTaskDetails, TTaskResults](strings.TrimLeft(typeOf[THandler]().String(), "*"), newHandler)
+	return register[THandler, TJobDetails, TJobResults, TTaskDetails, TTaskResults](strings.TrimLeft(ReflType[THandler]().String(), "*"), newHandler)
 }
 
 func RegisterDefault[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](newHandler func(handlerID string, tenant string) THandler) {
@@ -145,7 +146,7 @@ func handler(id string) (ret *handlerReg) {
 func wellTypedFor[TImpl handlerDefined](check handlerDefined) (handlerDefined, error) {
 	if check != nil {
 		if _, ok := check.(*TImpl); !ok {
-			return nil, errors.New(str.Fmt("expected %s instead of %T", typeOf[*TImpl]().String(), check))
+			return nil, errors.New(str.Fmt("expected %s instead of %T", ReflType[*TImpl]().String(), check))
 		}
 	}
 	return new(TImpl), nil
@@ -163,6 +164,6 @@ func (it *handlerReg) forTenant(handlerID string, tenant string) (ret Handler) {
 }
 
 func typeIs[T any](kind reflect.Kind) bool {
-	ty := typeOf[T]()
+	ty := ReflType[T]()
 	return ty != nil && ty.Kind() == kind
 }

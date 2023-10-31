@@ -203,7 +203,7 @@ func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
 	abortStreaming := false
 	job.Results, err = job.spec.handler.JobResults(job.ctx(ctx, ""), func() <-chan *Task {
 		if tasksStream == nil {
-			tasksStream = make(chan *Task, clamp(0, 1024, tasksListReq.PageSize))
+			tasksStream = make(chan *Task, Clamp(0, 1024, tasksListReq.PageSize))
 			go func(ctx context.Context) {
 				defer close(tasksStream)
 				for tasksListReq.PageToken = ""; !abortStreaming; { // bools dont need a mutex =)

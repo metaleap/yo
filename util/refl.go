@@ -8,6 +8,11 @@ import (
 	"yo/util/str"
 )
 
+func ReflType[T any]() reflect.Type {
+	var none T
+	return reflect.TypeOf(none)
+}
+
 func getPtr[T any](at uintptr) *T {
 	return (*T)((unsafe.Pointer)(at))
 }
