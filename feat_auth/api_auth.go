@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	isEmailishEnough = q.Via(str.IsEmailishEnough)
+	IsEmailishEnough = q.Via(str.IsEmailishEnough)
 )
 
 func init() {
@@ -33,7 +33,7 @@ func init() {
 
 		MethodPathLogin: api(ApiUserLogin,
 			Fails{Err: "EmailRequiredButMissing", If: ___yo_authRegisterEmailAddr.Equal("")},
-			Fails{Err: "EmailInvalid", If: isEmailishEnough(___yo_authLoginEmailAddr).Not()},
+			Fails{Err: "EmailInvalid", If: IsEmailishEnough(___yo_authLoginEmailAddr).Not()},
 			Fails{Err: "WrongPassword",
 				If: ___yo_authLoginPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN).Or(
 					___yo_authLoginPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN))},
@@ -42,7 +42,7 @@ func init() {
 
 		MethodPathRegister: api(ApiUserRegister,
 			Fails{Err: "EmailRequiredButMissing", If: ___yo_authRegisterEmailAddr.Equal("")},
-			Fails{Err: "EmailInvalid", If: isEmailishEnough(___yo_authRegisterEmailAddr).Not()},
+			Fails{Err: "EmailInvalid", If: IsEmailishEnough(___yo_authRegisterEmailAddr).Not()},
 			Fails{Err: "PasswordTooShort", If: ___yo_authRegisterPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 			Fails{Err: "PasswordTooLong", If: ___yo_authRegisterPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
 		).
@@ -82,7 +82,7 @@ func ApiUserRegister(this *ApiCtx[ApiAccountPayload, struct {
 	Id yodb.I64
 }]) {
 	httpSetUser(this.Ctx, "")
-	this.Ret.Id = UserRegister(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain)
+	this.Ret.Id = UserRegister(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, false)
 }
 
 func ApiUserLogin(this *ApiCtx[ApiAccountPayload, Void]) {

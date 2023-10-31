@@ -1,6 +1,7 @@
 package yoauth
 
 import (
+	"crypto/rand"
 	"time"
 
 	. "yo/cfg"
@@ -31,7 +32,18 @@ func init() {
 		yodb.Unique[UserAuthField]{UserAuthEmailAddr})
 }
 
-func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
+func UserPregisterOrForgotPassword(ctx *Ctx, emailAddr string) {
+	existing_user := yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr))
+	if existing_user != nil {
+		yodb.Update[UserAuth](ctx, &UserAuth{PwdForgotten: true}, UserAuthId.Equal(existing_user.Id), true, UserAuthFields(UserAuthPwdForgotten)...)
+	} else {
+		random_bytes := make([]byte, 128)
+		_, _ = rand.Read(random_bytes)
+		UserRegister(ctx, emailAddr, string(random_bytes), true)
+	}
+}
+
+func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string, pwdForgotten yodb.Bool) yodb.I64 {
 	ctx.DbTx()
 
 	if yodb.Exists[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr)) {
@@ -46,8 +58,9 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 		}
 	}
 	return yodb.I64(yodb.CreateOne[UserAuth](ctx, &UserAuth{
-		EmailAddr: yodb.Text(emailAddr),
-		pwdHashed: pwd_hashed,
+		EmailAddr:    yodb.Text(emailAddr),
+		pwdHashed:    pwd_hashed,
+		PwdForgotten: pwdForgotten,
 	}))
 }
 
