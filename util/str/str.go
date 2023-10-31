@@ -35,6 +35,7 @@ var (
 	Q        = strconv.Quote
 	Lo       = strings.ToLower
 	Up       = strings.ToUpper
+	Repeat   = strings.Repeat
 )
 
 func From(v any) string                    { return Fmt("%#v", v) }
