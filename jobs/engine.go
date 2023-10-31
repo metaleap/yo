@@ -2,13 +2,13 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"sync"
 	"time"
 
-	"jobs/pkg/utils"
-
-	errors "go.enpowerx.io/errors"
+	. "yo/util"
+	"yo/util/str"
 )
 
 // TimeoutLong is:
@@ -153,7 +153,7 @@ func (it *engine) DeleteJob(ctx context.Context, jobRef Resource) error {
 		return err
 	}
 	if job.State != Done && job.State != Cancelled {
-		return errors.FailedPrecondition.New("job '%s' was expected in a `state` of '%s' or '%s', not '%s'", jobRef.ID, Done, Cancelled, job.State)
+		return errors.New(str.Fmt("job '%s' was expected in a `state` of '%s' or '%s', not '%s'", jobRef.ID, Done, Cancelled, job.State))
 	}
 	return it.backend.deleteJobs(ctx, jobRef.Tenant, JobFilter{}.WithIDs(jobRef.ID))
 }
@@ -161,7 +161,7 @@ func (it *engine) DeleteJob(ctx context.Context, jobRef Resource) error {
 func (it *engine) CreateJob(ctx context.Context, jobSpec *JobSpec, jobID string, dueTime *time.Time, details JobDetails) (job *Job, err error) {
 	if now := timeNow(); dueTime == nil {
 		dueTime = now
-	} else if dueTime = utils.Ptr(dueTime.In(Timezone)); now.After(*dueTime) {
+	} else if dueTime = ToPtr(dueTime.In(Timezone)); now.After(*dueTime) {
 		dueTime = now
 	}
 	return it.createJob(ctx, jobSpec, jobID, *dueTime, details, nil, false)
@@ -170,10 +170,10 @@ func (it *engine) CreateJob(ctx context.Context, jobSpec *JobSpec, jobID string,
 func (it *engine) createJob(ctx context.Context, jobSpec *JobSpec, jobID string, dueTime time.Time, details JobDetails, last *Job, autoScheduled bool) (job *Job, err error) {
 	log := loggerFor(ctx)
 	if jobSpec.Disabled {
-		return nil, errors.FailedPrecondition.New("cannot create off-schedule Job for job spec '%s' because it is currently disabled", jobSpec.ID)
+		return nil, errors.New(str.Fmt("cannot create off-schedule Job for job spec '%s' because it is currently disabled", jobSpec.ID))
 	}
 	if !autoScheduled && !jobSpec.AllowManualJobs {
-		return nil, errors.FailedPrecondition.New("cannot create off-schedule Job for job spec '%s' because it is configured to not `allowManualJobs`", jobSpec.ID)
+		return nil, errors.New(str.Fmt("cannot create off-schedule Job for job spec '%s' because it is configured to not `allowManualJobs`", jobSpec.ID))
 	}
 	if jobID == "" {
 		if autoScheduled {
@@ -194,14 +194,14 @@ func (it *engine) createJob(ctx context.Context, jobSpec *JobSpec, jobID string,
 		spec:            jobSpec,
 		Details:         details,
 		DueTime:         dueTime.In(Timezone),
-		ScheduledNextAfterJob: utils.If(autoScheduled, "_none_", "_manual_") +
-			utils.If(dummyID != "", dummyID, strconv.FormatInt(time.Now().UnixNano(), 36)),
+		ScheduledNextAfterJob: If(autoScheduled, "_none_", "_manual_") +
+			If(dummyID != "", dummyID, strconv.FormatInt(time.Now().UnixNano(), 36)),
 	}
 	if autoScheduled && last != nil {
 		job.ScheduledNextAfterJob = last.ID
 		alreadyThere, err := it.backend.findJob(ctx, true, true, jobSpec.Tenant, JobFilter{}.WithScheduledNextAfterJob(job.ScheduledNextAfterJob))
 		if alreadyThere != nil || err != nil {
-			return utils.If(alreadyThere != nil, alreadyThere, job), err
+			return If(alreadyThere != nil, alreadyThere, job), err
 		}
 	}
 	if it.logLifecycleEvents(false, nil, job, nil) {
@@ -217,13 +217,13 @@ func (it *engine) RetryTask(ctx context.Context, tenant string, jobID string, ta
 	}
 	job := task.job
 	if job == nil || task.Job != jobID || job.ID != jobID {
-		return nil, errors.NotFound.New("job '%s' has no task '%s'", jobID, taskID)
+		return nil, errors.New(str.Fmt("job '%s' has no task '%s'", jobID, taskID))
 	}
 	if job.State == Cancelling || job.State == Cancelled || job.State == Pending {
-		return nil, errors.FailedPrecondition.New("'%s' job '%s' is %s", job.Spec, jobID, job.State)
+		return nil, errors.New(str.Fmt("'%s' job '%s' is %s", job.Spec, jobID, job.State))
 	}
 	if task.State != Done || len(task.Attempts) == 0 || task.Attempts[0].TaskError == nil {
-		return nil, errors.FailedPrecondition.New("job task '%s' must be in a `state` of %s (currently: %s) with the latest `attempts` (current len: %d) entry having an `error` set", task.ID, Done, task.State, len(task.Attempts))
+		return nil, errors.New(str.Fmt("job task '%s' must be in a `state` of %s (currently: %s) with the latest `attempts` (current len: %d) entry having an `error` set", task.ID, Done, task.State, len(task.Attempts)))
 	}
 
 	return task, it.backend.transacted(ctx, func(ctx context.Context) error {
@@ -262,14 +262,14 @@ func (it *engine) JobStats(ctx context.Context, jobRef Resource) (*JobStats, err
 	ret.TasksSucceeded = ret.TasksByState[Done] - ret.TasksFailed
 
 	if job.StartTime != nil && job.FinishTime != nil {
-		ret.DurationTotalMins = utils.Ptr(job.FinishTime.Sub(*job.StartTime).Minutes())
+		ret.DurationTotalMins = ToPtr(job.FinishTime.Sub(*job.StartTime).Minutes())
 	}
 	ret.DurationPrepMins, ret.DurationFinalizeMins = job.Info.DurationPrepInMinutes, job.Info.DurationFinalizeInMinutes
 	return &ret, err
 }
 
 func (it *engine) tenants() (tenants []string) {
-	utils.WithTimeoutDo(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
+	WithTimeoutDo(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
 		allTenants, err := it.backend.tenants(ctx)
 		tenants, _ = allTenants, it.logErr(loggerFor(ctx), err, nil)
 	})

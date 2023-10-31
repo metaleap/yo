@@ -2,11 +2,12 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"strings"
 	"sync"
 
-	errors "go.enpowerx.io/errors"
+	"yo/util/str"
 )
 
 // these 4 need to be type-aliases not type-decls due to our `onUnmarshal`
@@ -111,10 +112,10 @@ func RegisterDefault[THandler Handler, TJobDetails JobDetails, TJobResults JobRe
 
 func register[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](id string, newHandler func(handlerID string, tenant string) THandler) error {
 	if typeIs[TJobDetails](reflect.Pointer) || typeIs[TJobResults](reflect.Pointer) || typeIs[TTaskDetails](reflect.Pointer) || typeIs[TTaskResults](reflect.Pointer) {
-		return errors.InvalidArgument.New("TJobDetails, TJobResults, TTaskDetails, TTaskResults must not be pointer types")
+		return errors.New("TJobDetails, TJobResults, TTaskDetails, TTaskResults must not be pointer types")
 	}
 	if !(typeIs[TJobDetails](reflect.Struct) && typeIs[TJobResults](reflect.Struct) && typeIs[TTaskDetails](reflect.Struct) && typeIs[TTaskResults](reflect.Struct)) {
-		return errors.InvalidArgument.New("TJobDetails, TJobResults, TTaskDetails, TTaskResults must be `struct` types")
+		return errors.New("TJobDetails, TJobResults, TTaskDetails, TTaskResults must be `struct` types")
 	}
 
 	it := handlerReg{
@@ -126,7 +127,7 @@ func register[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, 
 		wellTypedTaskResults: wellTypedFor[TTaskResults],
 	}
 	if id != "" && registeredHandlers[id] != nil {
-		return errors.AlreadyExists.New("already have a `jobs.Handler` of type `%s` registered", id)
+		return errors.New(str.Fmt("already have a `jobs.Handler` of type `%s` registered", id))
 	}
 	registeredHandlers[id] = &it
 	return nil
@@ -142,7 +143,7 @@ func handler(id string) (ret *handlerReg) {
 func wellTypedFor[TImpl handlerDefined](check handlerDefined) (handlerDefined, error) {
 	if check != nil {
 		if _, ok := check.(*TImpl); !ok {
-			return nil, errors.InvalidArgument.New("expected %s instead of %T", typeOf[*TImpl]().String(), check)
+			return nil, errors.New(str.Fmt("expected %s instead of %T", typeOf[*TImpl]().String(), check))
 		}
 	}
 	return new(TImpl), nil

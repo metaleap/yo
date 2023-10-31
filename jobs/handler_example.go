@@ -2,9 +2,10 @@ package jobs
 
 import (
 	"crypto/rand"
+	"errors"
 	"time"
 
-	errors "go.enpowerx.io/errors"
+	"yo/util/str"
 )
 
 type exampleHandler struct{}
@@ -57,7 +58,7 @@ func (it exampleHandler) TaskResults(ctx *Context, task TaskDetails) (TaskResult
 	msg := ctx.JobDetails.(*exampleJobDetails).MsgFmt
 	t := task.(*exampleTaskDetails).Time
 	if d := it.dice(); d%11 == 0 {
-		return nil, errors.Aborted.New("artificially provoked random error due to dice throw %d", d)
+		return nil, errors.New(str.Fmt("artificially provoked random error due to dice throw %d", d))
 	}
 	log.Infof(msg, t.Format("2006-01-02 15:04:05"), time.Since(t))
 	return &exampleTaskResults{NumLoggingsDone: 1}, nil

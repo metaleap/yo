@@ -4,6 +4,7 @@ type Logger interface {
 	Background() Logger
 	WithError(...any) Logger
 	Errorf(...any)
+	Infof(...any)
 }
 
 func loggerFor(...any) Logger {

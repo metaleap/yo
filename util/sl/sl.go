@@ -181,7 +181,7 @@ func Without[TSlice ~[]TItem, TItem comparable](slice TSlice, without ...TItem) 
 	})
 }
 
-func One[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) (ret TItem) {
+func FirstWhere[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) (ret TItem) {
 	for i := range slice {
 		if pred(slice[i]) {
 			return slice[i]
@@ -200,7 +200,7 @@ func Where[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) (ret
 	return
 }
 
-// add only those `items` not yet in `slice`. avoids the need for a `Unique(TSlice)TSlice`
+// add only those `items` not yet in `slice`.
 func With[TSlice ~[]TItem, TItem comparable](slice TSlice, items ...TItem) TSlice {
 	append_from := 0
 	for i := range items {
@@ -210,6 +210,18 @@ func With[TSlice ~[]TItem, TItem comparable](slice TSlice, items ...TItem) TSlic
 		append_from = i + 1
 	}
 	return append(slice, items[append_from:]...)
+}
+
+func Uniq[TSlice ~[]TItem, TItem comparable](slice TSlice) TSlice {
+	dupl_idxs := make([]int, 0, 2)
+	for i := len(slice) - 1; i > 0; i-- {
+		look_from := 0
+		for idx := IdxOf(slice[look_from:i], slice[i]); (look_from < i) && (idx >= 0); idx = IdxOf(slice[look_from:i], slice[i]) {
+			dupl_idxs = append(dupl_idxs, look_from+idx)
+			look_from = look_from + idx + 1
+		}
+	}
+	return WithoutIdxs(slice, dupl_idxs...)
 }
 
 func Repeat[TItem any](howMany int, item TItem) []TItem {

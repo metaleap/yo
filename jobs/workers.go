@@ -3,13 +3,13 @@ package jobs
 import (
 	"context"
 	"errors"
-	"jobs/pkg/utils"
 	"math"
 	"sort"
 	"strconv"
 	"sync"
 	"time"
 
+	. "yo/util"
 	"yo/util/sl"
 
 	"github.com/google/go-cmp/cmp"
@@ -37,7 +37,7 @@ func (it *engine) startAndFinalizeJobs() {
 func (it *engine) startDueJobs(ctx context.Context, tenant string) {
 	log := loggerFor(ctx)
 	var dueJobs []*Job
-	utils.WithTimeoutDo(ctx, it.options.TimeoutShort, func(ctx context.Context) {
+	WithTimeoutDo(ctx, it.options.TimeoutShort, func(ctx context.Context) {
 		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
 			JobFilter{}.WithStates(Pending).WithDue(true))
 		if it.logErr(log, err) == nil {
@@ -141,7 +141,7 @@ func (it *engine) startDueJob(ctx context.Context, job *Job) {
 		}
 		if err == nil {
 			job.State, job.StartTime, job.FinishTime, job.Info.DurationPrepInMinutes =
-				Running, timeNow(), nil, utils.Ptr(timeNow().Sub(*timeStarted).Minutes())
+				Running, timeNow(), nil, ToPtr(timeNow().Sub(*timeStarted).Minutes())
 			if it.logLifecycleEvents(false, nil, job, nil) {
 				job.logger(log).Infof("marking %s '%s' job '%s' as %s (with %d tasks)", Pending, job.Spec, job.ID, job.State, numTasks)
 			}
@@ -154,7 +154,7 @@ func (it *engine) startDueJob(ctx context.Context, job *Job) {
 func (it *engine) finalizeFinishedJobs(ctx context.Context, tenant string) {
 	log := loggerFor(ctx)
 	var runningJobs []*Job
-	utils.WithTimeoutDo(ctx, it.options.TimeoutShort, func(ctx context.Context) {
+	WithTimeoutDo(ctx, it.options.TimeoutShort, func(ctx context.Context) {
 		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
 			JobFilter{}.WithStates(Running))
 		if it.logErr(log, err) == nil {
@@ -233,7 +233,7 @@ func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
 		return
 	}
 	job.State, job.FinishTime, job.Info.DurationFinalizeInMinutes =
-		Done, timeNow(), utils.Ptr(timeNow().Sub(*timeStarted).Minutes())
+		Done, timeNow(), ToPtr(timeNow().Sub(*timeStarted).Minutes())
 
 	if it.logLifecycleEvents(false, nil, job, nil) {
 		job.logger(log).Infof("marking %s '%s' job '%s' as %s", Running, job.Spec, job.ID, Done)
@@ -256,7 +256,7 @@ func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
 func (it *engine) finalizeCancelingJobs(ctx context.Context, tenant string) {
 	log := loggerFor(ctx)
 	var cancelJobs []*Job
-	utils.WithTimeoutDo(ctx, it.options.TimeoutShort, func(ctx context.Context) {
+	WithTimeoutDo(ctx, it.options.TimeoutShort, func(ctx context.Context) {
 		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
 			JobFilter{}.WithStates(Cancelling))
 		if it.logErr(log, err) == nil {
@@ -398,7 +398,7 @@ func (it *engine) deleteStorageExpiredJobs() {
 	defer doAfter(it.options.IntervalDeleteStorageExpiredJobs, it.deleteStorageExpiredJobs)
 
 	for _, tenant := range it.tenants() {
-		utils.WithTimeoutDo(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
+		WithTimeoutDo(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
 			log := loggerFor(ctx)
 			jobSpecs, err := it.backend.listJobSpecs(ctx, tenant,
 				JobSpecFilter{}.WithStorageExpiry(true))
@@ -515,7 +515,7 @@ func (it *engine) runTasks() {
 					JobFilter{}.WithStates(Pending))
 				if it.logErr(log, err) == nil && upcomingJob != nil &&
 					(soonestDue == nil || upcomingJob.DueTime.Before(*soonestDue)) {
-					soonestDue = utils.Ptr(upcomingJob.DueTime.In(Timezone))
+					soonestDue = ToPtr(upcomingJob.DueTime.In(Timezone))
 				}
 			}
 		}
@@ -533,7 +533,7 @@ func (it *engine) runTasks() {
 		if soonestDue != nil && !manualJobsPossible { // best case: we have a soonest-upcoming-job-due-time...
 			if soonestDue.After(*timeNow()) { // then we can wait right until just then!
 				dur := soonestDue.Sub(*timeNow()) // except, not. an interim config change might mean a schedule change too, so:
-				callAgainIn = utils.If(dur < it.options.IntervalEnsureJobSchedules, dur,
+				callAgainIn = If(dur < it.options.IntervalEnsureJobSchedules, dur,
 					it.options.IntervalEnsureJobSchedules) + it.options.IntervalStartAndFinalizeJobs
 			} else { // the soonest was actually overdue, so tasks to do any-second-now
 				callAgainIn = it.options.IntervalRunTasks
@@ -565,7 +565,7 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 		task.HandlerID != task.job.spec.HandlerID || task.job.HandlerID != task.job.spec.HandlerID
 	oldTaskState := task.State
 	task.State, task.FinishTime, task.Attempts =
-		utils.If(alreadyCancelled, Cancelled, Running), nil, append([]*TaskAttempt{{Time: *timeNow()}}, task.Attempts...)
+		If(alreadyCancelled, Cancelled, Running), nil, append([]*TaskAttempt{{Time: *timeNow()}}, task.Attempts...)
 	if task.StartTime == nil {
 		task.StartTime = timeNow()
 	}
@@ -591,7 +591,7 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 	}
 
 	task.State, task.FinishTime =
-		utils.If(alreadyCancelled, Cancelled, Done), timeNow()
+		If(alreadyCancelled, Cancelled, Done), timeNow()
 	ctxErr := ctx.Err()
 	if ctxErr != nil && errors.Is(ctxErr, context.Canceled) {
 		task.State = Cancelled
@@ -604,7 +604,7 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 		task.Attempts[0].Err = ctxErr
 	}
 	if _ = it.logErr(log, task.Attempts[0].Err, task); it.logLifecycleEvents(true, nil, nil, task) {
-		task.logger(log).Infof("marking just-%s %s task '%s' (of '%s' job '%s') as %s", utils.If(task.Attempts[0].Err != nil, "failed", "finished"), Running, task.ID, taskJobSpecOrType, task.Job, task.State)
+		task.logger(log).Infof("marking just-%s %s task '%s' (of '%s' job '%s') as %s", If(task.Attempts[0].Err != nil, "failed", "finished"), Running, task.ID, taskJobSpecOrType, task.Job, task.State)
 	}
 	err := it.logErr(log, it.backend.saveTask(ctxOrig, task), task)
 	if err == nil && it.eventHandlers.OnTaskExecuted != nil { // only count tasks that actually ran (failed or not) AND were stored
