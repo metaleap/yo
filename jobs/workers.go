@@ -35,7 +35,7 @@ func (it *engine) startAndFinalizeJobs() {
 }
 
 func (it *engine) startDueJobs(ctx context.Context, tenant string) {
-	log := loggerFor(ctx)
+	log := loggerNew()
 	var dueJobs []*Job
 	WithTimeoutDo(ctx, it.options.TimeoutShort, func(ctx context.Context) {
 		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
@@ -78,7 +78,7 @@ func (it *engine) startDueJobs(ctx context.Context, tenant string) {
 }
 
 func (it *engine) startDueJob(ctx context.Context, job *Job) {
-	log := loggerFor(ctx)
+	log := loggerNew()
 	var err error
 	if job.spec == nil {
 		err = errNotFoundSpec(job.Spec)
@@ -152,7 +152,7 @@ func (it *engine) startDueJob(ctx context.Context, job *Job) {
 }
 
 func (it *engine) finalizeFinishedJobs(ctx context.Context, tenant string) {
-	log := loggerFor(ctx)
+	log := loggerNew()
 	var runningJobs []*Job
 	WithTimeoutDo(ctx, it.options.TimeoutShort, func(ctx context.Context) {
 		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
@@ -185,7 +185,7 @@ func (it *engine) finalizeFinishedJobs(ctx context.Context, tenant string) {
 }
 
 func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
-	log := loggerFor(ctx)
+	log := loggerNew()
 	stillBusy, err := it.backend.findTask(ctx, false, false, job.Tenant,
 		TaskFilter{}.WithStates(Pending, Running).WithJobs(job.ID))
 	if it.logErr(log, err, job) != nil || stillBusy != nil {
@@ -254,7 +254,7 @@ func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
 }
 
 func (it *engine) finalizeCancelingJobs(ctx context.Context, tenant string) {
-	log := loggerFor(ctx)
+	log := loggerNew()
 	var cancelJobs []*Job
 	WithTimeoutDo(ctx, it.options.TimeoutShort, func(ctx context.Context) {
 		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
@@ -268,7 +268,7 @@ func (it *engine) finalizeCancelingJobs(ctx context.Context, tenant string) {
 }
 
 func (it *engine) finalizeCancelingJob(ctx context.Context, job *Job) {
-	log := loggerFor(ctx)
+	log := loggerNew()
 	var numCanceled, numTasks int
 
 	listReq := ListRequest{PageSize: 444}
@@ -322,7 +322,7 @@ func (it *engine) ensureJobSchedules() {
 	var jobSpecs []*JobSpec
 	var mut sync.Mutex
 	concurrentlyDo(ctxNone, it.tenants(), func(ctx context.Context, tenant string) {
-		log := loggerFor(ctx)
+		log := loggerNew()
 		tenantJobSpecs, err := it.backend.listJobSpecs(ctx, tenant,
 			JobSpecFilter{}.WithDisabled(false).WithEnabledSchedules())
 		if it.logErr(log, err) == nil {
@@ -336,7 +336,7 @@ func (it *engine) ensureJobSchedules() {
 }
 
 func (it *engine) ensureJobSpecScheduled(ctx context.Context, jobSpec *JobSpec) {
-	log := loggerFor(ctx)
+	log := loggerNew()
 
 	latest, err := it.backend.findJob(ctx, false, false, jobSpec.Tenant, // defaults to sorted descending by due_time
 		JobFilter{}.WithJobSpecs(jobSpec.ID).WithAutoScheduled(true))
@@ -399,7 +399,7 @@ func (it *engine) deleteStorageExpiredJobs() {
 
 	for _, tenant := range it.tenants() {
 		WithTimeoutDo(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
-			log := loggerFor(ctx)
+			log := loggerNew()
 			jobSpecs, err := it.backend.listJobSpecs(ctx, tenant,
 				JobSpecFilter{}.WithStorageExpiry(true))
 			if it.logErr(log, err) != nil {
@@ -413,7 +413,7 @@ func (it *engine) deleteStorageExpiredJobs() {
 }
 
 func (it *engine) deleteStorageExpiredJobsForSpec(ctx context.Context, jobSpec *JobSpec) {
-	log := loggerFor(ctx)
+	log := loggerNew()
 	jobsToDelete, _, _, err := it.backend.listJobs(ctx, true, false, jobSpec.Tenant, noPaging,
 		JobFilter{}.WithStates(Done, Cancelled).WithJobSpecs(jobSpec.ID).
 			WithFinishedBefore(timeNow().AddDate(0, 0, -jobSpec.DeleteAfterDays)))
@@ -442,7 +442,7 @@ func (it *engine) expireOrRetryDeadTasks() {
 
 	currentlyRunning, mut := map[*JobSpec][]*Job{}, sync.Mutex{} // gather candidate jobs for task selection
 	concurrentlyDo(ctxNone, it.tenants(), func(ctx context.Context, tenant string) {
-		log := loggerFor(ctx)
+		log := loggerNew()
 		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
 			JobFilter{}.WithStates(Running))
 		if it.logErr(log, err) != nil || len(jobs) == 0 {
@@ -462,7 +462,7 @@ func (it *engine) expireOrRetryDeadTasks() {
 }
 
 func (it *engine) expireOrRetryDeadTasksForSpec(ctx context.Context, jobSpec *JobSpec, runningJobs []*Job) {
-	log := loggerFor(ctx)
+	log := loggerNew()
 	specDead, taskFilter := jobSpec == nil || jobSpec.Disabled || jobSpec.handler == nil, TaskFilter{}.
 		WithJobs(sl.To(runningJobs, func(v *Job) string { return v.ID })...)
 	if !specDead { // the usual case.
@@ -499,7 +499,7 @@ func (it *engine) runTasks() {
 	// fetch some Pending tasks
 	pendingTasks, mut := []*Task{}, sync.Mutex{}
 	concurrentlyDo(ctxNone, it.tenants(), func(ctx context.Context, tenant string) {
-		log := loggerFor(ctx)
+		log := loggerNew()
 		tasks, _, _, _, err := it.backend.listTasks(ctx, true, false, tenant, ListRequest{PageSize: it.options.FetchTasksToRunPerTenant},
 			TaskFilter{}.WithStates(Pending))
 		if it.logErr(log, err) != nil {
@@ -543,7 +543,7 @@ func (it *engine) runTasks() {
 }
 
 func (it *engine) runTask(ctx context.Context, task *Task) error {
-	log, timeStarted := loggerFor(ctx), timeNow()
+	log, timeStarted := loggerNew(), timeNow()
 	ctxOrig := ctx
 	ctx, done := context.WithCancel(ctx)
 	if oldCanceller := it.setTaskCanceler(task.ID, done); oldCanceller != nil {
@@ -614,7 +614,7 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 }
 
 func (it *engine) manualJobsPossible(ctx context.Context, tenant string) bool {
-	log := loggerFor(ctx)
+	log := loggerNew()
 	jobSpecManual, err := it.backend.findJobSpec(ctx, tenant,
 		JobSpecFilter{}.WithAllowManualJobs(true))
 	return it.logErr(log, err) != nil || jobSpecManual != nil

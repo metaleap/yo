@@ -126,7 +126,7 @@ func (it *engine) CancelJobs(ctx context.Context, tenant string, jobIDs ...strin
 }
 
 func (it *engine) cancelJobs(ctx context.Context, jobs map[CancellationReason][]*Job) (errs map[*Job]error) {
-	log := loggerFor(ctx)
+	log := loggerNew()
 	var mut sync.Mutex
 	errs = make(map[*Job]error, len(jobs)/2)
 	for reason, jobs := range jobs {
@@ -168,7 +168,7 @@ func (it *engine) CreateJob(ctx context.Context, jobSpec *JobSpec, jobID string,
 }
 
 func (it *engine) createJob(ctx context.Context, jobSpec *JobSpec, jobID string, dueTime time.Time, details JobDetails, last *Job, autoScheduled bool) (job *Job, err error) {
-	log := loggerFor(ctx)
+	log := loggerNew()
 	if jobSpec.Disabled {
 		return nil, errors.New(str.Fmt("cannot create off-schedule Job for job spec '%s' because it is currently disabled", jobSpec.ID))
 	}
@@ -228,7 +228,7 @@ func (it *engine) RetryTask(ctx context.Context, tenant string, jobID string, ta
 
 	return task, it.backend.transacted(ctx, func(ctx context.Context) error {
 		if job.State != Running {
-			log := loggerFor(ctx)
+			log := loggerNew()
 			if it.logLifecycleEvents(true, job.spec, job, task) {
 				job.logger(log).Infof("marking %s '%s' job '%s' as %s (for manual task retry)", job.State, job.Spec, job.ID, Running)
 			}
@@ -271,7 +271,7 @@ func (it *engine) JobStats(ctx context.Context, jobRef Resource) (*JobStats, err
 func (it *engine) tenants() (tenants []string) {
 	WithTimeoutDo(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
 		allTenants, err := it.backend.tenants(ctx)
-		tenants, _ = allTenants, it.logErr(loggerFor(ctx), err, nil)
+		tenants, _ = allTenants, it.logErr(loggerNew(), err)
 	})
 	return
 }

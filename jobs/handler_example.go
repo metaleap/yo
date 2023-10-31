@@ -54,7 +54,7 @@ func (exampleHandler) TaskDetails(_ *Context, stream chan<- []TaskDetails, _ fun
 }
 
 func (it exampleHandler) TaskResults(ctx *Context, task TaskDetails) (TaskResults, error) {
-	log := loggerFor(ctx)
+	log := loggerNew()
 	msg := ctx.JobDetails.(*exampleJobDetails).MsgFmt
 	t := task.(*exampleTaskDetails).Time
 	if d := it.dice(); d%11 == 0 {

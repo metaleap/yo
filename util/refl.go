@@ -96,7 +96,7 @@ func ReflWalk(rv reflect.Value, path []any, skipMaps bool, onValue func(path []a
 			ReflWalk(rv.Field(i), append(path, rv.Type().Field(i).Name), skipMaps, onValue)
 		}
 	default:
-		panic("unhandled reflect.Kind at " + str.From(path) + ": " + rv_kind.String())
+		panic("unhandled reflect.Kind at " + str.GoLike(path) + ": " + rv_kind.String())
 	}
 }
 

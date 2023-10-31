@@ -375,14 +375,14 @@ func (me *query) Sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 	if (str.Trim(string(me.op)) == "") || ((len(me.conds) == 0) && (len(me.operands) == 0)) ||
 		((len(me.conds) != 0) && (len(me.operands) != 0)) ||
 		((len(me.operands) != 0) && (len(me.operands) != 2) && (me.op != OpIn) && (me.op != OpNotIn)) {
-		panic(str.From(me))
+		panic(str.GoLike(me))
 	}
 	buf.WriteByte('(')
 	switch me.op {
 	case OpAnd, OpOr, OpNot:
 		is_not := (me.op == OpNot)
 		if is_not && (len(me.conds) != 1) {
-			panic(str.From(me))
+			panic(str.GoLike(me))
 		}
 		for i, cond := range me.conds {
 			if is_not || (i > 0) {
@@ -447,7 +447,7 @@ func SqlReprForDebugging(q Query) string {
 	var buf str.Buf
 	args := pgx.NamedArgs{}
 	q.Sql(&buf, func(f F) C { return C(f) }, args)
-	return buf.String() + "<<<<<<<<<" + str.From(args)
+	return buf.String() + "<<<<<<<<<" + str.GoLike(args)
 }
 
 func (me *query) Eval(obj any, c2f func(C) F) (falseDueTo Query) {

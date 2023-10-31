@@ -142,10 +142,10 @@ func TsFile2JsFileViaEsbuild(tsFilePath string) {
 		Loader:            esbuild.LoaderTS,
 	})
 	for _, msg := range result.Warnings {
-		panic("esbuild WARNs: " + str.From(msg))
+		panic("esbuild WARNs: " + str.GoLike(msg))
 	}
 	for _, msg := range result.Errors {
-		panic("esbuild ERRs: " + msg.Text + " @ " + str.From(msg.Location))
+		panic("esbuild ERRs: " + msg.Text + " @ " + str.GoLike(msg.Location))
 	}
 	WriteFile(out_file_path, result.Code)
 }

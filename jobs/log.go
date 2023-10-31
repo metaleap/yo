@@ -1,10 +1,25 @@
 package jobs
 
 import (
+	yolog "yo/log"
 	. "yo/util"
+	"yo/util/str"
 )
 
+type logger str.Dict
+
+func (me logger) Infof(msg string, args ...any) {
+	yolog.Println(msg, args...)
+}
+
+func loggerNew() logger {
+	return If(IsDevMode, logger{}, nil)
+}
+
 func (it *engine) logLifecycleEvents(forTask bool, spec *JobSpec, job *Job, task *Task) bool {
+	if !IsDevMode {
+		return false
+	}
 	if job == nil && task != nil {
 		job = task.job
 	}
@@ -19,59 +34,54 @@ func (it *engine) logLifecycleEvents(forTask bool, spec *JobSpec, job *Job, task
 	return If(forTask, it.options.LogTaskLifecycleEvents, it.options.LogJobLifecycleEvents)
 }
 
-func logFor(log Logger, jobSpec *JobSpec, job *Job, task *Task) Logger {
+func (it *Task) logger(log logger) logger {
+	return logFor(log, nil, nil, it)
+}
+
+func (it *Job) logger(log logger) logger {
+	return logFor(log, nil, it, nil)
+}
+
+func (it *JobSpec) logger(log logger) logger {
+	return logFor(log, it, nil, nil)
+}
+
+func logFor(log logger, jobSpec *JobSpec, job *Job, task *Task) logger {
+	if !IsDevMode {
+		return log
+	}
 	if job == nil && task != nil {
 		job = task.job
 	}
 	if jobSpec == nil && job != nil {
 		jobSpec = job.spec
 	}
-	zaps := make(map[string]string, 6)
 	if jobSpec != nil {
-		zaps["tenant"], zaps["job_spec"], zaps["job_type"] = jobSpec.Tenant, jobSpec.ID, jobSpec.HandlerID
+		log["job_spec"], log["job_type"] = jobSpec.ID, jobSpec.HandlerID
 	}
 	if job != nil {
-		zaps["tenant"], zaps["job_spec"], zaps["job_type"], zaps["job_id"], zaps["job_cancellation_reason"] = job.Tenant, job.Spec, job.HandlerID, job.ID, string(job.Info.CancellationReason)
+		log["job_spec"], log["job_type"], log["job_id"], log["job_cancellation_reason"] = job.Spec, job.HandlerID, job.ID, string(job.Info.CancellationReason)
 	}
 	if task != nil {
-		zaps["tenant"], zaps["job_type"], zaps["job_id"], zaps["job_task"] = task.Tenant, task.HandlerID, task.Job, task.ID
-	}
-	for k, v := range zaps {
-		if v != "" {
-			log = logWith(zapString(k, v))
-		}
+		log["job_type"], log["job_id"], log["job_task"] = task.HandlerID, task.Job, task.ID
 	}
 	return log
 }
 
-func (it *Task) logger(log Logger) Logger {
-	return logFor(log, nil, nil, it)
-}
-
-func (it *Job) logger(log Logger) Logger {
-	return logFor(log, nil, it, nil)
-}
-
-func (it *JobSpec) logger(log Logger) Logger {
-	return logFor(log, it, nil, nil)
-}
-
-func (it *engine) logErr(log Logger, err error, objs ...interface {
-	logger(Logger) Logger
+func (it *engine) logErr(log logger, err error, objs ...interface {
+	logger(logger) logger
 }) error {
-	if it.backend.isVersionConflictDuringSave(err) {
+	if (!IsDevMode) || it.backend.isVersionConflictDuringSave(err) {
 		// we don't noise up the logs (or otherwise handle err) just because another pod
-		// beat us to what both were attempting at the same time — it's by design supported
+		// beat us to what both were attempting at the same time — it's by-design ignored
 		return err
 	}
 	if err != nil {
-		if log == nil {
-			log = log.Background()
-		}
 		for _, obj := range objs {
 			log = obj.logger(log)
 		}
-		log.WithError(err).Errorf(err.Error())
+		log["err"] = err.Error()
+		yolog.Println(str.FmtV(log))
 	}
 	return err
 }

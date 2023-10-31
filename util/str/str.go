@@ -38,7 +38,8 @@ var (
 	Repeat   = strings.Repeat
 )
 
-func From(v any) string                    { return Fmt("%#v", v) }
+func FmtV(v any) string                    { return Fmt("%v", v) }
+func GoLike(v any) string                  { return Fmt("%#v", v) }
 func FromFloat(f float64, prec int) string { return strconv.FormatFloat(f, 'f', prec, 64) }
 func Base36(i int) string                  { return FromI64(int64(i), 36) }
 

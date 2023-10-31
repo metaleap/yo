@@ -95,7 +95,7 @@ func (me *Ctx) OnDone(subTimings Timings) {
 			if err, is_app_err := fail.(Err); is_app_err {
 				if IsDevMode && me.Http.ApiMethod != nil {
 					if known_errs := me.Http.ApiMethod.KnownErrs(); (len(known_errs) > 0) && (err != ErrMustBeAdmin) && !sl.Has(known_errs, err) {
-						os.Stderr.WriteString("\n\nunexpected/undocumented Err thrown: " + string(err) + " not found in " + str.From(known_errs) + ", add it to " + str.From(me.Http.ApiMethod) + "\n\n")
+						os.Stderr.WriteString("\n\nunexpected/undocumented Err thrown: " + string(err) + " not found in " + str.GoLike(known_errs) + ", add it to " + str.GoLike(me.Http.ApiMethod) + "\n\n")
 						os.Stderr.Sync()
 						os.Exit(1)
 					}
