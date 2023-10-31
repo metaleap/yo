@@ -176,26 +176,20 @@ func (it *engine) createJob(ctx context.Context, jobSpec *JobSpec, jobID string,
 		return nil, errors.New(str.Fmt("cannot create off-schedule Job for job spec '%s' because it is configured to not `allowManualJobs`", jobSpec.ID))
 	}
 	if jobID == "" {
-		if autoScheduled {
-			jobID = jobSpec.ID + "_" + strconv.FormatInt(dueTime.UnixNano(), 36) // no ulid/guid etc to avoid the ca. 1x/century accidental duplicate scheduling by multiple concurrent pods
-		} else if jobID, err = newULID(); err != nil {
-			return nil, err
-		}
+		jobID = newId(jobSpec.ID)
 	}
 
-	dummyID, _ := newULID()
 	job = &Job{
-		Resource:        Resource{jobSpec.Tenant, jobID},
-		Spec:            jobSpec.ID,
-		HandlerID:       jobSpec.HandlerID,
-		State:           Pending,
-		AutoScheduled:   autoScheduled,
-		ResourceVersion: 1,
-		spec:            jobSpec,
-		Details:         details,
-		DueTime:         dueTime.In(Timezone),
-		ScheduledNextAfterJob: If(autoScheduled, "_none_", "_manual_") +
-			If(dummyID != "", dummyID, strconv.FormatInt(time.Now().UnixNano(), 36)),
+		Resource:              Resource{jobSpec.Tenant, jobID},
+		Spec:                  jobSpec.ID,
+		HandlerID:             jobSpec.HandlerID,
+		State:                 Pending,
+		AutoScheduled:         autoScheduled,
+		ResourceVersion:       1,
+		spec:                  jobSpec,
+		Details:               details,
+		DueTime:               dueTime.In(Timezone),
+		ScheduledNextAfterJob: If(autoScheduled, "_none_", "_manual_") + newId(jobSpec.ID),
 	}
 	if autoScheduled && last != nil {
 		job.ScheduledNextAfterJob = last.ID

@@ -4,6 +4,8 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"math"
+	"math/rand"
 	"reflect"
 	"sync/atomic"
 	"time"
@@ -13,11 +15,15 @@ import (
 	"yo/util/str"
 )
 
-type hasID interface{ GetId() string }
+type hasId interface{ GetId() string }
 type HasTimeout interface{ Timeout() time.Duration }
 
 func atOnceDo(f ...func()) {
 	concurrentlyDo(ctxNone, f, func(ctx context.Context, f func()) { f() }, 0, 0)
+}
+
+func newId(prefix string) string {
+	return prefix + "_" + str.FromI64(time.Now().In(Timezone).UnixNano(), 36) + "_" + str.FromI64(rand.Int63n(math.MaxInt64), 36)
 }
 
 // concurrentlyDo is like a `sync.WaitGroup` when `maxConcurrentOps`
@@ -68,7 +74,7 @@ func concurrentlyDo[T any](ctx context.Context, workSet []T, op func(context.Con
 	}
 }
 
-func findByID[T hasID](collection []T, id string) T {
+func findByID[T hasId](collection []T, id string) T {
 	return sl.FirstWhere(collection, func(v T) bool { return v.GetId() == id })
 }
 
