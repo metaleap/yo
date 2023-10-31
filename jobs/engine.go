@@ -31,13 +31,13 @@ type (
 		// CreateJob "manually schedules" an off-schedule job at the specified `dueTime`, which if missing (or set in the past) defaults to `timeNow()`.
 		CreateJob(ctx context.Context, jobSpec *JobSpec, jobID string, dueTime *time.Time, details JobDetails) (job *Job, err error)
 		// CancelJobs marks the specified jobs as `CANCELLING`. The `len(errs)` is always `<= len(jobIDs)`.
-		CancelJobs(ctx context.Context, tenant string, jobIDs ...string) (errs []error)
+		CancelJobs(ctx context.Context, jobIDs ...string) (errs []error)
 		// DeleteJob clears from storage the specified DONE or CANCELLED `Job` and all its `Task`s, if any.
 		DeleteJob(ctx context.Context, job Resource) error
 		// JobStats gathers progress stats of a `Job` and its `Task`s.
 		JobStats(ctx context.Context, job Resource) (*JobStats, error)
 		// RetryTask retries the specified failed task.
-		RetryTask(ctx context.Context, tenant string, jobID string, taskID string) (*Task, error)
+		RetryTask(ctx context.Context, jobID string, taskID string) (*Task, error)
 
 		OnTaskExecuted(func(*Task, time.Duration))
 		OnJobExecuted(func(*Job, *JobStats))
@@ -77,15 +77,15 @@ type (
 		TimeoutShort time.Duration `yaml:"defaultTimeout" default:"22s"`
 		// MaxConcurrentOps limits parallelism when processing multiple `Resource`s concurrently.
 		MaxConcurrentOps int `yaml:"maxConcurrentOps" default:"6"`
-		// FetchTasksToRunPerTenant denotes the maximum number of tasks-to-run-now to fetch, per tenant, approx. every `IntervalRunTasks`.
-		FetchTasksToRunPerTenant int `yaml:"fetchTasksToRunPerTenant" default:"3"`
+		// FetchTasksToRun denotes the maximum number of tasks-to-run-now to fetch, approx. every `IntervalRunTasks`.
+		FetchTasksToRun int `yaml:"fetchTasksToRun" default:"3"`
 	}
 )
 
 func NewEngine(impl Backend, options Options) (Engine, error) {
 	err := sanitize[Options](2, 128, strconv.Atoi, map[string]*int{
-		"MaxConcurrentOps":         &options.MaxConcurrentOps,
-		"FetchTasksToRunPerTenant": &options.FetchTasksToRunPerTenant,
+		"MaxConcurrentOps": &options.MaxConcurrentOps,
+		"FetchTasksToRun":  &options.FetchTasksToRun,
 	})
 	if err == nil {
 		err = sanitize[Options](2*time.Second, 22*time.Hour, time.ParseDuration, map[string]*time.Duration{
@@ -113,8 +113,8 @@ func (it *engine) Resume() {
 	doAfter(Clamp(22*time.Second, 44*time.Second, it.options.IntervalEnsureJobSchedules), it.ensureJobSchedules)
 }
 
-func (it *engine) CancelJobs(ctx context.Context, tenant string, jobIDs ...string) (errs []error) {
-	jobs, _, _, err := it.backend.listJobs(ctx, false, false, tenant, ListRequest{PageSize: len(jobIDs)},
+func (it *engine) CancelJobs(ctx context.Context, jobIDs ...string) (errs []error) {
+	jobs, _, _, err := it.backend.listJobs(ctx, false, false, ListRequest{PageSize: len(jobIDs)},
 		JobFilter{}.WithStates(Running, Pending).WithIDs(jobIDs...))
 	if err != nil {
 		return []error{err}
@@ -148,14 +148,14 @@ func (it *engine) cancelJobs(ctx context.Context, jobs map[CancellationReason][]
 }
 
 func (it *engine) DeleteJob(ctx context.Context, jobRef Resource) error {
-	job, err := it.backend.getJob(ctx, false, false, jobRef.Tenant, jobRef.ID)
+	job, err := it.backend.getJob(ctx, false, false, jobRef.ID)
 	if err != nil {
 		return err
 	}
 	if job.State != Done && job.State != Cancelled {
 		return errors.New(str.Fmt("job '%s' was expected in a `state` of '%s' or '%s', not '%s'", jobRef.ID, Done, Cancelled, job.State))
 	}
-	return it.backend.deleteJobs(ctx, jobRef.Tenant, JobFilter{}.WithIDs(jobRef.ID))
+	return it.backend.deleteJobs(ctx, JobFilter{}.WithIDs(jobRef.ID))
 }
 
 func (it *engine) CreateJob(ctx context.Context, jobSpec *JobSpec, jobID string, dueTime *time.Time, details JobDetails) (job *Job, err error) {
@@ -180,7 +180,7 @@ func (it *engine) createJob(ctx context.Context, jobSpec *JobSpec, jobID string,
 	}
 
 	job = &Job{
-		Resource:              Resource{jobSpec.Tenant, jobID},
+		Resource:              Resource{jobID},
 		Spec:                  jobSpec.ID,
 		HandlerID:             jobSpec.HandlerID,
 		State:                 Pending,
@@ -193,7 +193,7 @@ func (it *engine) createJob(ctx context.Context, jobSpec *JobSpec, jobID string,
 	}
 	if autoScheduled && last != nil {
 		job.ScheduledNextAfterJob = last.ID
-		alreadyThere, err := it.backend.findJob(ctx, true, true, jobSpec.Tenant, JobFilter{}.WithScheduledNextAfterJob(job.ScheduledNextAfterJob))
+		alreadyThere, err := it.backend.findJob(ctx, true, true, JobFilter{}.WithScheduledNextAfterJob(job.ScheduledNextAfterJob))
 		if alreadyThere != nil || err != nil {
 			return If(alreadyThere != nil, alreadyThere, job), err
 		}
@@ -204,8 +204,8 @@ func (it *engine) createJob(ctx context.Context, jobSpec *JobSpec, jobID string,
 	return job, it.backend.insertJobs(ctx, job)
 }
 
-func (it *engine) RetryTask(ctx context.Context, tenant string, jobID string, taskID string) (*Task, error) {
-	task, err := it.backend.getTask(ctx, true, true, tenant, taskID)
+func (it *engine) RetryTask(ctx context.Context, jobID string, taskID string) (*Task, error) {
+	task, err := it.backend.getTask(ctx, true, true, taskID)
 	if err != nil {
 		return nil, err
 	}
@@ -236,20 +236,20 @@ func (it *engine) RetryTask(ctx context.Context, tenant string, jobID string, ta
 }
 
 func (it *engine) JobStats(ctx context.Context, jobRef Resource) (*JobStats, error) {
-	job, err := it.backend.getJob(ctx, false, false, jobRef.Tenant, jobRef.ID)
+	job, err := it.backend.getJob(ctx, false, false, jobRef.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	ret := JobStats{TasksByState: make(map[RunState]int64, 4)}
 	for _, state := range []RunState{Pending, Running, Done, Cancelled} {
-		ret.TasksByState[state], err = it.backend.countTasks(ctx, job.Tenant, 0,
+		ret.TasksByState[state], err = it.backend.countTasks(ctx, 0,
 			TaskFilter{}.WithJobs(job.ID).WithStates(state))
 		if ret.TasksTotal += ret.TasksByState[state]; err != nil {
 			return nil, err
 		}
 	}
-	if ret.TasksFailed, err = it.backend.countTasks(ctx, job.Tenant, 0,
+	if ret.TasksFailed, err = it.backend.countTasks(ctx, 0,
 		TaskFilter{}.WithJobs(job.ID).WithStates(Done).WithFailed()); err != nil {
 		return nil, err
 	}
@@ -260,14 +260,6 @@ func (it *engine) JobStats(ctx context.Context, jobRef Resource) (*JobStats, err
 	}
 	ret.DurationPrepMins, ret.DurationFinalizeMins = job.Info.DurationPrepInMinutes, job.Info.DurationFinalizeInMinutes
 	return &ret, err
-}
-
-func (it *engine) tenants() (tenants []string) {
-	DoTimeout(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
-		allTenants, err := it.backend.tenants(ctx)
-		tenants, _ = allTenants, it.logErr(loggerNew(), err)
-	})
-	return
 }
 
 func (it *engine) OnTaskExecuted(eventHandler func(*Task, time.Duration)) {

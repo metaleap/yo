@@ -6,7 +6,6 @@ import (
 	"math"
 	"sort"
 	"strconv"
-	"sync"
 	"time"
 
 	. "yo/util"
@@ -25,20 +24,18 @@ var (
 func (it *engine) startAndFinalizeJobs() {
 	defer doAfter(it.options.IntervalStartAndFinalizeJobs, it.startAndFinalizeJobs)
 
-	for _, tenant := range it.tenants() {
-		GoEach(ctxNone,
-			func(ctx context.Context) { it.startDueJobs(ctx, tenant) },
-			func(ctx context.Context) { it.finalizeFinishedJobs(ctx, tenant) },
-			func(ctx context.Context) { it.finalizeCancelingJobs(ctx, tenant) },
-		)
-	}
+	GoEach(ctxNone,
+		func(ctx context.Context) { it.startDueJobs(ctx) },
+		func(ctx context.Context) { it.finalizeFinishedJobs(ctx) },
+		func(ctx context.Context) { it.finalizeCancelingJobs(ctx) },
+	)
 }
 
-func (it *engine) startDueJobs(ctx context.Context, tenant string) {
+func (it *engine) startDueJobs(ctx context.Context) {
 	log := loggerNew()
 	var dueJobs []*Job
 	DoTimeout(ctx, it.options.TimeoutShort, func(ctx context.Context) {
-		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
+		jobs, _, _, err := it.backend.listJobs(ctx, true, false, noPaging,
 			JobFilter{}.WithStates(Pending).WithDue(true))
 		if it.logErr(log, err) == nil {
 			dueJobs = jobs
@@ -125,7 +122,7 @@ func (it *engine) startDueJob(ctx context.Context, job *Job) {
 					_, err = handler(job.spec.HandlerID).wellTypedTaskDetails(details)
 				}
 				return &Task{
-					Resource:        Resource{job.Tenant, job.ID + "_" + strconv.Itoa(numTasks)},
+					Resource:        Resource{job.ID + "_" + strconv.Itoa(numTasks)},
 					Job:             job.ID,
 					HandlerID:       job.HandlerID,
 					State:           Pending,
@@ -151,11 +148,11 @@ func (it *engine) startDueJob(ctx context.Context, job *Job) {
 	}), job)
 }
 
-func (it *engine) finalizeFinishedJobs(ctx context.Context, tenant string) {
+func (it *engine) finalizeFinishedJobs(ctx context.Context) {
 	log := loggerNew()
 	var runningJobs []*Job
 	DoTimeout(ctx, it.options.TimeoutShort, func(ctx context.Context) {
-		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
+		jobs, _, _, err := it.backend.listJobs(ctx, true, false, noPaging,
 			JobFilter{}.WithStates(Running))
 		if it.logErr(log, err) == nil {
 			runningJobs = jobs
@@ -186,7 +183,7 @@ func (it *engine) finalizeFinishedJobs(ctx context.Context, tenant string) {
 
 func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
 	log := loggerNew()
-	stillBusy, err := it.backend.findTask(ctx, false, false, job.Tenant,
+	stillBusy, err := it.backend.findTask(ctx, false, false,
 		TaskFilter{}.WithStates(Pending, Running).WithJobs(job.ID))
 	if it.logErr(log, err, job) != nil || stillBusy != nil {
 		return
@@ -207,7 +204,7 @@ func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
 			go func(ctx context.Context) {
 				defer close(tasksStream)
 				for tasksListReq.PageToken = ""; !abortStreaming; { // bools dont need a mutex =)
-					tasksPage, _, _, nextPageTok, err := it.backend.listTasks(ctx, false, false, job.Tenant,
+					tasksPage, _, _, nextPageTok, err := it.backend.listTasks(ctx, false, false,
 						tasksListReq, tasksFilter)
 					if it.logErr(log, err, job) != nil {
 						return
@@ -253,11 +250,11 @@ func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
 	}
 }
 
-func (it *engine) finalizeCancelingJobs(ctx context.Context, tenant string) {
+func (it *engine) finalizeCancelingJobs(ctx context.Context) {
 	log := loggerNew()
 	var cancelJobs []*Job
 	DoTimeout(ctx, it.options.TimeoutShort, func(ctx context.Context) {
-		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
+		jobs, _, _, err := it.backend.listJobs(ctx, true, false, noPaging,
 			JobFilter{}.WithStates(Cancelling))
 		if it.logErr(log, err) == nil {
 			cancelJobs = jobs
@@ -273,7 +270,7 @@ func (it *engine) finalizeCancelingJob(ctx context.Context, job *Job) {
 
 	listReq := ListRequest{PageSize: 444}
 	for {
-		tasks, _, _, pageTok, err := it.backend.listTasks(ctx, false, false, job.Tenant, listReq,
+		tasks, _, _, pageTok, err := it.backend.listTasks(ctx, false, false, listReq,
 			TaskFilter{}.WithJobs(job.ID).WithStates(Pending, Running))
 		if it.logErr(log, err, job) != nil {
 			return
@@ -320,17 +317,13 @@ func (it *engine) ensureJobSchedules() {
 	defer doAfter(it.options.IntervalEnsureJobSchedules, it.ensureJobSchedules)
 
 	var jobSpecs []*JobSpec
-	var mut sync.Mutex
-	GoItems(ctxNone, it.tenants(), func(ctx context.Context, tenant string) {
+	{
+		var err error
 		log := loggerNew()
-		tenantJobSpecs, err := it.backend.listJobSpecs(ctx, tenant,
+		jobSpecs, err = it.backend.listJobSpecs(ctxNone,
 			JobSpecFilter{}.WithDisabled(false).WithEnabledSchedules())
-		if it.logErr(log, err) == nil {
-			mut.Lock()
-			defer mut.Unlock()
-			jobSpecs = append(jobSpecs, tenantJobSpecs...)
-		}
-	}, it.options.MaxConcurrentOps, it.options.TimeoutShort)
+		it.logErr(log, err)
+	}
 	GoItems(ctxNone, jobSpecs, it.ensureJobSpecScheduled,
 		it.options.MaxConcurrentOps, it.options.TimeoutShort)
 }
@@ -338,7 +331,7 @@ func (it *engine) ensureJobSchedules() {
 func (it *engine) ensureJobSpecScheduled(ctx context.Context, jobSpec *JobSpec) {
 	log := loggerNew()
 
-	latest, err := it.backend.findJob(ctx, false, false, jobSpec.Tenant, // defaults to sorted descending by due_time
+	latest, err := it.backend.findJob(ctx, false, false, // defaults to sorted descending by due_time
 		JobFilter{}.WithJobSpecs(jobSpec.ID).WithAutoScheduled(true))
 	if it.logErr(log, err, jobSpec) != nil || (latest != nil && // still busy? then no scheduling needed here & now
 		(latest.State == Running || latest.State == Cancelling)) {
@@ -351,7 +344,7 @@ func (it *engine) ensureJobSpecScheduled(ctx context.Context, jobSpec *JobSpec) 
 		_ = it.logErr(log, it.scheduleJob(ctx, jobSpec, latest), jobSpec)
 	} else if latest.DueTime.After(*timeNow()) { // verify the Pending job's future due_time against the current `jobSpec.Schedules` in case the latter changed after the former was scheduled
 		var after *time.Time
-		lastDone, err := it.backend.findJob(ctx, false, false, jobSpec.Tenant,
+		lastDone, err := it.backend.findJob(ctx, false, false,
 			JobFilter{}.WithJobSpecs(jobSpec.ID).WithStates(Done, Cancelled))
 		if it.logErr(log, err, latest) != nil {
 			return
@@ -397,24 +390,21 @@ func (it *engine) scheduleJob(ctx context.Context, jobSpec *JobSpec, last *Job) 
 func (it *engine) deleteStorageExpiredJobs() {
 	defer doAfter(it.options.IntervalDeleteStorageExpiredJobs, it.deleteStorageExpiredJobs)
 
-	for _, tenant := range it.tenants() {
-		DoTimeout(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
-			log := loggerNew()
-			jobSpecs, err := it.backend.listJobSpecs(ctx, tenant,
-				JobSpecFilter{}.WithStorageExpiry(true))
-			if it.logErr(log, err) != nil {
-				return
-			}
-			for _, jobSpec := range jobSpecs {
-				it.deleteStorageExpiredJobsForSpec(ctx, jobSpec)
-			}
-		})
-	}
+	DoTimeout(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
+		log := loggerNew()
+		jobSpecs, err := it.backend.listJobSpecs(ctx, JobSpecFilter{}.WithStorageExpiry(true))
+		if it.logErr(log, err) != nil {
+			return
+		}
+		for _, jobSpec := range jobSpecs {
+			it.deleteStorageExpiredJobsForSpec(ctx, jobSpec)
+		}
+	})
 }
 
 func (it *engine) deleteStorageExpiredJobsForSpec(ctx context.Context, jobSpec *JobSpec) {
 	log := loggerNew()
-	jobsToDelete, _, _, err := it.backend.listJobs(ctx, true, false, jobSpec.Tenant, noPaging,
+	jobsToDelete, _, _, err := it.backend.listJobs(ctx, true, false, noPaging,
 		JobFilter{}.WithStates(Done, Cancelled).WithJobSpecs(jobSpec.ID).
 			WithFinishedBefore(timeNow().AddDate(0, 0, -jobSpec.DeleteAfterDays)))
 	if it.logErr(log, err, jobSpec) != nil {
@@ -426,9 +416,9 @@ func (it *engine) deleteStorageExpiredJobsForSpec(ctx context.Context, jobSpec *
 			job.logger(log).Infof("deleting %s '%s' job '%s' and its tasks", job.State, jobSpec.ID, job.ID)
 		}
 		_ = it.logErr(log, it.backend.transacted(ctx, func(ctx context.Context) error {
-			err := it.backend.deleteTasks(ctx, jobSpec.Tenant, TaskFilter{}.WithJobs(job.ID))
+			err := it.backend.deleteTasks(ctx, TaskFilter{}.WithJobs(job.ID))
 			if err == nil {
-				err = it.backend.deleteJobs(ctx, jobSpec.Tenant, JobFilter{}.WithIDs(job.ID))
+				err = it.backend.deleteJobs(ctx, JobFilter{}.WithIDs(job.ID))
 			}
 			return err
 		}), job)
@@ -440,21 +430,19 @@ func (it *engine) deleteStorageExpiredJobsForSpec(ctx context.Context, jobSpec *
 func (it *engine) expireOrRetryDeadTasks() {
 	defer doAfter(it.options.IntervalExpireOrRetryDeadTasks, it.expireOrRetryDeadTasks)
 
-	currentlyRunning, mut := map[*JobSpec][]*Job{}, sync.Mutex{} // gather candidate jobs for task selection
-	GoItems(ctxNone, it.tenants(), func(ctx context.Context, tenant string) {
+	currentlyRunning := map[*JobSpec][]*Job{} // gather candidate jobs for task selection
+	{
 		log := loggerNew()
-		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
+		jobs, _, _, err := it.backend.listJobs(ctxNone, true, false, noPaging,
 			JobFilter{}.WithStates(Running))
 		if it.logErr(log, err) != nil || len(jobs) == 0 {
 			return
 		}
 
-		mut.Lock()
-		defer mut.Unlock()
 		for _, job := range jobs {
 			currentlyRunning[job.spec] = append(currentlyRunning[job.spec], job)
 		}
-	}, it.options.MaxConcurrentOps, it.options.TimeoutShort)
+	}
 
 	GoItems(ctxNone, sl.Keys(currentlyRunning), func(ctx context.Context, js *JobSpec) {
 		it.expireOrRetryDeadTasksForSpec(ctx, js, currentlyRunning[js])
@@ -470,7 +458,7 @@ func (it *engine) expireOrRetryDeadTasksForSpec(ctx context.Context, jobSpec *Jo
 	} else { //  the rare edge case: un-Done tasks still in DB for old now-disabled-or-deleted-from-config job spec
 		taskFilter = taskFilter.WithStates(Running, Pending)
 	}
-	deadTasks, _, _, _, err := it.backend.listTasks(ctx, false, false, runningJobs[0].Tenant, noPaging, taskFilter)
+	deadTasks, _, _, _, err := it.backend.listTasks(ctx, false, false, noPaging, taskFilter)
 	if it.logErr(log, err, jobSpec) != nil {
 		return
 	}
@@ -491,55 +479,23 @@ func (it *engine) expireOrRetryDeadTasksForSpec(ctx context.Context, jobSpec *Jo
 }
 
 func (it *engine) runTasks() {
-	callAgainIn := it.options.IntervalRunTasks // prolonged below if zero action right now, skipped if plenty action right now
-	defer func() { doAfter(callAgainIn, it.runTasks) }()
+	defer func() { doAfter(it.options.IntervalRunTasks, it.runTasks) }()
 
-	var soonestDue *time.Time   // for adaptive slowdown at the end
-	var manualJobsPossible bool // dito
-	// fetch some Pending tasks
-	pendingTasks, mut := []*Task{}, sync.Mutex{}
-	GoItems(ctxNone, it.tenants(), func(ctx context.Context, tenant string) {
+	var pendingTasks []*Task
+	{
+		var err error
 		log := loggerNew()
-		tasks, _, _, _, err := it.backend.listTasks(ctx, true, false, tenant, ListRequest{PageSize: it.options.FetchTasksToRunPerTenant},
+		pendingTasks, _, _, _, err = it.backend.listTasks(ctxNone, true, false, ListRequest{PageSize: it.options.FetchTasksToRun},
 			TaskFilter{}.WithStates(Pending))
 		if it.logErr(log, err) != nil {
 			return
 		}
-		mut.Lock()
-		defer mut.Unlock()
-		pendingTasks = append(pendingTasks, tasks...)
-
-		if len(pendingTasks) == 0 && !manualJobsPossible {
-			if manualJobsPossible = it.manualJobsPossible(ctx, tenant); !manualJobsPossible {
-				upcomingJob, err := it.backend.findJob(ctx, false, false, tenant,
-					JobFilter{}.WithStates(Pending))
-				if it.logErr(log, err) == nil && upcomingJob != nil &&
-					(soonestDue == nil || upcomingJob.DueTime.Before(*soonestDue)) {
-					soonestDue = ToPtr(upcomingJob.DueTime.In(Timezone))
-				}
-			}
-		}
-	}, it.options.MaxConcurrentOps, it.options.TimeoutShort)
+	}
 
 	// ...then run them
 	GoItems(ctxNone, pendingTasks, func(ctx context.Context, task *Task) {
 		_ = it.runTask(ctx, task)
 	}, it.options.MaxConcurrentOps, 0 /* hence, task.Timeout() */)
-
-	if len(pendingTasks) > 0 { // times are busy: fetch more tasks sooner!
-		callAgainIn = 123 * time.Millisecond // but allow for other pods to get through and pick stuff too
-	} else if len(pendingTasks) == 0 { // times are quiet: can wait twice as long to reduce traffic...
-		callAgainIn = 2 * it.options.IntervalRunTasks // but shouldn't wait too long either: once a Job has started, it shouldn't hang inactive for minutes. plus there may be manual job creations
-		if soonestDue != nil && !manualJobsPossible { // best case: we have a soonest-upcoming-job-due-time...
-			if soonestDue.After(*timeNow()) { // then we can wait right until just then!
-				dur := soonestDue.Sub(*timeNow()) // except, not. an interim config change might mean a schedule change too, so:
-				callAgainIn = If(dur < it.options.IntervalEnsureJobSchedules, dur,
-					it.options.IntervalEnsureJobSchedules) + it.options.IntervalStartAndFinalizeJobs
-			} else { // the soonest was actually overdue, so tasks to do any-second-now
-				callAgainIn = it.options.IntervalRunTasks
-			}
-		}
-	}
 }
 
 func (it *engine) runTask(ctx context.Context, task *Task) error {
@@ -614,9 +570,9 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 	return err
 }
 
-func (it *engine) manualJobsPossible(ctx context.Context, tenant string) bool {
+func (it *engine) manualJobsPossible(ctx context.Context) bool {
 	log := loggerNew()
-	jobSpecManual, err := it.backend.findJobSpec(ctx, tenant,
+	jobSpecManual, err := it.backend.findJobSpec(ctx,
 		JobSpecFilter{}.WithAllowManualJobs(true))
 	return it.logErr(log, err) != nil || jobSpecManual != nil
 }

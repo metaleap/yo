@@ -12,7 +12,7 @@ type exampleHandler struct{}
 
 func init() {
 	_ = Register[exampleHandler, exampleJobDetails, exampleJobResults, exampleTaskDetails, exampleTaskResults](
-		func(string, string) exampleHandler { return exampleHandler{} })
+		func(string) exampleHandler { return exampleHandler{} })
 }
 
 type exampleJobDetails struct {

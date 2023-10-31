@@ -37,7 +37,7 @@ type JobSpec struct {
 func (it *JobSpec) defaultJobDetails() (details JobDetails, err error) {
 	if len(it.DefaultJobDetails) > 0 {
 		details, _ = handler(it.HandlerID).wellTypedJobDetails(nil)
-		err = ensureValueFromMap(&it.DefaultJobDetails, &details, it.Tenant)
+		err = ensureValueFromMap(&it.DefaultJobDetails, &details)
 	}
 	return
 }
@@ -60,7 +60,7 @@ func (it *JobSpec) EnsureValidOrErrorIfEnabled() (*JobSpec, error) {
 
 func (it *JobSpec) EnsureValid() (errs []error) { // not quite the same as "validation"  =)
 	if handlerReg := handler(it.HandlerID); it.handler == nil && (!it.Disabled) && handlerReg != nil {
-		it.handler = handlerReg.forTenant(it.HandlerID, it.Tenant)
+		it.handler = handlerReg.For(it.HandlerID)
 	}
 	if it.handler == nil && !it.Disabled {
 		errs = append(errs, errNotFoundHandler(it.ID, it.HandlerID))

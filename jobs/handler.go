@@ -82,7 +82,6 @@ type Handler interface {
 
 type Context struct {
 	context.Context
-	Tenant     string
 	JobID      string
 	JobDetails JobDetails
 	JobSpec    JobSpec
@@ -91,29 +90,29 @@ type Context struct {
 
 type handlerReg struct {
 	sync.Mutex
-	new                  func(handlerID string, tenant string) Handler
+	new                  func(handlerID string) Handler
 	wellTypedJobDetails  func(check handlerDefined) (new handlerDefined, err error)
 	wellTypedJobResults  func(check handlerDefined) (new handlerDefined, err error)
 	wellTypedTaskDetails func(check handlerDefined) (new handlerDefined, err error)
 	wellTypedTaskResults func(check handlerDefined) (new handlerDefined, err error)
-	byTenantAndID        map[string]Handler
+	byId                 map[string]Handler
 }
 
 var (
 	registeredHandlers = map[string]*handlerReg{}
 )
 
-func Register[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](newHandler func(handlerID string, tenant string) THandler) error {
+func Register[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](newHandler func(handlerID string) THandler) error {
 	return register[THandler, TJobDetails, TJobResults, TTaskDetails, TTaskResults](strings.TrimLeft(ReflType[THandler]().String(), "*"), newHandler)
 }
 
-func RegisterDefault[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](newHandler func(handlerID string, tenant string) THandler) {
+func RegisterDefault[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](newHandler func(handlerID string) THandler) {
 	if err := register[THandler, TJobDetails, TJobResults, TTaskDetails, TTaskResults]("", newHandler); err != nil {
 		panic(err)
 	}
 }
 
-func register[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](id string, newHandler func(handlerID string, tenant string) THandler) error {
+func register[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](id string, newHandler func(handlerID string) THandler) error {
 	if typeIs[TJobDetails](reflect.Pointer) || typeIs[TJobResults](reflect.Pointer) || typeIs[TTaskDetails](reflect.Pointer) || typeIs[TTaskResults](reflect.Pointer) {
 		return errors.New("TJobDetails, TJobResults, TTaskDetails, TTaskResults must not be pointer types")
 	}
@@ -122,8 +121,8 @@ func register[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, 
 	}
 
 	it := handlerReg{
-		new:                  func(handlerID string, tenant string) Handler { return newHandler(handlerID, tenant) },
-		byTenantAndID:        map[string]Handler{},
+		new:                  func(handlerID string) Handler { return newHandler(handlerID) },
+		byId:                 map[string]Handler{},
 		wellTypedJobDetails:  wellTypedFor[TJobDetails],
 		wellTypedJobResults:  wellTypedFor[TJobResults],
 		wellTypedTaskDetails: wellTypedFor[TTaskDetails],
@@ -152,13 +151,12 @@ func wellTypedFor[TImpl handlerDefined](check handlerDefined) (handlerDefined, e
 	return new(TImpl), nil
 }
 
-func (it *handlerReg) forTenant(handlerID string, tenant string) (ret Handler) {
-	key := tenant + ":" + handlerID
+func (it *handlerReg) For(handlerID string) (ret Handler) {
 	it.Lock()
 	defer it.Unlock()
-	if ret = it.byTenantAndID[key]; ret == nil {
-		ret = it.new(handlerID, tenant)
-		it.byTenantAndID[key] = ret
+	if ret = it.byId[handlerID]; ret == nil {
+		ret = it.new(handlerID)
+		it.byId[handlerID] = ret
 	}
 	return
 }

@@ -65,7 +65,7 @@ type Job struct {
 }
 
 func (it *Job) ctx(ctx context.Context, taskID string) *Context {
-	return &Context{Context: ctx, Tenant: it.Tenant, JobID: it.ID, JobDetails: it.Details, JobSpec: *it.spec, TaskID: taskID}
+	return &Context{Context: ctx, JobID: it.ID, JobDetails: it.Details, JobSpec: *it.spec, TaskID: taskID}
 }
 
 type JobStats struct {
@@ -248,7 +248,6 @@ func onMarshal(it any, marshaler func(any) ([]byte, error), ensure map[*map[stri
 
 // when unmarshaling a Job/Task, the `Details`/`Results` handler-specific objects must be filled from the DetailsStore/ResultsStore `map`s.
 func onUnmarshal(itSafe any, itOrig interface {
-	GetTenant() string
 	handlerID() string
 }, unmarshaler func([]byte, any) error, data []byte, ensure map[*map[string]any]*handlerDefined) error {
 	err := unmarshaler(data, itSafe)
@@ -266,7 +265,7 @@ func onUnmarshal(itSafe any, itOrig interface {
 			jobOrTask.Results, _ = handler.wellTypedTaskResults(nil)
 		}
 		for mapField, value := range ensure {
-			if err = ensureValueFromMap(mapField, value, itOrig.GetTenant()); err != nil {
+			if err = ensureValueFromMap(mapField, value); err != nil {
 				return err
 			}
 		}
@@ -282,28 +281,22 @@ type AsMap interface {
 	ToMap() map[string]any
 }
 
-func ensureMapFromValue(mapField *map[string]any, value handlerDefined) (err error) {
+func ensureMapFromValue(mapField *map[string]any, value handlerDefined) error {
 	if value == nil {
 		*mapField = nil
-		return
-	}
-	if asMap, _ := value.(AsMap); asMap != nil {
-		m := asMap.ToMap()
-		delete(m, "tenant")
-		*mapField = m
+		return nil
+	} else if asMap, _ := value.(AsMap); asMap != nil {
+		*mapField = asMap.ToMap()
 		return nil
 	}
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
-	if err = json.Unmarshal(data, mapField); err == nil {
-		delete(*mapField, "tenant")
-	}
-	return
+	return json.Unmarshal(data, mapField)
 }
 
-func ensureValueFromMap(mapField *map[string]any, dst *handlerDefined, tenant string) error {
+func ensureValueFromMap(mapField *map[string]any, dst *handlerDefined) error {
 	if mapField == nil {
 		*dst = nil
 		return nil
@@ -313,7 +306,6 @@ func ensureValueFromMap(mapField *map[string]any, dst *handlerDefined, tenant st
 		*dst = nil
 		return nil
 	}
-	m["tenant"] = tenant
 	if asMap, _ := (*dst).(AsMap); asMap != nil {
 		asMap.FromMap(m)
 		return nil
