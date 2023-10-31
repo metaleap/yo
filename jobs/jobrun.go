@@ -3,11 +3,10 @@ package jobs
 import (
 	"context"
 	"encoding/json"
-	"jobs/pkg/utils"
+	"errors"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"google.golang.org/grpc/codes"
+	. "yo/util"
 )
 
 type RunState string
@@ -106,11 +105,11 @@ func (it *JobStats) PercentSuccess() *int {
 	}
 	switch it.TasksTotal {
 	case it.TasksSucceeded:
-		return utils.Ptr(100) // don't want 99 due to some 99.999999 float64 imprecision, neither would be want false positives (real 99.x% to mistakenly 100) from reckless `math.Ceil`ing...
+		return ToPtr(100) // don't want 99 due to some 99.999999 float64 imprecision, neither would be want false positives (real 99.x% to mistakenly 100) from reckless `math.Ceil`ing...
 	case it.TasksFailed:
-		return utils.Ptr(0)
+		return ToPtr(0)
 	default:
-		return utils.Ptr(clamp(1, 99, int(float64(it.TasksSucceeded)*(100.0/float64(it.TasksTotal)))))
+		return ToPtr(clamp(1, 99, int(float64(it.TasksSucceeded)*(100.0/float64(it.TasksTotal)))))
 	}
 }
 
@@ -165,15 +164,14 @@ type TaskAttempt struct {
 }
 
 type TaskError struct {
-	Code    codes.Code `json:"error,omitempty" bson:"error,omitempty"`
-	Message string     `json:"message,omitempty" bson:"message,omitempty"`
+	Message string `json:"message,omitempty" bson:"message,omitempty"`
 }
 
 func (it *TaskError) Err() error {
 	if it == nil {
 		return nil
 	}
-	return errors.FromGrpcCode(it.Code, it.Message)
+	return errors.New(it.Message)
 }
 
 func (it *TaskError) Error() (s string) {
@@ -204,13 +202,9 @@ func (it *Job) Timeout() time.Duration {
 // corresponding exported [Job|Task].[DetailsStore|ResultsStore] `map[string]any` fields from/into
 // the actual Go-native custom struct types right when needed at bson/json marshal/unmarshal time.
 
-func (it *Job) MarshalBSON() ([]byte, error)     { return it.marshal(bson.Marshal) }
 func (it *Job) MarshalJSON() ([]byte, error)     { return it.marshal(json.Marshal) }
-func (it *Job) UnmarshalBSON(data []byte) error  { return it.unmarshal(bson.Unmarshal, data) }
 func (it *Job) UnmarshalJSON(data []byte) error  { return it.unmarshal(json.Unmarshal, data) }
-func (it *Task) MarshalBSON() ([]byte, error)    { return it.marshal(bson.Marshal) }
 func (it *Task) MarshalJSON() ([]byte, error)    { return it.marshal(json.Marshal) }
-func (it *Task) UnmarshalBSON(data []byte) error { return it.unmarshal(bson.Unmarshal, data) }
 func (it *Task) UnmarshalJSON(data []byte) error { return it.unmarshal(json.Unmarshal, data) }
 
 func (it *Job) marshal(marshaler func(any) ([]byte, error)) ([]byte, error) {
@@ -345,8 +339,7 @@ func (it *Task) onMarshaling() {
 	for _, attempt := range it.Attempts {
 		ensureTZ(&attempt.Time)
 		if attempt.TaskError = nil; attempt.Err != nil {
-			status := errors.ToGrpcStatus(attempt.Err)
-			attempt.TaskError = &TaskError{Code: status.Code(), Message: status.Message()}
+			attempt.TaskError = &TaskError{Message: attempt.Err.Error()}
 		}
 	}
 }
@@ -356,7 +349,7 @@ func (it *Task) onUnmarshaled(ret error) error {
 	for _, attempt := range it.Attempts {
 		ensureTZ(&attempt.Time)
 		if attempt.Err = nil; attempt.TaskError != nil {
-			attempt.Err = errors.FromGrpcCode(attempt.TaskError.Code, attempt.TaskError.Message)
+			attempt.Err = errors.New(attempt.TaskError.Message)
 		}
 	}
 	return ret
