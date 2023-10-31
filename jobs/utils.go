@@ -3,14 +3,14 @@ package jobs
 import (
 	"cmp"
 	"context"
-	"crypto/rand"
+	"errors"
 	"reflect"
 	"sync/atomic"
 	"time"
 
-	"jobs/pkg/utils"
-
-	"github.com/samber/lo"
+	. "yo/util"
+	"yo/util/sl"
+	"yo/util/str"
 )
 
 type hasID interface{ GetId() string }
@@ -36,7 +36,7 @@ func concurrentlyDo[T any](ctx context.Context, workSet []T, op func(context.Con
 		if customTimeout, _ := (any(item)).(HasTimeout); timeout == 0 && customTimeout != nil {
 			timeout = customTimeout.Timeout()
 		}
-		utils.WithTimeoutDo(ctx, timeout, func(ctx context.Context) {
+		WithTimeoutDo(ctx, timeout, func(ctx context.Context) {
 			op(ctx, item)
 		})
 	}
@@ -69,36 +69,29 @@ func concurrentlyDo[T any](ctx context.Context, workSet []T, op func(context.Con
 }
 
 func findByID[T hasID](collection []T, id string) T {
-	found, _ := lo.Find(collection, func(v T) bool { return v.GetId() == id })
-	return found
-}
-
-func newULID() (string, error) {
-	id, err := ulid.New(ulid.Timestamp(time.Now()), rand.Reader)
-	return id.String(), err
+	return sl.FirstWhere(collection, func(v T) bool { return v.GetId() == id })
 }
 
 func errNotFoundJob(id string) error {
-	return errors.NotFound.New("job '%s' no longer exists", id)
+	return errors.New(str.Fmt("job '%s' no longer exists", id))
 }
 
 func errNotFoundSpec(id string) error {
-	return errors.NotFound.New("job spec '%s' renamed or removed in configuration", id)
+	return errors.New(str.Fmt("job spec '%s' renamed or removed in configuration", id))
 }
 
 func errNotFoundHandler(specID string, handlerID string) error {
-	return errors.NotFound.New("job spec '%s' handler '%s' renamed or removed", specID, handlerID)
+	return errors.New(str.Fmt("job spec '%s' handler '%s' renamed or removed", specID, handlerID))
 }
 
 func firstNonNil[T any](collection ...*T) (found *T) {
-	found, _ = lo.Find(collection, func(it *T) bool { return it != nil })
-	return
+	return sl.FirstWhere(collection, func(it *T) bool { return it != nil })
 }
 
-func timeNow() *time.Time { return utils.Ptr(time.Now().In(Timezone)) }
+func timeNow() *time.Time { return ToPtr(time.Now().In(Timezone)) }
 
 func clamp[T cmp.Ordered](min T, max T, i T) T {
-	return utils.If(i > max, max, utils.If(i < min, min, i))
+	return If(i > max, max, If(i < min, min, i))
 }
 
 func sanitize[TStruct any, TField cmp.Ordered](min TField, max TField, parse func(string) (TField, error), fields map[string]*TField) (err error) {

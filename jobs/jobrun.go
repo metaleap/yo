@@ -3,11 +3,8 @@ package jobs
 import (
 	"context"
 	"encoding/json"
-	"time"
-
 	"jobs/pkg/utils"
-
-	errors "go.enpowerx.io/errors"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"google.golang.org/grpc/codes"

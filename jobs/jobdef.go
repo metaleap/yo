@@ -1,16 +1,15 @@
 package jobs
 
 import (
+	"errors"
 	"math"
 	"strings"
 	"time"
 
-	"jobs/pkg/engine/crontab"
-	"jobs/pkg/utils"
-
-	errors "go.enpowerx.io/errors"
-
-	"github.com/samber/lo"
+	"yo/jobs/crontab"
+	. "yo/util"
+	"yo/util/sl"
+	"yo/util/str"
 )
 
 type JobSpec struct {
@@ -72,10 +71,10 @@ func (it *JobSpec) EnsureValid() (errs []error) { // not quite the same as "vali
 	it.DeleteAfterDays = clamp(0, math.MaxInt32, it.DeleteAfterDays)
 	for i, sched := range it.Schedules {
 		if sched.Crontab = strings.TrimSpace(sched.Crontab); sched.Crontab == "" {
-			errs = append(errs, errors.InvalidArgument.New("job spec '%s' schedule %d/%d requires a `rule`", it, i+1, len(it.Schedules)))
+			errs = append(errs, errors.New(str.Fmt("job spec '%s' schedule %d/%d requires a `rule`", it, i+1, len(it.Schedules))))
 		} else if sched.crontab == nil {
 			if crontab, err := crontab.Parse(sched.Crontab); err != nil {
-				errs = append(errs, errors.InvalidArgument.Wrap(err, "job spec '%s' schedule %d/%d syntax error in '%s'", it, i+1, len(it.Schedules), sched.Crontab))
+				errs = append(errs, errors.New(str.Fmt("job spec '%s' schedule %d/%d syntax error in '%s': %s", it, i+1, len(it.Schedules), sched.Crontab, err)))
 			} else {
 				sched.crontab = crontab
 			}
@@ -85,7 +84,7 @@ func (it *JobSpec) EnsureValid() (errs []error) { // not quite the same as "vali
 }
 
 func (it *JobSpec) hasAnySchedulesEnabled() bool {
-	return lo.ContainsBy(it.Schedules, func(s *Schedule) bool { return !s.Disabled })
+	return sl.HasWhere(it.Schedules, func(s *Schedule) bool { return !s.Disabled })
 }
 
 func (it *JobSpec) findClosestToNowSchedulableTimeSince(after *time.Time, alwaysPreferOverdue bool) *time.Time {
@@ -117,7 +116,7 @@ func (it *JobSpec) findClosestToNowSchedulableTimeSince(after *time.Time, always
 	// the soonest-possible-future-occurrence `future`, the former is picked because
 	// it means catching up on a missed past schedule (due to outages or such).
 	// Especially useful for daily/weekly schedules that'd by unlucky chance fall into such a rare situation.
-	return utils.If(now.Sub(*past) < future.Sub(now), past, future)
+	return If(now.Sub(*past) < future.Sub(now), past, future)
 }
 
 func (it *JobSpec) ok(t time.Time) bool {

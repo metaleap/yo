@@ -1,11 +1,7 @@
 package jobs
 
 import (
-	"jobs/pkg/utils"
-
-	"go.enpowerx.io/infrastructure/pkg/logger"
-
-	"go.uber.org/zap"
+	. "yo/util"
 )
 
 func (it *engine) logLifecycleEvents(forTask bool, spec *JobSpec, job *Job, task *Task) bool {
@@ -16,14 +12,14 @@ func (it *engine) logLifecycleEvents(forTask bool, spec *JobSpec, job *Job, task
 		spec = job.spec
 	}
 	if spec != nil {
-		if setting := utils.If(forTask, spec.LogTaskLifecycleEvents, spec.LogJobLifecycleEvents); setting != nil {
+		if setting := If(forTask, spec.LogTaskLifecycleEvents, spec.LogJobLifecycleEvents); setting != nil {
 			return *setting
 		}
 	}
-	return utils.If(forTask, it.options.LogTaskLifecycleEvents, it.options.LogJobLifecycleEvents)
+	return If(forTask, it.options.LogTaskLifecycleEvents, it.options.LogJobLifecycleEvents)
 }
 
-func logFor(log logger.Logger, jobSpec *JobSpec, job *Job, task *Task) logger.Logger {
+func logFor(log Logger, jobSpec *JobSpec, job *Job, task *Task) Logger {
 	if job == nil && task != nil {
 		job = task.job
 	}
@@ -42,26 +38,26 @@ func logFor(log logger.Logger, jobSpec *JobSpec, job *Job, task *Task) logger.Lo
 	}
 	for k, v := range zaps {
 		if v != "" {
-			log = log.With(zap.String(k, v))
+			log = logWith(zapString(k, v))
 		}
 	}
 	return log
 }
 
-func (it *Task) logger(log logger.Logger) logger.Logger {
+func (it *Task) logger(log Logger) Logger {
 	return logFor(log, nil, nil, it)
 }
 
-func (it *Job) logger(log logger.Logger) logger.Logger {
+func (it *Job) logger(log Logger) Logger {
 	return logFor(log, nil, it, nil)
 }
 
-func (it *JobSpec) logger(log logger.Logger) logger.Logger {
+func (it *JobSpec) logger(log Logger) Logger {
 	return logFor(log, it, nil, nil)
 }
 
-func (it *engine) logErr(log logger.Logger, err error, objs ...interface {
-	logger(logger.Logger) logger.Logger
+func (it *engine) logErr(log Logger, err error, objs ...interface {
+	logger(Logger) Logger
 }) error {
 	if it.backend.isVersionConflictDuringSave(err) {
 		// we don't noise up the logs (or otherwise handle err) just because another pod
@@ -70,7 +66,7 @@ func (it *engine) logErr(log logger.Logger, err error, objs ...interface {
 	}
 	if err != nil {
 		if log == nil {
-			log = logger.Background()
+			log = log.Background()
 		}
 		for _, obj := range objs {
 			log = obj.logger(log)

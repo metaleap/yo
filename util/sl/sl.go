@@ -6,6 +6,14 @@ import (
 	"slices"
 )
 
+func Keys[K comparable, V any](m map[K]V) (ret []K) {
+	ret = make([]K, 0, len(m))
+	for k := range m {
+		ret = append(ret, k)
+	}
+	return
+}
+
 func WithoutIdx[TSlice ~[]TItem, TItem any](slice TSlice, sansIdx int, noMake bool) (ret TSlice) {
 	if (sansIdx < 0) || (sansIdx >= len(slice)) {
 		return slice
@@ -171,6 +179,15 @@ func Without[TSlice ~[]TItem, TItem comparable](slice TSlice, without ...TItem) 
 	return Where(slice, func(item TItem) bool {
 		return !Has(without, item)
 	})
+}
+
+func One[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) (ret TItem) {
+	for i := range slice {
+		if pred(slice[i]) {
+			return slice[i]
+		}
+	}
+	return
 }
 
 func Where[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) (ret TSlice) {

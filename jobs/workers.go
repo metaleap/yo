@@ -3,21 +3,17 @@ package jobs
 import (
 	"context"
 	"errors"
+	"jobs/pkg/utils"
 	"math"
 	"sort"
 	"strconv"
 	"sync"
 	"time"
 
-	"jobs/pkg/utils"
-
-	errors "go.enpowerx.io/errors"
-	"go.enpowerx.io/errors/traits"
-	"go.enpowerx.io/infrastructure/pkg/logger"
+	"yo/util/sl"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/samber/lo"
 )
 
 var (
@@ -39,7 +35,7 @@ func (it *engine) startAndFinalizeJobs() {
 }
 
 func (it *engine) startDueJobs(ctx context.Context, tenant string) {
-	log := logger.For(ctx)
+	log := loggerFor(ctx)
 	var dueJobs []*Job
 	utils.WithTimeoutDo(ctx, it.options.TimeoutShort, func(ctx context.Context) {
 		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
@@ -53,7 +49,7 @@ func (it *engine) startDueJobs(ctx context.Context, tenant string) {
 		sort.Slice(dueJobs, func(i int, j int) bool { return !dueJobs[i].AutoScheduled })
 		for i := 0; i < len(dueJobs); i++ {
 			job := dueJobs[i]
-			_, idx, _ := lo.FindIndexOf(dueJobs, func(j *Job) bool { // check if duplicate
+			idx := sl.IdxWhere(dueJobs, func(j *Job) bool { // check if duplicate
 				return j.Spec == job.Spec && cmp.Equal(j.Details, job.Details, cmpopts.IgnoreUnexported(), cmpopts.EquateEmpty())
 			})
 			var reason CancellationReason
@@ -82,7 +78,7 @@ func (it *engine) startDueJobs(ctx context.Context, tenant string) {
 }
 
 func (it *engine) startDueJob(ctx context.Context, job *Job) {
-	log := logger.For(ctx)
+	log := loggerFor(ctx)
 	var err error
 	if job.spec == nil {
 		err = errNotFoundSpec(job.Spec)
@@ -124,7 +120,7 @@ func (it *engine) startDueJob(ctx context.Context, job *Job) {
 			if err != nil { // don't `break` here: we need to drain the chan to close it, in the case of...
 				continue // ...undisciplined `Handler.TaskDetails` impls (they should stop sending on err)
 			}
-			tasks := lo.Map(taskDetails, func(details TaskDetails, _ int) *Task {
+			tasks := sl.To(taskDetails, func(details TaskDetails) *Task {
 				if numTasks++; err == nil {
 					_, err = handler(job.spec.HandlerID).wellTypedTaskDetails(details)
 				}
@@ -156,7 +152,7 @@ func (it *engine) startDueJob(ctx context.Context, job *Job) {
 }
 
 func (it *engine) finalizeFinishedJobs(ctx context.Context, tenant string) {
-	log := logger.For(ctx)
+	log := loggerFor(ctx)
 	var runningJobs []*Job
 	utils.WithTimeoutDo(ctx, it.options.TimeoutShort, func(ctx context.Context) {
 		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
@@ -167,19 +163,19 @@ func (it *engine) finalizeFinishedJobs(ctx context.Context, tenant string) {
 	})
 
 	cancelJobs := map[CancellationReason][]*Job{}
-	for reason, predicate := range map[CancellationReason]func(*Job, int) bool{
-		CancellationReasonSpecInvalidOrGone: func(j *Job, _ int) bool {
+	for reason, predicate := range map[CancellationReason]func(*Job) bool{
+		CancellationReasonSpecInvalidOrGone: func(j *Job) bool {
 			return j.spec == nil
 		},
-		CancellationReasonSpecChanged: func(j *Job, _ int) bool {
+		CancellationReasonSpecChanged: func(j *Job) bool {
 			return j.spec != nil && (j.HandlerID != j.spec.HandlerID || j.spec.Disabled)
 		},
-		CancellationReasonJobTypeInvalidOrGone: func(j *Job, _ int) bool {
+		CancellationReasonJobTypeInvalidOrGone: func(j *Job) bool {
 			return j.spec != nil && j.spec.HandlerID == j.HandlerID && j.spec.handler == nil
 		},
 	} {
-		jobsToCancel := lo.Filter(runningJobs, predicate)
-		cancelJobs[reason], runningJobs = jobsToCancel, lo.Without(runningJobs, jobsToCancel...)
+		jobsToCancel := sl.Where(runningJobs, predicate)
+		cancelJobs[reason], runningJobs = jobsToCancel, sl.Without(runningJobs, jobsToCancel...)
 	}
 	for job, err := range it.cancelJobs(ctx, cancelJobs) {
 		_ = it.logErr(log, err, job)
@@ -189,7 +185,7 @@ func (it *engine) finalizeFinishedJobs(ctx context.Context, tenant string) {
 }
 
 func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
-	log := logger.For(ctx)
+	log := loggerFor(ctx)
 	stillBusy, err := it.backend.findTask(ctx, false, false, job.Tenant,
 		TaskFilter{}.WithStates(Pending, Running).WithJobs(job.ID))
 	if it.logErr(log, err, job) != nil || stillBusy != nil {
@@ -258,7 +254,7 @@ func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
 }
 
 func (it *engine) finalizeCancelingJobs(ctx context.Context, tenant string) {
-	log := logger.For(ctx)
+	log := loggerFor(ctx)
 	var cancelJobs []*Job
 	utils.WithTimeoutDo(ctx, it.options.TimeoutShort, func(ctx context.Context) {
 		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
@@ -272,7 +268,7 @@ func (it *engine) finalizeCancelingJobs(ctx context.Context, tenant string) {
 }
 
 func (it *engine) finalizeCancelingJob(ctx context.Context, job *Job) {
-	log := logger.For(ctx)
+	log := loggerFor(ctx)
 	var numCanceled, numTasks int
 
 	listReq := ListRequest{PageSize: 444}
@@ -326,7 +322,7 @@ func (it *engine) ensureJobSchedules() {
 	var jobSpecs []*JobSpec
 	var mut sync.Mutex
 	concurrentlyDo(ctxNone, it.tenants(), func(ctx context.Context, tenant string) {
-		log := logger.For(ctx)
+		log := loggerFor(ctx)
 		tenantJobSpecs, err := it.backend.listJobSpecs(ctx, tenant,
 			JobSpecFilter{}.WithDisabled(false).WithEnabledSchedules())
 		if it.logErr(log, err) == nil {
@@ -340,7 +336,7 @@ func (it *engine) ensureJobSchedules() {
 }
 
 func (it *engine) ensureJobSpecScheduled(ctx context.Context, jobSpec *JobSpec) {
-	log := logger.For(ctx)
+	log := loggerFor(ctx)
 
 	latest, err := it.backend.findJob(ctx, false, false, jobSpec.Tenant, // defaults to sorted descending by due_time
 		JobFilter{}.WithJobSpecs(jobSpec.ID).WithAutoScheduled(true))
@@ -403,7 +399,7 @@ func (it *engine) deleteStorageExpiredJobs() {
 
 	for _, tenant := range it.tenants() {
 		utils.WithTimeoutDo(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
-			log := logger.For(ctx)
+			log := loggerFor(ctx)
 			jobSpecs, err := it.backend.listJobSpecs(ctx, tenant,
 				JobSpecFilter{}.WithStorageExpiry(true))
 			if it.logErr(log, err) != nil {
@@ -417,7 +413,7 @@ func (it *engine) deleteStorageExpiredJobs() {
 }
 
 func (it *engine) deleteStorageExpiredJobsForSpec(ctx context.Context, jobSpec *JobSpec) {
-	log := logger.For(ctx)
+	log := loggerFor(ctx)
 	jobsToDelete, _, _, err := it.backend.listJobs(ctx, true, false, jobSpec.Tenant, noPaging,
 		JobFilter{}.WithStates(Done, Cancelled).WithJobSpecs(jobSpec.ID).
 			WithFinishedBefore(timeNow().AddDate(0, 0, -jobSpec.DeleteAfterDays)))
@@ -446,7 +442,7 @@ func (it *engine) expireOrRetryDeadTasks() {
 
 	currentlyRunning, mut := map[*JobSpec][]*Job{}, sync.Mutex{} // gather candidate jobs for task selection
 	concurrentlyDo(ctxNone, it.tenants(), func(ctx context.Context, tenant string) {
-		log := logger.For(ctx)
+		log := loggerFor(ctx)
 		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
 			JobFilter{}.WithStates(Running))
 		if it.logErr(log, err) != nil || len(jobs) == 0 {
@@ -460,15 +456,15 @@ func (it *engine) expireOrRetryDeadTasks() {
 		}
 	}, it.options.MaxConcurrentOps, it.options.TimeoutShort)
 
-	concurrentlyDo(ctxNone, lo.Keys(currentlyRunning), func(ctx context.Context, js *JobSpec) {
+	concurrentlyDo(ctxNone, sl.Keys(currentlyRunning), func(ctx context.Context, js *JobSpec) {
 		it.expireOrRetryDeadTasksForSpec(ctx, js, currentlyRunning[js])
 	}, it.options.MaxConcurrentOps, it.options.TimeoutShort)
 }
 
 func (it *engine) expireOrRetryDeadTasksForSpec(ctx context.Context, jobSpec *JobSpec, runningJobs []*Job) {
-	log := logger.For(ctx)
+	log := loggerFor(ctx)
 	specDead, taskFilter := jobSpec == nil || jobSpec.Disabled || jobSpec.handler == nil, TaskFilter{}.
-		WithJobs(lo.Map(runningJobs, func(v *Job, _ int) string { return v.ID })...)
+		WithJobs(sl.To(runningJobs, func(v *Job) string { return v.ID })...)
 	if !specDead { // the usual case.
 		taskFilter = taskFilter.WithStates(Running).WithStartedBefore(timeNow().Add(-(jobSpec.Timeouts.TaskRun + time.Minute)))
 	} else { //  the rare edge case: un-Done tasks still in DB for old now-disabled-or-deleted-from-config job spec
@@ -482,7 +478,7 @@ func (it *engine) expireOrRetryDeadTasksForSpec(ctx context.Context, jobSpec *Jo
 		if specDead {
 			task.State = Cancelled
 			if len(task.Attempts) > 0 && task.Attempts[0].Err == nil {
-				task.Attempts[0].Err = errors.Cancelled.WrapUnderlying(context.Canceled, "unclean timeout due to died pod")
+				task.Attempts[0].Err = context.Canceled
 			}
 		} else if (!task.markForRetryOrAsFailed(jobSpec)) && len(task.Attempts) > 0 && task.Attempts[0].Err == nil {
 			task.Attempts[0].Err = context.DeadlineExceeded
@@ -503,7 +499,7 @@ func (it *engine) runTasks() {
 	// fetch some Pending tasks
 	pendingTasks, mut := []*Task{}, sync.Mutex{}
 	concurrentlyDo(ctxNone, it.tenants(), func(ctx context.Context, tenant string) {
-		log := logger.For(ctx)
+		log := loggerFor(ctx)
 		tasks, _, _, _, err := it.backend.listTasks(ctx, true, false, tenant, ListRequest{PageSize: it.options.FetchTasksToRunPerTenant},
 			TaskFilter{}.WithStates(Pending))
 		if it.logErr(log, err) != nil {
@@ -547,7 +543,7 @@ func (it *engine) runTasks() {
 }
 
 func (it *engine) runTask(ctx context.Context, task *Task) error {
-	log, timeStarted := logger.For(ctx), timeNow()
+	log, timeStarted := loggerFor(ctx), timeNow()
 	ctxOrig := ctx
 	ctx, done := context.WithCancel(ctx)
 	if oldCanceller := it.setTaskCanceler(task.ID, done); oldCanceller != nil {
@@ -601,7 +597,7 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 		task.State = Cancelled
 	} else if (!alreadyCancelled) &&
 		((ctxErr != nil && errors.Is(ctxErr, context.DeadlineExceeded)) ||
-			(task.Attempts[0].Err != nil && errors.HasTrait(task.Attempts[0].Err, traits.RetryableTraits...))) {
+			(task.Attempts[0].Err != nil && isErrRetryable(task.Attempts[0].Err))) {
 		_ = task.markForRetryOrAsFailed(task.job.spec)
 	}
 	if task.Attempts[0].Err == nil {
@@ -618,7 +614,7 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 }
 
 func (it *engine) manualJobsPossible(ctx context.Context, tenant string) bool {
-	log := logger.For(ctx)
+	log := loggerFor(ctx)
 	jobSpecManual, err := it.backend.findJobSpec(ctx, tenant,
 		JobSpecFilter{}.WithAllowManualJobs(true))
 	return it.logErr(log, err) != nil || jobSpecManual != nil

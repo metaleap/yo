@@ -9,7 +9,6 @@ import (
 	"jobs/pkg/utils"
 
 	errors "go.enpowerx.io/errors"
-	"go.enpowerx.io/infrastructure/pkg/logger"
 )
 
 // TimeoutLong is:
@@ -127,7 +126,7 @@ func (it *engine) CancelJobs(ctx context.Context, tenant string, jobIDs ...strin
 }
 
 func (it *engine) cancelJobs(ctx context.Context, jobs map[CancellationReason][]*Job) (errs map[*Job]error) {
-	log := logger.For(ctx)
+	log := loggerFor(ctx)
 	var mut sync.Mutex
 	errs = make(map[*Job]error, len(jobs)/2)
 	for reason, jobs := range jobs {
@@ -169,7 +168,7 @@ func (it *engine) CreateJob(ctx context.Context, jobSpec *JobSpec, jobID string,
 }
 
 func (it *engine) createJob(ctx context.Context, jobSpec *JobSpec, jobID string, dueTime time.Time, details JobDetails, last *Job, autoScheduled bool) (job *Job, err error) {
-	log := logger.For(ctx)
+	log := loggerFor(ctx)
 	if jobSpec.Disabled {
 		return nil, errors.FailedPrecondition.New("cannot create off-schedule Job for job spec '%s' because it is currently disabled", jobSpec.ID)
 	}
@@ -229,7 +228,7 @@ func (it *engine) RetryTask(ctx context.Context, tenant string, jobID string, ta
 
 	return task, it.backend.transacted(ctx, func(ctx context.Context) error {
 		if job.State != Running {
-			log := logger.For(ctx)
+			log := loggerFor(ctx)
 			if it.logLifecycleEvents(true, job.spec, job, task) {
 				job.logger(log).Infof("marking %s '%s' job '%s' as %s (for manual task retry)", job.State, job.Spec, job.ID, Running)
 			}
@@ -272,7 +271,7 @@ func (it *engine) JobStats(ctx context.Context, jobRef Resource) (*JobStats, err
 func (it *engine) tenants() (tenants []string) {
 	utils.WithTimeoutDo(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
 		allTenants, err := it.backend.tenants(ctx)
-		tenants, _ = allTenants, it.logErr(logger.For(ctx), err, nil)
+		tenants, _ = allTenants, it.logErr(loggerFor(ctx), err, nil)
 	})
 	return
 }

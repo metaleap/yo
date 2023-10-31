@@ -5,7 +5,6 @@ import (
 	"time"
 
 	errors "go.enpowerx.io/errors"
-	"go.enpowerx.io/infrastructure/pkg/logger"
 )
 
 type exampleHandler struct{}
@@ -54,7 +53,7 @@ func (exampleHandler) TaskDetails(_ *Context, stream chan<- []TaskDetails, _ fun
 }
 
 func (it exampleHandler) TaskResults(ctx *Context, task TaskDetails) (TaskResults, error) {
-	log := logger.For(ctx)
+	log := loggerFor(ctx)
 	msg := ctx.JobDetails.(*exampleJobDetails).MsgFmt
 	t := task.(*exampleTaskDetails).Time
 	if d := it.dice(); d%11 == 0 {

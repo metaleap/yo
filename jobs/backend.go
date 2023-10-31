@@ -3,7 +3,7 @@ package jobs
 import (
 	"context"
 
-	"github.com/samber/lo"
+	"yo/util/sl"
 )
 
 type (
@@ -121,7 +121,7 @@ func (it backend) listJobs(ctx context.Context, loadSpecs bool, mustLoadSpecs bo
 	}
 	jobs, pageTok, err = it.impl.ListJobs(ctx, tenant, req, filter)
 	if err == nil && loadSpecs {
-		if jobSpecs, err = it.listJobSpecs(ctx, tenant, JobSpecFilter{}.WithIDs(lo.Map(jobs, func(v *Job, _ int) string { return v.Spec })...)); err == nil {
+		if jobSpecs, err = it.listJobSpecs(ctx, tenant, JobSpecFilter{}.WithIDs(sl.To(jobs, func(v *Job) string { return v.Spec })...)); err == nil {
 			for _, job := range jobs {
 				if job.spec = findByID(jobSpecs, job.Spec); job.spec == nil && mustLoadSpecs {
 					return nil, nil, "", errNotFoundSpec(job.Spec)
@@ -164,7 +164,7 @@ func (it backend) findTask(ctx context.Context, loadJob bool, mustLoadJob bool, 
 func (it backend) listTasks(ctx context.Context, loadJobs bool, mustLoadJobs bool, tenant string, req ListRequest, filter *TaskFilter) (tasks []*Task, jobs []*Job, jobSpecs []*JobSpec, pageTok string, err error) {
 	tasks, pageTok, err = it.impl.ListTasks(ctx, tenant, req, filter)
 	if err == nil && loadJobs {
-		if jobs, jobSpecs, _, err = it.listJobs(ctx, true, mustLoadJobs, tenant, ListRequest{PageSize: len(tasks)}, JobFilter{}.WithIDs(lo.Map(tasks, func(v *Task, _ int) string { return v.Job })...)); err == nil {
+		if jobs, jobSpecs, _, err = it.listJobs(ctx, true, mustLoadJobs, tenant, ListRequest{PageSize: len(tasks)}, JobFilter{}.WithIDs(sl.To(tasks, func(v *Task) string { return v.Job })...)); err == nil {
 			for _, task := range tasks {
 				if task.job = findByID(jobs, task.Job); task.job == nil && mustLoadJobs {
 					return nil, nil, nil, "", errNotFoundJob(task.Job)
