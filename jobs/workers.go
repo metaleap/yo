@@ -26,10 +26,10 @@ func (it *engine) startAndFinalizeJobs() {
 	defer doAfter(it.options.IntervalStartAndFinalizeJobs, it.startAndFinalizeJobs)
 
 	for _, tenant := range it.tenants() {
-		atOnceDo(
-			func() { it.startDueJobs(ctxNone, tenant) },
-			func() { it.finalizeFinishedJobs(ctxNone, tenant) },
-			func() { it.finalizeCancelingJobs(ctxNone, tenant) },
+		GoEach(ctxNone,
+			func(ctx context.Context) { it.startDueJobs(ctx, tenant) },
+			func(ctx context.Context) { it.finalizeFinishedJobs(ctx, tenant) },
+			func(ctx context.Context) { it.finalizeCancelingJobs(ctx, tenant) },
 		)
 	}
 }
@@ -37,7 +37,7 @@ func (it *engine) startAndFinalizeJobs() {
 func (it *engine) startDueJobs(ctx context.Context, tenant string) {
 	log := loggerNew()
 	var dueJobs []*Job
-	WithTimeoutDo(ctx, it.options.TimeoutShort, func(ctx context.Context) {
+	DoTimeout(ctx, it.options.TimeoutShort, func(ctx context.Context) {
 		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
 			JobFilter{}.WithStates(Pending).WithDue(true))
 		if it.logErr(log, err) == nil {
@@ -73,7 +73,7 @@ func (it *engine) startDueJobs(ctx context.Context, tenant string) {
 			_ = it.logErr(log, err, job)
 		}
 	}
-	concurrentlyDo(ctx, dueJobs, it.startDueJob,
+	GoItems(ctx, dueJobs, it.startDueJob,
 		it.options.MaxConcurrentOps, 0 /* thus uses Job.Timeout() */)
 }
 
@@ -154,7 +154,7 @@ func (it *engine) startDueJob(ctx context.Context, job *Job) {
 func (it *engine) finalizeFinishedJobs(ctx context.Context, tenant string) {
 	log := loggerNew()
 	var runningJobs []*Job
-	WithTimeoutDo(ctx, it.options.TimeoutShort, func(ctx context.Context) {
+	DoTimeout(ctx, it.options.TimeoutShort, func(ctx context.Context) {
 		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
 			JobFilter{}.WithStates(Running))
 		if it.logErr(log, err) == nil {
@@ -180,7 +180,7 @@ func (it *engine) finalizeFinishedJobs(ctx context.Context, tenant string) {
 	for job, err := range it.cancelJobs(ctx, cancelJobs) {
 		_ = it.logErr(log, err, job)
 	}
-	concurrentlyDo(ctx, runningJobs, it.finalizeFinishedJob,
+	GoItems(ctx, runningJobs, it.finalizeFinishedJob,
 		it.options.MaxConcurrentOps, 0 /* hence, Job.Timeout() */)
 }
 
@@ -256,14 +256,14 @@ func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
 func (it *engine) finalizeCancelingJobs(ctx context.Context, tenant string) {
 	log := loggerNew()
 	var cancelJobs []*Job
-	WithTimeoutDo(ctx, it.options.TimeoutShort, func(ctx context.Context) {
+	DoTimeout(ctx, it.options.TimeoutShort, func(ctx context.Context) {
 		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
 			JobFilter{}.WithStates(Cancelling))
 		if it.logErr(log, err) == nil {
 			cancelJobs = jobs
 		}
 	})
-	concurrentlyDo(ctx, cancelJobs, it.finalizeCancelingJob,
+	GoItems(ctx, cancelJobs, it.finalizeCancelingJob,
 		it.options.MaxConcurrentOps, TimeoutLong)
 }
 
@@ -321,7 +321,7 @@ func (it *engine) ensureJobSchedules() {
 
 	var jobSpecs []*JobSpec
 	var mut sync.Mutex
-	concurrentlyDo(ctxNone, it.tenants(), func(ctx context.Context, tenant string) {
+	GoItems(ctxNone, it.tenants(), func(ctx context.Context, tenant string) {
 		log := loggerNew()
 		tenantJobSpecs, err := it.backend.listJobSpecs(ctx, tenant,
 			JobSpecFilter{}.WithDisabled(false).WithEnabledSchedules())
@@ -331,7 +331,7 @@ func (it *engine) ensureJobSchedules() {
 			jobSpecs = append(jobSpecs, tenantJobSpecs...)
 		}
 	}, it.options.MaxConcurrentOps, it.options.TimeoutShort)
-	concurrentlyDo(ctxNone, jobSpecs, it.ensureJobSpecScheduled,
+	GoItems(ctxNone, jobSpecs, it.ensureJobSpecScheduled,
 		it.options.MaxConcurrentOps, it.options.TimeoutShort)
 }
 
@@ -398,7 +398,7 @@ func (it *engine) deleteStorageExpiredJobs() {
 	defer doAfter(it.options.IntervalDeleteStorageExpiredJobs, it.deleteStorageExpiredJobs)
 
 	for _, tenant := range it.tenants() {
-		WithTimeoutDo(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
+		DoTimeout(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
 			log := loggerNew()
 			jobSpecs, err := it.backend.listJobSpecs(ctx, tenant,
 				JobSpecFilter{}.WithStorageExpiry(true))
@@ -441,7 +441,7 @@ func (it *engine) expireOrRetryDeadTasks() {
 	defer doAfter(it.options.IntervalExpireOrRetryDeadTasks, it.expireOrRetryDeadTasks)
 
 	currentlyRunning, mut := map[*JobSpec][]*Job{}, sync.Mutex{} // gather candidate jobs for task selection
-	concurrentlyDo(ctxNone, it.tenants(), func(ctx context.Context, tenant string) {
+	GoItems(ctxNone, it.tenants(), func(ctx context.Context, tenant string) {
 		log := loggerNew()
 		jobs, _, _, err := it.backend.listJobs(ctx, true, false, tenant, noPaging,
 			JobFilter{}.WithStates(Running))
@@ -456,7 +456,7 @@ func (it *engine) expireOrRetryDeadTasks() {
 		}
 	}, it.options.MaxConcurrentOps, it.options.TimeoutShort)
 
-	concurrentlyDo(ctxNone, sl.Keys(currentlyRunning), func(ctx context.Context, js *JobSpec) {
+	GoItems(ctxNone, sl.Keys(currentlyRunning), func(ctx context.Context, js *JobSpec) {
 		it.expireOrRetryDeadTasksForSpec(ctx, js, currentlyRunning[js])
 	}, it.options.MaxConcurrentOps, it.options.TimeoutShort)
 }
@@ -498,7 +498,7 @@ func (it *engine) runTasks() {
 	var manualJobsPossible bool // dito
 	// fetch some Pending tasks
 	pendingTasks, mut := []*Task{}, sync.Mutex{}
-	concurrentlyDo(ctxNone, it.tenants(), func(ctx context.Context, tenant string) {
+	GoItems(ctxNone, it.tenants(), func(ctx context.Context, tenant string) {
 		log := loggerNew()
 		tasks, _, _, _, err := it.backend.listTasks(ctx, true, false, tenant, ListRequest{PageSize: it.options.FetchTasksToRunPerTenant},
 			TaskFilter{}.WithStates(Pending))
@@ -522,7 +522,7 @@ func (it *engine) runTasks() {
 	}, it.options.MaxConcurrentOps, it.options.TimeoutShort)
 
 	// ...then run them
-	concurrentlyDo(ctxNone, pendingTasks, func(ctx context.Context, task *Task) {
+	GoItems(ctxNone, pendingTasks, func(ctx context.Context, task *Task) {
 		_ = it.runTask(ctx, task)
 	}, it.options.MaxConcurrentOps, 0 /* hence, task.Timeout() */)
 

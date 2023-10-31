@@ -130,7 +130,7 @@ func (it *engine) cancelJobs(ctx context.Context, jobs map[CancellationReason][]
 	var mut sync.Mutex
 	errs = make(map[*Job]error, len(jobs)/2)
 	for reason, jobs := range jobs {
-		concurrentlyDo(ctx, jobs, func(ctx context.Context, job *Job) {
+		GoItems(ctx, jobs, func(ctx context.Context, job *Job) {
 			state, version := job.State, job.ResourceVersion
 			job.State, job.Info.CancellationReason = Cancelling, reason
 			if it.logLifecycleEvents(false, nil, job, nil) {
@@ -263,7 +263,7 @@ func (it *engine) JobStats(ctx context.Context, jobRef Resource) (*JobStats, err
 }
 
 func (it *engine) tenants() (tenants []string) {
-	WithTimeoutDo(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
+	DoTimeout(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
 		allTenants, err := it.backend.tenants(ctx)
 		tenants, _ = allTenants, it.logErr(loggerNew(), err)
 	})

@@ -2,12 +2,10 @@ package jobs
 
 import (
 	"cmp"
-	"context"
 	"errors"
 	"math"
 	"math/rand"
 	"reflect"
-	"sync/atomic"
 	"time"
 
 	. "yo/util"
@@ -16,62 +14,9 @@ import (
 )
 
 type hasId interface{ GetId() string }
-type HasTimeout interface{ Timeout() time.Duration }
-
-func atOnceDo(f ...func()) {
-	concurrentlyDo(ctxNone, f, func(ctx context.Context, f func()) { f() }, 0, 0)
-}
 
 func newId(prefix string) string {
 	return prefix + "_" + str.FromI64(time.Now().In(Timezone).UnixNano(), 36) + "_" + str.FromI64(rand.Int63n(math.MaxInt64), 36)
-}
-
-// concurrentlyDo is like a `sync.WaitGroup` when `maxConcurrentOps`
-// is 0, but a semaphore with a `maxConcurrentOps` greater than 1.
-// If `T` implements `hasTimeout` and `opTimeout` is 0, only `T.Timeout()` is used.
-// If `opTimeout` is greater than `0`, this indicates that `T.Timeout()` is to be ignored for this particular run of `op`s.
-func concurrentlyDo[T any](ctx context.Context, workSet []T, op func(context.Context, T), maxConcurrentOps int, opTimeout time.Duration) {
-	if len(workSet) == 0 {
-		return
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	callOp := func(ctx context.Context, item T) {
-		timeout := opTimeout
-		if customTimeout, _ := (any(item)).(HasTimeout); timeout == 0 && customTimeout != nil {
-			timeout = customTimeout.Timeout()
-		}
-		WithTimeoutDo(ctx, timeout, func(ctx context.Context) {
-			op(ctx, item)
-		})
-	}
-
-	if maxConcurrentOps == 1 || len(workSet) == 1 {
-		for _, item := range workSet {
-			callOp(ctx, item)
-		}
-		return
-	}
-
-	allAtOnce, sema := (maxConcurrentOps == 0), make(chan struct{}, maxConcurrentOps)
-	var numDone atomic.Int64
-	for _, item := range workSet {
-		go func(item T) {
-			if allAtOnce {
-				<-sema
-			}
-			callOp(ctx, item)
-			numDone.Add(1)
-			if !allAtOnce {
-				<-sema
-			}
-		}(item)
-		sema <- struct{}{}
-	}
-	for n := int64(len(workSet)); numDone.Load() < n; { // wait for all
-		time.Sleep(time.Millisecond) // lets cpu breathe just a bit... without unduly delaying things
-	}
 }
 
 func findByID[T hasId](collection []T, id string) T {
