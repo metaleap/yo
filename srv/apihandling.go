@@ -53,7 +53,7 @@ type ApiMethod interface {
 	validatePayload(any) (q.Query, Err)
 	reflTypes() (reflect.Type, reflect.Type)
 	failsIf() []Fails
-	methodPath() string
+	methodPath(bool) string
 	methodNameUp0() string
 	isMultipartForm() bool
 	IsMultipartForm() ApiMethod
@@ -143,19 +143,19 @@ func (me *apiMethod[TIn, TOut]) PkgName() string {
 	}
 	return ""
 }
-func (me *apiMethod[TIn, TOut]) methodPath() (ret string) {
+func (me *apiMethod[TIn, TOut]) methodPath(failIfNone bool) (ret string) {
 	for path, method := range api {
 		if method == me {
 			ret = path
 		}
 	}
-	if ret == "" {
+	if (ret == "") && failIfNone {
 		panic("unregistered ApiMethod")
 	}
 	return
 }
 func (me *apiMethod[TIn, TOut]) methodNameUp0() string {
-	return str.Up0(ToIdent(me.methodPath()))
+	return str.Up0(ToIdent(me.methodPath(true)))
 }
 func (me *apiMethod[TIn, TOut]) KnownErrs() (ret []Err) {
 	method_name := me.methodNameUp0()
