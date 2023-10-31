@@ -73,7 +73,7 @@ func (me *Ref[T, _]) Get(ctx *yoctx.Ctx) *T {
 	return me.self
 }
 func (me *Ref[T, _]) structDesc() (ret *structDesc) {
-	if ret = desc[T](); !sl.Has(ret, ensureDescs) {
+	if ret = desc[T](); !sl.Has(ensureDescs, ret) {
 		panic(reflect.TypeOf(me).Elem().String() + " refs a non-`Ensure`d type, which hence has no db table yet/anymore")
 	}
 	return
@@ -198,7 +198,7 @@ type structDesc struct {
 }
 
 func isColField(fieldType reflect.Type) bool {
-	return sl.Has(fieldType, okTypes) || isDbJsonType(fieldType) || isDbRefType(fieldType) || isDbArrType(fieldType)
+	return sl.Has(okTypes, fieldType) || isDbJsonType(fieldType) || isDbRefType(fieldType) || isDbArrType(fieldType)
 }
 
 func isDbJsonType(ty reflect.Type) bool {
@@ -271,7 +271,7 @@ func desc[T any]() (ret *structDesc) {
 		}
 	}
 	for i := len(ret.cols) - 1; i >= 0; i-- {
-		if sl.IdxOf(ret.cols[i], ret.cols) != i {
+		if sl.IdxOf(ret.cols, ret.cols[i]) != i {
 			panic("duplicate column: '" + ret.cols[i] + "'")
 		}
 	}

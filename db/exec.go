@@ -44,7 +44,7 @@ func FindMany[T any](ctx *Ctx, query q.Query, maxResults int, onlyFields []q.F, 
 	desc, args := desc[T](), dbArgs{}
 	cols := make([]q.C, len(onlyFields))
 	for i, field_name := range onlyFields {
-		cols[i] = desc.cols[sl.IdxOf(field_name, desc.fields)]
+		cols[i] = desc.cols[sl.IdxOf(desc.fields, field_name)]
 	}
 	return doSelect[T](ctx,
 		new(sqlStmt).selCols(desc, cols...).where(desc, false, query, args, orderBy...).limit(maxResults), args, maxResults, cols...)
@@ -127,7 +127,7 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 	if upd != nil {
 		ForEachColField[T](upd, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
 			if only := (len(onlyFields) > 0); (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) &&
-				((!only) || sl.Has(fieldName, onlyFields)) &&
+				((!only) || sl.Has(onlyFields, fieldName)) &&
 				((!isZero) || (!skipNullsyFields) || only) {
 				col_names, col_vals = append(col_names, string(colName)), append(col_vals, fieldValue)
 			}
@@ -139,14 +139,14 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 
 	{ // ensuring the query has either the obj id...
 		id_maybe, _ := reflFieldValueOf(upd, FieldID).(I64)
-		if lower := q.F(str.Lo(string(FieldID))); (id_maybe <= 0) && sl.Has(lower, desc.fields) {
+		if lower := q.F(str.Lo(string(FieldID))); (id_maybe <= 0) && sl.Has(desc.fields, lower) {
 			id_maybe = reflFieldValueOf(upd, lower).(I64)
 		}
 		if where == nil && id_maybe > 0 {
 			where = q.C(ColID).Equal(id_maybe)
 		} else if (where == nil) && (len(onlyFields) > 0) { // ...or else another unique field (that isnt in onlyFields and so is an exists-in-db queryable)
 			for _, unique_field_name := range desc.constraints.uniques {
-				if !sl.Has(unique_field_name, onlyFields) {
+				if !sl.Has(onlyFields, unique_field_name) {
 					if field, _ := desc.ty.FieldByName(string(unique_field_name)); isDbRefType(field.Type) {
 						if id_other := reflFieldValueOf(upd, q.F(field.Name)).(dbRef).Id(); id_other != 0 {
 							where = unique_field_name.Equal(id_other)
@@ -237,7 +237,7 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 		}
 		rv, col_scanners := reflect.ValueOf(&rec).Elem(), make([]any, len(cols))
 		for i, col := range cols {
-			field_name := string(struct_desc.fields[sl.IdxOf(col, struct_desc.cols)])
+			field_name := string(struct_desc.fields[sl.IdxOf(struct_desc.cols, col)])
 			field := rv.FieldByName(field_name)
 			field_t, _ := struct_desc.ty.FieldByName(field_name)
 			var json_db_val dbJsonValue
