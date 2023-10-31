@@ -188,15 +188,16 @@ func (me *apiMethod[TIn, TOut]) validatePayload(it any) (q.Query, Err) {
 		}
 		return nil, ""
 	}
-	for _, dep := range me.errsDeps {
-		if method := api[dep]; method != nil {
-			for _, check := range method.failsIf() {
-				if failed_condition, err := do_check(api[dep], &check); failed_condition != nil {
-					return failed_condition, err
-				}
-			}
-		}
-	}
+	// commented-out for now because: running input checks of deps is usually senseless since api input types, or validation semantics, differ more often than not
+	// for _, dep := range me.errsDeps {
+	// 	if method := api[dep]; method != nil {
+	// 		for _, check := range method.failsIf() {
+	// 			if failed_condition, err := do_check(api[dep], &check); failed_condition != nil {
+	// 				return failed_condition, err
+	// 			}
+	// 		}
+	// 	}
+	// }
 	for i := range me.failIfs {
 		if failed_condition, err := do_check(me, &me.failIfs[i]); failed_condition != nil {
 			return failed_condition, err
