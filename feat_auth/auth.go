@@ -1,7 +1,7 @@
 package yoauth
 
 import (
-	"crypto/rand"
+	"math/rand"
 	"time"
 
 	. "yo/cfg"
@@ -37,9 +37,11 @@ func UserPregisterOrForgotPassword(ctx *Ctx, emailAddr string) {
 	if existing_user != nil {
 		yodb.Update[UserAuth](ctx, &UserAuth{PwdForgotten: true}, UserAuthId.Equal(existing_user.Id), true, UserAuthFields(UserAuthPwdForgotten)...)
 	} else {
-		random_bytes := make([]byte, 128)
-		_, _ = rand.Read(random_bytes)
-		UserRegister(ctx, emailAddr, string(random_bytes), true)
+		random_chars := make([]byte, 72)
+		for i := range random_chars {
+			random_chars[i] = byte(32 + rand.Intn(127-32))
+		}
+		UserRegister(ctx, emailAddr, string(random_chars), true)
 	}
 }
 
