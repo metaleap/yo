@@ -21,8 +21,9 @@ type UserAuth struct {
 	DtMade *yodb.DateTime
 	DtMod  *yodb.DateTime
 
-	EmailAddr yodb.Text
-	pwdHashed yodb.Bytes
+	EmailAddr    yodb.Text
+	PwdForgotten yodb.Bool
+	pwdHashed    yodb.Bytes
 }
 
 func init() {
@@ -32,11 +33,12 @@ func init() {
 
 func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 	ctx.DbTx()
+
 	if yodb.Exists[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr)) {
 		panic(Err___yo_authRegister_EmailAddrAlreadyExists)
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
-	if (err != nil) || (len(hash) == 0) {
+	pwd_hashed, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
+	if (err != nil) || (len(pwd_hashed) == 0) {
 		if err == bcrypt.ErrPasswordTooLong {
 			panic(Err___yo_authRegister_PasswordTooLong)
 		} else {
@@ -45,7 +47,7 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 	}
 	return yodb.I64(yodb.CreateOne[UserAuth](ctx, &UserAuth{
 		EmailAddr: yodb.Text(emailAddr),
-		pwdHashed: hash,
+		pwdHashed: pwd_hashed,
 	}))
 }
 
