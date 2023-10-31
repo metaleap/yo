@@ -97,3 +97,7 @@ func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, pas
 	user_account.pwdHashed = hash
 	_ = yodb.Update[UserAuth](ctx, user_account, nil, true, userAuthPwdHashed.F())
 }
+
+func ById(ctx *Ctx, id yodb.I64) *UserAuth {
+	return yodb.FindOne[UserAuth](ctx, UserAuthId.Equal(id))
+}
