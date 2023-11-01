@@ -240,57 +240,57 @@ func (it *engine) startDueJobRuns(ctx context.Context) {
 		it.options.MaxConcurrentOps, 0 /* thus uses Job.Timeout() */)
 }
 
-func (it *engine) startDueJob(ctx context.Context, job *JobRun) {
+func (it *engine) startDueJob(ctx context.Context, jobRun *JobRun) {
 	log := loggerNew()
 	var err error
-	if job.jobDef == nil {
-		err = errNotFoundJobDef(job.JobDefId)
-	} else if job.jobDef.jobType == nil {
-		err = errNotFoundJobType(job.jobDef.Id, job.jobDef.JobTypeId)
+	if jobRun.jobDef == nil {
+		err = errNotFoundJobDef(jobRun.JobDefId)
+	} else if jobRun.jobDef.jobType == nil {
+		err = errNotFoundJobType(jobRun.jobDef.Id, jobRun.jobDef.JobTypeId)
 	}
-	if nil != it.logErr(log, err, job) {
+	if nil != it.logErr(log, err, jobRun) {
 		return
 	}
 
 	// 1. JobType.JobDetails
-	timeStarted, jobCtx := timeNow(), job.ctx(ctx, "")
-	if job.Details == nil {
-		if job.Details, err = job.jobDef.defaultJobDetails(); it.logErr(log, err, job) != nil {
+	time_started, ctx_job := timeNow(), jobRun.ctx(ctx, "")
+	if jobRun.Details == nil {
+		if jobRun.Details, err = jobRun.jobDef.defaultJobDetails(); nil != it.logErr(log, err, jobRun) {
 			return
 		}
 	}
-	if job.Details, err = job.jobDef.jobType.JobDetails(jobCtx); it.logErr(log, err, job) != nil {
+	if jobRun.Details, err = jobRun.jobDef.jobType.JobDetails(ctx_job); nil != it.logErr(log, err, jobRun) {
 		return
 	}
-	if _, err = jobType(job.jobDef.JobTypeId).wellTypedJobDetails(job.Details); it.logErr(log, err, job) != nil {
+	if _, err = jobType(jobRun.jobDef.JobTypeId).wellTypedJobDetails(jobRun.Details); nil != it.logErr(log, err, jobRun) {
 		return
 	}
 
 	// 2. JobType.TaskDetails
-	taskDetailsStream := make(chan []TaskDetails)
+	task_details_stream := make(chan []TaskDetails)
 	go func() {
-		defer close(taskDetailsStream)
-		job.FinalTaskListReq, job.FinalTaskFilter = job.jobDef.jobType.TaskDetails(jobCtx, taskDetailsStream, func(e error) error {
-			if e != nil && err == nil {
+		defer close(task_details_stream)
+		jobRun.FinalTaskListReq, jobRun.FinalTaskFilter = jobRun.jobDef.jobType.TaskDetails(ctx_job, task_details_stream, func(e error) error {
+			if (e != nil) && (err == nil) {
 				err = e
 			}
 			return err
 		})
 	}()
 	_ = it.logErr(log, it.storage.transacted(ctx, func(ctx context.Context) error {
-		var numTasks int
-		for taskDetails := range taskDetailsStream {
+		var num_tasks int
+		for task_details := range task_details_stream {
 			if err != nil { // don't `break` here: we need to drain the chan to close it, in the case of...
 				continue // ...undisciplined `JobType.TaskDetails` impls (they should stop sending on err)
 			}
-			tasks := sl.To(taskDetails, func(details TaskDetails) *JobTask {
-				if numTasks++; err == nil {
-					_, err = jobType(job.jobDef.JobTypeId).wellTypedTaskDetails(details)
+			tasks := sl.To(task_details, func(details TaskDetails) *JobTask {
+				if num_tasks++; err == nil {
+					_, err = jobType(jobRun.jobDef.JobTypeId).wellTypedTaskDetails(details)
 				}
 				return &JobTask{
-					Id:         job.Id + "_" + strconv.Itoa(numTasks),
-					JobRunId:   job.Id,
-					JobTypeId:  job.JobTypeId,
+					Id:         jobRun.Id + "_" + strconv.Itoa(num_tasks),
+					JobRunId:   jobRun.Id,
+					JobTypeId:  jobRun.JobTypeId,
 					State:      Pending,
 					FinishTime: nil,
 					StartTime:  nil,
@@ -298,20 +298,20 @@ func (it *engine) startDueJob(ctx context.Context, job *JobRun) {
 					Details:    details,
 				}
 			})
-			if len(tasks) > 0 && err == nil {
+			if (len(tasks) > 0) && (err == nil) {
 				err = it.storage.insertJobTasks(ctx, tasks...)
 			}
 		}
 		if err == nil {
-			job.State, job.StartTime, job.FinishTime, job.Info.DurationPrepSecs =
-				Running, timeNow(), nil, ToPtr(timeNow().Sub(*timeStarted).Seconds())
-			if it.logLifecycleEvents(nil, job, nil) {
-				job.logger(log).Infof("marking %s '%s' job '%s' as %s (with %d tasks)", Pending, job.JobDefId, job.Id, job.State, numTasks)
+			jobRun.State, jobRun.StartTime, jobRun.FinishTime, jobRun.Info.DurationPrepSecs =
+				Running, timeNow(), nil, ToPtr(timeNow().Sub(*time_started).Seconds())
+			if it.logLifecycleEvents(nil, jobRun, nil) {
+				jobRun.logger(log).Infof("marking %s '%s' job run '%s' as %s (with %d tasks)", Pending, jobRun.JobDefId, jobRun.Id, jobRun.State, num_tasks)
 			}
-			err = it.storage.saveJobRun(ctx, job)
+			err = it.storage.saveJobRun(ctx, jobRun)
 		}
 		return err
-	}), job)
+	}), jobRun)
 }
 
 func (it *engine) ensureJobRunSchedules() {
