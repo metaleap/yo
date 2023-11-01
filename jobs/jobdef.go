@@ -1,4 +1,4 @@
-package jobs
+package yojobs
 
 import (
 	"errors"
