@@ -425,22 +425,23 @@ func (it *engine) deleteStorageExpiredJobsForDef(ctx context.Context, jobDef *Jo
 func (it *engine) expireOrRetryDeadJobTasks() {
 	defer doAfter(it.options.IntervalExpireOrRetryDeadTasks, it.expireOrRetryDeadJobTasks)
 
-	currentlyRunning := map[*JobDef][]*JobRun{} // gather candidate jobs for task selection
+	currently_running := map[string][]*JobRun{} // gather candidate jobs for task selection
 	{
 		log := loggerNew()
-		jobs, _, _, err := it.storage.listJobRuns(ctxNone, true, false, noPaging,
+		running_jobs, _, _, err := it.storage.listJobRuns(ctxNone, true, true, noPaging,
 			JobRunFilter{}.WithStates(Running))
-		if it.logErr(log, err) != nil || len(jobs) == 0 {
+		if it.logErr(log, err) != nil || len(running_jobs) == 0 {
 			return
 		}
 
-		for _, job := range jobs {
-			currentlyRunning[job.jobDef] = append(currentlyRunning[job.jobDef], job)
+		for _, job := range running_jobs {
+			currently_running[job.jobDef.Id] = append(currently_running[job.jobDef.Id], job)
 		}
 	}
 
-	GoItems(ctxNone, sl.Keys(currentlyRunning), func(ctx context.Context, js *JobDef) {
-		it.expireOrRetryDeadTasksForDef(ctx, js, currentlyRunning[js])
+	GoItems(ctxNone, sl.Keys(currently_running), func(ctx context.Context, jobDefId string) {
+		job_runs := currently_running[jobDefId]
+		it.expireOrRetryDeadTasksForDef(ctx, job_runs[0].jobDef, job_runs)
 	}, it.options.MaxConcurrentOps, it.options.TimeoutShort)
 }
 
