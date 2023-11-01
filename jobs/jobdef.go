@@ -15,12 +15,12 @@ import (
 type JobDef struct {
 	Resource `yaml:",inline" json:",inline" bson:",inline"`
 
-	HandlerID       string      `yaml:"handlerID" json:"handler_id" bson:"handler_id"`
-	DisplayName     string      `yaml:"displayName" json:"display_name,omitempty" bson:"display_name,omitempty"`
-	Disabled        bool        `yaml:"disabled" json:"disabled,omitempty" bson:"disabled,omitempty"`
-	Schedules       []*Schedule `yaml:"schedules" json:"schedules,omitempty" bson:"schedules,omitempty"`
-	AllowManualJobs bool        `yaml:"allowManualJobs" json:"allow_manual_jobs" bson:"allow_manual_jobs"`
-	Timeouts        struct {
+	HandlerID          string      `yaml:"handlerID" json:"handler_id" bson:"handler_id"`
+	DisplayName        string      `yaml:"displayName" json:"display_name,omitempty" bson:"display_name,omitempty"`
+	Disabled           bool        `yaml:"disabled" json:"disabled,omitempty" bson:"disabled,omitempty"`
+	Schedules          []*Schedule `yaml:"schedules" json:"schedules,omitempty" bson:"schedules,omitempty"`
+	AllowManualJobRuns bool        `yaml:"allowManualJobs" json:"allow_manual_jobs" bson:"allow_manual_jobs"`
+	Timeouts           struct {
 		JobPrepAndFinalize time.Duration `yaml:"jobPrepAndFinalize" json:"job_prep_finalize" bson:"job_prep_finalize"`
 		TaskRun            time.Duration `yaml:"taskRun" json:"task_run" bson:"task_run"`
 	} `yaml:"timeouts" json:"timeouts" bson:"timeouts"`
@@ -60,7 +60,7 @@ func (it *JobDef) EnsureValidOrErrorIfEnabled() (*JobDef, error) {
 
 func (it *JobDef) EnsureValid() (errs []error) { // not quite the same as "validation"  =)
 	if handlerReg := handler(it.HandlerID); it.handler == nil && (!it.Disabled) && handlerReg != nil {
-		it.handler = handlerReg.For(it.HandlerID)
+		it.handler = handlerReg.ById(it.HandlerID)
 	}
 	if it.handler == nil && !it.Disabled {
 		errs = append(errs, errNotFoundHandler(it.Id, it.HandlerID))

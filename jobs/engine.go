@@ -44,7 +44,7 @@ type (
 	}
 	engine struct {
 		running          bool
-		backend          backend
+		backend          store
 		options          Options
 		taskCancelers    map[string]func()
 		taskCancelersMut sync.Mutex
@@ -82,7 +82,7 @@ type (
 	}
 )
 
-func NewEngine(impl Backend, options Options) (Engine, error) {
+func NewEngine(impl Store, options Options) (Engine, error) {
 	err := sanitize[Options](2, 128, strconv.Atoi, map[string]*int{
 		"MaxConcurrentOps": &options.MaxConcurrentOps,
 		"FetchTasksToRun":  &options.FetchTasksToRun,
@@ -100,7 +100,7 @@ func NewEngine(impl Backend, options Options) (Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &engine{backend: backend{impl: impl}, options: options, taskCancelers: map[string]func(){}}, nil
+	return &engine{backend: store{impl: impl}, options: options, taskCancelers: map[string]func(){}}, nil
 }
 
 func (it *engine) Running() bool { return it.running }
@@ -115,7 +115,7 @@ func (it *engine) Resume() {
 
 func (it *engine) CancelJobRuns(ctx context.Context, jobRunIds ...string) (errs []error) {
 	job_runs, _, _, err := it.backend.listJobRuns(ctx, false, false, ListRequest{PageSize: len(jobRunIds)},
-		JobFilter{}.WithStates(Running, Pending).WithIDs(jobRunIds...))
+		JobRunFilter{}.WithStates(Running, Pending).WithIds(jobRunIds...))
 	if err != nil {
 		return []error{err}
 	}
@@ -155,7 +155,7 @@ func (it *engine) DeleteJobRun(ctx context.Context, jobRunRef Resource) error {
 	if (job_run.State != Done) && (job_run.State != Cancelled) {
 		return errors.New(str.Fmt("job run '%s' was expected in a `state` of '%s' or '%s', not '%s'", jobRunRef.Id, Done, Cancelled, job_run.State))
 	}
-	return it.backend.deleteJobRuns(ctx, JobFilter{}.WithIDs(jobRunRef.Id))
+	return it.backend.deleteJobRuns(ctx, JobRunFilter{}.WithIds(jobRunRef.Id))
 }
 
 func (it *engine) CreateJobRun(ctx context.Context, jobDef *JobDef, jobRunId string, dueTime *time.Time, jobDetails JobDetails) (jobRun *Job, err error) {
@@ -172,8 +172,8 @@ func (it *engine) createJobRun(ctx context.Context, jobDef *JobDef, jobRunId str
 	if jobDef.Disabled {
 		return nil, errors.New(str.Fmt("cannot create off-schedule job run for job def '%s' because it is currently disabled", jobDef.Id))
 	}
-	if (!autoScheduled) && !jobDef.AllowManualJobs {
-		return nil, errors.New(str.Fmt("cannot create off-schedule job run for job def '%s' because it is configured to not `AllowManualJobs`", jobDef.Id))
+	if (!autoScheduled) && !jobDef.AllowManualJobRuns {
+		return nil, errors.New(str.Fmt("cannot create off-schedule job run for job def '%s' because it is configured to not `AllowManualJobRuns`", jobDef.Id))
 	}
 	if jobRunId == "" {
 		jobRunId = newId(jobDef.Id)
@@ -193,7 +193,7 @@ func (it *engine) createJobRun(ctx context.Context, jobDef *JobDef, jobRunId str
 	}
 	if autoScheduled && (lastJobRun != nil) {
 		jobRun.ScheduledNextAfterJob = lastJobRun.Id
-		already_there, err := it.backend.findJobRun(ctx, true, true, JobFilter{}.WithScheduledNextAfterJob(jobRun.ScheduledNextAfterJob))
+		already_there, err := it.backend.findJobRun(ctx, true, true, JobRunFilter{}.WithScheduledNextAfterJobRun(jobRun.ScheduledNextAfterJob))
 		if (already_there != nil) || (err != nil) {
 			return If((already_there != nil), already_there, jobRun), err
 		}
@@ -244,14 +244,14 @@ func (it *engine) Stats(ctx context.Context, jobRunRef Resource) (*JobRunStats, 
 	stats := JobRunStats{TasksByState: make(map[RunState]int64, 4)}
 	for _, state := range []RunState{Pending, Running, Done, Cancelled} {
 		if stats.TasksByState[state], err = it.backend.countJobTasks(ctx, 0,
-			TaskFilter{}.WithJobs(job_run.Id).WithStates(state),
+			JobTaskFilter{}.WithJobRuns(job_run.Id).WithStates(state),
 		); err != nil {
 			return nil, err
 		}
 		stats.TasksTotal += stats.TasksByState[state]
 	}
 	if stats.TasksFailed, err = it.backend.countJobTasks(ctx, 0,
-		TaskFilter{}.WithJobs(job_run.Id).WithStates(Done).WithFailed(),
+		JobTaskFilter{}.WithJobRuns(job_run.Id).WithStates(Done).WithFailed(),
 	); err != nil {
 		return nil, err
 	}

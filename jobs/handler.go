@@ -56,7 +56,7 @@ type Handler interface {
 	// The `TaskDetails` you are sending are of type *TTaskDetails (that this `Handler` was `Register`ed with).
 	// The `ctx.JobDetails` are of type *TJobDetails (that this `Handler` was `Register`ed with).
 	// The return values (can be `nil`) will define sort+filter of the `Task`s stream passed to the final `JobResults` call.
-	TaskDetails(ctx *Context, stream chan<- []TaskDetails, halt func(error) error) (*ListRequest, *TaskFilter)
+	TaskDetails(ctx *Context, stream chan<- []TaskDetails, halt func(error) error) (*ListRequest, *JobTaskFilter)
 
 	// TaskResults is called after a `Task` has been successfully set from `PENDING` to `RUNNING`.
 	// It implements the actual execution of a Task previously prepared in this `Handler`'s `TaskDetails` method.
@@ -82,15 +82,15 @@ type Handler interface {
 
 type Context struct {
 	context.Context
-	JobID      string
+	JobRunId   string
 	JobDetails JobDetails
 	JobDef     JobDef
-	TaskID     string
+	JobTaskId  string
 }
 
 type handlerReg struct {
 	sync.Mutex
-	new                  func(handlerID string) Handler
+	new                  func(handlerId string) Handler
 	wellTypedJobDetails  func(check handlerDefined) (new handlerDefined, err error)
 	wellTypedJobResults  func(check handlerDefined) (new handlerDefined, err error)
 	wellTypedTaskDetails func(check handlerDefined) (new handlerDefined, err error)
@@ -98,21 +98,19 @@ type handlerReg struct {
 	byId                 map[string]Handler
 }
 
-var (
-	registeredHandlers = map[string]*handlerReg{}
-)
+var registeredHandlers = map[string]*handlerReg{}
 
-func Register[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](newHandler func(handlerID string) THandler) error {
+func Register[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](newHandler func(string) THandler) error {
 	return register[THandler, TJobDetails, TJobResults, TTaskDetails, TTaskResults](strings.TrimLeft(ReflType[THandler]().String(), "*"), newHandler)
 }
 
-func RegisterDefault[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](newHandler func(handlerID string) THandler) {
+func RegisterDefault[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](newHandler func(string) THandler) {
 	if err := register[THandler, TJobDetails, TJobResults, TTaskDetails, TTaskResults]("", newHandler); err != nil {
 		panic(err)
 	}
 }
 
-func register[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](id string, newHandler func(handlerID string) THandler) error {
+func register[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](id string, newHandler func(string) THandler) error {
 	if typeIs[TJobDetails](reflect.Pointer) || typeIs[TJobResults](reflect.Pointer) || typeIs[TTaskDetails](reflect.Pointer) || typeIs[TTaskResults](reflect.Pointer) {
 		return errors.New("TJobDetails, TJobResults, TTaskDetails, TTaskResults must not be pointer types")
 	}
@@ -121,7 +119,7 @@ func register[THandler Handler, TJobDetails JobDetails, TJobResults JobResults, 
 	}
 
 	it := handlerReg{
-		new:                  func(handlerID string) Handler { return newHandler(handlerID) },
+		new:                  func(handlerId string) Handler { return newHandler(handlerId) },
 		byId:                 map[string]Handler{},
 		wellTypedJobDetails:  wellTypedFor[TJobDetails],
 		wellTypedJobResults:  wellTypedFor[TJobResults],
@@ -151,17 +149,17 @@ func wellTypedFor[TImpl handlerDefined](check handlerDefined) (handlerDefined, e
 	return new(TImpl), nil
 }
 
-func (it *handlerReg) For(handlerID string) (ret Handler) {
+func (it *handlerReg) ById(handlerId string) (ret Handler) {
 	it.Lock()
 	defer it.Unlock()
-	if ret = it.byId[handlerID]; ret == nil {
-		ret = it.new(handlerID)
-		it.byId[handlerID] = ret
+	if ret = it.byId[handlerId]; ret == nil {
+		ret = it.new(handlerId)
+		it.byId[handlerId] = ret
 	}
 	return
 }
 
 func typeIs[T any](kind reflect.Kind) bool {
 	ty := ReflType[T]()
-	return ty != nil && ty.Kind() == kind
+	return (ty != nil) && (ty.Kind() == kind)
 }

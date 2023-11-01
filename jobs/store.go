@@ -7,25 +7,25 @@ import (
 )
 
 type (
-	// Backend (implementation provided by the importer) is for the raw CRUD backing storage.
-	Backend interface {
+	// Store (implementation provided by the importer) is for the raw CRUD backing storage.
+	Store interface {
 		GetJobDef(ctx context.Context, id string) (*JobDef, error)
 		FindJobDef(ctx context.Context, filter *JobDefFilter) (*JobDef, error)
 		ListJobDefs(ctx context.Context, filter *JobDefFilter) ([]*JobDef, error)
 
 		GetJobRun(ctx context.Context, id string) (*Job, error)
-		FindJobRun(ctx context.Context, filter *JobFilter, sort ...Sorting) (*Job, error)
-		ListJobRuns(ctx context.Context, req ListRequest, filter *JobFilter) ([]*Job, string, error)
-		CountJobRuns(ctx context.Context, limit int64, filter *JobFilter) (int64, error)
+		FindJobRun(ctx context.Context, filter *JobRunFilter, sort ...Sorting) (*Job, error)
+		ListJobRuns(ctx context.Context, req ListRequest, filter *JobRunFilter) ([]*Job, string, error)
+		CountJobRuns(ctx context.Context, limit int64, filter *JobRunFilter) (int64, error)
 		InsertJobRuns(ctx context.Context, objs ...*Job) error
-		DeleteJobRuns(ctx context.Context, filter *JobFilter) error
+		DeleteJobRuns(ctx context.Context, filter *JobRunFilter) error
 
 		GetJobTask(ctx context.Context, id string) (*Task, error)
-		FindJobTask(ctx context.Context, filter *TaskFilter) (*Task, error)
-		ListJobTasks(ctx context.Context, req ListRequest, filter *TaskFilter) ([]*Task, string, error)
-		CountJobTasks(ctx context.Context, limit int64, filter *TaskFilter) (int64, error)
+		FindJobTask(ctx context.Context, filter *JobTaskFilter) (*Task, error)
+		ListJobTasks(ctx context.Context, req ListRequest, filter *JobTaskFilter) ([]*Task, string, error)
+		CountJobTasks(ctx context.Context, limit int64, filter *JobTaskFilter) (int64, error)
 		InsertJobTasks(ctx context.Context, objs ...*Task) error
-		DeleteJobTasks(ctx context.Context, filter *TaskFilter) error
+		DeleteJobTasks(ctx context.Context, filter *JobTaskFilter) error
 
 		SaveGuarded(ctx context.Context, jobOrTask any, whereVersion int) error
 		IsVersionConflictDuringSaveGuarded(error) bool
@@ -44,17 +44,17 @@ type (
 		Id string `json:"id"`
 	}
 
-	// backend is the package-internal shim around `Backend` that all code in this
+	// store is the package-internal shim around `Backend` that all code in this
 	// package is to use instead of directly calling `Backend`s method implementations.
 	// Most shim methods are not mere call wraps but add needed checks or logic.
-	backend struct{ impl Backend }
+	store struct{ impl Store }
 )
 
 func R(id string) Resource         { return Resource{Id: id} }
 func (it Resource) GetId() string  { return it.Id } //nolint:revive
 func (it Resource) String() string { return it.Id }
 
-func (it backend) getJobDef(ctx context.Context, id string) (*JobDef, error) {
+func (it store) getJobDef(ctx context.Context, id string) (*JobDef, error) {
 	job_def, err := it.impl.GetJobDef(ctx, id)
 	if (job_def != nil) && (err == nil) {
 		return job_def.EnsureValidOrErrorIfEnabled()
@@ -62,7 +62,7 @@ func (it backend) getJobDef(ctx context.Context, id string) (*JobDef, error) {
 	return job_def, err
 }
 
-func (it backend) findJobDef(ctx context.Context, filter *JobDefFilter) (*JobDef, error) {
+func (it store) findJobDef(ctx context.Context, filter *JobDefFilter) (*JobDef, error) {
 	job_def, err := it.impl.FindJobDef(ctx, filter)
 	if (job_def != nil) && (err == nil) {
 		return job_def.EnsureValidOrErrorIfEnabled()
@@ -70,7 +70,7 @@ func (it backend) findJobDef(ctx context.Context, filter *JobDefFilter) (*JobDef
 	return job_def, err
 }
 
-func (it backend) listJobDefs(ctx context.Context, filter *JobDefFilter) ([]*JobDef, error) {
+func (it store) listJobDefs(ctx context.Context, filter *JobDefFilter) ([]*JobDef, error) {
 	job_defs, err := it.impl.ListJobDefs(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func (it backend) listJobDefs(ctx context.Context, filter *JobDefFilter) ([]*Job
 
 var defaultJobSorting = []Sorting{{Key: "due_time", Value: -1}, {Key: "finish_time", Value: -1}, {Key: "start_time", Value: -1}, {Key: "_id", Value: -1}}
 
-func (it backend) getJobRun(ctx context.Context, loadDef bool, mustLoadDef bool, id string) (*Job, error) {
+func (it store) getJobRun(ctx context.Context, loadDef bool, mustLoadDef bool, id string) (*Job, error) {
 	job_run, err := it.impl.GetJobRun(ctx, id)
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func (it backend) getJobRun(ctx context.Context, loadDef bool, mustLoadDef bool,
 	return job_run, err
 }
 
-func (it backend) findJobRun(ctx context.Context, loadDef bool, mustLoadDef bool, filter *JobFilter) (*Job, error) {
+func (it store) findJobRun(ctx context.Context, loadDef bool, mustLoadDef bool, filter *JobRunFilter) (*Job, error) {
 	job_run, err := it.impl.FindJobRun(ctx, filter, defaultJobSorting...)
 	if err != nil {
 		return nil, err
@@ -111,13 +111,13 @@ func (it backend) findJobRun(ctx context.Context, loadDef bool, mustLoadDef bool
 	return job_run, err
 }
 
-func (it backend) listJobRuns(ctx context.Context, loadDefs bool, mustLoadDefs bool, req ListRequest, filter *JobFilter) (jobRuns []*Job, jobDefs []*JobDef, pageTok string, err error) {
+func (it store) listJobRuns(ctx context.Context, loadDefs bool, mustLoadDefs bool, req ListRequest, filter *JobRunFilter) (jobRuns []*Job, jobDefs []*JobDef, pageTok string, err error) {
 	if len(req.Sort) == 0 {
 		req.Sort = defaultJobSorting
 	}
 	jobRuns, pageTok, err = it.impl.ListJobRuns(ctx, req, filter)
 	if (err == nil) && loadDefs {
-		if jobDefs, err = it.listJobDefs(ctx, JobDefFilter{}.WithIDs(sl.To(jobRuns, func(v *Job) string { return v.Def })...)); err == nil {
+		if jobDefs, err = it.listJobDefs(ctx, JobDefFilter{}.WithIds(sl.To(jobRuns, func(v *Job) string { return v.Def })...)); err == nil {
 			for _, job := range jobRuns {
 				if job.def = findByID(jobDefs, job.Def); (job.def == nil) && mustLoadDefs {
 					return nil, nil, "", errNotFoundDef(job.Def)
@@ -131,7 +131,7 @@ func (it backend) listJobRuns(ctx context.Context, loadDefs bool, mustLoadDefs b
 }
 
 //nolint:unused // dev note: please leave it in. once it was needed, better to have it ready & in consistency with all the above & below
-func (it backend) getJobTask(ctx context.Context, loadJobRun bool, mustLoadJobRun bool, id string) (*Task, error) {
+func (it store) getJobTask(ctx context.Context, loadJobRun bool, mustLoadJobRun bool, id string) (*Task, error) {
 	job_task, err := it.impl.GetJobTask(ctx, id)
 	if err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func (it backend) getJobTask(ctx context.Context, loadJobRun bool, mustLoadJobRu
 	return job_task, err
 }
 
-func (it backend) findJobTask(ctx context.Context, loadJobRun bool, mustLoadJobRun bool, filter *TaskFilter) (*Task, error) {
+func (it store) findJobTask(ctx context.Context, loadJobRun bool, mustLoadJobRun bool, filter *JobTaskFilter) (*Task, error) {
 	job_task, err := it.impl.FindJobTask(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -157,10 +157,10 @@ func (it backend) findJobTask(ctx context.Context, loadJobRun bool, mustLoadJobR
 	return job_task, err
 }
 
-func (it backend) listJobTasks(ctx context.Context, loadJobRuns bool, mustLoadJobRuns bool, req ListRequest, filter *TaskFilter) (jobTasks []*Task, jobRuns []*Job, jobDefs []*JobDef, pageTok string, err error) {
+func (it store) listJobTasks(ctx context.Context, loadJobRuns bool, mustLoadJobRuns bool, req ListRequest, filter *JobTaskFilter) (jobTasks []*Task, jobRuns []*Job, jobDefs []*JobDef, pageTok string, err error) {
 	jobTasks, pageTok, err = it.impl.ListJobTasks(ctx, req, filter)
 	if (err == nil) && loadJobRuns {
-		if jobRuns, jobDefs, _, err = it.listJobRuns(ctx, true, mustLoadJobRuns, ListRequest{PageSize: len(jobTasks)}, JobFilter{}.WithIDs(sl.To(jobTasks, func(v *Task) string { return v.Job })...)); err == nil {
+		if jobRuns, jobDefs, _, err = it.listJobRuns(ctx, true, mustLoadJobRuns, ListRequest{PageSize: len(jobTasks)}, JobRunFilter{}.WithIds(sl.To(jobTasks, func(v *Task) string { return v.Job })...)); err == nil {
 			for _, job_task := range jobTasks {
 				if job_task.job = findByID(jobRuns, job_task.Job); (job_task.job == nil) && mustLoadJobRuns {
 					return nil, nil, nil, "", errNotFoundJob(job_task.Job)
@@ -173,13 +173,13 @@ func (it backend) listJobTasks(ctx context.Context, loadJobRuns bool, mustLoadJo
 	return
 }
 
-func (it backend) saveJobRun(ctx context.Context, obj *Job) error {
+func (it store) saveJobRun(ctx context.Context, obj *Job) error {
 	version := obj.ResourceVersion
 	obj.ResourceVersion++
 	return it.impl.SaveGuarded(ctx, obj, version)
 }
 
-func (it backend) saveJobTask(ctx context.Context, obj *Task) error {
+func (it store) saveJobTask(ctx context.Context, obj *Task) error {
 	version := obj.ResourceVersion
 	obj.ResourceVersion++
 	return it.impl.SaveGuarded(ctx, obj, version)
@@ -188,27 +188,27 @@ func (it backend) saveJobTask(ctx context.Context, obj *Task) error {
 // below the so-far unaugmented, merely pass-through call wrappers, for completeness' sake: when future augmentation is needed, they're already here in place.
 
 //nolint:unused // dev note: please leave it in. once it was needed, better to have it ready & in consistency with all the above & below
-func (it backend) countJobRuns(ctx context.Context, limit int64, filter *JobFilter) (int64, error) {
+func (it store) countJobRuns(ctx context.Context, limit int64, filter *JobRunFilter) (int64, error) {
 	return it.impl.CountJobRuns(ctx, limit, filter)
 }
-func (it backend) insertJobRuns(ctx context.Context, objs ...*Job) error {
+func (it store) insertJobRuns(ctx context.Context, objs ...*Job) error {
 	return it.impl.InsertJobRuns(ctx, objs...)
 }
-func (it backend) deleteJobRuns(ctx context.Context, filter *JobFilter) error {
+func (it store) deleteJobRuns(ctx context.Context, filter *JobRunFilter) error {
 	return it.impl.DeleteJobRuns(ctx, filter)
 }
-func (it backend) countJobTasks(ctx context.Context, limit int64, filter *TaskFilter) (int64, error) {
+func (it store) countJobTasks(ctx context.Context, limit int64, filter *JobTaskFilter) (int64, error) {
 	return it.impl.CountJobTasks(ctx, limit, filter)
 }
-func (it backend) insertJobTasks(ctx context.Context, objs ...*Task) error {
+func (it store) insertJobTasks(ctx context.Context, objs ...*Task) error {
 	return it.impl.InsertJobTasks(ctx, objs...)
 }
-func (it backend) deleteJobTasks(ctx context.Context, filter *TaskFilter) error {
+func (it store) deleteJobTasks(ctx context.Context, filter *JobTaskFilter) error {
 	return it.impl.DeleteJobTasks(ctx, filter)
 }
-func (it backend) isVersionConflictDuringSave(err error) bool {
+func (it store) isVersionConflictDuringSave(err error) bool {
 	return it.impl.IsVersionConflictDuringSaveGuarded(err)
 }
-func (it backend) transacted(ctx context.Context, do func(context.Context) error) error {
+func (it store) transacted(ctx context.Context, do func(context.Context) error) error {
 	return it.impl.Transacted(ctx, do)
 }

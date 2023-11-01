@@ -16,19 +16,19 @@ func init() {
 }
 
 type exampleJobDetails struct {
-	MsgFmt string `json:"msg_fmt" bson:"msg_fmt"`
+	MsgFmt string
 }
 
 type exampleJobResults struct {
-	NumLoggingsDone int `json:"num_done" bson:"num_done"`
+	NumLoggingsDone int
 }
 
 type exampleTaskDetails struct {
-	Time time.Time `json:"time" bson:"time"`
+	Time time.Time
 }
 
 type exampleTaskResults struct {
-	NumLoggingsDone int `json:"num_done" bson:"num_done"`
+	NumLoggingsDone int
 }
 
 func (exampleHandler) dice() byte {
@@ -40,13 +40,13 @@ func (exampleHandler) dice() byte {
 func (it exampleHandler) IsTaskErrRetryable(error) bool { return false }
 
 func (it exampleHandler) JobDetails(ctx *Context) (JobDetails, error) {
-	if it.dice()%2 == 0 {
+	if (it.dice() % 2) == 0 {
 		return &exampleJobDetails{MsgFmt: ">>>>>>>>>>>>>IT WAS %s JUST %s AGO"}, nil
 	}
 	return ctx.JobDetails, nil
 }
 
-func (exampleHandler) TaskDetails(_ *Context, stream chan<- []TaskDetails, _ func(error) error) (*ListRequest, *TaskFilter) {
+func (exampleHandler) TaskDetails(_ *Context, stream chan<- []TaskDetails, _ func(error) error) (*ListRequest, *JobTaskFilter) {
 	stream <- []TaskDetails{&exampleTaskDetails{Time: time.Now()}}
 	stream <- []TaskDetails{
 		&exampleTaskDetails{Time: time.Now().Add(-365 * 24 * time.Hour)},
@@ -59,7 +59,7 @@ func (it exampleHandler) TaskResults(ctx *Context, task TaskDetails) (TaskResult
 	log := loggerNew()
 	msg := ctx.JobDetails.(*exampleJobDetails).MsgFmt
 	t := task.(*exampleTaskDetails).Time
-	if d := it.dice(); d%11 == 0 {
+	if d := it.dice(); (d % 11) == 0 {
 		return nil, errors.New(str.Fmt("artificially provoked random error due to dice throw %d", d))
 	}
 	log.Infof(msg, t.Format("2006-01-02 15:04:05"), time.Since(t))

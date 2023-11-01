@@ -49,7 +49,7 @@ type Job struct {
 	// this is DB-uniqued and its only purpose is to avoid two instances concurrently scheduling the same next job in `ensureJobSchedules`
 	ScheduledNextAfterJob string `json:"prev,omitempty" bson:"prev,omitempty"`
 	// FinalTaskFilter is obtained via call to Handler.TaskDetails() and stored for the later job finalization phase.
-	FinalTaskFilter *TaskFilter `json:"task_filter,omitempty" bson:"task_filter,omitempty"`
+	FinalTaskFilter *JobTaskFilter `json:"task_filter,omitempty" bson:"task_filter,omitempty"`
 	// FinalTaskListReq is obtained via call to Handler.TaskDetails() and stored for the later job finalization phase.
 	FinalTaskListReq *ListRequest `json:"task_listreq,omitempty" bson:"task_listreq,omitempty"`
 
@@ -65,7 +65,7 @@ type Job struct {
 }
 
 func (it *Job) ctx(ctx context.Context, taskID string) *Context {
-	return &Context{Context: ctx, JobID: it.Id, JobDetails: it.Details, JobDef: *it.def, TaskID: taskID}
+	return &Context{Context: ctx, JobRunId: it.Id, JobDetails: it.Details, JobDef: *it.def, JobTaskId: taskID}
 }
 
 type JobRunStats struct {
