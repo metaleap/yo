@@ -127,7 +127,7 @@ func (it *JobSpec) ok(t time.Time) bool {
 		if schedule.Disabled {
 			continue
 		}
-		if schedule.crontab.DateAndTimeOK(t) {
+		if schedule.crontab.DateAndTimeOk(t) {
 			return true
 		}
 	}

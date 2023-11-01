@@ -2,20 +2,19 @@ package crontab
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"yo/util/sl"
+	"yo/util/str"
 )
 
 // Expr is obtained via `Parse(string) (Expr, error)`.
 type Expr interface {
 	fmt.Stringer
 
-	DateOK(time.Time) bool
-	TimeOK(time.Time) bool
-	DateAndTimeOK(time.Time) bool
+	DateOk(time.Time) bool
+	TimeOk(time.Time) bool
+	DateAndTimeOk(time.Time) bool
 
 	// SoonestTo searches from `now` for the closest satisfactory minute in the past and future.
 	// The optional `after` and `before` parameters, if both non-`nil`, place bounds on the search. Beware that both pointers are written to, to be `In()` the same `Time.Location` as `now` is.
@@ -42,30 +41,29 @@ type FieldItem struct {
 }
 
 func (it *FieldItem) String() (s string) {
-	i2a := strconv.Itoa
 	if it.From == it.Through {
-		s = i2a(it.From)
+		s = str.FromInt(it.From)
 	} else {
-		s = i2a(it.From) + "-" + i2a(it.Through)
+		s = str.FromInt(it.From) + "-" + str.FromInt(it.Through)
 	}
 	if it.EveryNth > 0 {
-		s += "/" + i2a(it.EveryNth)
+		s += "/" + str.FromInt(it.EveryNth)
 	}
 	return
 }
 
 func (it Field) String() string {
-	return strings.Join(sl.To(it, func(f FieldItem) string { return f.String() }), ",")
+	return str.Join(sl.To(it, func(f FieldItem) string { return f.String() }), ",")
 }
 
 func (it *expr) String() string {
-	return strings.Join(sl.To([]Field{
+	return str.Join(sl.To([]Field{
 		it.Minutes,
 		it.Hours,
 		it.DaysOfMonth,
 		it.Months,
 		it.DaysOfWeek,
-	}, func(field Field) string { return field.String() }), " ")
+	}, Field.String), " ")
 }
 
 func newDateFrom(t *time.Time) *time.Time {
@@ -98,23 +96,23 @@ func (it *expr) SoonestTo(now time.Time, after *time.Time, before *time.Time) (b
 		1:  &afterNow,
 	} {
 		t := now
-		moveOn := func() bool {
-			return (!it.DateOK(t)) && (after == nil || t.After(*after)) && (before == nil || t.Before(*before))
+		move_on := func() bool {
+			return (!it.DateOk(t)) && (after == nil || t.After(*after)) && (before == nil || t.Before(*before))
 		}
-		for moveOn() { // jump to right search-starting day first:
+		for move_on() { // jump to right search-starting day first:
 			t = t.AddDate(0, 0, dir)
 		}
 
 		for date := newDateFrom(&t); true; t = t.Add(time.Minute * time.Duration(dir)) {
-			// has `t` just jumped to another date? if so & it's not `DateOK`, let's jump right to the next OK day.
+			// has `t` just jumped to another date? if so & it's not `DateOk`, let's jump right to the next OK day.
 			if date.Day() != t.Day() {
 				date = newDateFrom(&t)
 				if t = *date; dir < 0 { // t hereby at 00:00, but if going past, we'd want to be at 23:59
 					t = t.Add(time.Hour*23 + time.Minute*59)
 				}
-				for moveOn() {
-					adjDay := date.AddDate(0, 0, dir)
-					date, t = &adjDay, adjDay
+				for move_on() {
+					adj_day := date.AddDate(0, 0, dir)
+					date, t = &adj_day, adj_day
 				}
 			}
 			// now actually check `t`
@@ -130,7 +128,7 @@ func (it *expr) SoonestTo(now time.Time, after *time.Time, before *time.Time) (b
 				}
 				continue // matters here, we dont want to return `before`
 			}
-			if it.DateAndTimeOK(t) {
+			if it.DateAndTimeOk(t) {
 				*ret = &t
 				break
 			}
@@ -139,23 +137,23 @@ func (it *expr) SoonestTo(now time.Time, after *time.Time, before *time.Time) (b
 	return beforeNow, afterNow
 }
 
-func (it *expr) DateOK(t time.Time) bool {
+func (it *expr) DateOk(t time.Time) bool {
 	ok, _ := it.ok(t, true, false)
 	return ok
 }
 
-func (it *expr) TimeOK(t time.Time) bool {
+func (it *expr) TimeOk(t time.Time) bool {
 	_, ok := it.ok(t, false, true)
 	return ok
 }
 
-func (it *expr) DateAndTimeOK(t time.Time) bool {
-	okDate, okTime := it.ok(t, true, true)
-	return okDate && okTime
+func (it *expr) DateAndTimeOk(t time.Time) bool {
+	ok_date, ok_time := it.ok(t, true, true)
+	return ok_date && ok_time
 }
 
-func (it *expr) ok(t time.Time, checkDay bool, checkTime bool) (dayOK bool, timeOK bool) {
-	dayOK, timeOK = true, true
+func (it *expr) ok(t time.Time, checkDay bool, checkTime bool) (dayOk bool, timeOk bool) {
+	dayOk, timeOk = true, true
 	_, month, day := t.Date()
 	hour, min, _ := t.Clock()
 	for _, check := range []struct {
@@ -163,22 +161,22 @@ func (it *expr) ok(t time.Time, checkDay bool, checkTime bool) (dayOK bool, time
 		value int
 		ret   *bool
 	}{
-		{it.Hours, hour, &timeOK},
-		{it.Minutes, min, &timeOK},
-		{it.Months, int(month), &dayOK},
-		{it.DaysOfMonth, day, &dayOK},
-		{it.DaysOfWeek, int(t.Weekday()), &dayOK},
+		{it.Hours, hour, &timeOk},
+		{it.Minutes, min, &timeOk},
+		{it.Months, int(month), &dayOk},
+		{it.DaysOfMonth, day, &dayOk},
+		{it.DaysOfWeek, int(t.Weekday()), &dayOk},
 	} {
-		if (check.ret == &dayOK && !checkDay) || (check.ret == &timeOK && !checkTime) {
+		if (check.ret == &dayOk && !checkDay) || (check.ret == &timeOk && !checkTime) {
 			continue
 		}
-		var anyOK bool
+		var any_ok bool
 		for _, item := range check.field {
-			if anyOK = item.ok(check.value); anyOK {
+			if any_ok = item.ok(check.value); any_ok {
 				break
 			}
 		}
-		if !anyOK {
+		if !any_ok {
 			*check.ret = false
 			return
 		}
@@ -187,5 +185,5 @@ func (it *expr) ok(t time.Time, checkDay bool, checkTime bool) (dayOK bool, time
 }
 
 func (it *FieldItem) ok(n int) bool {
-	return (it.EveryNth == 0 || n%it.EveryNth == 0) && n >= it.From && n <= it.Through
+	return ((it.EveryNth == 0) || ((n % it.EveryNth) == 0)) && (n >= it.From) && (n <= it.Through)
 }
