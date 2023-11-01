@@ -57,7 +57,7 @@ func logFor(log logger, jobDef *JobDef, job *Job, task *Task) logger {
 		jobDef = job.def
 	}
 	if jobDef != nil {
-		log["job_def"], log["job_type"] = jobDef.Id, jobDef.HandlerID
+		log["job_def"], log["job_type"] = jobDef.Id, jobDef.HandlerId
 	}
 	if job != nil {
 		log["job_def"], log["job_type"], log["job_id"], log["job_cancellation_reason"] = job.Def, job.HandlerID, job.Id, string(job.Info.CancellationReason)

@@ -13,30 +13,30 @@ import (
 )
 
 type JobDef struct {
-	Resource `yaml:",inline" json:",inline" bson:",inline"`
+	Resource
 
-	HandlerID          string      `yaml:"handlerID" json:"handler_id" bson:"handler_id"`
-	DisplayName        string      `yaml:"displayName" json:"display_name,omitempty" bson:"display_name,omitempty"`
-	Disabled           bool        `yaml:"disabled" json:"disabled,omitempty" bson:"disabled,omitempty"`
-	Schedules          []*Schedule `yaml:"schedules" json:"schedules,omitempty" bson:"schedules,omitempty"`
-	AllowManualJobRuns bool        `yaml:"allowManualJobs" json:"allow_manual_jobs" bson:"allow_manual_jobs"`
+	HandlerId          string
+	DisplayName        string
+	Disabled           bool
+	Schedules          []*Schedule
+	AllowManualJobRuns bool
 	Timeouts           struct {
-		JobPrepAndFinalize time.Duration `yaml:"jobPrepAndFinalize" json:"job_prep_finalize" bson:"job_prep_finalize"`
-		TaskRun            time.Duration `yaml:"taskRun" json:"task_run" bson:"task_run"`
-	} `yaml:"timeouts" json:"timeouts" bson:"timeouts"`
-	TaskRetries             int            `yaml:"taskRetries" json:"task_retries,omitempty" bson:"task_retries,omitempty"`
-	TaskResultsShrinkDownTo []string       `yaml:"taskResultsShrinkDownTo" json:"task_results_shrink_to,omitempty" bson:"task_results_shrink_to,omitempty"`
-	DeleteAfterDays         int            `yaml:"deleteAfterDays" json:"delete_after_days,omitempty" bson:"delete_after_days,omitempty"`
-	LogJobLifecycleEvents   *bool          `yaml:"logJobLifecycleEvents" json:"log_job_lifecycle_events,omitempty" bson:"log_job_lifecycle_events,omitempty"`
-	LogTaskLifecycleEvents  *bool          `yaml:"logTaskLifecycleEvents" json:"log_task_lifecycle_events,omitempty" bson:"log_task_lifecycle_events,omitempty"`
-	DefaultJobDetails       map[string]any `yaml:"defaultJobDetails" json:"default_job_details,omitempty" bson:"default_job_details,omitempty"`
+		JobPrepAndFinalize time.Duration
+		TaskRun            time.Duration
+	}
+	TaskRetries             int
+	TaskResultsShrinkDownTo []string
+	DeleteAfterDays         int
+	LogJobLifecycleEvents   *bool
+	LogTaskLifecycleEvents  *bool
+	DefaultJobDetails       map[string]any
 
 	handler Handler
 }
 
 func (it *JobDef) defaultJobDetails() (details JobDetails, err error) {
 	if len(it.DefaultJobDetails) > 0 {
-		details, _ = handler(it.HandlerID).wellTypedJobDetails(nil)
+		details, _ = handler(it.HandlerId).wellTypedJobDetails(nil)
 		err = ensureValueFromMap(&it.DefaultJobDetails, &details)
 	}
 	return
@@ -59,11 +59,11 @@ func (it *JobDef) EnsureValidOrErrorIfEnabled() (*JobDef, error) {
 }
 
 func (it *JobDef) EnsureValid() (errs []error) { // not quite the same as "validation"  =)
-	if handlerReg := handler(it.HandlerID); it.handler == nil && (!it.Disabled) && handlerReg != nil {
-		it.handler = handlerReg.ById(it.HandlerID)
+	if handlerReg := handler(it.HandlerId); it.handler == nil && (!it.Disabled) && handlerReg != nil {
+		it.handler = handlerReg.ById(it.HandlerId)
 	}
 	if it.handler == nil && !it.Disabled {
-		errs = append(errs, errNotFoundHandler(it.Id, it.HandlerID))
+		errs = append(errs, errNotFoundHandler(it.Id, it.HandlerId))
 	}
 	it.Timeouts.TaskRun = Clamp(11*time.Second, 22*time.Hour, it.Timeouts.TaskRun)
 	it.Timeouts.JobPrepAndFinalize = Clamp(22*time.Second, 11*time.Hour, it.Timeouts.JobPrepAndFinalize)

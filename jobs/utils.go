@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"math/rand"
+	"os"
 	"time"
 
 	. "yo/util"
@@ -15,7 +16,11 @@ import (
 type hasId interface{ GetId() string }
 
 func newId(prefix string) string {
-	return prefix + "_" + str.FromI64(time.Now().In(Timezone).UnixNano(), 36) + "_" + str.FromI64(rand.Int63n(math.MaxInt64), 36)
+	ret, _ := os.Hostname()
+	for _, n := range []int64{time.Now().In(Timezone).UnixNano(), rand.Int63n(math.MaxInt64), int64(os.Getpid()), int64(os.Getppid())} {
+		ret += ("_" + str.FromI64(n, 36))
+	}
+	return prefix + "_" + ret
 }
 
 func findByID[T hasId](collection []T, id string) T {

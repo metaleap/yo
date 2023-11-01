@@ -55,9 +55,9 @@ func (it *engine) startDueJobs(ctx context.Context) {
 				reason = CancellationReasonDuplicate
 			case job.def == nil:
 				reason = CancellationReasonDefInvalidOrGone
-			case job.HandlerID != job.def.HandlerID || job.def.Disabled:
+			case job.HandlerID != job.def.HandlerId || job.def.Disabled:
 				reason = CancellationReasonDefChanged
-			case job.def.handler == nil && job.HandlerID == job.def.HandlerID:
+			case job.def.handler == nil && job.HandlerID == job.def.HandlerId:
 				reason = CancellationReasonJobTypeInvalidOrGone
 			}
 			if reason != "" {
@@ -80,7 +80,7 @@ func (it *engine) startDueJob(ctx context.Context, job *Job) {
 	if job.def == nil {
 		err = errNotFoundDef(job.Def)
 	} else if job.def.handler == nil {
-		err = errNotFoundHandler(job.def.Id, job.def.HandlerID)
+		err = errNotFoundHandler(job.def.Id, job.def.HandlerId)
 	}
 	if it.logErr(log, err, job) != nil {
 		return
@@ -96,7 +96,7 @@ func (it *engine) startDueJob(ctx context.Context, job *Job) {
 	if job.Details, err = job.def.handler.JobDetails(jobCtx); it.logErr(log, err, job) != nil {
 		return
 	}
-	if _, err = handler(job.def.HandlerID).wellTypedJobDetails(job.Details); it.logErr(log, err, job) != nil {
+	if _, err = handler(job.def.HandlerId).wellTypedJobDetails(job.Details); it.logErr(log, err, job) != nil {
 		return
 	}
 
@@ -119,7 +119,7 @@ func (it *engine) startDueJob(ctx context.Context, job *Job) {
 			}
 			tasks := sl.To(taskDetails, func(details TaskDetails) *Task {
 				if numTasks++; err == nil {
-					_, err = handler(job.def.HandlerID).wellTypedTaskDetails(details)
+					_, err = handler(job.def.HandlerId).wellTypedTaskDetails(details)
 				}
 				return &Task{
 					Resource:        Resource{job.Id + "_" + strconv.Itoa(numTasks)},
@@ -165,10 +165,10 @@ func (it *engine) finalizeFinishedJobs(ctx context.Context) {
 			return j.def == nil
 		},
 		CancellationReasonDefChanged: func(j *Job) bool {
-			return j.def != nil && (j.HandlerID != j.def.HandlerID || j.def.Disabled)
+			return j.def != nil && (j.HandlerID != j.def.HandlerId || j.def.Disabled)
 		},
 		CancellationReasonJobTypeInvalidOrGone: func(j *Job) bool {
-			return j.def != nil && j.def.HandlerID == j.HandlerID && j.def.handler == nil
+			return j.def != nil && j.def.HandlerId == j.HandlerID && j.def.handler == nil
 		},
 	} {
 		jobsToCancel := sl.Where(runningJobs, predicate)
@@ -224,7 +224,7 @@ func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
 	})
 	abortStreaming = true
 	if err == nil {
-		_, err = handler(job.def.HandlerID).wellTypedJobResults(job.Results)
+		_, err = handler(job.def.HandlerId).wellTypedJobResults(job.Results)
 	}
 	if it.logErr(log, err, job) != nil {
 		return
@@ -518,7 +518,7 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 	// first, attempt to reserve task for running vs. other pods
 	alreadyCancelled := task.job == nil || task.job.State == Cancelled || task.job.State == Cancelling ||
 		task.job.def == nil || task.job.def.Disabled || task.job.def.handler == nil ||
-		task.HandlerID != task.job.def.HandlerID || task.job.HandlerID != task.job.def.HandlerID
+		task.HandlerID != task.job.def.HandlerId || task.job.HandlerID != task.job.def.HandlerId
 	oldTaskState := task.State
 	task.State, task.FinishTime, task.Attempts =
 		If(alreadyCancelled, Cancelled, Running), nil, append([]*TaskAttempt{{Time: *timeNow()}}, task.Attempts...)
@@ -538,11 +538,11 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 	case task.job.def == nil:
 		task.Attempts[0].Err = errNotFoundDef(task.job.Def)
 	case task.job.def.handler == nil:
-		task.Attempts[0].Err = errNotFoundHandler(task.job.Def, task.job.def.HandlerID)
+		task.Attempts[0].Err = errNotFoundHandler(task.job.Def, task.job.def.HandlerId)
 	case !alreadyCancelled: // now run it
 		task.Results, task.Attempts[0].Err = task.job.def.handler.TaskResults(task.job.ctx(ctx, task.Id), task.Details)
 		if task.Attempts[0].Err == nil {
-			_, task.Attempts[0].Err = handler(task.job.def.HandlerID).wellTypedTaskResults(task.Results)
+			_, task.Attempts[0].Err = handler(task.job.def.HandlerId).wellTypedTaskResults(task.Results)
 		}
 	}
 

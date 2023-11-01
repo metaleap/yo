@@ -182,7 +182,7 @@ func (it *engine) createJobRun(ctx context.Context, jobDef *JobDef, jobRunId str
 	jobRun = &Job{
 		Resource:              Resource{jobRunId},
 		Def:                   jobDef.Id,
-		HandlerID:             jobDef.HandlerID,
+		HandlerID:             jobDef.HandlerId,
 		State:                 Pending,
 		AutoScheduled:         autoScheduled,
 		ResourceVersion:       1,
