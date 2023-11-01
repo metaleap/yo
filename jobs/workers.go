@@ -21,8 +21,8 @@ var (
 	noPaging = ListRequest{PageSize: math.MaxInt32}
 )
 
-func (it *engine) startAndFinalizeJobs() {
-	defer doAfter(it.options.IntervalStartAndFinalizeJobRuns, it.startAndFinalizeJobs)
+func (it *engine) startAndFinalizeJobRuns() {
+	defer doAfter(it.options.IntervalStartAndFinalizeJobs, it.startAndFinalizeJobRuns)
 
 	GoEach(ctxNone,
 		func(ctx context.Context) { it.startDueJobs(ctx) },
@@ -66,7 +66,7 @@ func (it *engine) startDueJobs(ctx context.Context) {
 				i--
 			}
 		}
-		for job, err := range it.cancelJobs(ctx, cancelJobs) {
+		for job, err := range it.cancelJobRuns(ctx, cancelJobs) {
 			_ = it.logErr(log, err, job)
 		}
 	}
@@ -174,7 +174,7 @@ func (it *engine) finalizeFinishedJobs(ctx context.Context) {
 		jobsToCancel := sl.Where(runningJobs, predicate)
 		cancelJobs[reason], runningJobs = jobsToCancel, sl.Without(runningJobs, jobsToCancel...)
 	}
-	for job, err := range it.cancelJobs(ctx, cancelJobs) {
+	for job, err := range it.cancelJobRuns(ctx, cancelJobs) {
 		_ = it.logErr(log, err, job)
 	}
 	GoItems(ctx, runningJobs, it.finalizeFinishedJob,
@@ -244,7 +244,7 @@ func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
 		}
 		return err
 	}), job) == nil && it.eventHandlers.onJobRunExecuted != nil { // only count jobs that ran AND were stored
-		if jobStats, err := it.JobRunStats(ctx, job.Resource); err == nil {
+		if jobStats, err := it.Stats(ctx, job.Resource); err == nil {
 			it.eventHandlers.onJobRunExecuted(job, jobStats)
 		}
 	}
@@ -313,8 +313,8 @@ func (it *engine) finalizeCancelingJob(ctx context.Context, job *Job) {
 	}
 }
 
-func (it *engine) ensureJobSchedules() {
-	defer doAfter(it.options.IntervalEnsureJobSchedules, it.ensureJobSchedules)
+func (it *engine) ensureJobRunSchedules() {
+	defer doAfter(it.options.IntervalEnsureJobSchedules, it.ensureJobRunSchedules)
 
 	var jobDefs []*JobDef
 	{
@@ -354,7 +354,7 @@ func (it *engine) ensureJobDefScheduled(ctx context.Context, jobDef *JobDef) {
 		}
 		dueTime := jobDef.findClosestToNowSchedulableTimeSince(after, true)
 		if dueTime == nil { // jobDef or all its Schedules were Disabled since this Pending Job was scheduled
-			for job, err := range it.cancelJobs(ctx, map[CancellationReason][]*Job{
+			for job, err := range it.cancelJobRuns(ctx, map[CancellationReason][]*Job{
 				CancellationReasonDefChanged: {latest},
 			}) {
 				_ = it.logErr(log, err, job)
@@ -383,12 +383,12 @@ func (it *engine) scheduleJob(ctx context.Context, jobDef *JobDef, last *Job) er
 	if dueTime == nil { // means currently no non-Disabled `Schedules`, so don't schedule anything
 		return nil
 	}
-	_, err := it.createJob(ctx, jobDef, "", *dueTime, nil, last, true)
+	_, err := it.createJobRun(ctx, jobDef, "", *dueTime, nil, last, true)
 	return err
 }
 
-func (it *engine) deleteStorageExpiredJobs() {
-	defer doAfter(it.options.IntervalDeleteStorageExpiredJobRuns, it.deleteStorageExpiredJobs)
+func (it *engine) deleteStorageExpiredJobRuns() {
+	defer doAfter(it.options.IntervalDeleteStorageExpiredJobs, it.deleteStorageExpiredJobRuns)
 
 	DoTimeout(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
 		log := loggerNew()
@@ -427,8 +427,8 @@ func (it *engine) deleteStorageExpiredJobsForDef(ctx context.Context, jobDef *Jo
 
 // A died task is one whose runner died between its start and its finishing or orderly timeout.
 // It's found in the DB as still RUNNING despite its timeout moment being over a minute ago:
-func (it *engine) expireOrRetryDeadTasks() {
-	defer doAfter(it.options.IntervalExpireOrRetryDeadTasks, it.expireOrRetryDeadTasks)
+func (it *engine) expireOrRetryDeadJobTasks() {
+	defer doAfter(it.options.IntervalExpireOrRetryDeadTasks, it.expireOrRetryDeadJobTasks)
 
 	currentlyRunning := map[*JobDef][]*Job{} // gather candidate jobs for task selection
 	{
@@ -478,8 +478,8 @@ func (it *engine) expireOrRetryDeadTasksForDef(ctx context.Context, jobDef *JobD
 	}
 }
 
-func (it *engine) runTasks() {
-	defer func() { doAfter(it.options.IntervalRunTasks, it.runTasks) }()
+func (it *engine) runJobTasks() {
+	defer func() { doAfter(it.options.IntervalRunTasks, it.runJobTasks) }()
 
 	var pendingTasks []*Task
 	{

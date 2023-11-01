@@ -31,7 +31,7 @@ func IfF[T any](b bool, t func() T, f func() T) T {
 	return f()
 }
 
-func Clamp[T cmp.Ordered](v T, min T, max T) T {
+func Clamp[T cmp.Ordered](min T, max T, v T) T {
 	return If(v < min, min, If(v > max, max, v))
 }
 
