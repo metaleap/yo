@@ -72,7 +72,8 @@ type (
 		// IntervalEnsureJobSchedules is advised every couple of minutes (under 5). It is only there to catch up scheduling-wise with new or changed `JobDef`s; otherwise a finalized `JobRun` gets its next occurrence scheduled right at finalization.
 		IntervalEnsureJobSchedules time.Duration `default:"2m"`
 		// IntervalDeleteStorageExpiredJobs can be on the order of hours: job storage-expiry is set in number-of-days.
-		IntervalDeleteStorageExpiredJobs time.Duration `default:"5h"`
+		// However, a fluke failure will not see immediate retries (since running on an interval anyway), so no need to stretch too long either.
+		IntervalDeleteStorageExpiredJobs time.Duration `default:"11h"`
 
 		// MaxConcurrentOps semaphores worker bulk operations over multiple unrelated JobTasks, JobRuns or JobDefs
 		MaxConcurrentOps int `default:"6"`

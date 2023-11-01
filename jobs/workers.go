@@ -385,13 +385,13 @@ func (it *engine) scheduleJobRun(ctx context.Context, jobDef *JobDef, jobRunPrev
 func (it *engine) deleteStorageExpiredJobRuns() {
 	defer doAfter(it.options.IntervalDeleteStorageExpiredJobs, it.deleteStorageExpiredJobRuns)
 
-	Timeout(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
+	Timeout(ctxNone, TimeoutLong, func(ctx context.Context) {
 		log := loggerNew()
-		jobDefs, err := it.storage.listJobDefs(ctx, JobDefFilter{}.WithStorageExpiry(true))
+		job_defs, err := it.storage.listJobDefs(ctx, JobDefFilter{}.WithStorageExpiry(true))
 		if it.logErr(log, err) != nil {
 			return
 		}
-		for _, jobDef := range jobDefs {
+		for _, jobDef := range job_defs {
 			it.deleteStorageExpiredJobsForDef(ctx, jobDef)
 		}
 	})
