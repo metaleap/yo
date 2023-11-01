@@ -122,9 +122,9 @@ func (it *engine) finalizeJobRunIfDone(ctx context.Context, jobRun *JobRun) {
 	if (nil == it.logErr(log, it.storage.transacted(ctx, func(ctx context.Context) error {
 		err = it.storage.saveJobRun(ctx, jobRun)
 		if (err == nil) && jobRun.AutoScheduled {
-			// doing this right here upon job finalization (in the same transaction) helps prevent
-			// concurrent duplicate job schedulings (nb. identical logic in `finalizeCancelingJobRun`)
-			_ = it.logErr(log, it.scheduleJob(ctx, jobRun.jobDef, jobRun), jobRun)
+			// doing this right here upon job finalization (in the same
+			// transaction) helps prevent concurrent duplicate job schedulings
+			_ = it.logErr(log, it.scheduleJobRun(ctx, jobRun.jobDef, jobRun), jobRun)
 		}
 		return err
 	}), jobRun)) && (it.eventHandlers.onJobRunFinalized != nil) { // only count jobs that ran AND were stored
@@ -186,13 +186,7 @@ func (it *engine) finalizeCancelingJobRun(ctx context.Context, job *JobRun) {
 			job.logger(log).Infof("marking %s '%s' job '%s' as %s", JobRunCancelling, job.JobDefId, job.Id, Cancelled)
 		}
 		_ = it.logErr(log, it.storage.transacted(ctx, func(ctx context.Context) error {
-			err := it.logErr(log, it.storage.saveJobRun(ctx, job), job)
-			if (err == nil) && job.AutoScheduled && (job.jobDef != nil) && !job.jobDef.Disabled {
-				// doing this right here upon job finalization (in the same transaction) helps prevent
-				// concurrent duplicate job schedulings (nb. identical logic in `finalizeJobRunIfDone`)
-				_ = it.logErr(log, it.scheduleJob(ctx, job.jobDef, job), job)
-			}
-			return err
+			return it.logErr(log, it.storage.saveJobRun(ctx, job), job)
 		}), job)
 	}
 }
@@ -332,59 +326,59 @@ func (it *engine) ensureJobRunSchedules() {
 func (it *engine) ensureJobDefScheduled(ctx context.Context, jobDef *JobDef) {
 	log := loggerNew()
 
-	latest, err := it.storage.findJobRun(ctx, false, false, // defaults to sorted descending by due_time
+	job_run, err := it.storage.findJobRun(ctx, false, false, // defaults to sorted descending by due_time
 		JobRunFilter{}.WithJobDefs(jobDef.Id).WithAutoScheduled(true))
-	if it.logErr(log, err, jobDef) != nil || (latest != nil && // still busy? then no scheduling needed here & now
-		(latest.State == Running || latest.State == JobRunCancelling)) {
+	if (nil != it.logErr(log, err, jobDef)) || // still busy? then no scheduling needed here & now
+		((job_run != nil) && ((job_run.State == Running) || (job_run.State == JobRunCancelling))) {
 		return
 	}
-	if latest != nil {
-		latest.jobDef = jobDef
+	if job_run != nil {
+		job_run.jobDef = jobDef
 	}
-	if latest == nil || latest.State != Pending {
-		_ = it.logErr(log, it.scheduleJob(ctx, jobDef, latest), jobDef)
-	} else if latest.DueTime.After(*timeNow()) { // verify the Pending job's future due_time against the current `jobDef.Schedules` in case the latter changed after the former was scheduled
+	if (job_run == nil) || (job_run.State != Pending) { // ensuring we always have a Pending `JobRun` scheduled (although largely ensured already at the end of `finalizeJobRunIfDone` unless disrupted)
+		_ = it.logErr(log, it.scheduleJobRun(ctx, jobDef, job_run), jobDef)
+	} else if job_run.DueTime.After(*timeNow()) { // verify the Pending job's future due_time against the current `jobDef.Schedules` in case the latter changed after the former was scheduled
 		var after *time.Time
-		lastDone, err := it.storage.findJobRun(ctx, false, false,
+		last_done, err := it.storage.findJobRun(ctx, false, false,
 			JobRunFilter{}.WithJobDefs(jobDef.Id).WithStates(Done, Cancelled))
-		if it.logErr(log, err, latest) != nil {
+		if nil != it.logErr(log, err, job_run) {
 			return
 		}
-		if lastDone != nil {
-			after = firstNonNil(lastDone.FinishTime, lastDone.StartTime, &lastDone.DueTime)
+		if last_done != nil {
+			after = firstNonNil(last_done.FinishTime, last_done.StartTime, &last_done.DueTime)
 		}
-		dueTime := jobDef.findClosestToNowSchedulableTimeSince(after, true)
-		if dueTime == nil { // jobDef or all its Schedules were Disabled since this Pending Job was scheduled
-			for job, err := range it.cancelJobRuns(ctx, map[CancellationReason][]*JobRun{
-				CancellationReasonDefChanged: {latest},
+		due_time := jobDef.findClosestToNowSchedulableTimeSince(after, true)
+		if due_time == nil { // jobDef or all its Schedules were Disabled since this Pending Job was scheduled
+			for job_run, err := range it.cancelJobRuns(ctx, map[CancellationReason][]*JobRun{
+				CancellationReasonDefChanged: {job_run},
 			}) {
-				_ = it.logErr(log, err, job)
+				_ = it.logErr(log, err, job_run)
 			}
 			return
 		}
-		if (!jobDef.ok(latest.DueTime)) || !dueTime.Equal(latest.DueTime) {
-			if it.logLifecycleEvents(nil, latest, nil) {
-				latest.logger(log).Infof("updating outdated scheduled due_time of '%s' job '%s' from '%s' to '%s'", jobDef.Id, latest.Id, latest.DueTime, dueTime)
+		if (!jobDef.ok(job_run.DueTime)) || !due_time.Equal(job_run.DueTime) {
+			if it.logLifecycleEvents(nil, job_run, nil) {
+				job_run.logger(log).Infof("updating outdated scheduled due time of '%s' job run '%s' from '%s' to '%s'", jobDef.Id, job_run.Id, job_run.DueTime, due_time)
 			}
-			latest.DueTime = *dueTime
-			_ = it.logErr(log, it.storage.saveJobRun(ctx, latest), latest)
+			job_run.DueTime = *due_time
+			_ = it.logErr(log, it.storage.saveJobRun(ctx, job_run), job_run)
 		}
 	}
 }
 
-func (it *engine) scheduleJob(ctx context.Context, jobDef *JobDef, last *JobRun) error {
-	if jobDef.Disabled || jobDef.jobType == nil {
+func (it *engine) scheduleJobRun(ctx context.Context, jobDef *JobDef, jobRunPrev *JobRun) error {
+	if jobDef.Disabled || (jobDef.jobType == nil) {
 		return nil
 	}
-	var lastTime *time.Time
-	if last != nil {
-		lastTime = firstNonNil(last.FinishTime, last.StartTime, &last.DueTime)
+	var last_time *time.Time
+	if jobRunPrev != nil {
+		last_time = firstNonNil(jobRunPrev.FinishTime, jobRunPrev.StartTime, &jobRunPrev.DueTime)
 	}
-	dueTime := jobDef.findClosestToNowSchedulableTimeSince(lastTime, true)
-	if dueTime == nil { // means currently no non-Disabled `Schedules`, so don't schedule anything
+	due_time := jobDef.findClosestToNowSchedulableTimeSince(last_time, true)
+	if due_time == nil { // means currently no non-Disabled `Schedules`, so don't schedule anything
 		return nil
 	}
-	_, err := it.createJobRun(ctx, jobDef, "", *dueTime, nil, last, true)
+	_, err := it.createJobRun(ctx, jobDef, "", *due_time, nil, jobRunPrev, true)
 	return err
 }
 
