@@ -78,7 +78,7 @@ func (it *engine) startDueJob(ctx context.Context, job *JobRun) {
 	log := loggerNew()
 	var err error
 	if job.jobDef == nil {
-		err = errNotFoundDef(job.JobDefId)
+		err = errNotFoundJobDef(job.JobDefId)
 	} else if job.jobDef.handler == nil {
 		err = errNotFoundHandler(job.jobDef.Id, job.jobDef.HandlerId)
 	}
@@ -534,9 +534,9 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 
 	switch {
 	case task.jobRun == nil:
-		task.Attempts[0].Err = errNotFoundJob(task.JobRunId)
+		task.Attempts[0].Err = errNotFoundJobRun(task.JobRunId)
 	case task.jobRun.jobDef == nil:
-		task.Attempts[0].Err = errNotFoundDef(task.jobRun.JobDefId)
+		task.Attempts[0].Err = errNotFoundJobDef(task.jobRun.JobDefId)
 	case task.jobRun.jobDef.handler == nil:
 		task.Attempts[0].Err = errNotFoundHandler(task.jobRun.JobDefId, task.jobRun.jobDef.HandlerId)
 	case !alreadyCancelled: // now run it

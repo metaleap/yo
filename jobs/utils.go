@@ -32,33 +32,33 @@ func ensureTZ(times ...*time.Time) {
 }
 
 func findById[T hasId](collection []T, id string) T {
-	return sl.FirstWhere(collection, func(v T) bool { return v.GetId() == id })
+	return sl.FirstWhere(collection, func(v T) bool { return (v.GetId() == id) })
 }
 
-func errNotFoundJob(id string) error {
-	return errors.New(str.Fmt("job '%s' no longer exists", id))
+func errNotFoundJobRun(id string) error {
+	return errors.New(str.Fmt("job run '%s' no longer exists", id))
 }
 
-func errNotFoundDef(id string) error {
+func errNotFoundJobDef(id string) error {
 	return errors.New(str.Fmt("job def '%s' renamed or removed in configuration", id))
 }
 
-func errNotFoundHandler(defID string, handlerID string) error {
-	return errors.New(str.Fmt("job def '%s' handler '%s' renamed or removed", defID, handlerID))
+func errNotFoundHandler(jobDefId string, handlerId string) error {
+	return errors.New(str.Fmt("job def '%s' handler '%s' renamed or removed", jobDefId, handlerId))
 }
 
 func firstNonNil[T any](collection ...*T) (found *T) {
-	return sl.FirstWhere(collection, func(it *T) bool { return it != nil })
+	return sl.FirstWhere(collection, func(it *T) bool { return (it != nil) })
 }
 
 func timeNow() *time.Time { return ToPtr(time.Now().In(Timezone)) }
 
 func sanitize[TStruct any, TField cmp.Ordered](min TField, max TField, parse func(string) (TField, error), fields map[string]*TField) (err error) {
-	typeOfStruct := ReflType[TStruct]()
-	for fieldName, fieldPtr := range fields {
-		if clamped := Clamp(min, max, *fieldPtr); clamped != *fieldPtr {
-			field, _ := typeOfStruct.FieldByName(fieldName)
-			if *fieldPtr, err = parse(field.Tag.Get("default")); err != nil {
+	type_of_struct := ReflType[TStruct]()
+	for field_name, field_ptr := range fields {
+		if clamped := Clamp(min, max, *field_ptr); clamped != *field_ptr {
+			field, _ := type_of_struct.FieldByName(field_name)
+			if *field_ptr, err = parse(field.Tag.Get("default")); err != nil {
 				return
 			}
 		}

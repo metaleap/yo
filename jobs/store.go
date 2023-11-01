@@ -120,7 +120,7 @@ func (it store) listJobRuns(ctx context.Context, loadDefs bool, mustLoadDefs boo
 		if jobDefs, err = it.listJobDefs(ctx, JobDefFilter{}.WithIds(sl.To(jobRuns, func(v *JobRun) string { return v.JobDefId })...)); err == nil {
 			for _, job := range jobRuns {
 				if job.jobDef = findById(jobDefs, job.JobDefId); (job.jobDef == nil) && mustLoadDefs {
-					return nil, nil, "", errNotFoundDef(job.JobDefId)
+					return nil, nil, "", errNotFoundJobDef(job.JobDefId)
 				}
 			}
 		} else if !mustLoadDefs {
@@ -163,7 +163,7 @@ func (it store) listJobTasks(ctx context.Context, loadJobRuns bool, mustLoadJobR
 		if jobRuns, jobDefs, _, err = it.listJobRuns(ctx, true, mustLoadJobRuns, ListRequest{PageSize: len(jobTasks)}, JobRunFilter{}.WithIds(sl.To(jobTasks, func(v *Task) string { return v.JobRunId })...)); err == nil {
 			for _, job_task := range jobTasks {
 				if job_task.jobRun = findById(jobRuns, job_task.JobRunId); (job_task.jobRun == nil) && mustLoadJobRuns {
-					return nil, nil, nil, "", errNotFoundJob(job_task.JobRunId)
+					return nil, nil, nil, "", errNotFoundJobRun(job_task.JobRunId)
 				}
 			}
 		} else if !mustLoadJobRuns {
