@@ -8,7 +8,7 @@ import (
 type Task struct {
 	Resource
 
-	HandlerId       string
+	JobTypeId       string
 	JobRunId        string
 	State           RunState
 	StartTime       *time.Time

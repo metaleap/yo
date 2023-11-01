@@ -43,8 +43,8 @@ func errNotFoundJobDef(id string) error {
 	return errors.New(str.Fmt("job def '%s' renamed or removed in configuration", id))
 }
 
-func errNotFoundHandler(jobDefId string, handlerId string) error {
-	return errors.New(str.Fmt("job def '%s' handler '%s' renamed or removed", jobDefId, handlerId))
+func errNotFoundJobType(jobDefId string, jobTypeId string) error {
+	return errors.New(str.Fmt("job def '%s' type '%s' renamed or removed", jobDefId, jobTypeId))
 }
 
 func firstNonNil[T any](collection ...*T) (found *T) {

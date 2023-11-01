@@ -50,13 +50,13 @@ func logFor(log logger, jobDef *JobDef, jobRun *JobRun, jobTask *Task) logger {
 		jobDef = jobRun.jobDef
 	}
 	if jobDef != nil {
-		log["job_def"], log["job_type"] = jobDef.Id, jobDef.HandlerId
+		log["job_def"], log["job_type"] = jobDef.Id, jobDef.JobTypeId
 	}
 	if jobRun != nil {
-		log["job_def"], log["job_type"], log["job_id"], log["job_cancellation_reason"] = jobRun.JobDefId, jobRun.HandlerId, jobRun.Id, string(jobRun.Info.CancellationReason)
+		log["job_def"], log["job_type"], log["job_id"], log["job_cancellation_reason"] = jobRun.JobDefId, jobRun.JobTypeId, jobRun.Id, string(jobRun.Info.CancellationReason)
 	}
 	if jobTask != nil {
-		log["job_type"], log["job_id"], log["job_task"] = jobTask.HandlerId, jobTask.JobRunId, jobTask.Id
+		log["job_type"], log["job_id"], log["job_task"] = jobTask.JobTypeId, jobTask.JobRunId, jobTask.Id
 	}
 	return log
 }
@@ -64,7 +64,7 @@ func logFor(log logger, jobDef *JobDef, jobRun *JobRun, jobTask *Task) logger {
 func (it *engine) logErr(log logger, err error, objs ...interface {
 	logger(logger) logger
 }) error {
-	if (!IsDevMode) || it.backend.isVersionConflictDuringSave(err) {
+	if (!IsDevMode) || it.store.isVersionConflictDuringSave(err) {
 		// we don't noise up the logs (or otherwise handle err) just because another pod
 		// beat us to what both were attempting at the same time — it's by-design ignored
 		return err

@@ -44,7 +44,7 @@ type (
 	}
 	engine struct {
 		running          bool
-		backend          store
+		store            store
 		options          Options
 		taskCancelers    map[string]func()
 		taskCancelersMut sync.Mutex
@@ -100,7 +100,7 @@ func NewEngine(impl Store, options Options) (Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &engine{backend: store{impl: impl}, options: options, taskCancelers: map[string]func(){}}, nil
+	return &engine{store: store{impl: impl}, options: options, taskCancelers: map[string]func(){}}, nil
 }
 
 func (it *engine) Running() bool { return it.running }
@@ -114,7 +114,7 @@ func (it *engine) Resume() {
 }
 
 func (it *engine) CancelJobRuns(ctx context.Context, jobRunIds ...string) (errs []error) {
-	job_runs, _, _, err := it.backend.listJobRuns(ctx, false, false, ListRequest{PageSize: len(jobRunIds)},
+	job_runs, _, _, err := it.store.listJobRuns(ctx, false, false, ListRequest{PageSize: len(jobRunIds)},
 		JobRunFilter{}.WithStates(Running, Pending).WithIds(jobRunIds...))
 	if err != nil {
 		return []error{err}
@@ -136,7 +136,7 @@ func (it *engine) cancelJobRuns(ctx context.Context, jobRuns map[CancellationRea
 			if it.logLifecycleEvents(nil, jobRun, nil) {
 				jobRun.logger(log).Infof("marking %s '%s' job run '%s' as %s", state, jobRun.JobDefId, jobRun.Id, jobRun.State)
 			}
-			if err := it.backend.saveJobRun(ctx, jobRun); err != nil {
+			if err := it.store.saveJobRun(ctx, jobRun); err != nil {
 				jobRun.State, jobRun.ResourceVersion = state, version
 				mut_errs.Lock()
 				errs[jobRun] = err
@@ -148,14 +148,14 @@ func (it *engine) cancelJobRuns(ctx context.Context, jobRuns map[CancellationRea
 }
 
 func (it *engine) DeleteJobRun(ctx context.Context, jobRunRef Resource) error {
-	job_run, err := it.backend.getJobRun(ctx, false, false, jobRunRef.Id)
+	job_run, err := it.store.getJobRun(ctx, false, false, jobRunRef.Id)
 	if err != nil {
 		return err
 	}
 	if (job_run.State != Done) && (job_run.State != Cancelled) {
 		return errors.New(str.Fmt("job run '%s' was expected in a `state` of '%s' or '%s', not '%s'", jobRunRef.Id, Done, Cancelled, job_run.State))
 	}
-	return it.backend.deleteJobRuns(ctx, JobRunFilter{}.WithIds(jobRunRef.Id))
+	return it.store.deleteJobRuns(ctx, JobRunFilter{}.WithIds(jobRunRef.Id))
 }
 
 func (it *engine) CreateJobRun(ctx context.Context, jobDef *JobDef, jobRunId string, dueTime *time.Time, jobDetails JobDetails) (jobRun *JobRun, err error) {
@@ -182,7 +182,7 @@ func (it *engine) createJobRun(ctx context.Context, jobDef *JobDef, jobRunId str
 	jobRun = &JobRun{
 		Resource:                 Resource{jobRunId},
 		JobDefId:                 jobDef.Id,
-		HandlerId:                jobDef.HandlerId,
+		JobTypeId:                jobDef.JobTypeId,
 		State:                    Pending,
 		AutoScheduled:            autoScheduled,
 		ResourceVersion:          1,
@@ -193,7 +193,7 @@ func (it *engine) createJobRun(ctx context.Context, jobDef *JobDef, jobRunId str
 	}
 	if autoScheduled && (lastJobRun != nil) {
 		jobRun.ScheduledNextAfterJobRun = lastJobRun.Id
-		already_there, err := it.backend.findJobRun(ctx, true, true, JobRunFilter{}.WithScheduledNextAfterJobRun(jobRun.ScheduledNextAfterJobRun))
+		already_there, err := it.store.findJobRun(ctx, true, true, JobRunFilter{}.WithScheduledNextAfterJobRun(jobRun.ScheduledNextAfterJobRun))
 		if (already_there != nil) || (err != nil) {
 			return If((already_there != nil), already_there, jobRun), err
 		}
@@ -201,11 +201,11 @@ func (it *engine) createJobRun(ctx context.Context, jobDef *JobDef, jobRunId str
 	if it.logLifecycleEvents(nil, jobRun, nil) {
 		jobRun.logger(log).Infof("creating %s '%s' job run '%s' scheduled for %s", Pending, jobRun.JobDefId, jobRun.Id, jobRun.DueTime)
 	}
-	return jobRun, it.backend.insertJobRuns(ctx, jobRun)
+	return jobRun, it.store.insertJobRuns(ctx, jobRun)
 }
 
 func (it *engine) RetryJobTask(ctx context.Context, jobRunId string, jobTaskId string) (*Task, error) {
-	job_task, err := it.backend.getJobTask(ctx, true, true, jobTaskId)
+	job_task, err := it.store.getJobTask(ctx, true, true, jobTaskId)
 	if err != nil {
 		return nil, err
 	}
@@ -220,14 +220,14 @@ func (it *engine) RetryJobTask(ctx context.Context, jobRunId string, jobTaskId s
 		return nil, errors.New(str.Fmt("job task '%s' must be in a `state` of %s (currently: %s) with the latest `attempts` (current len: %d) entry having an `error` set", job_task.Id, Done, job_task.State, len(job_task.Attempts)))
 	}
 
-	return job_task, it.backend.transacted(ctx, func(ctx context.Context) error {
+	return job_task, it.store.transacted(ctx, func(ctx context.Context) error {
 		if job_run.State != Running {
 			log := loggerNew()
 			if it.logLifecycleEvents(job_run.jobDef, job_run, job_task) {
 				job_run.logger(log).Infof("marking %s '%s' job run '%s' as %s (for manual task retry)", job_run.State, job_run.JobDefId, job_run.Id, Running)
 			}
 			job_run.State, job_run.FinishTime, job_run.Results, job_run.ResultsStore = Running, nil, nil, nil
-			if err := it.backend.saveJobRun(ctx, job_run); err != nil {
+			if err := it.store.saveJobRun(ctx, job_run); err != nil {
 				return err
 			}
 		}
@@ -236,21 +236,21 @@ func (it *engine) RetryJobTask(ctx context.Context, jobRunId string, jobTaskId s
 }
 
 func (it *engine) Stats(ctx context.Context, jobRunRef Resource) (*JobRunStats, error) {
-	job_run, err := it.backend.getJobRun(ctx, false, false, jobRunRef.Id)
+	job_run, err := it.store.getJobRun(ctx, false, false, jobRunRef.Id)
 	if err != nil {
 		return nil, err
 	}
 
 	stats := JobRunStats{TasksByState: make(map[RunState]int64, 4)}
 	for _, state := range []RunState{Pending, Running, Done, Cancelled} {
-		if stats.TasksByState[state], err = it.backend.countJobTasks(ctx, 0,
+		if stats.TasksByState[state], err = it.store.countJobTasks(ctx, 0,
 			JobTaskFilter{}.WithJobRuns(job_run.Id).WithStates(state),
 		); err != nil {
 			return nil, err
 		}
 		stats.TasksTotal += stats.TasksByState[state]
 	}
-	if stats.TasksFailed, err = it.backend.countJobTasks(ctx, 0,
+	if stats.TasksFailed, err = it.store.countJobTasks(ctx, 0,
 		JobTaskFilter{}.WithJobRuns(job_run.Id).WithStates(Done).WithFailed(),
 	); err != nil {
 		return nil, err

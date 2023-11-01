@@ -15,7 +15,7 @@ import (
 type JobDef struct {
 	Resource
 
-	HandlerId          string
+	JobTypeId          string
 	DisplayName        string
 	Disabled           bool
 	Schedules          []*Schedule
@@ -30,12 +30,12 @@ type JobDef struct {
 	LogTaskLifecycleEvents *bool
 	DefaultJobDetails      map[string]any
 
-	handler Handler
+	jobType JobType
 }
 
 func (it *JobDef) defaultJobDetails() (details JobDetails, err error) {
 	if len(it.DefaultJobDetails) > 0 {
-		details, _ = handler(it.HandlerId).wellTypedJobDetails(nil)
+		details, _ = jobType(it.JobTypeId).wellTypedJobDetails(nil)
 		err = ensureValueFromMap(&it.DefaultJobDetails, &details)
 	}
 	return
@@ -58,11 +58,11 @@ func (it *JobDef) EnsureValidOrErrorIfEnabled() (*JobDef, error) {
 }
 
 func (it *JobDef) EnsureValid() (errs []error) { // a mix of sanitization and validation really
-	if handler_reg := handler(it.HandlerId); (it.handler == nil) && (!it.Disabled) && (handler_reg != nil) {
-		it.handler = handler_reg.ById(it.HandlerId)
+	if job_type_reg := jobType(it.JobTypeId); (it.jobType == nil) && (!it.Disabled) && (job_type_reg != nil) {
+		it.jobType = job_type_reg.ById(it.JobTypeId)
 	}
-	if (it.handler == nil) && !it.Disabled {
-		errs = append(errs, errNotFoundHandler(it.Id, it.HandlerId))
+	if (it.jobType == nil) && !it.Disabled {
+		errs = append(errs, errNotFoundJobType(it.Id, it.JobTypeId))
 	}
 	it.Timeouts.TaskRun = Clamp(11*time.Second, 22*time.Hour, it.Timeouts.TaskRun)
 	it.Timeouts.JobRunPrepAndFinalize = Clamp(22*time.Second, 11*time.Hour, it.Timeouts.JobRunPrepAndFinalize)

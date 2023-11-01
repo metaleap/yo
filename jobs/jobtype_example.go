@@ -8,11 +8,11 @@ import (
 	"yo/util/str"
 )
 
-type exampleHandler struct{}
+type exampleJobType struct{}
 
 func init() {
-	_ = Register[exampleHandler, exampleJobDetails, exampleJobResults, exampleTaskDetails, exampleTaskResults](
-		func(string) exampleHandler { return exampleHandler{} })
+	_ = Register[exampleJobType, exampleJobDetails, exampleJobResults, exampleTaskDetails, exampleTaskResults](
+		func(string) exampleJobType { return exampleJobType{} })
 }
 
 type exampleJobDetails struct {
@@ -31,22 +31,22 @@ type exampleTaskResults struct {
 	NumLoggingsDone int
 }
 
-func (exampleHandler) dice() byte {
+func (exampleJobType) dice() byte {
 	var b [1]byte
 	_, _ = rand.Reader.Read(b[:])
 	return b[0]
 }
 
-func (it exampleHandler) IsTaskErrRetryable(error) bool { return false }
+func (it exampleJobType) IsTaskErrRetryable(error) bool { return false }
 
-func (it exampleHandler) JobDetails(ctx *Context) (JobDetails, error) {
+func (it exampleJobType) JobDetails(ctx *Context) (JobDetails, error) {
 	if (it.dice() % 2) == 0 {
 		return &exampleJobDetails{MsgFmt: ">>>>>>>>>>>>>IT WAS %s JUST %s AGO"}, nil
 	}
 	return ctx.JobDetails, nil
 }
 
-func (exampleHandler) TaskDetails(_ *Context, stream chan<- []TaskDetails, _ func(error) error) (*ListRequest, *JobTaskFilter) {
+func (exampleJobType) TaskDetails(_ *Context, stream chan<- []TaskDetails, _ func(error) error) (*ListRequest, *JobTaskFilter) {
 	stream <- []TaskDetails{&exampleTaskDetails{Time: time.Now()}}
 	stream <- []TaskDetails{
 		&exampleTaskDetails{Time: time.Now().Add(-365 * 24 * time.Hour)},
@@ -55,7 +55,7 @@ func (exampleHandler) TaskDetails(_ *Context, stream chan<- []TaskDetails, _ fun
 	return nil, nil
 }
 
-func (it exampleHandler) TaskResults(ctx *Context, task TaskDetails) (TaskResults, error) {
+func (it exampleJobType) TaskResults(ctx *Context, task TaskDetails) (TaskResults, error) {
 	log := loggerNew()
 	msg := ctx.JobDetails.(*exampleJobDetails).MsgFmt
 	t := task.(*exampleTaskDetails).Time
@@ -66,7 +66,7 @@ func (it exampleHandler) TaskResults(ctx *Context, task TaskDetails) (TaskResult
 	return &exampleTaskResults{NumLoggingsDone: 1}, nil
 }
 
-func (exampleHandler) JobResults(_ *Context, tasks func() <-chan *Task) (JobResults, error) {
+func (exampleJobType) JobResults(_ *Context, tasks func() <-chan *Task) (JobResults, error) {
 	var num int
 	for task := range tasks() {
 		if results, _ := task.Results.(*exampleTaskResults); results != nil {

@@ -31,7 +31,7 @@ const (
 type JobRun struct {
 	Resource
 
-	HandlerId     string
+	JobTypeId     string
 	JobDefId      string
 	State         RunState
 	DueTime       time.Time
@@ -48,9 +48,9 @@ type JobRun struct {
 
 	// this is DB-uniqued and its only purpose is to avoid multiple instances concurrently scheduling the same next job in `ensureJobRunSchedules`
 	ScheduledNextAfterJobRun string
-	// FinalTaskFilter is obtained via call to Handler.TaskDetails() and stored for the later job finalization phase.
+	// FinalTaskFilter is obtained via call to JobType.TaskDetails() and stored for the later job finalization phase.
 	FinalTaskFilter *JobTaskFilter
-	// FinalTaskListReq is obtained via call to Handler.TaskDetails() and stored for the later job finalization phase.
+	// FinalTaskListReq is obtained via call to JobType.TaskDetails() and stored for the later job finalization phase.
 	FinalTaskListReq *ListRequest
 
 	Info struct { // Informational purposes only
