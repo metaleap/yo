@@ -42,7 +42,7 @@ func (it *Task) JobDef() string {
 }
 
 func (it *Task) markForRetryOrAsFailed(jobDef *JobDef) (retry bool) {
-	if jobDef != nil && len(it.Attempts) <= jobDef.TaskRetries { // first attempt was not a RE-try
+	if (jobDef != nil) && (len(it.Attempts) <= jobDef.TaskRetries) { // first attempt was not a RE-try
 		it.State, it.StartTime, it.FinishTime = Pending, nil, nil
 		return true
 	}
@@ -51,15 +51,15 @@ func (it *Task) markForRetryOrAsFailed(jobDef *JobDef) (retry bool) {
 }
 
 type TaskAttempt struct {
-	Time      time.Time  `json:"time,omitempty" bson:"time,omitempty"`
-	TaskError *TaskError `json:"error,omitempty" bson:"error,omitempty"`
+	Time      time.Time
+	TaskError *TaskError
 
-	// Err is the `error` equivalent of `TaskError`. For read accesses, both can be used interchangably. Write accesses (that last) don't anyway occur outside this package.
-	Err error `json:"-" bson:"-"` // code in this package uses only `Err`, not `TaskError` which is just for storage and only used in un/marshaling hooks and API mapping code.
+	// Err is the `error` equivalent of `TaskError`. For read accesses, both can be used interchangably. Write accesses (that last) don't occur outside this package.
+	Err error `json:"-"` // code in this package uses only `Err`, not `TaskError` which is just for storage and only used in un/marshaling hooks and API mapping code.
 }
 
 type TaskError struct {
-	Message string `json:"message,omitempty" bson:"message,omitempty"`
+	Message string
 }
 
 func (it *TaskError) Err() error {
@@ -78,7 +78,7 @@ func (it *TaskError) Error() (s string) {
 
 // Timeout implements utils.HasTimeout
 func (it *Task) Timeout() time.Duration {
-	if it.jobRun != nil && it.jobRun.jobDef != nil && it.jobRun.jobDef.Timeouts.TaskRun > 0 {
+	if (it.jobRun != nil) && (it.jobRun.jobDef) != nil && (it.jobRun.jobDef.Timeouts.TaskRun) > 0 {
 		return it.jobRun.jobDef.Timeouts.TaskRun
 	}
 	return TimeoutLong
