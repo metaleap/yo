@@ -430,7 +430,7 @@ func (it *engine) expireOrRetryDeadJobTasks() {
 		log := loggerNew()
 		running_jobs, _, _, err := it.storage.listJobRuns(ctxNone, true, true, noPaging,
 			JobRunFilter{}.WithStates(Running))
-		if it.logErr(log, err) != nil || len(running_jobs) == 0 {
+		if (nil != it.logErr(log, err)) || (len(running_jobs) == 0) {
 			return
 		}
 
@@ -441,30 +441,30 @@ func (it *engine) expireOrRetryDeadJobTasks() {
 
 	GoItems(ctxNone, sl.Keys(currently_running), func(ctx context.Context, jobDefId string) {
 		job_runs := currently_running[jobDefId]
-		it.expireOrRetryDeadTasksForDef(ctx, job_runs[0].jobDef, job_runs)
+		it.expireOrRetryDeadJobTasksForJobDef(ctx, job_runs[0].jobDef, job_runs)
 	}, it.options.MaxConcurrentOps, it.options.TimeoutShort)
 }
 
-func (it *engine) expireOrRetryDeadTasksForDef(ctx context.Context, jobDef *JobDef, runningJobs []*JobRun) {
+func (it *engine) expireOrRetryDeadJobTasksForJobDef(ctx context.Context, jobDef *JobDef, runningJobs []*JobRun) {
 	log := loggerNew()
-	defDead, taskFilter := jobDef == nil || jobDef.Disabled || jobDef.jobType == nil, JobTaskFilter{}.
-		WithJobRuns(sl.To(runningJobs, func(v *JobRun) string { return v.Id })...)
-	if !defDead { // the usual case.
-		taskFilter = taskFilter.WithStates(Running).WithStartedBefore(timeNow().Add(-(jobDef.Timeouts.TaskRun + time.Minute)))
+	def_dead := (jobDef == nil) || jobDef.Disabled || (jobDef.jobType == nil)
+	task_filter := JobTaskFilter{}.WithJobRuns(sl.To(runningJobs, func(v *JobRun) string { return v.Id })...)
+	if !def_dead { // the usual case.
+		task_filter = task_filter.WithStates(Running).WithStartedBefore(timeNow().Add(-(jobDef.Timeouts.TaskRun + time.Minute)))
 	} else { //  the rare edge case: un-Done tasks still in DB for old now-disabled-or-deleted-from-config job def
-		taskFilter = taskFilter.WithStates(Running, Pending)
+		task_filter = task_filter.WithStates(Running, Pending)
 	}
-	deadTasks, _, _, _, err := it.storage.listJobTasks(ctx, false, false, noPaging, taskFilter)
-	if it.logErr(log, err, jobDef) != nil {
+	dead_tasks, _, _, _, err := it.storage.listJobTasks(ctx, false, false, noPaging, task_filter)
+	if nil != it.logErr(log, err, jobDef) {
 		return
 	}
-	for _, task := range deadTasks {
-		if defDead {
+	for _, task := range dead_tasks {
+		if def_dead {
 			task.State = Cancelled
 			if len(task.Attempts) > 0 && task.Attempts[0].Err == nil {
 				task.Attempts[0].Err = context.Canceled
 			}
-		} else if (!task.markForRetryOrAsFailed(jobDef)) && len(task.Attempts) > 0 && task.Attempts[0].Err == nil {
+		} else if (!task.markForRetryOrAsFailed(jobDef)) && (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
 			task.Attempts[0].Err = context.DeadlineExceeded
 		}
 		if it.logLifecycleEvents(jobDef, nil, task) {
