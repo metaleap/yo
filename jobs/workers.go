@@ -477,11 +477,11 @@ func (it *engine) expireOrRetryDeadJobTasksForJobDef(ctx context.Context, jobDef
 func (it *engine) runJobTasks() {
 	defer func() { doAfter(it.options.IntervalRunTasks, it.runJobTasks) }()
 
-	var pendingTasks []*JobTask
+	var pending_tasks []*JobTask
 	{
 		var err error
 		log := loggerNew()
-		pendingTasks, _, _, _, err = it.storage.listJobTasks(ctxNone, true, false, ListRequest{PageSize: it.options.FetchTasksToRun},
+		pending_tasks, _, _, _, err = it.storage.listJobTasks(ctxNone, true, false, ListRequest{PageSize: it.options.FetchTasksToRun},
 			JobTaskFilter{}.WithStates(Pending))
 		if it.logErr(log, err) != nil {
 			return
@@ -489,7 +489,7 @@ func (it *engine) runJobTasks() {
 	}
 
 	// ...then run them
-	GoItems(ctxNone, pendingTasks, func(ctx context.Context, task *JobTask) {
+	GoItems(ctxNone, pending_tasks, func(ctx context.Context, task *JobTask) {
 		_ = it.runTask(ctx, task)
 	}, it.options.MaxConcurrentOps, 0 /* hence, task.Timeout() */)
 }
