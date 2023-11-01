@@ -68,7 +68,7 @@ func (it *Job) ctx(ctx context.Context, taskID string) *Context {
 	return &Context{Context: ctx, JobID: it.Id, JobDetails: it.Details, JobDef: *it.def, TaskID: taskID}
 }
 
-type JobStats struct {
+type JobRunStats struct {
 	TasksByState   map[RunState]int64 `json:"by_state"`
 	TasksFailed    int64              `json:"num_failed"`
 	TasksSucceeded int64              `json:"num_succeeded"`
@@ -83,7 +83,7 @@ type JobStats struct {
 //   - 100 always means all tasks are DONE or CANCELLED,
 //   - 0 always means no tasks are DONE or CANCELLED (or none exist yet),
 //   - 1-99 means a (technically slightly imprecise) approximation of the actual ratio.
-func (it *JobStats) PercentDone() int {
+func (it *JobRunStats) PercentDone() int {
 	switch it.TasksTotal {
 	case 0, it.TasksByState[Pending] + it.TasksByState[Running]:
 		return 0
@@ -99,7 +99,7 @@ func (it *JobStats) PercentDone() int {
 //   - 0 always means "job fully failed" (all its tasks failed),
 //   - 1-99 means a (technically slightly imprecise) approximation of the actual success/failure ratio,
 //   - `nil` means the job is not yet `DONE`.
-func (it *JobStats) PercentSuccess() *int {
+func (it *JobRunStats) PercentSuccess() *int {
 	if it.TasksTotal == 0 || it.TasksByState[Done] != it.TasksTotal {
 		return nil
 	}

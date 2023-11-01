@@ -22,7 +22,7 @@ var (
 )
 
 func (it *engine) startAndFinalizeJobs() {
-	defer doAfter(it.options.IntervalStartAndFinalizeJobs, it.startAndFinalizeJobs)
+	defer doAfter(it.options.IntervalStartAndFinalizeJobRuns, it.startAndFinalizeJobs)
 
 	GoEach(ctxNone,
 		func(ctx context.Context) { it.startDueJobs(ctx) },
@@ -243,9 +243,9 @@ func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
 			err = it.scheduleJob(ctx, job.def, job)
 		}
 		return err
-	}), job) == nil && it.eventHandlers.OnJobExecuted != nil { // only count jobs that ran AND were stored
-		if jobStats, err := it.JobStats(ctx, job.Resource); err == nil {
-			it.eventHandlers.OnJobExecuted(job, jobStats)
+	}), job) == nil && it.eventHandlers.onJobRunExecuted != nil { // only count jobs that ran AND were stored
+		if jobStats, err := it.JobRunStats(ctx, job.Resource); err == nil {
+			it.eventHandlers.onJobRunExecuted(job, jobStats)
 		}
 	}
 }
@@ -388,7 +388,7 @@ func (it *engine) scheduleJob(ctx context.Context, jobDef *JobDef, last *Job) er
 }
 
 func (it *engine) deleteStorageExpiredJobs() {
-	defer doAfter(it.options.IntervalDeleteStorageExpiredJobs, it.deleteStorageExpiredJobs)
+	defer doAfter(it.options.IntervalDeleteStorageExpiredJobRuns, it.deleteStorageExpiredJobs)
 
 	DoTimeout(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
 		log := loggerNew()
@@ -564,8 +564,8 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 		task.logger(log).Infof("marking just-%s %s task '%s' (of '%s' job '%s') as %s", If(task.Attempts[0].Err != nil, "failed", "finished"), Running, task.Id, taskJobDefOrType, task.Job, task.State)
 	}
 	err := it.logErr(log, it.backend.saveJobTask(ctxOrig, task), task)
-	if err == nil && it.eventHandlers.OnTaskExecuted != nil { // only count tasks that actually ran (failed or not) AND were stored
-		it.eventHandlers.OnTaskExecuted(task, timeNow().Sub(*timeStarted))
+	if err == nil && it.eventHandlers.onJobTaskExecuted != nil { // only count tasks that actually ran (failed or not) AND were stored
+		it.eventHandlers.onJobTaskExecuted(task, timeNow().Sub(*timeStarted))
 	}
 	return err
 }

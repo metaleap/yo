@@ -24,23 +24,23 @@ var Timezone = time.UTC
 type (
 	Engine interface {
 		// Resume starts the `Engine`, ie. its (from then on) regularly-recurring background watchers.
-		// TODO: no `Suspend()` yet, currently out of scope.
+		// nb. no `Suspend()` yet, currently out of scope.
 		Resume()
 		// Running returns `true` after `Resume` was called and `false` until then.
 		Running() bool
-		// CreateJob "manually schedules" an off-schedule job at the defified `dueTime`, which if missing (or set in the past) defaults to `timeNow()`.
-		CreateJob(ctx context.Context, jobDef *JobDef, jobID string, dueTime *time.Time, details JobDetails) (job *Job, err error)
-		// CancelJobs marks the defified jobs as `CANCELLING`. The `len(errs)` is always `<= len(jobIDs)`.
-		CancelJobs(ctx context.Context, jobIDs ...string) (errs []error)
-		// DeleteJob clears from storage the defified DONE or CANCELLED `Job` and all its `Task`s, if any.
-		DeleteJob(ctx context.Context, job Resource) error
-		// JobStats gathers progress stats of a `Job` and its `Task`s.
-		JobStats(ctx context.Context, job Resource) (*JobStats, error)
-		// RetryTask retries the defified failed task.
-		RetryTask(ctx context.Context, jobID string, taskID string) (*Task, error)
+		// CreateJobRun "manually schedules" an off-schedule job at the defified `dueTime`, which if missing (or set in the past) defaults to `timeNow()`.
+		CreateJobRun(ctx context.Context, jobDef *JobDef, jobRunId string, dueTime *time.Time, details JobDetails) (jobRun *Job, err error)
+		// CancelJobRuns marks the defified jobs as `CANCELLING`. The `len(errs)` is always `<= len(jobIDs)`.
+		CancelJobRuns(ctx context.Context, jobRunIds ...string) (errs []error)
+		// DeleteJobRun clears from storage the defified DONE or CANCELLED `Job` and all its `Task`s, if any.
+		DeleteJobRun(ctx context.Context, jobRun Resource) error
+		// JobRunStats gathers progress stats of a `Job` and its `Task`s.
+		JobRunStats(ctx context.Context, jobRun Resource) (*JobRunStats, error)
+		// RetryJobTask retries the defified failed task.
+		RetryJobTask(ctx context.Context, jobRunId string, jobTaskId string) (*Task, error)
 
-		OnTaskExecuted(func(*Task, time.Duration))
-		OnJobExecuted(func(*Job, *JobStats))
+		OnJobTaskExecuted(func(*Task, time.Duration))
+		OnJobRunExecuted(func(*Job, *JobRunStats))
 	}
 	engine struct {
 		running          bool
@@ -49,36 +49,36 @@ type (
 		taskCancelers    map[string]func()
 		taskCancelersMut sync.Mutex
 		eventHandlers    struct {
-			OnTaskExecuted func(*Task, time.Duration)
-			OnJobExecuted  func(*Job, *JobStats)
+			onJobTaskExecuted func(*Task, time.Duration)
+			onJobRunExecuted  func(*Job, *JobRunStats)
 		}
 	}
 	Options struct {
 		// LogJobLifecycleEvents enables the info-level logging of every attempted RunState transition of all `Job`s.
-		LogJobLifecycleEvents bool `yaml:"logJobLifecycleEvents"`
+		LogJobLifecycleEvents bool
 		// LogTaskLifecycleEvents enables the info-level logging of every attempted RunState transition of all `Task`s.
-		LogTaskLifecycleEvents bool `yaml:"logTaskLifecycleEvents"`
+		LogTaskLifecycleEvents bool
 
 		// these "intervals" aren't "every n, do" but more like "wait n to go again _after_ done"
 
-		// IntervalStartAndFinalizeJobs should be under 0.5 minutes.
-		IntervalStartAndFinalizeJobs time.Duration `yaml:"intervalStartAndFinalizeJobs" default:"22s"`
+		// IntervalStartAndFinalizeJobRuns should be under 0.5 minutes.
+		IntervalStartAndFinalizeJobRuns time.Duration `default:"22s"`
 		// IntervalRunTasks should be under 0.5 minutes.
-		IntervalRunTasks time.Duration `yaml:"intervalRunTasks" default:"11s"`
+		IntervalRunTasks time.Duration `default:"11s"`
 		// IntervalExpireOrRetryDeadTasks is advised every couple of minutes (under 5). It ensures (in storage) retry-or-done-with-error of tasks whose last runner died between their completion and updating their Result and RunState in storage accordingly.
-		IntervalExpireOrRetryDeadTasks time.Duration `yaml:"intervalExpireOrRetryDeadTasks" default:"3m"`
+		IntervalExpireOrRetryDeadTasks time.Duration `default:"3m"`
 		// IntervalEnsureJobSchedules is advised every couple of minutes (under 5). It is only there to catch up scheduling-wise with new or changed `JobDef`s; otherwise a finalized `Job` gets its next occurrence scheduled right at finalization.
-		IntervalEnsureJobSchedules time.Duration `yaml:"intervalEnsureJobSchedules" default:"2m"`
-		// IntervalDeleteStorageExpiredJobs can be on the order of hours: job storage-expiry is set in number-of-days.
-		IntervalDeleteStorageExpiredJobs time.Duration `yaml:"intervalDeleteStorageExpiredJobs" default:"5h"`
+		IntervalEnsureJobSchedules time.Duration `default:"2m"`
+		// IntervalDeleteStorageExpiredJobRuns can be on the order of hours: job storage-expiry is set in number-of-days.
+		IntervalDeleteStorageExpiredJobRuns time.Duration `default:"5h"`
 
 		// TimeoutShort is the usual timeout for most timeoutable calls (ie. brief DB queries and simple non-batch, non-transaction updates).
 		// It should be well under 1min, and is not applicable for the cases described for `const TimeoutLong`.
-		TimeoutShort time.Duration `yaml:"defaultTimeout" default:"22s"`
+		TimeoutShort time.Duration `default:"22s"`
 		// MaxConcurrentOps limits parallelism when processing multiple `Resource`s concurrently.
-		MaxConcurrentOps int `yaml:"maxConcurrentOps" default:"6"`
+		MaxConcurrentOps int `default:"6"`
 		// FetchTasksToRun denotes the maximum number of tasks-to-run-now to fetch, approx. every `IntervalRunTasks`.
-		FetchTasksToRun int `yaml:"fetchTasksToRun" default:"3"`
+		FetchTasksToRun int `default:"3"`
 	}
 )
 
@@ -90,11 +90,11 @@ func NewEngine(impl Backend, options Options) (Engine, error) {
 	if err == nil {
 		err = sanitize[Options](2*time.Second, 22*time.Hour, time.ParseDuration, map[string]*time.Duration{
 			"TimeoutShort":                     &options.TimeoutShort,
-			"IntervalStartAndFinalizeJobs":     &options.IntervalStartAndFinalizeJobs,
+			"IntervalStartAndFinalizeJobs":     &options.IntervalStartAndFinalizeJobRuns,
 			"IntervalRunTasks":                 &options.IntervalRunTasks,
 			"IntervalExpireOrRetryDeadTasks":   &options.IntervalExpireOrRetryDeadTasks,
 			"IntervalEnsureJobSchedules":       &options.IntervalEnsureJobSchedules,
-			"IntervalDeleteStorageExpiredJobs": &options.IntervalDeleteStorageExpiredJobs,
+			"IntervalDeleteStorageExpiredJobs": &options.IntervalDeleteStorageExpiredJobRuns,
 		})
 	}
 	if err != nil {
@@ -106,14 +106,14 @@ func NewEngine(impl Backend, options Options) (Engine, error) {
 func (it *engine) Running() bool { return it.running }
 func (it *engine) Resume() {
 	it.running = true
-	doAfter(it.options.IntervalStartAndFinalizeJobs, it.startAndFinalizeJobs)
+	doAfter(it.options.IntervalStartAndFinalizeJobRuns, it.startAndFinalizeJobs)
 	doAfter(it.options.IntervalRunTasks, it.runTasks)
 	doAfter(it.options.IntervalExpireOrRetryDeadTasks, it.expireOrRetryDeadTasks)
-	doAfter(it.options.IntervalDeleteStorageExpiredJobs/10, it.deleteStorageExpiredJobs)
+	doAfter(it.options.IntervalDeleteStorageExpiredJobRuns/10, it.deleteStorageExpiredJobs)
 	doAfter(Clamp(22*time.Second, 44*time.Second, it.options.IntervalEnsureJobSchedules), it.ensureJobSchedules)
 }
 
-func (it *engine) CancelJobs(ctx context.Context, jobIDs ...string) (errs []error) {
+func (it *engine) CancelJobRuns(ctx context.Context, jobIDs ...string) (errs []error) {
 	jobs, _, _, err := it.backend.listJobRuns(ctx, false, false, ListRequest{PageSize: len(jobIDs)},
 		JobFilter{}.WithStates(Running, Pending).WithIDs(jobIDs...))
 	if err != nil {
@@ -147,7 +147,7 @@ func (it *engine) cancelJobs(ctx context.Context, jobs map[CancellationReason][]
 	return
 }
 
-func (it *engine) DeleteJob(ctx context.Context, jobRef Resource) error {
+func (it *engine) DeleteJobRun(ctx context.Context, jobRef Resource) error {
 	job, err := it.backend.getJobRun(ctx, false, false, jobRef.Id)
 	if err != nil {
 		return err
@@ -158,7 +158,7 @@ func (it *engine) DeleteJob(ctx context.Context, jobRef Resource) error {
 	return it.backend.deleteJobRuns(ctx, JobFilter{}.WithIDs(jobRef.Id))
 }
 
-func (it *engine) CreateJob(ctx context.Context, jobDef *JobDef, jobID string, dueTime *time.Time, details JobDetails) (job *Job, err error) {
+func (it *engine) CreateJobRun(ctx context.Context, jobDef *JobDef, jobID string, dueTime *time.Time, details JobDetails) (job *Job, err error) {
 	if now := timeNow(); dueTime == nil {
 		dueTime = now
 	} else if dueTime = ToPtr(dueTime.In(Timezone)); now.After(*dueTime) {
@@ -204,7 +204,7 @@ func (it *engine) createJob(ctx context.Context, jobDef *JobDef, jobID string, d
 	return job, it.backend.insertJobRuns(ctx, job)
 }
 
-func (it *engine) RetryTask(ctx context.Context, jobID string, taskID string) (*Task, error) {
+func (it *engine) RetryJobTask(ctx context.Context, jobID string, taskID string) (*Task, error) {
 	task, err := it.backend.getJobTask(ctx, true, true, taskID)
 	if err != nil {
 		return nil, err
@@ -235,13 +235,13 @@ func (it *engine) RetryTask(ctx context.Context, jobID string, taskID string) (*
 	})
 }
 
-func (it *engine) JobStats(ctx context.Context, jobRef Resource) (*JobStats, error) {
+func (it *engine) JobRunStats(ctx context.Context, jobRef Resource) (*JobRunStats, error) {
 	job, err := it.backend.getJobRun(ctx, false, false, jobRef.Id)
 	if err != nil {
 		return nil, err
 	}
 
-	ret := JobStats{TasksByState: make(map[RunState]int64, 4)}
+	ret := JobRunStats{TasksByState: make(map[RunState]int64, 4)}
 	for _, state := range []RunState{Pending, Running, Done, Cancelled} {
 		ret.TasksByState[state], err = it.backend.countJobTasks(ctx, 0,
 			TaskFilter{}.WithJobs(job.Id).WithStates(state))
@@ -262,9 +262,9 @@ func (it *engine) JobStats(ctx context.Context, jobRef Resource) (*JobStats, err
 	return &ret, err
 }
 
-func (it *engine) OnTaskExecuted(eventHandler func(*Task, time.Duration)) {
-	it.eventHandlers.OnTaskExecuted = eventHandler
+func (it *engine) OnJobTaskExecuted(eventHandler func(*Task, time.Duration)) {
+	it.eventHandlers.onJobTaskExecuted = eventHandler
 }
-func (it *engine) OnJobExecuted(eventHandler func(*Job, *JobStats)) {
-	it.eventHandlers.OnJobExecuted = eventHandler
+func (it *engine) OnJobRunExecuted(eventHandler func(*Job, *JobRunStats)) {
+	it.eventHandlers.onJobRunExecuted = eventHandler
 }
