@@ -35,6 +35,7 @@ var (
 	ToU64    = strconv.ParseUint
 	Fmt      = fmt.Sprintf
 	Q        = strconv.Quote
+	FromQ    = strconv.Unquote
 	Lo       = strings.ToLower
 	Up       = strings.ToUpper
 	Repeat   = strings.Repeat
