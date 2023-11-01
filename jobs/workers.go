@@ -127,10 +127,10 @@ func (it *engine) finalizeJobRunIfDone(ctx context.Context, jobRun *JobRun) {
 			_ = it.logErr(log, it.scheduleJob(ctx, jobRun.jobDef, jobRun), jobRun)
 		}
 		return err
-	}), jobRun)) && (it.eventHandlers.onJobRunExecuted != nil) { // only count jobs that ran AND were stored
-		if job_stats, err := it.stats(ctx, jobRun); err == nil {
-			it.eventHandlers.onJobRunExecuted(jobRun, job_stats)
-		}
+	}), jobRun)) && (it.eventHandlers.onJobRunFinalized != nil) { // only count jobs that ran AND were stored
+		job_stats, err := it.stats(ctx, jobRun)
+		_ = it.logErr(log, err, jobRun)
+		it.eventHandlers.onJobRunFinalized(jobRun, job_stats)
 	}
 }
 

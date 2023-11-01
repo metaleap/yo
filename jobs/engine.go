@@ -39,8 +39,10 @@ type (
 		// RetryJobTask retries the defified failed task.
 		RetryJobTask(ctx context.Context, jobRunId string, jobTaskId string) (*JobTask, error)
 
+		// OnJobTaskExecuted takes an event handler (only one is kept) to be invoked when a task run has been run (successfully or not) and that run stored
 		OnJobTaskExecuted(func(*JobTask, time.Duration))
-		OnJobRunExecuted(func(*JobRun, *JobRunStats))
+		// OnJobRunFinalized takes an event handler (only one is kept) that should take care to `nil`-check its `JobRunStats` arg
+		OnJobRunFinalized(func(*JobRun, *JobRunStats))
 	}
 	engine struct {
 		running          bool
@@ -50,7 +52,7 @@ type (
 		taskCancelersMut sync.Mutex
 		eventHandlers    struct {
 			onJobTaskExecuted func(*JobTask, time.Duration)
-			onJobRunExecuted  func(*JobRun, *JobRunStats)
+			onJobRunFinalized func(*JobRun, *JobRunStats)
 		}
 	}
 	Options struct {
@@ -277,6 +279,6 @@ func (it *engine) stats(ctx context.Context, jobRun *JobRun) (*JobRunStats, erro
 func (it *engine) OnJobTaskExecuted(eventHandler func(*JobTask, time.Duration)) {
 	it.eventHandlers.onJobTaskExecuted = eventHandler
 }
-func (it *engine) OnJobRunExecuted(eventHandler func(*JobRun, *JobRunStats)) {
-	it.eventHandlers.onJobRunExecuted = eventHandler
+func (it *engine) OnJobRunFinalized(eventHandler func(*JobRun, *JobRunStats)) {
+	it.eventHandlers.onJobRunFinalized = eventHandler
 }
