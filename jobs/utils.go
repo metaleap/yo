@@ -23,7 +23,15 @@ func newId(prefix string) string {
 	return prefix + "_" + ret
 }
 
-func findByID[T hasId](collection []T, id string) T {
+func ensureTZ(times ...*time.Time) {
+	for _, t := range times {
+		if t != nil {
+			*t = t.In(Timezone)
+		}
+	}
+}
+
+func findById[T hasId](collection []T, id string) T {
 	return sl.FirstWhere(collection, func(v T) bool { return v.GetId() == id })
 }
 

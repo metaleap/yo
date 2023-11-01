@@ -16,15 +16,15 @@ func loggerNew() logger {
 	return If(IsDevMode, logger{}, nil)
 }
 
-func (it *engine) logLifecycleEvents(forTask bool, def *JobDef, job *Job, task *Task) bool {
+func (it *engine) logLifecycleEvents(forTask bool, def *JobDef, job *JobRun, task *Task) bool {
 	if !IsDevMode {
 		return false
 	}
 	if job == nil && task != nil {
-		job = task.job
+		job = task.jobRun
 	}
 	if def == nil && job != nil {
-		def = job.def
+		def = job.jobDef
 	}
 	if def != nil {
 		if setting := If(forTask, def.LogTaskLifecycleEvents, def.LogJobLifecycleEvents); setting != nil {
@@ -38,7 +38,7 @@ func (it *Task) logger(log logger) logger {
 	return logFor(log, nil, nil, it)
 }
 
-func (it *Job) logger(log logger) logger {
+func (it *JobRun) logger(log logger) logger {
 	return logFor(log, nil, it, nil)
 }
 
@@ -46,24 +46,24 @@ func (it *JobDef) logger(log logger) logger {
 	return logFor(log, it, nil, nil)
 }
 
-func logFor(log logger, jobDef *JobDef, job *Job, task *Task) logger {
+func logFor(log logger, jobDef *JobDef, job *JobRun, task *Task) logger {
 	if !IsDevMode {
 		return log
 	}
 	if job == nil && task != nil {
-		job = task.job
+		job = task.jobRun
 	}
 	if jobDef == nil && job != nil {
-		jobDef = job.def
+		jobDef = job.jobDef
 	}
 	if jobDef != nil {
 		log["job_def"], log["job_type"] = jobDef.Id, jobDef.HandlerId
 	}
 	if job != nil {
-		log["job_def"], log["job_type"], log["job_id"], log["job_cancellation_reason"] = job.Def, job.HandlerID, job.Id, string(job.Info.CancellationReason)
+		log["job_def"], log["job_type"], log["job_id"], log["job_cancellation_reason"] = job.JobDefId, job.HandlerId, job.Id, string(job.Info.CancellationReason)
 	}
 	if task != nil {
-		log["job_type"], log["job_id"], log["job_task"] = task.HandlerID, task.Job, task.Id
+		log["job_type"], log["job_id"], log["job_task"] = task.HandlerId, task.JobRunId, task.Id
 	}
 	return log
 }

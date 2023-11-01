@@ -10,18 +10,18 @@ The lib and its data access patterns and state transition strategies are designe
 
 ## Data Model
 
-- A `Job` is essentially a collection of `Task`s plus a `due_time`. (Alternatively call it "a single job run".)
-    - `Task`s, not `Job`s, are the granular / atomic chunks of work that execute independently (potentially concurrently) and can "succeed" or "fail" or time-out or be-retried.
+- A `JobRun` is essentially a collection of `JobTask`s plus a `due_time`. (Alternatively call it "a single job run".)
+    - `JobTask`s, not `JobRun`s, are the granular / atomic chunks of work that execute independently (potentially concurrently) and can "succeed" or "fail" or time-out or be-retried.
     - both data structures in `engine/job.go`
-- A `JobDef` is like a template for `Job`s and declares common settings that apply to _all_ its `Job`s, such as eg. `timeouts`, `taskRetries`, `schedules` and more. (Alternatively call it "job definition" or "job template".)
-    - Every newly-created (automatically or manually scheduled) `Job` names its "parent" `Def`.
+- A `JobDef` is like a template for `JobRun`s and declares common settings that apply to _all_ its `JobRun`s, such as eg. `timeouts`, `taskRetries`, `schedules` and more. (Alternatively call it "job definition" or "job template".)
+    - Every newly-created (automatically or manually scheduled) `JobRun` names its "parent" `Def`.
     - data structure in `engine/jobdef.go`
 - A `Handler` is all the actual custom logic of any one defific kind of job, and is set in the `JobDef`.
-    - When a scheduled `Job` is at-or-past its `due_time` and is to actually run, its `Handler` (ie. your implementation) in this order:
+    - When a scheduled `JobRun` is at-or-past its `due_time` and is to actually run, its `Handler` (ie. your implementation) in this order:
         - prepares whatever preliminary/preparatory details / data / settings (that are common / shared among _all_ its tasks) will be needed (via `Handler.JobDetails`)
-        - produces all the individual `Task`s that will belong to this particular `Job` (via `Handler.TaskDetails`)
-        - runs the actual logic of a particular given `Task` (via `Handler.TaskResults`) when called to do so
-        - finally at the end, gathers (if needed) any summary/aggregate outcome details/infos from the results of all the completed `Task`s (via `Handler.JobResults`)
+        - produces all the individual `JobTask`s that will belong to this particular `JobRun` (via `Handler.TaskDetails`)
+        - runs the actual logic of a particular given `JobTask` (via `Handler.TaskResults`) when called to do so
+        - finally at the end, gathers (if needed) any summary/aggregate outcome details/infos from the results of all the completed `JobTask`s (via `Handler.JobResults`)
     - interface defined &amp; documented in `engine/handler.go`
     - minimal example in `engine/handler_example.go`
 - A `Backend` provides the complete storage-and-retrieval implementation that a `jobs.Engine` needs.
@@ -32,24 +32,24 @@ The lib and its data access patterns and state transition strategies are designe
 
 ## Lifecycle / State Transitions
 
-- Every `Job`'s and `Task`'s `state` is always one of these `RunState`s:
+- Every `JobRun`'s and `JobTask`'s `state` is always one of these `RunState`s:
     - PENDING
     - RUNNING
     - DONE
-    - CANCELLING (`Job`s only, but not `Task`s)
+    - CANCELLING (`JobRun`s only, but not `JobTask`s)
     - CANCELLED
 
 The lifecycle "state machinery" always operates as follows:
 
-- Upon `Job` creation (whether automatically or manually scheduled), the job exists task-less by itself with its `due_time` and a `state` of `PENDING`.
+- Upon `JobRun` creation (whether automatically or manually scheduled), the job exists task-less by itself with its `due_time` and a `state` of `PENDING`.
 - When a `PENDING` job is (over)due and to be started:
     - the `Handler.JobDetails` are obtained
     - the `Handler.TaskDetails` are obtained
     - in one transaction:
-        - all those just-prepared `Task`s are stored (in a `state` of `PENDING`)
+        - all those just-prepared `JobTask`s are stored (in a `state` of `PENDING`)
         - the `Job.state` is set to `RUNNING`.
 - While a job's `state` is `RUNNING`, the Engine keeps looking for `PENDING` tasks to run.
-    - if there are none left, transition `Job` (in storage) into a `state` of `DONE`, at the same time storing its just-obtained `Handler.JobResults` (if any).
+    - if there are none left, transition `JobRun` (in storage) into a `state` of `DONE`, at the same time storing its just-obtained `Handler.JobResults` (if any).
 - When a `PENDING` task is picked up
     - first it is set to `RUNNING` in storage (to prevent multiple concurrent executions of the _actual_ work)
     - upon success, it is run via `Handler.TaskResults`
@@ -60,8 +60,8 @@ The lifecycle "state machinery" always operates as follows:
     - if pod is restarted after starting but before completing that task run:
       - will be eventually detected and timed-out or marked-for-retry by another worker (`expireOrRetryDeadTasks`)
 - When a `PENDING` or `RUNNING` job is `Cancel`ed:
-    - the `Job` is transitioned (in storage) into a `state` of CANCELLING.
+    - the `JobRun` is transitioned (in storage) into a `state` of CANCELLING.
 - While a `CANCELLING` job is found to exist:
-    - find all `Task`s not yet `DONE` or `CANCELLED` (ie. `PENDING` or `RUNNING`)
+    - find all `JobTask`s not yet `DONE` or `CANCELLED` (ie. `PENDING` or `RUNNING`)
         - if found: transition them (in storage) into a `state` of CANCELLED.
-        - if none found: the `Job` itself is transitioned (in storage) into a `state` of CANCELLED.
+        - if none found: the `JobRun` itself is transitioned (in storage) into a `state` of CANCELLED.

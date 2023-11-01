@@ -33,7 +33,7 @@ type handlerDefined interface {
 //   - TaskResults() -> run the given task and return results
 //   - JobResults() -> consume all task results and produce the job results
 type Handler interface {
-	// JobDetails is called when setting a `Job` from `PENDING` to `RUNNING`, just before TaskDetails.
+	// JobDetails is called when setting a `JobRun` from `PENDING` to `RUNNING`, just before TaskDetails.
 	// Hence, JobDetails allows computing and storing shared preparatory details once that do not vary between tasks.
 	// If the job was scheduled automatically, not manually, `ctx.JobDetails` is always `ctx.JobDef.DefaultJobDetails` (which might be `nil`).
 	// In the manual case, they may or may not be equal, depending on the `jobs.Create` call.
@@ -41,13 +41,13 @@ type Handler interface {
 	// Both `ctx.JobDetails` and the return value are of type *TJobDetails (that this `Handler` was `Register`ed with).
 	JobDetails(ctx *Context) (JobDetails, error)
 
-	// TaskDetails is called when setting a `Job` from `PENDING` to `RUNNING`.
+	// TaskDetails is called when setting a `JobRun` from `PENDING` to `RUNNING`.
 	// This method prepares all the tasks for this job as `TaskDetails` and sends them to `stream`.
 	// The caller `close`s `stream` right after this method returns.
 	// The chan-of-slice design allows to send batches-of-multiples or one-by-one (depending
 	// on whether you are paging through some data-set or similar considerations).
 	// Each batch/slice sent equates to a DB save-multiple call (but all of them in 1 transaction).
-	// If you send zero `TaskDetails`, your `TaskResults` won't ever be called, but `JobResults` will as usual (only with zero `Task`s in `stream`).
+	// If you send zero `TaskDetails`, your `TaskResults` won't ever be called, but `JobResults` will as usual (only with zero `JobTask`s in `stream`).
 	// The `halt func(error) error` (which can be called with `nil`) has 2 purposes:
 	//   - its return value, if not `nil`, indicates that you should stop sending
 	//     and return, because the whole transaction is anyway aborted already.
@@ -55,10 +55,10 @@ type Handler interface {
 	//     (in which case, also stop sending and return).
 	// The `TaskDetails` you are sending are of type *TTaskDetails (that this `Handler` was `Register`ed with).
 	// The `ctx.JobDetails` are of type *TJobDetails (that this `Handler` was `Register`ed with).
-	// The return values (can be `nil`) will define sort+filter of the `Task`s stream passed to the final `JobResults` call.
+	// The return values (can be `nil`) will define sort+filter of the `JobTask`s stream passed to the final `JobResults` call.
 	TaskDetails(ctx *Context, stream chan<- []TaskDetails, halt func(error) error) (*ListRequest, *JobTaskFilter)
 
-	// TaskResults is called after a `Task` has been successfully set from `PENDING` to `RUNNING`.
+	// TaskResults is called after a `JobTask` has been successfully set from `PENDING` to `RUNNING`.
 	// It implements the actual execution of a Task previously prepared in this `Handler`'s `TaskDetails` method.
 	// The `taskDetails` are of type *TTaskDetails (that this `Handler` was `Register`ed with).
 	// The `ctx.JobDetails` are of type *TJobDetails (that this `Handler` was `Register`ed with).
@@ -66,11 +66,11 @@ type Handler interface {
 	TaskResults(ctx *Context, taskDetails TaskDetails) (TaskResults, error)
 
 	// JobResults is called when setting a job from `RUNNING` to `DONE`.
-	// All `Task`s of the job are coming in over `stream()` (filtered+sorted as your above `TaskDetails()` method indicated).
+	// All `JobTask`s of the job are coming in over `stream()` (filtered+sorted as your above `TaskDetails()` method indicated).
 	// (If `stream` is never called, its return `chan` is never created and its feeder DB query is not even performed. All calls to `stream()` return the exact same `chan`.)
-	// For DONE `Task`s without `Results`, check its `Task.Attempts[0].Err` (`Task.Attempts` are sorted newest-to-oldest).
+	// For DONE `JobTask`s without `Results`, check its `Task.Attempts[0].Err` (`Task.Attempts` are sorted newest-to-oldest).
 	// As soon as this method returns, `stream()` is `close`d by its caller.
-	// Mutations to the `Task`s are ignored/discarded.
+	// Mutations to the `JobTask`s are ignored/discarded.
 	// The `ctx.JobDetails` are of type *TJobDetails (that this `Handler` was `Register`ed with).
 	// The `JobResults` returned are of type *TJobResults (that this `Handler` was `Register`ed with).
 	// All `stream()[_].Details` are of type *TTaskDetails (that this `Handler` was `Register`ed with).

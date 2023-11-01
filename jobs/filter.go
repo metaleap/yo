@@ -125,18 +125,18 @@ func (it JobRunFilter) WithVersion(version int) *JobRunFilter {
 	return &it
 }
 
-func (it *JobRunFilter) Ok(cmp *Job) bool {
+func (it *JobRunFilter) Ok(cmp *JobRun) bool {
 	if it == nil {
 		return true
 	}
 	if (len(it.Ids) > 0 && !sl.Has(it.Ids, cmp.Id)) ||
-		(len(it.JobDefs) > 0 && !sl.Has(it.JobDefs, cmp.Def)) ||
-		(len(it.JobTypes) > 0 && !sl.Has(it.JobTypes, cmp.HandlerID)) ||
+		(len(it.JobDefs) > 0 && !sl.Has(it.JobDefs, cmp.JobDefId)) ||
+		(len(it.JobTypes) > 0 && !sl.Has(it.JobTypes, cmp.HandlerId)) ||
 		(len(it.States) > 0 && !sl.Has(it.States, cmp.State)) ||
 		(it.AutoScheduled != nil && *it.AutoScheduled != cmp.AutoScheduled) ||
 		(it.FinishedBefore != nil && (cmp.FinishTime == nil || !cmp.FinishTime.Before(*it.FinishedBefore))) ||
 		(it.Due != nil && *it.Due != cmp.DueTime.Before(*timeNow())) ||
-		(it.ScheduledNextAfterJobRun != "" && it.ScheduledNextAfterJobRun != cmp.ScheduledNextAfterJob) ||
+		(it.ScheduledNextAfterJobRun != "" && it.ScheduledNextAfterJobRun != cmp.ScheduledNextAfterJobRun) ||
 		(it.ResourceVersion != 0 && it.ResourceVersion != cmp.ResourceVersion) {
 		return false
 	}
@@ -200,8 +200,8 @@ func (it *JobTaskFilter) Ok(cmp *Task) bool {
 		return true
 	}
 	if (len(it.Ids) > 0 && !sl.Has(it.Ids, cmp.Id)) ||
-		(len(it.JobRuns) > 0 && !sl.Has(it.JobRuns, cmp.Job)) ||
-		(len(it.JobTypes) > 0 && !sl.Has(it.JobTypes, cmp.HandlerID)) ||
+		(len(it.JobRuns) > 0 && !sl.Has(it.JobRuns, cmp.JobRunId)) ||
+		(len(it.JobTypes) > 0 && !sl.Has(it.JobTypes, cmp.HandlerId)) ||
 		(len(it.States) > 0 && !sl.Has(it.States, cmp.State)) ||
 		(it.StartedBefore != nil && (cmp.StartTime == nil || !cmp.StartTime.Before(*it.StartedBefore))) ||
 		(it.Failed != nil && !If(*it.Failed, cmp.Failed, cmp.Succeeded)()) ||

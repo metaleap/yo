@@ -29,18 +29,18 @@ type (
 		// Running returns `true` after `Resume` was called and `false` until then.
 		Running() bool
 		// CreateJobRun "manually schedules" an off-schedule job at the defified `dueTime`, which if missing (or set in the past) defaults to `timeNow()`.
-		CreateJobRun(ctx context.Context, jobDef *JobDef, jobRunId string, dueTime *time.Time, details JobDetails) (jobRun *Job, err error)
+		CreateJobRun(ctx context.Context, jobDef *JobDef, jobRunId string, dueTime *time.Time, details JobDetails) (jobRun *JobRun, err error)
 		// CancelJobRuns marks the defified jobs as `CANCELLING`. The `len(errs)` is always `<= len(jobIDs)`.
 		CancelJobRuns(ctx context.Context, jobRunIds ...string) (errs []error)
-		// DeleteJobRun clears from storage the defified DONE or CANCELLED `Job` and all its `Task`s, if any.
+		// DeleteJobRun clears from storage the defified DONE or CANCELLED `JobRun` and all its `JobTask`s, if any.
 		DeleteJobRun(ctx context.Context, jobRun Resource) error
-		// Stats gathers progress stats of a `Job` and its `Task`s.
+		// Stats gathers progress stats of a `JobRun` and its `JobTask`s.
 		Stats(ctx context.Context, jobRun Resource) (*JobRunStats, error)
 		// RetryJobTask retries the defified failed task.
 		RetryJobTask(ctx context.Context, jobRunId string, jobTaskId string) (*Task, error)
 
 		OnJobTaskExecuted(func(*Task, time.Duration))
-		OnJobRunExecuted(func(*Job, *JobRunStats))
+		OnJobRunExecuted(func(*JobRun, *JobRunStats))
 	}
 	engine struct {
 		running          bool
@@ -50,13 +50,13 @@ type (
 		taskCancelersMut sync.Mutex
 		eventHandlers    struct {
 			onJobTaskExecuted func(*Task, time.Duration)
-			onJobRunExecuted  func(*Job, *JobRunStats)
+			onJobRunExecuted  func(*JobRun, *JobRunStats)
 		}
 	}
 	Options struct {
-		// LogJobLifecycleEvents enables the info-level logging of every attempted RunState transition of all `Job`s.
+		// LogJobLifecycleEvents enables the info-level logging of every attempted RunState transition of all `JobRun`s.
 		LogJobLifecycleEvents bool
-		// LogTaskLifecycleEvents enables the info-level logging of every attempted RunState transition of all `Task`s.
+		// LogTaskLifecycleEvents enables the info-level logging of every attempted RunState transition of all `JobTask`s.
 		LogTaskLifecycleEvents bool
 
 		// these "intervals" aren't "every n, do" but more like "wait n to go again _after_ done"
@@ -67,7 +67,7 @@ type (
 		IntervalRunTasks time.Duration `default:"11s"`
 		// IntervalExpireOrRetryDeadTasks is advised every couple of minutes (under 5). It ensures (in storage) retry-or-done-with-error of tasks whose last runner died between their completion and updating their Result and RunState in storage accordingly.
 		IntervalExpireOrRetryDeadTasks time.Duration `default:"3m"`
-		// IntervalEnsureJobSchedules is advised every couple of minutes (under 5). It is only there to catch up scheduling-wise with new or changed `JobDef`s; otherwise a finalized `Job` gets its next occurrence scheduled right at finalization.
+		// IntervalEnsureJobSchedules is advised every couple of minutes (under 5). It is only there to catch up scheduling-wise with new or changed `JobDef`s; otherwise a finalized `JobRun` gets its next occurrence scheduled right at finalization.
 		IntervalEnsureJobSchedules time.Duration `default:"2m"`
 		// IntervalDeleteStorageExpiredJobs can be on the order of hours: job storage-expiry is set in number-of-days.
 		IntervalDeleteStorageExpiredJobs time.Duration `default:"5h"`
@@ -119,22 +119,22 @@ func (it *engine) CancelJobRuns(ctx context.Context, jobRunIds ...string) (errs 
 	if err != nil {
 		return []error{err}
 	}
-	for _, err := range it.cancelJobRuns(ctx, map[CancellationReason][]*Job{"": job_runs}) {
+	for _, err := range it.cancelJobRuns(ctx, map[CancellationReason][]*JobRun{"": job_runs}) {
 		errs = append(errs, err)
 	}
 	return
 }
 
-func (it *engine) cancelJobRuns(ctx context.Context, jobRuns map[CancellationReason][]*Job) (errs map[*Job]error) {
+func (it *engine) cancelJobRuns(ctx context.Context, jobRuns map[CancellationReason][]*JobRun) (errs map[*JobRun]error) {
 	log := loggerNew()
 	var mut_errs sync.Mutex
-	errs = make(map[*Job]error, len(jobRuns)/2)
+	errs = make(map[*JobRun]error, len(jobRuns)/2)
 	for reason, jobs := range jobRuns {
-		GoItems(ctx, jobs, func(ctx context.Context, jobRun *Job) {
+		GoItems(ctx, jobs, func(ctx context.Context, jobRun *JobRun) {
 			state, version := jobRun.State, jobRun.ResourceVersion
-			jobRun.State, jobRun.Info.CancellationReason = Cancelling, reason
+			jobRun.State, jobRun.Info.CancellationReason = JobRunCancelling, reason
 			if it.logLifecycleEvents(false, nil, jobRun, nil) {
-				jobRun.logger(log).Infof("marking %s '%s' job run '%s' as %s", state, jobRun.Def, jobRun.Id, jobRun.State)
+				jobRun.logger(log).Infof("marking %s '%s' job run '%s' as %s", state, jobRun.JobDefId, jobRun.Id, jobRun.State)
 			}
 			if err := it.backend.saveJobRun(ctx, jobRun); err != nil {
 				jobRun.State, jobRun.ResourceVersion = state, version
@@ -158,7 +158,7 @@ func (it *engine) DeleteJobRun(ctx context.Context, jobRunRef Resource) error {
 	return it.backend.deleteJobRuns(ctx, JobRunFilter{}.WithIds(jobRunRef.Id))
 }
 
-func (it *engine) CreateJobRun(ctx context.Context, jobDef *JobDef, jobRunId string, dueTime *time.Time, jobDetails JobDetails) (jobRun *Job, err error) {
+func (it *engine) CreateJobRun(ctx context.Context, jobDef *JobDef, jobRunId string, dueTime *time.Time, jobDetails JobDetails) (jobRun *JobRun, err error) {
 	if now := timeNow(); dueTime == nil {
 		dueTime = now
 	} else if dueTime = ToPtr(dueTime.In(Timezone)); now.After(*dueTime) {
@@ -167,7 +167,7 @@ func (it *engine) CreateJobRun(ctx context.Context, jobDef *JobDef, jobRunId str
 	return it.createJobRun(ctx, jobDef, jobRunId, *dueTime, jobDetails, nil, false)
 }
 
-func (it *engine) createJobRun(ctx context.Context, jobDef *JobDef, jobRunId string, dueTime time.Time, jobDetails JobDetails, lastJobRun *Job, autoScheduled bool) (jobRun *Job, err error) {
+func (it *engine) createJobRun(ctx context.Context, jobDef *JobDef, jobRunId string, dueTime time.Time, jobDetails JobDetails, lastJobRun *JobRun, autoScheduled bool) (jobRun *JobRun, err error) {
 	log := loggerNew()
 	if jobDef.Disabled {
 		return nil, errors.New(str.Fmt("cannot create off-schedule job run for job def '%s' because it is currently disabled", jobDef.Id))
@@ -179,27 +179,27 @@ func (it *engine) createJobRun(ctx context.Context, jobDef *JobDef, jobRunId str
 		jobRunId = newId(jobDef.Id)
 	}
 
-	jobRun = &Job{
-		Resource:              Resource{jobRunId},
-		Def:                   jobDef.Id,
-		HandlerID:             jobDef.HandlerId,
-		State:                 Pending,
-		AutoScheduled:         autoScheduled,
-		ResourceVersion:       1,
-		def:                   jobDef,
-		Details:               jobDetails,
-		DueTime:               dueTime.In(Timezone),
-		ScheduledNextAfterJob: If(autoScheduled, "_none_", "_manual_") + newId(jobDef.Id),
+	jobRun = &JobRun{
+		Resource:                 Resource{jobRunId},
+		JobDefId:                 jobDef.Id,
+		HandlerId:                jobDef.HandlerId,
+		State:                    Pending,
+		AutoScheduled:            autoScheduled,
+		ResourceVersion:          1,
+		jobDef:                   jobDef,
+		Details:                  jobDetails,
+		DueTime:                  dueTime.In(Timezone),
+		ScheduledNextAfterJobRun: If(autoScheduled, "_none_", "_manual_") + newId(jobDef.Id),
 	}
 	if autoScheduled && (lastJobRun != nil) {
-		jobRun.ScheduledNextAfterJob = lastJobRun.Id
-		already_there, err := it.backend.findJobRun(ctx, true, true, JobRunFilter{}.WithScheduledNextAfterJobRun(jobRun.ScheduledNextAfterJob))
+		jobRun.ScheduledNextAfterJobRun = lastJobRun.Id
+		already_there, err := it.backend.findJobRun(ctx, true, true, JobRunFilter{}.WithScheduledNextAfterJobRun(jobRun.ScheduledNextAfterJobRun))
 		if (already_there != nil) || (err != nil) {
 			return If((already_there != nil), already_there, jobRun), err
 		}
 	}
 	if it.logLifecycleEvents(false, nil, jobRun, nil) {
-		jobRun.logger(log).Infof("creating %s '%s' job run '%s' scheduled for %s", Pending, jobRun.Def, jobRun.Id, jobRun.DueTime)
+		jobRun.logger(log).Infof("creating %s '%s' job run '%s' scheduled for %s", Pending, jobRun.JobDefId, jobRun.Id, jobRun.DueTime)
 	}
 	return jobRun, it.backend.insertJobRuns(ctx, jobRun)
 }
@@ -209,12 +209,12 @@ func (it *engine) RetryJobTask(ctx context.Context, jobRunId string, jobTaskId s
 	if err != nil {
 		return nil, err
 	}
-	job_run := job_task.job
-	if (job_run == nil) || (job_task.Job != jobRunId) || (job_run.Id != jobRunId) {
+	job_run := job_task.jobRun
+	if (job_run == nil) || (job_task.JobRunId != jobRunId) || (job_run.Id != jobRunId) {
 		return nil, errors.New(str.Fmt("job run '%s' has no task '%s'", jobRunId, jobTaskId))
 	}
-	if (job_run.State == Cancelling) || (job_run.State == Cancelled) || (job_run.State == Pending) {
-		return nil, errors.New(str.Fmt("'%s' job run '%s' is %s", job_run.Def, jobRunId, job_run.State))
+	if (job_run.State == JobRunCancelling) || (job_run.State == Cancelled) || (job_run.State == Pending) {
+		return nil, errors.New(str.Fmt("'%s' job run '%s' is %s", job_run.JobDefId, jobRunId, job_run.State))
 	}
 	if (job_task.State != Done) || (len(job_task.Attempts) == 0) || (job_task.Attempts[0].TaskError == nil) {
 		return nil, errors.New(str.Fmt("job task '%s' must be in a `state` of %s (currently: %s) with the latest `attempts` (current len: %d) entry having an `error` set", job_task.Id, Done, job_task.State, len(job_task.Attempts)))
@@ -223,8 +223,8 @@ func (it *engine) RetryJobTask(ctx context.Context, jobRunId string, jobTaskId s
 	return job_task, it.backend.transacted(ctx, func(ctx context.Context) error {
 		if job_run.State != Running {
 			log := loggerNew()
-			if it.logLifecycleEvents(true, job_run.def, job_run, job_task) {
-				job_run.logger(log).Infof("marking %s '%s' job run '%s' as %s (for manual task retry)", job_run.State, job_run.Def, job_run.Id, Running)
+			if it.logLifecycleEvents(true, job_run.jobDef, job_run, job_task) {
+				job_run.logger(log).Infof("marking %s '%s' job run '%s' as %s (for manual task retry)", job_run.State, job_run.JobDefId, job_run.Id, Running)
 			}
 			job_run.State, job_run.FinishTime, job_run.Results, job_run.ResultsStore = Running, nil, nil, nil
 			if err := it.backend.saveJobRun(ctx, job_run); err != nil {
@@ -267,6 +267,6 @@ func (it *engine) Stats(ctx context.Context, jobRunRef Resource) (*JobRunStats, 
 func (it *engine) OnJobTaskExecuted(eventHandler func(*Task, time.Duration)) {
 	it.eventHandlers.onJobTaskExecuted = eventHandler
 }
-func (it *engine) OnJobRunExecuted(eventHandler func(*Job, *JobRunStats)) {
+func (it *engine) OnJobRunExecuted(eventHandler func(*JobRun, *JobRunStats)) {
 	it.eventHandlers.onJobRunExecuted = eventHandler
 }
