@@ -388,7 +388,7 @@ func (it *engine) deleteStorageExpiredJobRuns() {
 	Timeout(ctxNone, TimeoutLong, func(ctx context.Context) {
 		log := loggerNew()
 		job_defs, err := it.storage.listJobDefs(ctx, JobDefFilter{}.WithStorageExpiry(true))
-		if it.logErr(log, err) != nil {
+		if nil != it.logErr(log, err) {
 			return
 		}
 		for _, jobDef := range job_defs {
@@ -399,20 +399,20 @@ func (it *engine) deleteStorageExpiredJobRuns() {
 
 func (it *engine) deleteStorageExpiredJobsForDef(ctx context.Context, jobDef *JobDef) {
 	log := loggerNew()
-	jobsToDelete, _, _, err := it.storage.listJobRuns(ctx, true, false, noPaging,
+	jobs_to_delete, _, _, err := it.storage.listJobRuns(ctx, true, false, noPaging,
 		JobRunFilter{}.WithStates(Done, Cancelled).WithJobDefs(jobDef.Id).
 			WithFinishedBefore(timeNow().AddDate(0, 0, -jobDef.DeleteAfterDays)))
-	if it.logErr(log, err, jobDef) != nil {
+	if nil != it.logErr(log, err, jobDef) {
 		return
 	}
 
-	for _, job := range jobsToDelete {
+	for _, job := range jobs_to_delete {
 		if it.logLifecycleEvents(nil, job, nil) {
 			job.logger(log).Infof("deleting %s '%s' job '%s' and its tasks", job.State, jobDef.Id, job.Id)
 		}
 		_ = it.logErr(log, it.storage.transacted(ctx, func(ctx context.Context) error {
 			err := it.storage.deleteJobTasks(ctx, JobTaskFilter{}.WithJobRuns(job.Id))
-			if err == nil {
+			if err == nil { // TODO: allow storage to indicate existing on-delete triggers to conditionally skip the above
 				err = it.storage.deleteJobRuns(ctx, JobRunFilter{}.WithIds(job.Id))
 			}
 			return err
