@@ -25,8 +25,8 @@ func (it *engine) startAndFinalizeJobRuns() {
 	defer doAfter(it.options.IntervalStartAndFinalizeJobs, it.startAndFinalizeJobRuns)
 
 	Timeout(ctxNone, TimeoutLong, it.finalizeJobRunsIfDone)
-	Timeout(ctxNone, TimeoutLong, it.finalizeCancelingJobRuns)
 	Timeout(ctxNone, TimeoutLong, it.startDueJobRuns)
+	Timeout(ctxNone, TimeoutLong, it.finalizeCancelingJobRuns)
 }
 
 func (it *engine) finalizeJobRunsIfDone(ctx context.Context) {
@@ -122,8 +122,8 @@ func (it *engine) finalizeJobRunIfDone(ctx context.Context, jobRun *JobRun) {
 	if (nil == it.logErr(log, it.storage.transacted(ctx, func(ctx context.Context) error {
 		err = it.storage.saveJobRun(ctx, jobRun)
 		if (err == nil) && jobRun.AutoScheduled {
-			// doing this right here upon job finalization (in the same
-			// transaction) helps prevent concurrent duplicate job schedulings.
+			// doing this right here upon job finalization (in the same transaction) helps prevent
+			// concurrent duplicate job schedulings (nb. identical logic in `finalizeCancelingJobRun`)
 			_ = it.logErr(log, it.scheduleJob(ctx, jobRun.jobDef, jobRun), jobRun)
 		}
 		return err
@@ -188,9 +188,9 @@ func (it *engine) finalizeCancelingJobRun(ctx context.Context, job *JobRun) {
 		_ = it.logErr(log, it.storage.transacted(ctx, func(ctx context.Context) error {
 			err := it.logErr(log, it.storage.saveJobRun(ctx, job), job)
 			if (err == nil) && job.AutoScheduled && (job.jobDef != nil) && !job.jobDef.Disabled {
-				// doing this right here upon job finalization (in the same
-				// transaction) prevents concurrent duplicate job schedulings.
-				err = it.scheduleJob(ctx, job.jobDef, job)
+				// doing this right here upon job finalization (in the same transaction) helps prevent
+				// concurrent duplicate job schedulings (nb. identical logic in `finalizeJobRunIfDone`)
+				_ = it.logErr(log, it.scheduleJob(ctx, job.jobDef, job), job)
 			}
 			return err
 		}), job)
@@ -201,39 +201,39 @@ func (it *engine) startDueJobRuns(ctx context.Context) {
 	log := loggerNew()
 	var due_jobs []*JobRun
 	Timeout(ctx, it.options.TimeoutShort, func(ctx context.Context) {
-		jobs, _, _, err := it.storage.listJobRuns(ctx, true, false, noPaging,
+		pending_and_due_jobs, _, _, err := it.storage.listJobRuns(ctx, true, false, noPaging,
 			JobRunFilter{}.WithStates(Pending).WithDue(true))
-		if it.logErr(log, err) == nil {
-			due_jobs = jobs
+		if nil == it.logErr(log, err) {
+			due_jobs = pending_and_due_jobs
 		}
 	})
 	{ // cancel rare duplicates and remnants of by-now-removed/disabled job-defs
-		cancelJobs := map[CancellationReason][]*JobRun{}
-		sort.Slice(due_jobs, func(i int, j int) bool { return !due_jobs[i].AutoScheduled })
+		cancel_jobs := map[CancellationReason][]*JobRun{}
+		sort.Slice(due_jobs, func(i int, j int) bool { return (!due_jobs[i].AutoScheduled) })
 		for i := 0; i < len(due_jobs); i++ {
-			job := due_jobs[i]
+			job_run := due_jobs[i]
 			idx := sl.IdxWhere(due_jobs, func(j *JobRun) bool { // check if duplicate
-				return j.JobDefId == job.JobDefId && cmp.Equal(j.Details, job.Details, cmpopts.IgnoreUnexported(), cmpopts.EquateEmpty())
+				return (j.JobDefId == job_run.JobDefId) && cmp.Equal(j.Details, job_run.Details, cmpopts.IgnoreUnexported(), cmpopts.EquateEmpty())
 			})
 			var reason CancellationReason
 			switch {
 			case idx != i:
 				reason = CancellationReasonDuplicate
-			case job.jobDef == nil:
+			case job_run.jobDef == nil:
 				reason = CancellationReasonDefInvalidOrGone
-			case job.JobTypeId != job.jobDef.JobTypeId || job.jobDef.Disabled:
+			case (job_run.JobTypeId != job_run.jobDef.JobTypeId) || job_run.jobDef.Disabled:
 				reason = CancellationReasonDefChanged
-			case job.jobDef.jobType == nil && job.JobTypeId == job.jobDef.JobTypeId:
+			case (job_run.jobDef.jobType == nil) && (job_run.JobTypeId == job_run.jobDef.JobTypeId):
 				reason = CancellationReasonJobTypeInvalidOrGone
 			}
 			if reason != "" {
-				cancelJobs[reason] = append(cancelJobs[reason], job)
+				cancel_jobs[reason] = append(cancel_jobs[reason], job_run)
 				due_jobs = append(due_jobs[:i], due_jobs[i+1:]...)
 				i--
 			}
 		}
-		for job, err := range it.cancelJobRuns(ctx, cancelJobs) {
-			_ = it.logErr(log, err, job)
+		for job_run, err := range it.cancelJobRuns(ctx, cancel_jobs) {
+			_ = it.logErr(log, err, job_run)
 		}
 	}
 	GoItems(ctx, due_jobs, it.startDueJob,
@@ -248,7 +248,7 @@ func (it *engine) startDueJob(ctx context.Context, job *JobRun) {
 	} else if job.jobDef.jobType == nil {
 		err = errNotFoundJobType(job.jobDef.Id, job.jobDef.JobTypeId)
 	}
-	if it.logErr(log, err, job) != nil {
+	if nil != it.logErr(log, err, job) {
 		return
 	}
 
