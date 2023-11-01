@@ -139,7 +139,7 @@ func (it *engine) startDueJob(ctx context.Context, job *JobRun) {
 		if err == nil {
 			job.State, job.StartTime, job.FinishTime, job.Info.DurationPrepInMinutes =
 				Running, timeNow(), nil, ToPtr(timeNow().Sub(*timeStarted).Minutes())
-			if it.logLifecycleEvents(false, nil, job, nil) {
+			if it.logLifecycleEvents(nil, job, nil) {
 				job.logger(log).Infof("marking %s '%s' job '%s' as %s (with %d tasks)", Pending, job.JobDefId, job.Id, job.State, numTasks)
 			}
 			err = it.backend.saveJobRun(ctx, job)
@@ -232,7 +232,7 @@ func (it *engine) finalizeFinishedJob(ctx context.Context, job *JobRun) {
 	job.State, job.FinishTime, job.Info.DurationFinalizeInMinutes =
 		Done, timeNow(), ToPtr(timeNow().Sub(*timeStarted).Minutes())
 
-	if it.logLifecycleEvents(false, nil, job, nil) {
+	if it.logLifecycleEvents(nil, job, nil) {
 		job.logger(log).Infof("marking %s '%s' job '%s' as %s", Running, job.JobDefId, job.Id, Done)
 	}
 	if it.logErr(log, it.backend.transacted(ctx, func(ctx context.Context) error {
@@ -284,7 +284,7 @@ func (it *engine) finalizeCancelingJob(ctx context.Context, job *JobRun) {
 			task.jobRun = job
 			state := task.State
 			task.State = Cancelled
-			if it.logLifecycleEvents(true, nil, nil, task) {
+			if it.logLifecycleEvents(nil, nil, task) {
 				task.logger(log).Infof("marking %s task '%s' (of '%s' job '%s') as %s", state, task.Id, task.HandlerId, task.JobRunId, task.State)
 			}
 			if nil == it.logErr(log, it.backend.saveJobTask(ctx, task), task) {
@@ -298,7 +298,7 @@ func (it *engine) finalizeCancelingJob(ctx context.Context, job *JobRun) {
 	if numTasks == numCanceled { // no more tasks left to cancel, now finalize
 		job.State, job.FinishTime =
 			Cancelled, timeNow()
-		if it.logLifecycleEvents(false, nil, job, nil) {
+		if it.logLifecycleEvents(nil, job, nil) {
 			job.logger(log).Infof("marking %s '%s' job '%s' as %s", JobRunCancelling, job.JobDefId, job.Id, Cancelled)
 		}
 		_ = it.logErr(log, it.backend.transacted(ctx, func(ctx context.Context) error {
@@ -362,7 +362,7 @@ func (it *engine) ensureJobDefScheduled(ctx context.Context, jobDef *JobDef) {
 			return
 		}
 		if (!jobDef.ok(latest.DueTime)) || !dueTime.Equal(latest.DueTime) {
-			if it.logLifecycleEvents(false, nil, latest, nil) {
+			if it.logLifecycleEvents(nil, latest, nil) {
 				latest.logger(log).Infof("updating outdated scheduled due_time of '%s' job '%s' from '%s' to '%s'", jobDef.Id, latest.Id, latest.DueTime, dueTime)
 			}
 			latest.DueTime = *dueTime
@@ -412,7 +412,7 @@ func (it *engine) deleteStorageExpiredJobsForDef(ctx context.Context, jobDef *Jo
 	}
 
 	for _, job := range jobsToDelete {
-		if it.logLifecycleEvents(false, nil, job, nil) {
+		if it.logLifecycleEvents(nil, job, nil) {
 			job.logger(log).Infof("deleting %s '%s' job '%s' and its tasks", job.State, jobDef.Id, job.Id)
 		}
 		_ = it.logErr(log, it.backend.transacted(ctx, func(ctx context.Context) error {
@@ -471,7 +471,7 @@ func (it *engine) expireOrRetryDeadTasksForDef(ctx context.Context, jobDef *JobD
 		} else if (!task.markForRetryOrAsFailed(jobDef)) && len(task.Attempts) > 0 && task.Attempts[0].Err == nil {
 			task.Attempts[0].Err = context.DeadlineExceeded
 		}
-		if it.logLifecycleEvents(true, jobDef, nil, task) {
+		if it.logLifecycleEvents(jobDef, nil, task) {
 			task.logger(log).Infof("marking dead (state %s after timeout) task '%s' (of '%s' job '%s') as %s", Running, task.Id, jobDef.Id, task.JobRunId, task.State)
 		}
 		_ = it.logErr(log, it.backend.saveJobTask(ctx, task), task)
@@ -525,7 +525,7 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 	if task.StartTime == nil {
 		task.StartTime = timeNow()
 	}
-	if it.logLifecycleEvents(true, nil, nil, task) {
+	if it.logLifecycleEvents(nil, nil, task) {
 		task.logger(log).Infof("marking %s task '%s' (of '%s' job '%s') as %s", oldTaskState, task.Id, taskJobDefOrType, task.JobRunId, task.State)
 	}
 	if err := it.logErr(log, it.backend.saveJobTask(ctx, task), task); err != nil {
@@ -560,7 +560,7 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 	if task.Attempts[0].Err == nil {
 		task.Attempts[0].Err = ctxErr
 	}
-	if _ = it.logErr(log, task.Attempts[0].Err, task); it.logLifecycleEvents(true, nil, nil, task) {
+	if _ = it.logErr(log, task.Attempts[0].Err, task); it.logLifecycleEvents(nil, nil, task) {
 		task.logger(log).Infof("marking just-%s %s task '%s' (of '%s' job '%s') as %s", If(task.Attempts[0].Err != nil, "failed", "finished"), Running, task.Id, taskJobDefOrType, task.JobRunId, task.State)
 	}
 	err := it.logErr(log, it.backend.saveJobTask(ctxOrig, task), task)

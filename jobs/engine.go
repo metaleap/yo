@@ -133,7 +133,7 @@ func (it *engine) cancelJobRuns(ctx context.Context, jobRuns map[CancellationRea
 		GoItems(ctx, jobs, func(ctx context.Context, jobRun *JobRun) {
 			state, version := jobRun.State, jobRun.ResourceVersion
 			jobRun.State, jobRun.Info.CancellationReason = JobRunCancelling, reason
-			if it.logLifecycleEvents(false, nil, jobRun, nil) {
+			if it.logLifecycleEvents(nil, jobRun, nil) {
 				jobRun.logger(log).Infof("marking %s '%s' job run '%s' as %s", state, jobRun.JobDefId, jobRun.Id, jobRun.State)
 			}
 			if err := it.backend.saveJobRun(ctx, jobRun); err != nil {
@@ -198,7 +198,7 @@ func (it *engine) createJobRun(ctx context.Context, jobDef *JobDef, jobRunId str
 			return If((already_there != nil), already_there, jobRun), err
 		}
 	}
-	if it.logLifecycleEvents(false, nil, jobRun, nil) {
+	if it.logLifecycleEvents(nil, jobRun, nil) {
 		jobRun.logger(log).Infof("creating %s '%s' job run '%s' scheduled for %s", Pending, jobRun.JobDefId, jobRun.Id, jobRun.DueTime)
 	}
 	return jobRun, it.backend.insertJobRuns(ctx, jobRun)
@@ -223,7 +223,7 @@ func (it *engine) RetryJobTask(ctx context.Context, jobRunId string, jobTaskId s
 	return job_task, it.backend.transacted(ctx, func(ctx context.Context) error {
 		if job_run.State != Running {
 			log := loggerNew()
-			if it.logLifecycleEvents(true, job_run.jobDef, job_run, job_task) {
+			if it.logLifecycleEvents(job_run.jobDef, job_run, job_task) {
 				job_run.logger(log).Infof("marking %s '%s' job run '%s' as %s (for manual task retry)", job_run.State, job_run.JobDefId, job_run.Id, Running)
 			}
 			job_run.State, job_run.FinishTime, job_run.Results, job_run.ResultsStore = Running, nil, nil, nil

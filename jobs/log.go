@@ -16,54 +16,47 @@ func loggerNew() logger {
 	return If(IsDevMode, logger{}, nil)
 }
 
-func (it *engine) logLifecycleEvents(forTask bool, def *JobDef, job *JobRun, task *Task) bool {
+func (it *engine) logLifecycleEvents(jobDef *JobDef, jobRun *JobRun, jobTask *Task) bool {
 	if !IsDevMode {
 		return false
 	}
-	if job == nil && task != nil {
-		job = task.jobRun
+	if (jobRun == nil) && (jobTask != nil) {
+		jobRun = jobTask.jobRun
 	}
-	if def == nil && job != nil {
-		def = job.jobDef
+	if (jobDef == nil) && (jobRun != nil) {
+		jobDef = jobRun.jobDef
 	}
-	if def != nil {
-		if setting := If(forTask, def.LogTaskLifecycleEvents, def.LogJobLifecycleEvents); setting != nil {
+	for_task := (jobTask != nil)
+	if jobDef != nil {
+		if setting := If(for_task, jobDef.LogTaskLifecycleEvents, jobDef.LogJobLifecycleEvents); setting != nil {
 			return *setting
 		}
 	}
-	return If(forTask, it.options.LogTaskLifecycleEvents, it.options.LogJobLifecycleEvents)
+	return If(for_task, it.options.LogTaskLifecycleEvents, it.options.LogJobLifecycleEvents)
 }
 
-func (it *Task) logger(log logger) logger {
-	return logFor(log, nil, nil, it)
-}
+func (it *Task) logger(log logger) logger   { return logFor(log, nil, nil, it) }
+func (it *JobRun) logger(log logger) logger { return logFor(log, nil, it, nil) }
+func (it *JobDef) logger(log logger) logger { return logFor(log, it, nil, nil) }
 
-func (it *JobRun) logger(log logger) logger {
-	return logFor(log, nil, it, nil)
-}
-
-func (it *JobDef) logger(log logger) logger {
-	return logFor(log, it, nil, nil)
-}
-
-func logFor(log logger, jobDef *JobDef, job *JobRun, task *Task) logger {
+func logFor(log logger, jobDef *JobDef, jobRun *JobRun, jobTask *Task) logger {
 	if !IsDevMode {
 		return log
 	}
-	if job == nil && task != nil {
-		job = task.jobRun
+	if (jobRun == nil) && (jobTask != nil) {
+		jobRun = jobTask.jobRun
 	}
-	if jobDef == nil && job != nil {
-		jobDef = job.jobDef
+	if (jobDef == nil) && (jobRun != nil) {
+		jobDef = jobRun.jobDef
 	}
 	if jobDef != nil {
 		log["job_def"], log["job_type"] = jobDef.Id, jobDef.HandlerId
 	}
-	if job != nil {
-		log["job_def"], log["job_type"], log["job_id"], log["job_cancellation_reason"] = job.JobDefId, job.HandlerId, job.Id, string(job.Info.CancellationReason)
+	if jobRun != nil {
+		log["job_def"], log["job_type"], log["job_id"], log["job_cancellation_reason"] = jobRun.JobDefId, jobRun.HandlerId, jobRun.Id, string(jobRun.Info.CancellationReason)
 	}
-	if task != nil {
-		log["job_type"], log["job_id"], log["job_task"] = task.HandlerId, task.JobRunId, task.Id
+	if jobTask != nil {
+		log["job_type"], log["job_id"], log["job_task"] = jobTask.HandlerId, jobTask.JobRunId, jobTask.Id
 	}
 	return log
 }
