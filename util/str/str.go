@@ -29,8 +29,10 @@ var (
 	FromInt  = strconv.Itoa
 	FromBool = strconv.FormatBool
 	FromI64  = strconv.FormatInt
+	FromU64  = strconv.FormatUint
 	ToInt    = strconv.Atoi
 	ToI64    = strconv.ParseInt
+	ToU64    = strconv.ParseUint
 	Fmt      = fmt.Sprintf
 	Q        = strconv.Quote
 	Lo       = strings.ToLower

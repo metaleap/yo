@@ -97,7 +97,7 @@ func (it *expr) SoonestTo(now time.Time, after *time.Time, before *time.Time) (b
 	} {
 		t := now
 		move_on := func() bool {
-			return (!it.DateOk(t)) && (after == nil || t.After(*after)) && (before == nil || t.Before(*before))
+			return (!it.DateOk(t)) && ((after == nil) || t.After(*after)) && ((before == nil) || t.Before(*before))
 		}
 		for move_on() { // jump to right search-starting day first:
 			t = t.AddDate(0, 0, dir)
@@ -116,13 +116,13 @@ func (it *expr) SoonestTo(now time.Time, after *time.Time, before *time.Time) (b
 				}
 			}
 			// now actually check `t`
-			if after != nil && (t.Before(*after) || t.Equal(*after)) {
+			if (after != nil) && (t.Before(*after) || t.Equal(*after)) {
 				if t = *after; dir < 0 {
 					break // going pastwards, the problem will remain, so break out
 				}
 				continue // matters here, we dont want to return `after`
 			}
-			if before != nil && (t.After(*before) || t.Equal(*before)) {
+			if (before != nil) && (t.After(*before) || t.Equal(*before)) {
 				if t = *before; dir > 0 {
 					break // going forward, the problem will remain, so break out
 				}
@@ -167,16 +167,10 @@ func (it *expr) ok(t time.Time, checkDay bool, checkTime bool) (dayOk bool, time
 		{it.DaysOfMonth, day, &dayOk},
 		{it.DaysOfWeek, int(t.Weekday()), &dayOk},
 	} {
-		if (check.ret == &dayOk && !checkDay) || (check.ret == &timeOk && !checkTime) {
+		if ((check.ret == &dayOk) && !checkDay) || ((check.ret == &timeOk) && !checkTime) {
 			continue
 		}
-		var any_ok bool
-		for _, item := range check.field {
-			if any_ok = item.ok(check.value); any_ok {
-				break
-			}
-		}
-		if !any_ok {
+		if !sl.Any(check.field, func(it FieldItem) bool { return it.ok(check.value) }) {
 			*check.ret = false
 			return
 		}

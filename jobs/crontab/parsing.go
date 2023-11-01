@@ -3,7 +3,6 @@ package crontab
 import (
 	"errors"
 	"math"
-	"strconv"
 	"strings"
 	"time"
 
@@ -47,7 +46,7 @@ func Parse(src string) (_ Expr, err error) {
 	}
 	fields = append(fields, sl.Repeat(5-len(fields), "*")...)
 
-	ret := &expr{}
+	var ret expr
 	if ret.Minutes, err = parseMins(fields[0]); err == nil {
 		if ret.Hours, err = parseHours(fields[1]); err == nil {
 			if ret.DaysOfMonth, err = parseDaysOfMonth(fields[2]); err == nil {
@@ -57,7 +56,7 @@ func Parse(src string) (_ Expr, err error) {
 			}
 		}
 	}
-	return ret, err
+	return &ret, err
 }
 
 func fieldParserFor(fieldName string, valueMin int, valueMax int, modBeyond bool, valueNames map[string]int) fieldParser {
@@ -67,13 +66,13 @@ func fieldParserFor(fieldName string, valueMin int, valueMax int, modBeyond bool
 		}
 		for _, src := range strings.Split(src, ",") {
 			var this FieldItem
-			if idxSlash := strings.IndexByte(src, '/'); idxSlash > 0 {
-				this.EveryNth, err = parseValue(src[idxSlash+1:], fieldName+"/n", 1, uint64(math.MaxInt32), false, nil)
-				if src = src[:idxSlash]; err != nil {
+			if idx_slash := strings.IndexByte(src, '/'); idx_slash > 0 {
+				this.EveryNth, err = parseValue(src[idx_slash+1:], fieldName+"/n", 1, uint64(math.MaxInt32), false, nil)
+				if src = src[:idx_slash]; err != nil {
 					return
 				}
 			}
-			if idxDash := strings.IndexByte(src, '-'); idxDash <= 0 {
+			if idx_dash := str.Idx(src, '-'); idx_dash <= 0 {
 				if src == "*" {
 					this.From = valueMin
 				} else {
@@ -83,9 +82,9 @@ func fieldParserFor(fieldName string, valueMin int, valueMax int, modBeyond bool
 					this.Through = valueMax
 				}
 			} else {
-				this.From, err = parseValue(src[:idxDash], fieldName, uint64(valueMin), uint64(valueMax), modBeyond, valueNames)
+				this.From, err = parseValue(src[:idx_dash], fieldName, uint64(valueMin), uint64(valueMax), modBeyond, valueNames)
 				if err == nil {
-					this.Through, err = parseValue(src[idxDash+1:], fieldName, uint64(valueMin), uint64(valueMax), modBeyond, valueNames)
+					this.Through, err = parseValue(src[idx_dash+1:], fieldName, uint64(valueMin), uint64(valueMax), modBeyond, valueNames)
 				}
 				if err == nil && this.From > this.Through {
 					err = errors.New(str.Fmt("range %d-%d start %d must be before end %d", this.From, this.Through, this.From, this.Through))
@@ -107,11 +106,11 @@ func parseValue(src string, fieldName string, valueMin uint64, valueMax uint64, 
 		n, found = valueNames[strings.ToLower(src)]
 	}
 	if !found {
-		n64, err := strconv.ParseUint(src, 10, 32)
+		n64, err := str.ToU64(src, 10, 32)
 		if err != nil {
 			return 0, errors.New(str.Fmt("field '%s' value '%s' faulty: %s", fieldName, src, err))
 		}
-		if n64 < valueMin || n64 > valueMax {
+		if (n64 < valueMin) || (n64 > valueMax) {
 			if modBeyond {
 				n64 = valueMin + ((n64 - valueMin) % (1 + (valueMax - valueMin)))
 			} else {
