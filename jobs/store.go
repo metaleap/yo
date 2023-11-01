@@ -20,11 +20,11 @@ type (
 		InsertJobRuns(ctx context.Context, objs ...*JobRun) error
 		DeleteJobRuns(ctx context.Context, filter *JobRunFilter) error
 
-		GetJobTask(ctx context.Context, id string) (*Task, error)
-		FindJobTask(ctx context.Context, filter *JobTaskFilter) (*Task, error)
-		ListJobTasks(ctx context.Context, req ListRequest, filter *JobTaskFilter) ([]*Task, string, error)
+		GetJobTask(ctx context.Context, id string) (*JobTask, error)
+		FindJobTask(ctx context.Context, filter *JobTaskFilter) (*JobTask, error)
+		ListJobTasks(ctx context.Context, req ListRequest, filter *JobTaskFilter) ([]*JobTask, string, error)
 		CountJobTasks(ctx context.Context, limit int64, filter *JobTaskFilter) (int64, error)
-		InsertJobTasks(ctx context.Context, objs ...*Task) error
+		InsertJobTasks(ctx context.Context, objs ...*JobTask) error
 		DeleteJobTasks(ctx context.Context, filter *JobTaskFilter) error
 
 		SaveGuarded(ctx context.Context, jobOrTask any, whereVersion int) error
@@ -131,7 +131,7 @@ func (it store) listJobRuns(ctx context.Context, loadDefs bool, mustLoadDefs boo
 }
 
 //nolint:unused // dev note: please leave it in. once it was needed, better to have it ready & in consistency with all the above & below
-func (it store) getJobTask(ctx context.Context, loadJobRun bool, mustLoadJobRun bool, id string) (*Task, error) {
+func (it store) getJobTask(ctx context.Context, loadJobRun bool, mustLoadJobRun bool, id string) (*JobTask, error) {
 	job_task, err := it.impl.GetJobTask(ctx, id)
 	if err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func (it store) getJobTask(ctx context.Context, loadJobRun bool, mustLoadJobRun 
 	return job_task, err
 }
 
-func (it store) findJobTask(ctx context.Context, loadJobRun bool, mustLoadJobRun bool, filter *JobTaskFilter) (*Task, error) {
+func (it store) findJobTask(ctx context.Context, loadJobRun bool, mustLoadJobRun bool, filter *JobTaskFilter) (*JobTask, error) {
 	job_task, err := it.impl.FindJobTask(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -157,10 +157,10 @@ func (it store) findJobTask(ctx context.Context, loadJobRun bool, mustLoadJobRun
 	return job_task, err
 }
 
-func (it store) listJobTasks(ctx context.Context, loadJobRuns bool, mustLoadJobRuns bool, req ListRequest, filter *JobTaskFilter) (jobTasks []*Task, jobRuns []*JobRun, jobDefs []*JobDef, pageTok string, err error) {
+func (it store) listJobTasks(ctx context.Context, loadJobRuns bool, mustLoadJobRuns bool, req ListRequest, filter *JobTaskFilter) (jobTasks []*JobTask, jobRuns []*JobRun, jobDefs []*JobDef, pageTok string, err error) {
 	jobTasks, pageTok, err = it.impl.ListJobTasks(ctx, req, filter)
 	if (err == nil) && loadJobRuns {
-		if jobRuns, jobDefs, _, err = it.listJobRuns(ctx, true, mustLoadJobRuns, ListRequest{PageSize: len(jobTasks)}, JobRunFilter{}.WithIds(sl.To(jobTasks, func(v *Task) string { return v.JobRunId })...)); err == nil {
+		if jobRuns, jobDefs, _, err = it.listJobRuns(ctx, true, mustLoadJobRuns, ListRequest{PageSize: len(jobTasks)}, JobRunFilter{}.WithIds(sl.To(jobTasks, func(v *JobTask) string { return v.JobRunId })...)); err == nil {
 			for _, job_task := range jobTasks {
 				if job_task.jobRun = findById(jobRuns, job_task.JobRunId); (job_task.jobRun == nil) && mustLoadJobRuns {
 					return nil, nil, nil, "", errNotFoundJobRun(job_task.JobRunId)
@@ -179,7 +179,7 @@ func (it store) saveJobRun(ctx context.Context, obj *JobRun) error {
 	return it.impl.SaveGuarded(ctx, obj, version)
 }
 
-func (it store) saveJobTask(ctx context.Context, obj *Task) error {
+func (it store) saveJobTask(ctx context.Context, obj *JobTask) error {
 	version := obj.ResourceVersion
 	obj.ResourceVersion++
 	return it.impl.SaveGuarded(ctx, obj, version)
@@ -200,7 +200,7 @@ func (it store) deleteJobRuns(ctx context.Context, filter *JobRunFilter) error {
 func (it store) countJobTasks(ctx context.Context, limit int64, filter *JobTaskFilter) (int64, error) {
 	return it.impl.CountJobTasks(ctx, limit, filter)
 }
-func (it store) insertJobTasks(ctx context.Context, objs ...*Task) error {
+func (it store) insertJobTasks(ctx context.Context, objs ...*JobTask) error {
 	return it.impl.InsertJobTasks(ctx, objs...)
 }
 func (it store) deleteJobTasks(ctx context.Context, filter *JobTaskFilter) error {

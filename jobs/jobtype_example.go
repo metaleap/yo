@@ -66,7 +66,7 @@ func (it exampleJobType) TaskResults(ctx *Context, task TaskDetails) (TaskResult
 	return &exampleTaskResults{NumLoggingsDone: 1}, nil
 }
 
-func (exampleJobType) JobResults(_ *Context, tasks func() <-chan *Task) (JobResults, error) {
+func (exampleJobType) JobResults(_ *Context, tasks func() <-chan *JobTask) (JobResults, error) {
 	var num int
 	for task := range tasks() {
 		if results, _ := task.Results.(*exampleTaskResults); results != nil {

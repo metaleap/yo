@@ -117,11 +117,11 @@ func (it *engine) startDueJob(ctx context.Context, job *JobRun) {
 			if err != nil { // don't `break` here: we need to drain the chan to close it, in the case of...
 				continue // ...undisciplined `JobType.TaskDetails` impls (they should stop sending on err)
 			}
-			tasks := sl.To(taskDetails, func(details TaskDetails) *Task {
+			tasks := sl.To(taskDetails, func(details TaskDetails) *JobTask {
 				if numTasks++; err == nil {
 					_, err = jobType(job.jobDef.JobTypeId).wellTypedTaskDetails(details)
 				}
-				return &Task{
+				return &JobTask{
 					Resource:        Resource{job.Id + "_" + strconv.Itoa(numTasks)},
 					JobRunId:        job.Id,
 					JobTypeId:       job.JobTypeId,
@@ -196,11 +196,11 @@ func (it *engine) finalizeFinishedJob(ctx context.Context, job *JobRun) {
 	if job.FinalTaskListReq != nil {
 		tasksListReq = *job.FinalTaskListReq
 	}
-	var tasksStream chan *Task
+	var tasksStream chan *JobTask
 	abortStreaming := false
-	job.Results, err = job.jobDef.jobType.JobResults(job.ctx(ctx, ""), func() <-chan *Task {
+	job.Results, err = job.jobDef.jobType.JobResults(job.ctx(ctx, ""), func() <-chan *JobTask {
 		if tasksStream == nil {
-			tasksStream = make(chan *Task, Clamp(0, 1024, tasksListReq.PageSize))
+			tasksStream = make(chan *JobTask, Clamp(0, 1024, tasksListReq.PageSize))
 			go func(ctx context.Context) {
 				defer close(tasksStream)
 				for tasksListReq.PageToken = ""; !abortStreaming; { // bools dont need a mutex =)
@@ -481,7 +481,7 @@ func (it *engine) expireOrRetryDeadTasksForDef(ctx context.Context, jobDef *JobD
 func (it *engine) runJobTasks() {
 	defer func() { doAfter(it.options.IntervalRunTasks, it.runJobTasks) }()
 
-	var pendingTasks []*Task
+	var pendingTasks []*JobTask
 	{
 		var err error
 		log := loggerNew()
@@ -493,12 +493,12 @@ func (it *engine) runJobTasks() {
 	}
 
 	// ...then run them
-	GoItems(ctxNone, pendingTasks, func(ctx context.Context, task *Task) {
+	GoItems(ctxNone, pendingTasks, func(ctx context.Context, task *JobTask) {
 		_ = it.runTask(ctx, task)
 	}, it.options.MaxConcurrentOps, 0 /* hence, task.Timeout() */)
 }
 
-func (it *engine) runTask(ctx context.Context, task *Task) error {
+func (it *engine) runTask(ctx context.Context, task *JobTask) error {
 	log, timeStarted := loggerNew(), timeNow()
 	ctxOrig := ctx
 	ctx, done := context.WithCancel(ctx)

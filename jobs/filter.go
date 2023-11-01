@@ -195,7 +195,7 @@ func (it JobTaskFilter) WithStartedBefore(startedBefore time.Time) *JobTaskFilte
 	return &it
 }
 
-func (it *JobTaskFilter) Ok(cmp *Task) bool {
+func (it *JobTaskFilter) Ok(cmp *JobTask) bool {
 	if it == nil {
 		return true
 	}

@@ -75,7 +75,7 @@ type JobType interface {
 	// The `JobResults` returned are of type *TJobResults (that this `JobType` was `Register`ed with).
 	// All `stream()[_].Details` are of type *TTaskDetails (that this `JobType` was `Register`ed with).
 	// All `stream()[_].Results` are of type *TTaskResults (that this `JobType` was `Register`ed with).
-	JobResults(ctx *Context, stream func() <-chan *Task) (JobResults, error)
+	JobResults(ctx *Context, stream func() <-chan *JobTask) (JobResults, error)
 
 	IsTaskErrRetryable(err error) bool
 }

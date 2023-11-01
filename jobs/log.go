@@ -16,7 +16,7 @@ func loggerNew() logger {
 	return If(IsDevMode, logger{}, nil)
 }
 
-func (it *engine) logLifecycleEvents(jobDef *JobDef, jobRun *JobRun, jobTask *Task) bool {
+func (it *engine) logLifecycleEvents(jobDef *JobDef, jobRun *JobRun, jobTask *JobTask) bool {
 	if !IsDevMode {
 		return false
 	}
@@ -35,11 +35,11 @@ func (it *engine) logLifecycleEvents(jobDef *JobDef, jobRun *JobRun, jobTask *Ta
 	return If(for_task, it.options.LogTaskLifecycleEvents, it.options.LogJobLifecycleEvents)
 }
 
-func (it *Task) logger(log logger) logger   { return logFor(log, nil, nil, it) }
-func (it *JobRun) logger(log logger) logger { return logFor(log, nil, it, nil) }
-func (it *JobDef) logger(log logger) logger { return logFor(log, it, nil, nil) }
+func (it *JobTask) logger(log logger) logger { return logFor(log, nil, nil, it) }
+func (it *JobRun) logger(log logger) logger  { return logFor(log, nil, it, nil) }
+func (it *JobDef) logger(log logger) logger  { return logFor(log, it, nil, nil) }
 
-func logFor(log logger, jobDef *JobDef, jobRun *JobRun, jobTask *Task) logger {
+func logFor(log logger, jobDef *JobDef, jobRun *JobRun, jobTask *JobTask) logger {
 	if !IsDevMode {
 		return log
 	}

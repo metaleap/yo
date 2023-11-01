@@ -37,9 +37,9 @@ type (
 		// Stats gathers progress stats of a `JobRun` and its `JobTask`s.
 		Stats(ctx context.Context, jobRun Resource) (*JobRunStats, error)
 		// RetryJobTask retries the defified failed task.
-		RetryJobTask(ctx context.Context, jobRunId string, jobTaskId string) (*Task, error)
+		RetryJobTask(ctx context.Context, jobRunId string, jobTaskId string) (*JobTask, error)
 
-		OnJobTaskExecuted(func(*Task, time.Duration))
+		OnJobTaskExecuted(func(*JobTask, time.Duration))
 		OnJobRunExecuted(func(*JobRun, *JobRunStats))
 	}
 	engine struct {
@@ -49,7 +49,7 @@ type (
 		taskCancelers    map[string]func()
 		taskCancelersMut sync.Mutex
 		eventHandlers    struct {
-			onJobTaskExecuted func(*Task, time.Duration)
+			onJobTaskExecuted func(*JobTask, time.Duration)
 			onJobRunExecuted  func(*JobRun, *JobRunStats)
 		}
 	}
@@ -204,7 +204,7 @@ func (it *engine) createJobRun(ctx context.Context, jobDef *JobDef, jobRunId str
 	return jobRun, it.store.insertJobRuns(ctx, jobRun)
 }
 
-func (it *engine) RetryJobTask(ctx context.Context, jobRunId string, jobTaskId string) (*Task, error) {
+func (it *engine) RetryJobTask(ctx context.Context, jobRunId string, jobTaskId string) (*JobTask, error) {
 	job_task, err := it.store.getJobTask(ctx, true, true, jobTaskId)
 	if err != nil {
 		return nil, err
@@ -264,7 +264,7 @@ func (it *engine) Stats(ctx context.Context, jobRunRef Resource) (*JobRunStats, 
 	return &stats, err
 }
 
-func (it *engine) OnJobTaskExecuted(eventHandler func(*Task, time.Duration)) {
+func (it *engine) OnJobTaskExecuted(eventHandler func(*JobTask, time.Duration)) {
 	it.eventHandlers.onJobTaskExecuted = eventHandler
 }
 func (it *engine) OnJobRunExecuted(eventHandler func(*JobRun, *JobRunStats)) {

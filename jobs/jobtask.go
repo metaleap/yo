@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type Task struct {
+type JobTask struct {
 	Resource
 
 	JobTypeId       string
@@ -26,22 +26,22 @@ type Task struct {
 	jobRun *JobRun
 }
 
-func (it *Task) Failed() bool {
+func (it *JobTask) Failed() bool {
 	return (it.State == Done) && (len(it.Attempts) > 0) && (it.Attempts[0].Err != nil)
 }
 
-func (it *Task) Succeeded() bool {
+func (it *JobTask) Succeeded() bool {
 	return (it.State == Done) && (len(it.Attempts) > 0) && (it.Attempts[0].Err == nil)
 }
 
-func (it *Task) JobDef() string {
+func (it *JobTask) JobDef() string {
 	if it.jobRun == nil {
 		return ""
 	}
 	return it.jobRun.JobDefId
 }
 
-func (it *Task) markForRetryOrAsFailed(jobDef *JobDef) (retry bool) {
+func (it *JobTask) markForRetryOrAsFailed(jobDef *JobDef) (retry bool) {
 	if (jobDef != nil) && (len(it.Attempts) <= jobDef.TaskRetries) { // first attempt was not a RE-try
 		it.State, it.StartTime, it.FinishTime = Pending, nil, nil
 		return true
@@ -77,7 +77,7 @@ func (it *TaskError) Error() (s string) {
 }
 
 // Timeout implements utils.HasTimeout
-func (it *Task) Timeout() time.Duration {
+func (it *JobTask) Timeout() time.Duration {
 	if (it.jobRun != nil) && (it.jobRun.jobDef) != nil && (it.jobRun.jobDef.Timeouts.TaskRun) > 0 {
 		return it.jobRun.jobDef.Timeouts.TaskRun
 	}

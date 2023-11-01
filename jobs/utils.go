@@ -23,7 +23,7 @@ func newId(prefix string) string {
 	return prefix + "_" + ret
 }
 
-func ensureTZ(times ...*time.Time) {
+func ensureTz(times ...*time.Time) {
 	for _, t := range times {
 		if t != nil {
 			*t = t.In(Timezone)
