@@ -12,11 +12,11 @@ import (
 type RunState string
 
 const (
-	RunStateUnspecified RunState = ""
-	Pending             RunState = "PENDING"
-	Running             RunState = "RUNNING"
-	Done                RunState = "DONE"
-	Cancelled           RunState = "CANCELLED"
+	RunStateUndefified RunState = ""
+	Pending            RunState = "PENDING"
+	Running            RunState = "RUNNING"
+	Done               RunState = "DONE"
+	Cancelled          RunState = "CANCELLED"
 	// Cancelling only exists for `Job`s, never for `Task`s.
 	Cancelling RunState = "CANCELLING"
 )
@@ -25,8 +25,8 @@ type CancellationReason string
 
 const (
 	CancellationReasonDuplicate            CancellationReason = "JobDuplicate"
-	CancellationReasonSpecInvalidOrGone    CancellationReason = "JobspecInvalidOrGone"
-	CancellationReasonSpecChanged          CancellationReason = "JobspecChanged"
+	CancellationReasonDefInvalidOrGone     CancellationReason = "JobdefInvalidOrGone"
+	CancellationReasonDefChanged           CancellationReason = "JobdefChanged"
 	CancellationReasonJobTypeInvalidOrGone CancellationReason = "JobtypeInvalidOrGone"
 )
 
@@ -34,7 +34,7 @@ type Job struct {
 	Resource `json:",inline" bson:",inline"`
 
 	HandlerID     string     `json:"job_type" bson:"job_type"`
-	Spec          string     `json:"spec" bson:"spec"`
+	Def           string     `json:"def" bson:"def"`
 	State         RunState   `json:"state" bson:"state"`
 	DueTime       time.Time  `json:"due_time" bson:"due_time"`
 	StartTime     *time.Time `json:"start_time,omitempty" bson:"start_time,omitempty"`
@@ -61,11 +61,11 @@ type Job struct {
 
 	ResourceVersion int `json:"resource_version" bson:"resource_version"`
 
-	spec *JobSpec
+	def *JobDef
 }
 
 func (it *Job) ctx(ctx context.Context, taskID string) *Context {
-	return &Context{Context: ctx, JobID: it.ID, JobDetails: it.Details, JobSpec: *it.spec, TaskID: taskID}
+	return &Context{Context: ctx, JobID: it.Id, JobDetails: it.Details, JobDef: *it.def, TaskID: taskID}
 }
 
 type JobStats struct {
@@ -139,15 +139,15 @@ func (it *Task) Succeeded() bool {
 	return it.State == Done && len(it.Attempts) > 0 && it.Attempts[0].Err == nil
 }
 
-func (it *Task) JobSpec() string {
+func (it *Task) JobDef() string {
 	if it.job == nil {
 		return ""
 	}
-	return it.job.Spec
+	return it.job.Def
 }
 
-func (it *Task) markForRetryOrAsFailed(jobSpec *JobSpec) (retry bool) {
-	if jobSpec != nil && len(it.Attempts) <= jobSpec.TaskRetries { // first attempt was not a RE-try
+func (it *Task) markForRetryOrAsFailed(jobDef *JobDef) (retry bool) {
+	if jobDef != nil && len(it.Attempts) <= jobDef.TaskRetries { // first attempt was not a RE-try
 		it.State, it.StartTime, it.FinishTime = Pending, nil, nil
 		return true
 	}
@@ -183,16 +183,16 @@ func (it *TaskError) Error() (s string) {
 
 // Timeout implements utils.HasTimeout
 func (it *Task) Timeout() time.Duration {
-	if it.job != nil && it.job.spec != nil && it.job.spec.Timeouts.TaskRun > 0 {
-		return it.job.spec.Timeouts.TaskRun
+	if it.job != nil && it.job.def != nil && it.job.def.Timeouts.TaskRun > 0 {
+		return it.job.def.Timeouts.TaskRun
 	}
 	return TimeoutLong
 }
 
 // Timeout implements utils.HasTimeout
 func (it *Job) Timeout() time.Duration {
-	if it.spec != nil && it.spec.Timeouts.JobPrepAndFinalize > 0 {
-		return it.spec.Timeouts.JobPrepAndFinalize
+	if it.def != nil && it.def.Timeouts.JobPrepAndFinalize > 0 {
+		return it.def.Timeouts.JobPrepAndFinalize
 	}
 	return TimeoutLong
 }
@@ -235,7 +235,7 @@ func (it *Task) unmarshal(unmarshaler func([]byte, any) error, data []byte) erro
 			&it.DetailsStore: &it.Details, &it.ResultsStore: &it.Results}))
 }
 
-// when marshaling a Job/Task, both the DetailsStore & ResultsStore `map`s are filled from the `Details`/`Results` handler-specific live objects
+// when marshaling a Job/Task, both the DetailsStore & ResultsStore `map`s are filled from the `Details`/`Results` handler-defific live objects
 func onMarshal(it any, marshaler func(any) ([]byte, error), ensure map[*map[string]any]handlerDefined) ([]byte, error) {
 	for mapField, value := range ensure {
 		*mapField = map[string]any{}
@@ -246,7 +246,7 @@ func onMarshal(it any, marshaler func(any) ([]byte, error), ensure map[*map[stri
 	return marshaler(it)
 }
 
-// when unmarshaling a Job/Task, the `Details`/`Results` handler-specific objects must be filled from the DetailsStore/ResultsStore `map`s.
+// when unmarshaling a Job/Task, the `Details`/`Results` handler-defific objects must be filled from the DetailsStore/ResultsStore `map`s.
 func onUnmarshal(itSafe any, itOrig interface {
 	handlerID() string
 }, unmarshaler func([]byte, any) error, data []byte, ensure map[*map[string]any]*handlerDefined) error {

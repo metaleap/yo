@@ -86,7 +86,7 @@ func fieldParserFor(fieldName string, valueMin int, valueMax int, modBeyond bool
 				if err == nil {
 					this.Through, err = parseValue(src[idx_dash+1:], fieldName, uint64(valueMin), uint64(valueMax), modBeyond, valueNames)
 				}
-				if err == nil && this.From > this.Through {
+				if (err == nil) && (this.From > this.Through) {
 					err = errors.New(str.Fmt("range %d-%d start %d must be before end %d", this.From, this.Through, this.From, this.Through))
 				}
 			}
@@ -100,26 +100,26 @@ func fieldParserFor(fieldName string, valueMin int, valueMax int, modBeyond bool
 }
 
 func parseValue(src string, fieldName string, valueMin uint64, valueMax uint64, modBeyond bool, valueNames map[string]int) (int, error) {
-	var n int
+	var ret int
 	var found bool
 	if valueNames != nil {
-		n, found = valueNames[strings.ToLower(src)]
+		ret, found = valueNames[strings.ToLower(src)]
 	}
 	if !found {
-		n64, err := str.ToU64(src, 10, 32)
+		u64, err := str.ToU64(src, 10, 32)
 		if err != nil {
 			return 0, errors.New(str.Fmt("field '%s' value '%s' faulty: %s", fieldName, src, err))
 		}
-		if (n64 < valueMin) || (n64 > valueMax) {
+		if (u64 < valueMin) || (u64 > valueMax) {
 			if modBeyond {
-				n64 = valueMin + ((n64 - valueMin) % (1 + (valueMax - valueMin)))
+				u64 = valueMin + ((u64 - valueMin) % (1 + (valueMax - valueMin)))
 			} else {
-				return 0, errors.New(str.Fmt("expected '%s' field to be in the range %d-%d but got %d", fieldName, valueMin, valueMax, n))
+				return 0, errors.New(str.Fmt("expected '%s' field to be in the range %d-%d but got %d", fieldName, valueMin, valueMax, ret))
 			}
 		}
-		n = int(n64)
+		ret = int(u64)
 	}
-	return n, nil
+	return ret, nil
 }
 
 func valueNames(valueMin int, valueMax int, altNames func(int) []string) (ret map[string]int) {

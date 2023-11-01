@@ -35,29 +35,29 @@ func (it *engine) startDueJobs(ctx context.Context) {
 	log := loggerNew()
 	var dueJobs []*Job
 	DoTimeout(ctx, it.options.TimeoutShort, func(ctx context.Context) {
-		jobs, _, _, err := it.backend.listJobs(ctx, true, false, noPaging,
+		jobs, _, _, err := it.backend.listJobRuns(ctx, true, false, noPaging,
 			JobFilter{}.WithStates(Pending).WithDue(true))
 		if it.logErr(log, err) == nil {
 			dueJobs = jobs
 		}
 	})
-	{ // cancel rare duplicates and remnants of by-now-removed/disabled job-specs
+	{ // cancel rare duplicates and remnants of by-now-removed/disabled job-defs
 		cancelJobs := map[CancellationReason][]*Job{}
 		sort.Slice(dueJobs, func(i int, j int) bool { return !dueJobs[i].AutoScheduled })
 		for i := 0; i < len(dueJobs); i++ {
 			job := dueJobs[i]
 			idx := sl.IdxWhere(dueJobs, func(j *Job) bool { // check if duplicate
-				return j.Spec == job.Spec && cmp.Equal(j.Details, job.Details, cmpopts.IgnoreUnexported(), cmpopts.EquateEmpty())
+				return j.Def == job.Def && cmp.Equal(j.Details, job.Details, cmpopts.IgnoreUnexported(), cmpopts.EquateEmpty())
 			})
 			var reason CancellationReason
 			switch {
 			case idx != i:
 				reason = CancellationReasonDuplicate
-			case job.spec == nil:
-				reason = CancellationReasonSpecInvalidOrGone
-			case job.HandlerID != job.spec.HandlerID || job.spec.Disabled:
-				reason = CancellationReasonSpecChanged
-			case job.spec.handler == nil && job.HandlerID == job.spec.HandlerID:
+			case job.def == nil:
+				reason = CancellationReasonDefInvalidOrGone
+			case job.HandlerID != job.def.HandlerID || job.def.Disabled:
+				reason = CancellationReasonDefChanged
+			case job.def.handler == nil && job.HandlerID == job.def.HandlerID:
 				reason = CancellationReasonJobTypeInvalidOrGone
 			}
 			if reason != "" {
@@ -77,10 +77,10 @@ func (it *engine) startDueJobs(ctx context.Context) {
 func (it *engine) startDueJob(ctx context.Context, job *Job) {
 	log := loggerNew()
 	var err error
-	if job.spec == nil {
-		err = errNotFoundSpec(job.Spec)
-	} else if job.spec.handler == nil {
-		err = errNotFoundHandler(job.spec.ID, job.spec.HandlerID)
+	if job.def == nil {
+		err = errNotFoundDef(job.Def)
+	} else if job.def.handler == nil {
+		err = errNotFoundHandler(job.def.Id, job.def.HandlerID)
 	}
 	if it.logErr(log, err, job) != nil {
 		return
@@ -89,14 +89,14 @@ func (it *engine) startDueJob(ctx context.Context, job *Job) {
 	// 1. handler.JobDetails
 	timeStarted, jobCtx := timeNow(), job.ctx(ctx, "")
 	if job.Details == nil {
-		if job.Details, err = job.spec.defaultJobDetails(); it.logErr(log, err, job) != nil {
+		if job.Details, err = job.def.defaultJobDetails(); it.logErr(log, err, job) != nil {
 			return
 		}
 	}
-	if job.Details, err = job.spec.handler.JobDetails(jobCtx); it.logErr(log, err, job) != nil {
+	if job.Details, err = job.def.handler.JobDetails(jobCtx); it.logErr(log, err, job) != nil {
 		return
 	}
-	if _, err = handler(job.spec.HandlerID).wellTypedJobDetails(job.Details); it.logErr(log, err, job) != nil {
+	if _, err = handler(job.def.HandlerID).wellTypedJobDetails(job.Details); it.logErr(log, err, job) != nil {
 		return
 	}
 
@@ -104,7 +104,7 @@ func (it *engine) startDueJob(ctx context.Context, job *Job) {
 	taskDetailsStream := make(chan []TaskDetails)
 	go func() {
 		defer close(taskDetailsStream)
-		job.FinalTaskListReq, job.FinalTaskFilter = job.spec.handler.TaskDetails(jobCtx, taskDetailsStream, func(e error) error {
+		job.FinalTaskListReq, job.FinalTaskFilter = job.def.handler.TaskDetails(jobCtx, taskDetailsStream, func(e error) error {
 			if e != nil && err == nil {
 				err = e
 			}
@@ -119,11 +119,11 @@ func (it *engine) startDueJob(ctx context.Context, job *Job) {
 			}
 			tasks := sl.To(taskDetails, func(details TaskDetails) *Task {
 				if numTasks++; err == nil {
-					_, err = handler(job.spec.HandlerID).wellTypedTaskDetails(details)
+					_, err = handler(job.def.HandlerID).wellTypedTaskDetails(details)
 				}
 				return &Task{
-					Resource:        Resource{job.ID + "_" + strconv.Itoa(numTasks)},
-					Job:             job.ID,
+					Resource:        Resource{job.Id + "_" + strconv.Itoa(numTasks)},
+					Job:             job.Id,
 					HandlerID:       job.HandlerID,
 					State:           Pending,
 					FinishTime:      nil,
@@ -133,16 +133,16 @@ func (it *engine) startDueJob(ctx context.Context, job *Job) {
 				}
 			})
 			if len(tasks) > 0 && err == nil {
-				err = it.backend.insertTasks(ctx, tasks...)
+				err = it.backend.insertJobTasks(ctx, tasks...)
 			}
 		}
 		if err == nil {
 			job.State, job.StartTime, job.FinishTime, job.Info.DurationPrepInMinutes =
 				Running, timeNow(), nil, ToPtr(timeNow().Sub(*timeStarted).Minutes())
 			if it.logLifecycleEvents(false, nil, job, nil) {
-				job.logger(log).Infof("marking %s '%s' job '%s' as %s (with %d tasks)", Pending, job.Spec, job.ID, job.State, numTasks)
+				job.logger(log).Infof("marking %s '%s' job '%s' as %s (with %d tasks)", Pending, job.Def, job.Id, job.State, numTasks)
 			}
-			err = it.backend.saveJob(ctx, job)
+			err = it.backend.saveJobRun(ctx, job)
 		}
 		return err
 	}), job)
@@ -152,7 +152,7 @@ func (it *engine) finalizeFinishedJobs(ctx context.Context) {
 	log := loggerNew()
 	var runningJobs []*Job
 	DoTimeout(ctx, it.options.TimeoutShort, func(ctx context.Context) {
-		jobs, _, _, err := it.backend.listJobs(ctx, true, false, noPaging,
+		jobs, _, _, err := it.backend.listJobRuns(ctx, true, false, noPaging,
 			JobFilter{}.WithStates(Running))
 		if it.logErr(log, err) == nil {
 			runningJobs = jobs
@@ -161,14 +161,14 @@ func (it *engine) finalizeFinishedJobs(ctx context.Context) {
 
 	cancelJobs := map[CancellationReason][]*Job{}
 	for reason, predicate := range map[CancellationReason]func(*Job) bool{
-		CancellationReasonSpecInvalidOrGone: func(j *Job) bool {
-			return j.spec == nil
+		CancellationReasonDefInvalidOrGone: func(j *Job) bool {
+			return j.def == nil
 		},
-		CancellationReasonSpecChanged: func(j *Job) bool {
-			return j.spec != nil && (j.HandlerID != j.spec.HandlerID || j.spec.Disabled)
+		CancellationReasonDefChanged: func(j *Job) bool {
+			return j.def != nil && (j.HandlerID != j.def.HandlerID || j.def.Disabled)
 		},
 		CancellationReasonJobTypeInvalidOrGone: func(j *Job) bool {
-			return j.spec != nil && j.spec.HandlerID == j.HandlerID && j.spec.handler == nil
+			return j.def != nil && j.def.HandlerID == j.HandlerID && j.def.handler == nil
 		},
 	} {
 		jobsToCancel := sl.Where(runningJobs, predicate)
@@ -183,28 +183,28 @@ func (it *engine) finalizeFinishedJobs(ctx context.Context) {
 
 func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
 	log := loggerNew()
-	stillBusy, err := it.backend.findTask(ctx, false, false,
-		TaskFilter{}.WithStates(Pending, Running).WithJobs(job.ID))
+	stillBusy, err := it.backend.findJobTask(ctx, false, false,
+		TaskFilter{}.WithStates(Pending, Running).WithJobs(job.Id))
 	if it.logErr(log, err, job) != nil || stillBusy != nil {
 		return
 	}
 
-	tasksFilter, tasksListReq, timeStarted := TaskFilter{}.WithJobs(job.ID), ListRequest{}, timeNow()
+	tasksFilter, tasksListReq, timeStarted := TaskFilter{}.WithJobs(job.Id), ListRequest{}, timeNow()
 	if job.FinalTaskFilter != nil {
-		tasksFilter = job.FinalTaskFilter.WithJobs(job.ID)
+		tasksFilter = job.FinalTaskFilter.WithJobs(job.Id)
 	}
 	if job.FinalTaskListReq != nil {
 		tasksListReq = *job.FinalTaskListReq
 	}
 	var tasksStream chan *Task
 	abortStreaming := false
-	job.Results, err = job.spec.handler.JobResults(job.ctx(ctx, ""), func() <-chan *Task {
+	job.Results, err = job.def.handler.JobResults(job.ctx(ctx, ""), func() <-chan *Task {
 		if tasksStream == nil {
 			tasksStream = make(chan *Task, Clamp(0, 1024, tasksListReq.PageSize))
 			go func(ctx context.Context) {
 				defer close(tasksStream)
 				for tasksListReq.PageToken = ""; !abortStreaming; { // bools dont need a mutex =)
-					tasksPage, _, _, nextPageTok, err := it.backend.listTasks(ctx, false, false,
+					tasksPage, _, _, nextPageTok, err := it.backend.listJobTasks(ctx, false, false,
 						tasksListReq, tasksFilter)
 					if it.logErr(log, err, job) != nil {
 						return
@@ -224,7 +224,7 @@ func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
 	})
 	abortStreaming = true
 	if err == nil {
-		_, err = handler(job.spec.HandlerID).wellTypedJobResults(job.Results)
+		_, err = handler(job.def.HandlerID).wellTypedJobResults(job.Results)
 	}
 	if it.logErr(log, err, job) != nil {
 		return
@@ -233,14 +233,14 @@ func (it *engine) finalizeFinishedJob(ctx context.Context, job *Job) {
 		Done, timeNow(), ToPtr(timeNow().Sub(*timeStarted).Minutes())
 
 	if it.logLifecycleEvents(false, nil, job, nil) {
-		job.logger(log).Infof("marking %s '%s' job '%s' as %s", Running, job.Spec, job.ID, Done)
+		job.logger(log).Infof("marking %s '%s' job '%s' as %s", Running, job.Def, job.Id, Done)
 	}
 	if it.logErr(log, it.backend.transacted(ctx, func(ctx context.Context) error {
-		err = it.backend.saveJob(ctx, job)
+		err = it.backend.saveJobRun(ctx, job)
 		if err == nil && job.AutoScheduled {
 			// doing this right here upon job finalization (in the same
 			// transaction) prevents concurrent duplicate job schedulings.
-			err = it.scheduleJob(ctx, job.spec, job)
+			err = it.scheduleJob(ctx, job.def, job)
 		}
 		return err
 	}), job) == nil && it.eventHandlers.OnJobExecuted != nil { // only count jobs that ran AND were stored
@@ -254,7 +254,7 @@ func (it *engine) finalizeCancelingJobs(ctx context.Context) {
 	log := loggerNew()
 	var cancelJobs []*Job
 	DoTimeout(ctx, it.options.TimeoutShort, func(ctx context.Context) {
-		jobs, _, _, err := it.backend.listJobs(ctx, true, false, noPaging,
+		jobs, _, _, err := it.backend.listJobRuns(ctx, true, false, noPaging,
 			JobFilter{}.WithStates(Cancelling))
 		if it.logErr(log, err) == nil {
 			cancelJobs = jobs
@@ -270,14 +270,14 @@ func (it *engine) finalizeCancelingJob(ctx context.Context, job *Job) {
 
 	listReq := ListRequest{PageSize: 444}
 	for {
-		tasks, _, _, pageTok, err := it.backend.listTasks(ctx, false, false, listReq,
-			TaskFilter{}.WithJobs(job.ID).WithStates(Pending, Running))
+		tasks, _, _, pageTok, err := it.backend.listJobTasks(ctx, false, false, listReq,
+			TaskFilter{}.WithJobs(job.Id).WithStates(Pending, Running))
 		if it.logErr(log, err, job) != nil {
 			return
 		}
 		listReq.PageToken, numTasks = pageTok, numTasks+len(tasks)
 		for _, task := range tasks {
-			if canceler := it.setTaskCanceler(task.ID, nil); canceler != nil {
+			if canceler := it.setTaskCanceler(task.Id, nil); canceler != nil {
 				go canceler()
 			} // this is optional/luxury, but nice if it succeeds due to (by chance) the Task being still Running & on this very same pod.
 
@@ -285,9 +285,9 @@ func (it *engine) finalizeCancelingJob(ctx context.Context, job *Job) {
 			state := task.State
 			task.State = Cancelled
 			if it.logLifecycleEvents(true, nil, nil, task) {
-				task.logger(log).Infof("marking %s task '%s' (of '%s' job '%s') as %s", state, task.ID, task.HandlerID, task.Job, task.State)
+				task.logger(log).Infof("marking %s task '%s' (of '%s' job '%s') as %s", state, task.Id, task.HandlerID, task.Job, task.State)
 			}
-			if nil == it.logErr(log, it.backend.saveTask(ctx, task), task) {
+			if nil == it.logErr(log, it.backend.saveJobTask(ctx, task), task) {
 				numCanceled++
 			}
 		}
@@ -299,14 +299,14 @@ func (it *engine) finalizeCancelingJob(ctx context.Context, job *Job) {
 		job.State, job.FinishTime =
 			Cancelled, timeNow()
 		if it.logLifecycleEvents(false, nil, job, nil) {
-			job.logger(log).Infof("marking %s '%s' job '%s' as %s", Cancelling, job.Spec, job.ID, Cancelled)
+			job.logger(log).Infof("marking %s '%s' job '%s' as %s", Cancelling, job.Def, job.Id, Cancelled)
 		}
 		_ = it.logErr(log, it.backend.transacted(ctx, func(ctx context.Context) error {
-			err := it.logErr(log, it.backend.saveJob(ctx, job), job)
-			if err == nil && job.AutoScheduled && job.spec != nil && !job.spec.Disabled {
+			err := it.logErr(log, it.backend.saveJobRun(ctx, job), job)
+			if err == nil && job.AutoScheduled && job.def != nil && !job.def.Disabled {
 				// doing this right here upon job finalization (in the same
 				// transaction) prevents concurrent duplicate job schedulings.
-				err = it.scheduleJob(ctx, job.spec, job)
+				err = it.scheduleJob(ctx, job.def, job)
 			}
 			return err
 		}), job)
@@ -316,74 +316,74 @@ func (it *engine) finalizeCancelingJob(ctx context.Context, job *Job) {
 func (it *engine) ensureJobSchedules() {
 	defer doAfter(it.options.IntervalEnsureJobSchedules, it.ensureJobSchedules)
 
-	var jobSpecs []*JobSpec
+	var jobDefs []*JobDef
 	{
 		var err error
 		log := loggerNew()
-		jobSpecs, err = it.backend.listJobSpecs(ctxNone,
-			JobSpecFilter{}.WithDisabled(false).WithEnabledSchedules())
+		jobDefs, err = it.backend.listJobDefs(ctxNone,
+			JobDefFilter{}.WithDisabled(false).WithEnabledSchedules())
 		it.logErr(log, err)
 	}
-	GoItems(ctxNone, jobSpecs, it.ensureJobSpecScheduled,
+	GoItems(ctxNone, jobDefs, it.ensureJobDefScheduled,
 		it.options.MaxConcurrentOps, it.options.TimeoutShort)
 }
 
-func (it *engine) ensureJobSpecScheduled(ctx context.Context, jobSpec *JobSpec) {
+func (it *engine) ensureJobDefScheduled(ctx context.Context, jobDef *JobDef) {
 	log := loggerNew()
 
-	latest, err := it.backend.findJob(ctx, false, false, // defaults to sorted descending by due_time
-		JobFilter{}.WithJobSpecs(jobSpec.ID).WithAutoScheduled(true))
-	if it.logErr(log, err, jobSpec) != nil || (latest != nil && // still busy? then no scheduling needed here & now
+	latest, err := it.backend.findJobRun(ctx, false, false, // defaults to sorted descending by due_time
+		JobFilter{}.WithJobDefs(jobDef.Id).WithAutoScheduled(true))
+	if it.logErr(log, err, jobDef) != nil || (latest != nil && // still busy? then no scheduling needed here & now
 		(latest.State == Running || latest.State == Cancelling)) {
 		return
 	}
 	if latest != nil {
-		latest.spec = jobSpec
+		latest.def = jobDef
 	}
 	if latest == nil || latest.State != Pending {
-		_ = it.logErr(log, it.scheduleJob(ctx, jobSpec, latest), jobSpec)
-	} else if latest.DueTime.After(*timeNow()) { // verify the Pending job's future due_time against the current `jobSpec.Schedules` in case the latter changed after the former was scheduled
+		_ = it.logErr(log, it.scheduleJob(ctx, jobDef, latest), jobDef)
+	} else if latest.DueTime.After(*timeNow()) { // verify the Pending job's future due_time against the current `jobDef.Schedules` in case the latter changed after the former was scheduled
 		var after *time.Time
-		lastDone, err := it.backend.findJob(ctx, false, false,
-			JobFilter{}.WithJobSpecs(jobSpec.ID).WithStates(Done, Cancelled))
+		lastDone, err := it.backend.findJobRun(ctx, false, false,
+			JobFilter{}.WithJobDefs(jobDef.Id).WithStates(Done, Cancelled))
 		if it.logErr(log, err, latest) != nil {
 			return
 		}
 		if lastDone != nil {
 			after = firstNonNil(lastDone.FinishTime, lastDone.StartTime, &lastDone.DueTime)
 		}
-		dueTime := jobSpec.findClosestToNowSchedulableTimeSince(after, true)
-		if dueTime == nil { // jobSpec or all its Schedules were Disabled since this Pending Job was scheduled
+		dueTime := jobDef.findClosestToNowSchedulableTimeSince(after, true)
+		if dueTime == nil { // jobDef or all its Schedules were Disabled since this Pending Job was scheduled
 			for job, err := range it.cancelJobs(ctx, map[CancellationReason][]*Job{
-				CancellationReasonSpecChanged: {latest},
+				CancellationReasonDefChanged: {latest},
 			}) {
 				_ = it.logErr(log, err, job)
 			}
 			return
 		}
-		if (!jobSpec.ok(latest.DueTime)) || !dueTime.Equal(latest.DueTime) {
+		if (!jobDef.ok(latest.DueTime)) || !dueTime.Equal(latest.DueTime) {
 			if it.logLifecycleEvents(false, nil, latest, nil) {
-				latest.logger(log).Infof("updating outdated scheduled due_time of '%s' job '%s' from '%s' to '%s'", jobSpec.ID, latest.ID, latest.DueTime, dueTime)
+				latest.logger(log).Infof("updating outdated scheduled due_time of '%s' job '%s' from '%s' to '%s'", jobDef.Id, latest.Id, latest.DueTime, dueTime)
 			}
 			latest.DueTime = *dueTime
-			_ = it.logErr(log, it.backend.saveJob(ctx, latest), latest)
+			_ = it.logErr(log, it.backend.saveJobRun(ctx, latest), latest)
 		}
 	}
 }
 
-func (it *engine) scheduleJob(ctx context.Context, jobSpec *JobSpec, last *Job) error {
-	if jobSpec.Disabled || jobSpec.handler == nil {
+func (it *engine) scheduleJob(ctx context.Context, jobDef *JobDef, last *Job) error {
+	if jobDef.Disabled || jobDef.handler == nil {
 		return nil
 	}
 	var lastTime *time.Time
 	if last != nil {
 		lastTime = firstNonNil(last.FinishTime, last.StartTime, &last.DueTime)
 	}
-	dueTime := jobSpec.findClosestToNowSchedulableTimeSince(lastTime, true)
+	dueTime := jobDef.findClosestToNowSchedulableTimeSince(lastTime, true)
 	if dueTime == nil { // means currently no non-Disabled `Schedules`, so don't schedule anything
 		return nil
 	}
-	_, err := it.createJob(ctx, jobSpec, "", *dueTime, nil, last, true)
+	_, err := it.createJob(ctx, jobDef, "", *dueTime, nil, last, true)
 	return err
 }
 
@@ -392,33 +392,33 @@ func (it *engine) deleteStorageExpiredJobs() {
 
 	DoTimeout(ctxNone, it.options.TimeoutShort, func(ctx context.Context) {
 		log := loggerNew()
-		jobSpecs, err := it.backend.listJobSpecs(ctx, JobSpecFilter{}.WithStorageExpiry(true))
+		jobDefs, err := it.backend.listJobDefs(ctx, JobDefFilter{}.WithStorageExpiry(true))
 		if it.logErr(log, err) != nil {
 			return
 		}
-		for _, jobSpec := range jobSpecs {
-			it.deleteStorageExpiredJobsForSpec(ctx, jobSpec)
+		for _, jobDef := range jobDefs {
+			it.deleteStorageExpiredJobsForDef(ctx, jobDef)
 		}
 	})
 }
 
-func (it *engine) deleteStorageExpiredJobsForSpec(ctx context.Context, jobSpec *JobSpec) {
+func (it *engine) deleteStorageExpiredJobsForDef(ctx context.Context, jobDef *JobDef) {
 	log := loggerNew()
-	jobsToDelete, _, _, err := it.backend.listJobs(ctx, true, false, noPaging,
-		JobFilter{}.WithStates(Done, Cancelled).WithJobSpecs(jobSpec.ID).
-			WithFinishedBefore(timeNow().AddDate(0, 0, -jobSpec.DeleteAfterDays)))
-	if it.logErr(log, err, jobSpec) != nil {
+	jobsToDelete, _, _, err := it.backend.listJobRuns(ctx, true, false, noPaging,
+		JobFilter{}.WithStates(Done, Cancelled).WithJobDefs(jobDef.Id).
+			WithFinishedBefore(timeNow().AddDate(0, 0, -jobDef.DeleteAfterDays)))
+	if it.logErr(log, err, jobDef) != nil {
 		return
 	}
 
 	for _, job := range jobsToDelete {
 		if it.logLifecycleEvents(false, nil, job, nil) {
-			job.logger(log).Infof("deleting %s '%s' job '%s' and its tasks", job.State, jobSpec.ID, job.ID)
+			job.logger(log).Infof("deleting %s '%s' job '%s' and its tasks", job.State, jobDef.Id, job.Id)
 		}
 		_ = it.logErr(log, it.backend.transacted(ctx, func(ctx context.Context) error {
-			err := it.backend.deleteTasks(ctx, TaskFilter{}.WithJobs(job.ID))
+			err := it.backend.deleteJobTasks(ctx, TaskFilter{}.WithJobs(job.Id))
 			if err == nil {
-				err = it.backend.deleteJobs(ctx, JobFilter{}.WithIDs(job.ID))
+				err = it.backend.deleteJobRuns(ctx, JobFilter{}.WithIDs(job.Id))
 			}
 			return err
 		}), job)
@@ -430,51 +430,51 @@ func (it *engine) deleteStorageExpiredJobsForSpec(ctx context.Context, jobSpec *
 func (it *engine) expireOrRetryDeadTasks() {
 	defer doAfter(it.options.IntervalExpireOrRetryDeadTasks, it.expireOrRetryDeadTasks)
 
-	currentlyRunning := map[*JobSpec][]*Job{} // gather candidate jobs for task selection
+	currentlyRunning := map[*JobDef][]*Job{} // gather candidate jobs for task selection
 	{
 		log := loggerNew()
-		jobs, _, _, err := it.backend.listJobs(ctxNone, true, false, noPaging,
+		jobs, _, _, err := it.backend.listJobRuns(ctxNone, true, false, noPaging,
 			JobFilter{}.WithStates(Running))
 		if it.logErr(log, err) != nil || len(jobs) == 0 {
 			return
 		}
 
 		for _, job := range jobs {
-			currentlyRunning[job.spec] = append(currentlyRunning[job.spec], job)
+			currentlyRunning[job.def] = append(currentlyRunning[job.def], job)
 		}
 	}
 
-	GoItems(ctxNone, sl.Keys(currentlyRunning), func(ctx context.Context, js *JobSpec) {
-		it.expireOrRetryDeadTasksForSpec(ctx, js, currentlyRunning[js])
+	GoItems(ctxNone, sl.Keys(currentlyRunning), func(ctx context.Context, js *JobDef) {
+		it.expireOrRetryDeadTasksForDef(ctx, js, currentlyRunning[js])
 	}, it.options.MaxConcurrentOps, it.options.TimeoutShort)
 }
 
-func (it *engine) expireOrRetryDeadTasksForSpec(ctx context.Context, jobSpec *JobSpec, runningJobs []*Job) {
+func (it *engine) expireOrRetryDeadTasksForDef(ctx context.Context, jobDef *JobDef, runningJobs []*Job) {
 	log := loggerNew()
-	specDead, taskFilter := jobSpec == nil || jobSpec.Disabled || jobSpec.handler == nil, TaskFilter{}.
-		WithJobs(sl.To(runningJobs, func(v *Job) string { return v.ID })...)
-	if !specDead { // the usual case.
-		taskFilter = taskFilter.WithStates(Running).WithStartedBefore(timeNow().Add(-(jobSpec.Timeouts.TaskRun + time.Minute)))
-	} else { //  the rare edge case: un-Done tasks still in DB for old now-disabled-or-deleted-from-config job spec
+	defDead, taskFilter := jobDef == nil || jobDef.Disabled || jobDef.handler == nil, TaskFilter{}.
+		WithJobs(sl.To(runningJobs, func(v *Job) string { return v.Id })...)
+	if !defDead { // the usual case.
+		taskFilter = taskFilter.WithStates(Running).WithStartedBefore(timeNow().Add(-(jobDef.Timeouts.TaskRun + time.Minute)))
+	} else { //  the rare edge case: un-Done tasks still in DB for old now-disabled-or-deleted-from-config job def
 		taskFilter = taskFilter.WithStates(Running, Pending)
 	}
-	deadTasks, _, _, _, err := it.backend.listTasks(ctx, false, false, noPaging, taskFilter)
-	if it.logErr(log, err, jobSpec) != nil {
+	deadTasks, _, _, _, err := it.backend.listJobTasks(ctx, false, false, noPaging, taskFilter)
+	if it.logErr(log, err, jobDef) != nil {
 		return
 	}
 	for _, task := range deadTasks {
-		if specDead {
+		if defDead {
 			task.State = Cancelled
 			if len(task.Attempts) > 0 && task.Attempts[0].Err == nil {
 				task.Attempts[0].Err = context.Canceled
 			}
-		} else if (!task.markForRetryOrAsFailed(jobSpec)) && len(task.Attempts) > 0 && task.Attempts[0].Err == nil {
+		} else if (!task.markForRetryOrAsFailed(jobDef)) && len(task.Attempts) > 0 && task.Attempts[0].Err == nil {
 			task.Attempts[0].Err = context.DeadlineExceeded
 		}
-		if it.logLifecycleEvents(true, jobSpec, nil, task) {
-			task.logger(log).Infof("marking dead (state %s after timeout) task '%s' (of '%s' job '%s') as %s", Running, task.ID, jobSpec.ID, task.Job, task.State)
+		if it.logLifecycleEvents(true, jobDef, nil, task) {
+			task.logger(log).Infof("marking dead (state %s after timeout) task '%s' (of '%s' job '%s') as %s", Running, task.Id, jobDef.Id, task.Job, task.State)
 		}
-		_ = it.logErr(log, it.backend.saveTask(ctx, task), task)
+		_ = it.logErr(log, it.backend.saveJobTask(ctx, task), task)
 	}
 }
 
@@ -485,7 +485,7 @@ func (it *engine) runTasks() {
 	{
 		var err error
 		log := loggerNew()
-		pendingTasks, _, _, _, err = it.backend.listTasks(ctxNone, true, false, ListRequest{PageSize: it.options.FetchTasksToRun},
+		pendingTasks, _, _, _, err = it.backend.listJobTasks(ctxNone, true, false, ListRequest{PageSize: it.options.FetchTasksToRun},
 			TaskFilter{}.WithStates(Pending))
 		if it.logErr(log, err) != nil {
 			return
@@ -502,23 +502,23 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 	log, timeStarted := loggerNew(), timeNow()
 	ctxOrig := ctx
 	ctx, done := context.WithCancel(ctx)
-	if oldCanceller := it.setTaskCanceler(task.ID, done); oldCanceller != nil {
+	if oldCanceller := it.setTaskCanceler(task.Id, done); oldCanceller != nil {
 		oldCanceller() // should never be the case, but let's be principled & clean...
 	}
 	defer func() {
-		if done = it.setTaskCanceler(task.ID, nil); done != nil {
+		if done = it.setTaskCanceler(task.Id, nil); done != nil {
 			done()
 		} // else: already cancelled by concurrent `finalizeCancelingJobs` call
 	}()
 
-	taskJobSpecOrType := task.HandlerID
+	taskJobDefOrType := task.HandlerID
 	if task.job != nil {
-		taskJobSpecOrType = task.job.Spec
+		taskJobDefOrType = task.job.Def
 	}
 	// first, attempt to reserve task for running vs. other pods
 	alreadyCancelled := task.job == nil || task.job.State == Cancelled || task.job.State == Cancelling ||
-		task.job.spec == nil || task.job.spec.Disabled || task.job.spec.handler == nil ||
-		task.HandlerID != task.job.spec.HandlerID || task.job.HandlerID != task.job.spec.HandlerID
+		task.job.def == nil || task.job.def.Disabled || task.job.def.handler == nil ||
+		task.HandlerID != task.job.def.HandlerID || task.job.HandlerID != task.job.def.HandlerID
 	oldTaskState := task.State
 	task.State, task.FinishTime, task.Attempts =
 		If(alreadyCancelled, Cancelled, Running), nil, append([]*TaskAttempt{{Time: *timeNow()}}, task.Attempts...)
@@ -526,23 +526,23 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 		task.StartTime = timeNow()
 	}
 	if it.logLifecycleEvents(true, nil, nil, task) {
-		task.logger(log).Infof("marking %s task '%s' (of '%s' job '%s') as %s", oldTaskState, task.ID, taskJobSpecOrType, task.Job, task.State)
+		task.logger(log).Infof("marking %s task '%s' (of '%s' job '%s') as %s", oldTaskState, task.Id, taskJobDefOrType, task.Job, task.State)
 	}
-	if err := it.logErr(log, it.backend.saveTask(ctx, task), task); err != nil {
+	if err := it.logErr(log, it.backend.saveJobTask(ctx, task), task); err != nil {
 		return err
 	}
 
 	switch {
 	case task.job == nil:
 		task.Attempts[0].Err = errNotFoundJob(task.Job)
-	case task.job.spec == nil:
-		task.Attempts[0].Err = errNotFoundSpec(task.job.Spec)
-	case task.job.spec.handler == nil:
-		task.Attempts[0].Err = errNotFoundHandler(task.job.Spec, task.job.spec.HandlerID)
+	case task.job.def == nil:
+		task.Attempts[0].Err = errNotFoundDef(task.job.Def)
+	case task.job.def.handler == nil:
+		task.Attempts[0].Err = errNotFoundHandler(task.job.Def, task.job.def.HandlerID)
 	case !alreadyCancelled: // now run it
-		task.Results, task.Attempts[0].Err = task.job.spec.handler.TaskResults(task.job.ctx(ctx, task.ID), task.Details)
+		task.Results, task.Attempts[0].Err = task.job.def.handler.TaskResults(task.job.ctx(ctx, task.Id), task.Details)
 		if task.Attempts[0].Err == nil {
-			_, task.Attempts[0].Err = handler(task.job.spec.HandlerID).wellTypedTaskResults(task.Results)
+			_, task.Attempts[0].Err = handler(task.job.def.HandlerID).wellTypedTaskResults(task.Results)
 		}
 	}
 
@@ -553,17 +553,17 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 		task.State = Cancelled
 	} else if (!alreadyCancelled) &&
 		((ctxErr != nil && errors.Is(ctxErr, context.DeadlineExceeded)) ||
-			((task.Attempts[0].Err != nil) && (task.job.spec.handler != nil) &&
-				task.job.spec.handler.IsTaskErrRetryable(task.Attempts[0].Err))) {
-		_ = task.markForRetryOrAsFailed(task.job.spec)
+			((task.Attempts[0].Err != nil) && (task.job.def.handler != nil) &&
+				task.job.def.handler.IsTaskErrRetryable(task.Attempts[0].Err))) {
+		_ = task.markForRetryOrAsFailed(task.job.def)
 	}
 	if task.Attempts[0].Err == nil {
 		task.Attempts[0].Err = ctxErr
 	}
 	if _ = it.logErr(log, task.Attempts[0].Err, task); it.logLifecycleEvents(true, nil, nil, task) {
-		task.logger(log).Infof("marking just-%s %s task '%s' (of '%s' job '%s') as %s", If(task.Attempts[0].Err != nil, "failed", "finished"), Running, task.ID, taskJobSpecOrType, task.Job, task.State)
+		task.logger(log).Infof("marking just-%s %s task '%s' (of '%s' job '%s') as %s", If(task.Attempts[0].Err != nil, "failed", "finished"), Running, task.Id, taskJobDefOrType, task.Job, task.State)
 	}
-	err := it.logErr(log, it.backend.saveTask(ctxOrig, task), task)
+	err := it.logErr(log, it.backend.saveJobTask(ctxOrig, task), task)
 	if err == nil && it.eventHandlers.OnTaskExecuted != nil { // only count tasks that actually ran (failed or not) AND were stored
 		it.eventHandlers.OnTaskExecuted(task, timeNow().Sub(*timeStarted))
 	}
@@ -572,9 +572,9 @@ func (it *engine) runTask(ctx context.Context, task *Task) error {
 
 func (it *engine) manualJobsPossible(ctx context.Context) bool {
 	log := loggerNew()
-	jobSpecManual, err := it.backend.findJobSpec(ctx,
-		JobSpecFilter{}.WithAllowManualJobs(true))
-	return it.logErr(log, err) != nil || jobSpecManual != nil
+	jobDefManual, err := it.backend.findJobDef(ctx,
+		JobDefFilter{}.WithAllowManualJobs(true))
+	return it.logErr(log, err) != nil || jobDefManual != nil
 }
 
 func (it *engine) setTaskCanceler(id string, cancel context.CancelFunc) (previous context.CancelFunc) {

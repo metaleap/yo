@@ -12,7 +12,7 @@ import (
 	"yo/util/str"
 )
 
-type JobSpec struct {
+type JobDef struct {
 	Resource `yaml:",inline" json:",inline" bson:",inline"`
 
 	HandlerID       string      `yaml:"handlerID" json:"handler_id" bson:"handler_id"`
@@ -34,7 +34,7 @@ type JobSpec struct {
 	handler Handler
 }
 
-func (it *JobSpec) defaultJobDetails() (details JobDetails, err error) {
+func (it *JobDef) defaultJobDetails() (details JobDetails, err error) {
 	if len(it.DefaultJobDetails) > 0 {
 		details, _ = handler(it.HandlerID).wellTypedJobDetails(nil)
 		err = ensureValueFromMap(&it.DefaultJobDetails, &details)
@@ -49,7 +49,7 @@ type Schedule struct {
 	crontab crontab.Expr
 }
 
-func (it *JobSpec) EnsureValidOrErrorIfEnabled() (*JobSpec, error) {
+func (it *JobDef) EnsureValidOrErrorIfEnabled() (*JobDef, error) {
 	for _, err := range it.EnsureValid() {
 		if !it.Disabled {
 			return nil, err
@@ -58,12 +58,12 @@ func (it *JobSpec) EnsureValidOrErrorIfEnabled() (*JobSpec, error) {
 	return it, nil
 }
 
-func (it *JobSpec) EnsureValid() (errs []error) { // not quite the same as "validation"  =)
+func (it *JobDef) EnsureValid() (errs []error) { // not quite the same as "validation"  =)
 	if handlerReg := handler(it.HandlerID); it.handler == nil && (!it.Disabled) && handlerReg != nil {
 		it.handler = handlerReg.For(it.HandlerID)
 	}
 	if it.handler == nil && !it.Disabled {
-		errs = append(errs, errNotFoundHandler(it.ID, it.HandlerID))
+		errs = append(errs, errNotFoundHandler(it.Id, it.HandlerID))
 	}
 	it.Timeouts.TaskRun = Clamp(11*time.Second, 22*time.Hour, it.Timeouts.TaskRun)
 	it.Timeouts.JobPrepAndFinalize = Clamp(22*time.Second, 11*time.Hour, it.Timeouts.JobPrepAndFinalize)
@@ -71,10 +71,10 @@ func (it *JobSpec) EnsureValid() (errs []error) { // not quite the same as "vali
 	it.DeleteAfterDays = Clamp(0, math.MaxInt32, it.DeleteAfterDays)
 	for i, sched := range it.Schedules {
 		if sched.Crontab = strings.TrimSpace(sched.Crontab); sched.Crontab == "" {
-			errs = append(errs, errors.New(str.Fmt("job spec '%s' schedule %d/%d requires a `rule`", it, i+1, len(it.Schedules))))
+			errs = append(errs, errors.New(str.Fmt("job def '%s' schedule %d/%d requires a `rule`", it, i+1, len(it.Schedules))))
 		} else if sched.crontab == nil {
 			if crontab, err := crontab.Parse(sched.Crontab); err != nil {
-				errs = append(errs, errors.New(str.Fmt("job spec '%s' schedule %d/%d syntax error in '%s': %s", it, i+1, len(it.Schedules), sched.Crontab, err)))
+				errs = append(errs, errors.New(str.Fmt("job def '%s' schedule %d/%d syntax error in '%s': %s", it, i+1, len(it.Schedules), sched.Crontab, err)))
 			} else {
 				sched.crontab = crontab
 			}
@@ -83,11 +83,11 @@ func (it *JobSpec) EnsureValid() (errs []error) { // not quite the same as "vali
 	return
 }
 
-func (it *JobSpec) hasAnySchedulesEnabled() bool {
+func (it *JobDef) hasAnySchedulesEnabled() bool {
 	return sl.HasWhere(it.Schedules, func(s *Schedule) bool { return !s.Disabled })
 }
 
-func (it *JobSpec) findClosestToNowSchedulableTimeSince(after *time.Time, alwaysPreferOverdue bool) *time.Time {
+func (it *JobDef) findClosestToNowSchedulableTimeSince(after *time.Time, alwaysPreferOverdue bool) *time.Time {
 	if it.Disabled {
 		return nil
 	}
@@ -115,11 +115,11 @@ func (it *JobSpec) findClosestToNowSchedulableTimeSince(after *time.Time, always
 	// if the latest-possible-past-occurrence-after-last `past` is closer to Now than
 	// the soonest-possible-future-occurrence `future`, the former is picked because
 	// it means catching up on a missed past schedule (due to outages or such).
-	// Especially useful for daily/weekly schedules that'd by unlucky chance fall into such a rare situation.
+	// Edefially useful for daily/weekly schedules that'd by unlucky chance fall into such a rare situation.
 	return If(now.Sub(*past) < future.Sub(now), past, future)
 }
 
-func (it *JobSpec) ok(t time.Time) bool {
+func (it *JobDef) ok(t time.Time) bool {
 	if it.Disabled {
 		return false
 	}

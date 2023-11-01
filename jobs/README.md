@@ -13,10 +13,10 @@ The lib and its data access patterns and state transition strategies are designe
 - A `Job` is essentially a collection of `Task`s plus a `due_time`. (Alternatively call it "a single job run".)
     - `Task`s, not `Job`s, are the granular / atomic chunks of work that execute independently (potentially concurrently) and can "succeed" or "fail" or time-out or be-retried.
     - both data structures in `engine/job.go`
-- A `JobSpec` is like a template for `Job`s and declares common settings that apply to _all_ its `Job`s, such as eg. `timeouts`, `taskRetries`, `schedules` and more. (Alternatively call it "job definition" or "job template".)
-    - Every newly-created (automatically or manually scheduled) `Job` names its "parent" `Spec`.
-    - data structure in `engine/jobspec.go`
-- A `Handler` is all the actual custom logic of any one specific kind of job, and is set in the `JobSpec`.
+- A `JobDef` is like a template for `Job`s and declares common settings that apply to _all_ its `Job`s, such as eg. `timeouts`, `taskRetries`, `schedules` and more. (Alternatively call it "job definition" or "job template".)
+    - Every newly-created (automatically or manually scheduled) `Job` names its "parent" `Def`.
+    - data structure in `engine/jobdef.go`
+- A `Handler` is all the actual custom logic of any one defific kind of job, and is set in the `JobDef`.
     - When a scheduled `Job` is at-or-past its `due_time` and is to actually run, its `Handler` (ie. your implementation) in this order:
         - prepares whatever preliminary/preparatory details / data / settings (that are common / shared among _all_ its tasks) will be needed (via `Handler.JobDetails`)
         - produces all the individual `Task`s that will belong to this particular `Job` (via `Handler.TaskDetails`)
@@ -54,8 +54,8 @@ The lifecycle "state machinery" always operates as follows:
     - first it is set to `RUNNING` in storage (to prevent multiple concurrent executions of the _actual_ work)
     - upon success, it is run via `Handler.TaskResults`
     - store outcome, whether error or results:
-        - if timed out and retryable (as per JobSpec settings), set to `PENDING` again
-        - if errored but retryable (as per error kind and JobSpec settings), set to `PENDING` again
+        - if timed out and retryable (as per JobDef settings), set to `PENDING` again
+        - if errored but retryable (as per error kind and JobDef settings), set to `PENDING` again
         - else, set to `DONE`
     - if pod is restarted after starting but before completing that task run:
       - will be eventually detected and timed-out or marked-for-retry by another worker (`expireOrRetryDeadTasks`)

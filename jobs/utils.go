@@ -26,12 +26,12 @@ func errNotFoundJob(id string) error {
 	return errors.New(str.Fmt("job '%s' no longer exists", id))
 }
 
-func errNotFoundSpec(id string) error {
-	return errors.New(str.Fmt("job spec '%s' renamed or removed in configuration", id))
+func errNotFoundDef(id string) error {
+	return errors.New(str.Fmt("job def '%s' renamed or removed in configuration", id))
 }
 
-func errNotFoundHandler(specID string, handlerID string) error {
-	return errors.New(str.Fmt("job spec '%s' handler '%s' renamed or removed", specID, handlerID))
+func errNotFoundHandler(defID string, handlerID string) error {
+	return errors.New(str.Fmt("job def '%s' handler '%s' renamed or removed", defID, handlerID))
 }
 
 func firstNonNil[T any](collection ...*T) (found *T) {

@@ -16,18 +16,18 @@ func loggerNew() logger {
 	return If(IsDevMode, logger{}, nil)
 }
 
-func (it *engine) logLifecycleEvents(forTask bool, spec *JobSpec, job *Job, task *Task) bool {
+func (it *engine) logLifecycleEvents(forTask bool, def *JobDef, job *Job, task *Task) bool {
 	if !IsDevMode {
 		return false
 	}
 	if job == nil && task != nil {
 		job = task.job
 	}
-	if spec == nil && job != nil {
-		spec = job.spec
+	if def == nil && job != nil {
+		def = job.def
 	}
-	if spec != nil {
-		if setting := If(forTask, spec.LogTaskLifecycleEvents, spec.LogJobLifecycleEvents); setting != nil {
+	if def != nil {
+		if setting := If(forTask, def.LogTaskLifecycleEvents, def.LogJobLifecycleEvents); setting != nil {
 			return *setting
 		}
 	}
@@ -42,28 +42,28 @@ func (it *Job) logger(log logger) logger {
 	return logFor(log, nil, it, nil)
 }
 
-func (it *JobSpec) logger(log logger) logger {
+func (it *JobDef) logger(log logger) logger {
 	return logFor(log, it, nil, nil)
 }
 
-func logFor(log logger, jobSpec *JobSpec, job *Job, task *Task) logger {
+func logFor(log logger, jobDef *JobDef, job *Job, task *Task) logger {
 	if !IsDevMode {
 		return log
 	}
 	if job == nil && task != nil {
 		job = task.job
 	}
-	if jobSpec == nil && job != nil {
-		jobSpec = job.spec
+	if jobDef == nil && job != nil {
+		jobDef = job.def
 	}
-	if jobSpec != nil {
-		log["job_spec"], log["job_type"] = jobSpec.ID, jobSpec.HandlerID
+	if jobDef != nil {
+		log["job_def"], log["job_type"] = jobDef.Id, jobDef.HandlerID
 	}
 	if job != nil {
-		log["job_spec"], log["job_type"], log["job_id"], log["job_cancellation_reason"] = job.Spec, job.HandlerID, job.ID, string(job.Info.CancellationReason)
+		log["job_def"], log["job_type"], log["job_id"], log["job_cancellation_reason"] = job.Def, job.HandlerID, job.Id, string(job.Info.CancellationReason)
 	}
 	if task != nil {
-		log["job_type"], log["job_id"], log["job_task"] = task.HandlerID, task.Job, task.ID
+		log["job_type"], log["job_id"], log["job_task"] = task.HandlerID, task.Job, task.Id
 	}
 	return log
 }

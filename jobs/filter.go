@@ -12,7 +12,7 @@ type Filter[T Resource] interface {
 	OK(T) bool
 }
 
-type JobSpecFilter struct {
+type JobDefFilter struct {
 	IDs               []string
 	DisplayName       *string
 	Disabled          *bool
@@ -22,44 +22,44 @@ type JobSpecFilter struct {
 	DisabledSchedules bool
 }
 
-func (it JobSpecFilter) WithAllowManualJobs(allowManualJobs bool) *JobSpecFilter {
+func (it JobDefFilter) WithAllowManualJobs(allowManualJobs bool) *JobDefFilter {
 	it.AllowManualJobs = &allowManualJobs
 	return &it
 }
 
-func (it JobSpecFilter) WithIDs(ids ...string) *JobSpecFilter {
+func (it JobDefFilter) WithIDs(ids ...string) *JobDefFilter {
 	it.IDs = sl.Uniq(ids)
 	return &it
 }
 
-func (it JobSpecFilter) WithDisabled(disabled bool) *JobSpecFilter {
+func (it JobDefFilter) WithDisabled(disabled bool) *JobDefFilter {
 	it.Disabled = &disabled
 	return &it
 }
 
-func (it JobSpecFilter) WithStorageExpiry(storageExpiry bool) *JobSpecFilter {
+func (it JobDefFilter) WithStorageExpiry(storageExpiry bool) *JobDefFilter {
 	it.StorageExpiry = &storageExpiry
 	return &it
 }
 
-func (it JobSpecFilter) WithDisabledSchedules() *JobSpecFilter {
+func (it JobDefFilter) WithDisabledSchedules() *JobDefFilter {
 	it.DisabledSchedules, it.EnabledSchedules = true, false
 	return &it
 }
 
-func (it JobSpecFilter) WithEnabledSchedules() *JobSpecFilter {
+func (it JobDefFilter) WithEnabledSchedules() *JobDefFilter {
 	it.EnabledSchedules, it.DisabledSchedules = true, false
 	return &it
 }
 
-func (it *JobSpecFilter) OK(cmp *JobSpec) bool {
+func (it *JobDefFilter) OK(cmp *JobDef) bool {
 	if it == nil {
 		return true
 	}
 	if (it.Disabled != nil && cmp.Disabled != *it.Disabled) ||
 		(it.StorageExpiry != nil && *it.StorageExpiry != (cmp.DeleteAfterDays > 0)) ||
 		(it.DisplayName != nil && !strings.Contains(strings.ToLower(cmp.DisplayName), strings.ToLower(*it.DisplayName))) ||
-		(len(it.IDs) > 0 && !sl.Has(it.IDs, cmp.ID)) ||
+		(len(it.IDs) > 0 && !sl.Has(it.IDs, cmp.Id)) ||
 		(it.EnabledSchedules && !cmp.hasAnySchedulesEnabled()) ||
 		(it.DisabledSchedules && cmp.hasAnySchedulesEnabled()) ||
 		(it.AllowManualJobs != nil && *it.AllowManualJobs != cmp.AllowManualJobs) {
@@ -70,7 +70,7 @@ func (it *JobSpecFilter) OK(cmp *JobSpec) bool {
 
 type JobFilter struct {
 	IDs                   []string
-	JobSpecs              []string
+	JobDefs               []string
 	JobTypes              []string
 	States                []RunState
 	AutoScheduled         *bool
@@ -105,8 +105,8 @@ func (it JobFilter) WithFinishedBefore(finishedBefore time.Time) *JobFilter {
 	return &it
 }
 
-func (it JobFilter) WithJobSpecs(jobSpecs ...string) *JobFilter {
-	it.JobSpecs = jobSpecs
+func (it JobFilter) WithJobDefs(jobDefs ...string) *JobFilter {
+	it.JobDefs = jobDefs
 	return &it
 }
 
@@ -129,8 +129,8 @@ func (it *JobFilter) OK(cmp *Job) bool {
 	if it == nil {
 		return true
 	}
-	if (len(it.IDs) > 0 && !sl.Has(it.IDs, cmp.ID)) ||
-		(len(it.JobSpecs) > 0 && !sl.Has(it.JobSpecs, cmp.Spec)) ||
+	if (len(it.IDs) > 0 && !sl.Has(it.IDs, cmp.Id)) ||
+		(len(it.JobDefs) > 0 && !sl.Has(it.JobDefs, cmp.Def)) ||
 		(len(it.JobTypes) > 0 && !sl.Has(it.JobTypes, cmp.HandlerID)) ||
 		(len(it.States) > 0 && !sl.Has(it.States, cmp.State)) ||
 		(it.AutoScheduled != nil && *it.AutoScheduled != cmp.AutoScheduled) ||
@@ -199,7 +199,7 @@ func (it *TaskFilter) OK(cmp *Task) bool {
 	if it == nil {
 		return true
 	}
-	if (len(it.IDs) > 0 && !sl.Has(it.IDs, cmp.ID)) ||
+	if (len(it.IDs) > 0 && !sl.Has(it.IDs, cmp.Id)) ||
 		(len(it.Jobs) > 0 && !sl.Has(it.Jobs, cmp.Job)) ||
 		(len(it.JobTypes) > 0 && !sl.Has(it.JobTypes, cmp.HandlerID)) ||
 		(len(it.States) > 0 && !sl.Has(it.States, cmp.State)) ||

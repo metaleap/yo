@@ -35,7 +35,7 @@ type handlerDefined interface {
 type Handler interface {
 	// JobDetails is called when setting a `Job` from `PENDING` to `RUNNING`, just before TaskDetails.
 	// Hence, JobDetails allows computing and storing shared preparatory details once that do not vary between tasks.
-	// If the job was scheduled automatically, not manually, `ctx.JobDetails` is always `ctx.JobSpec.DefaultJobDetails` (which might be `nil`).
+	// If the job was scheduled automatically, not manually, `ctx.JobDetails` is always `ctx.JobDef.DefaultJobDetails` (which might be `nil`).
 	// In the manual case, they may or may not be equal, depending on the `jobs.Create` call.
 	// In either case only the *returned* `JobDetails` are stored (and later passed to the below methods).
 	// Both `ctx.JobDetails` and the return value are of type *TJobDetails (that this `Handler` was `Register`ed with).
@@ -84,7 +84,7 @@ type Context struct {
 	context.Context
 	JobID      string
 	JobDetails JobDetails
-	JobSpec    JobSpec
+	JobDef     JobDef
 	TaskID     string
 }
 
