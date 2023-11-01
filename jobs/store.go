@@ -40,19 +40,12 @@ type (
 		Key   string `json:"key,omitempty"`
 		Value any    `json:"value,omitempty"`
 	}
-	Resource struct {
-		Id string `json:"id"`
-	}
 
 	// store is the package-internal shim around `Backend` that all code in this
 	// package is to use instead of directly calling `Backend`s method implementations.
 	// Most shim methods are not mere call wraps but add needed checks or logic.
 	store struct{ impl Store }
 )
-
-func R(id string) Resource         { return Resource{Id: id} }
-func (it Resource) GetId() string  { return it.Id } //nolint:revive
-func (it Resource) String() string { return it.Id }
 
 func (it store) getJobDef(ctx context.Context, id string) (*JobDef, error) {
 	job_def, err := it.impl.GetJobDef(ctx, id)
@@ -119,7 +112,7 @@ func (it store) listJobRuns(ctx context.Context, loadDefs bool, mustLoadDefs boo
 	if (err == nil) && loadDefs {
 		if jobDefs, err = it.listJobDefs(ctx, JobDefFilter{}.WithIds(sl.To(jobRuns, func(v *JobRun) string { return v.JobDefId })...)); err == nil {
 			for _, job := range jobRuns {
-				if job.jobDef = findById(jobDefs, job.JobDefId); (job.jobDef == nil) && mustLoadDefs {
+				if job.jobDef = sl.FirstWhere(jobDefs, func(it *JobDef) bool { return (it.Id == job.JobDefId) }); (job.jobDef == nil) && mustLoadDefs {
 					return nil, nil, "", errNotFoundJobDef(job.JobDefId)
 				}
 			}
@@ -162,7 +155,7 @@ func (it store) listJobTasks(ctx context.Context, loadJobRuns bool, mustLoadJobR
 	if (err == nil) && loadJobRuns {
 		if jobRuns, jobDefs, _, err = it.listJobRuns(ctx, true, mustLoadJobRuns, ListRequest{PageSize: len(jobTasks)}, JobRunFilter{}.WithIds(sl.To(jobTasks, func(v *JobTask) string { return v.JobRunId })...)); err == nil {
 			for _, job_task := range jobTasks {
-				if job_task.jobRun = findById(jobRuns, job_task.JobRunId); (job_task.jobRun == nil) && mustLoadJobRuns {
+				if job_task.jobRun = sl.FirstWhere(jobRuns, func(it *JobRun) bool { return (it.Id == job_task.JobRunId) }); (job_task.jobRun == nil) && mustLoadJobRuns {
 					return nil, nil, nil, "", errNotFoundJobRun(job_task.JobRunId)
 				}
 			}
@@ -174,14 +167,14 @@ func (it store) listJobTasks(ctx context.Context, loadJobRuns bool, mustLoadJobR
 }
 
 func (it store) saveJobRun(ctx context.Context, obj *JobRun) error {
-	version := obj.ResourceVersion
-	obj.ResourceVersion++
+	version := obj.Version
+	obj.Version++
 	return it.impl.SaveGuarded(ctx, obj, version)
 }
 
 func (it store) saveJobTask(ctx context.Context, obj *JobTask) error {
-	version := obj.ResourceVersion
-	obj.ResourceVersion++
+	version := obj.Version
+	obj.Version++
 	return it.impl.SaveGuarded(ctx, obj, version)
 }
 

@@ -33,9 +33,9 @@ type (
 		// CancelJobRuns marks the defified jobs as `CANCELLING`. The `len(errs)` is always `<= len(jobIDs)`.
 		CancelJobRuns(ctx context.Context, jobRunIds ...string) (errs []error)
 		// DeleteJobRun clears from storage the defified DONE or CANCELLED `JobRun` and all its `JobTask`s, if any.
-		DeleteJobRun(ctx context.Context, jobRun Resource) error
+		DeleteJobRun(ctx context.Context, jobRunId string) error
 		// Stats gathers progress stats of a `JobRun` and its `JobTask`s.
-		Stats(ctx context.Context, jobRun Resource) (*JobRunStats, error)
+		Stats(ctx context.Context, jobRunId string) (*JobRunStats, error)
 		// RetryJobTask retries the defified failed task.
 		RetryJobTask(ctx context.Context, jobRunId string, jobTaskId string) (*JobTask, error)
 
@@ -131,13 +131,13 @@ func (it *engine) cancelJobRuns(ctx context.Context, jobRuns map[CancellationRea
 	errs = make(map[*JobRun]error, len(jobRuns)/2)
 	for reason, jobs := range jobRuns {
 		GoItems(ctx, jobs, func(ctx context.Context, jobRun *JobRun) {
-			state, version := jobRun.State, jobRun.ResourceVersion
+			state, version := jobRun.State, jobRun.Version
 			jobRun.State, jobRun.Info.CancellationReason = JobRunCancelling, reason
 			if it.logLifecycleEvents(nil, jobRun, nil) {
 				jobRun.logger(log).Infof("marking %s '%s' job run '%s' as %s", state, jobRun.JobDefId, jobRun.Id, jobRun.State)
 			}
 			if err := it.store.saveJobRun(ctx, jobRun); err != nil {
-				jobRun.State, jobRun.ResourceVersion = state, version
+				jobRun.State, jobRun.Version = state, version
 				mut_errs.Lock()
 				errs[jobRun] = err
 				mut_errs.Unlock()
@@ -147,15 +147,15 @@ func (it *engine) cancelJobRuns(ctx context.Context, jobRuns map[CancellationRea
 	return
 }
 
-func (it *engine) DeleteJobRun(ctx context.Context, jobRunRef Resource) error {
-	job_run, err := it.store.getJobRun(ctx, false, false, jobRunRef.Id)
+func (it *engine) DeleteJobRun(ctx context.Context, jobRunId string) error {
+	job_run, err := it.store.getJobRun(ctx, false, false, jobRunId)
 	if err != nil {
 		return err
 	}
 	if (job_run.State != Done) && (job_run.State != Cancelled) {
-		return errors.New(str.Fmt("job run '%s' was expected in a `state` of '%s' or '%s', not '%s'", jobRunRef.Id, Done, Cancelled, job_run.State))
+		return errors.New(str.Fmt("job run '%s' was expected in a `state` of '%s' or '%s', not '%s'", jobRunId, Done, Cancelled, job_run.State))
 	}
-	return it.store.deleteJobRuns(ctx, JobRunFilter{}.WithIds(jobRunRef.Id))
+	return it.store.deleteJobRuns(ctx, JobRunFilter{}.WithIds(jobRunId))
 }
 
 func (it *engine) CreateJobRun(ctx context.Context, jobDef *JobDef, jobRunId string, dueTime *time.Time, jobDetails JobDetails) (jobRun *JobRun, err error) {
@@ -180,12 +180,12 @@ func (it *engine) createJobRun(ctx context.Context, jobDef *JobDef, jobRunId str
 	}
 
 	jobRun = &JobRun{
-		Resource:                 Resource{jobRunId},
+		Id:                       jobRunId,
 		JobDefId:                 jobDef.Id,
 		JobTypeId:                jobDef.JobTypeId,
 		State:                    Pending,
 		AutoScheduled:            autoScheduled,
-		ResourceVersion:          1,
+		Version:                  1,
 		jobDef:                   jobDef,
 		Details:                  jobDetails,
 		DueTime:                  dueTime.In(Timezone),
@@ -235,8 +235,8 @@ func (it *engine) RetryJobTask(ctx context.Context, jobRunId string, jobTaskId s
 	})
 }
 
-func (it *engine) Stats(ctx context.Context, jobRunRef Resource) (*JobRunStats, error) {
-	job_run, err := it.store.getJobRun(ctx, false, false, jobRunRef.Id)
+func (it *engine) Stats(ctx context.Context, jobRunId string) (*JobRunStats, error) {
+	job_run, err := it.store.getJobRun(ctx, false, false, jobRunId)
 	if err != nil {
 		return nil, err
 	}

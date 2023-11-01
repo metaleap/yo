@@ -122,14 +122,14 @@ func (it *engine) startDueJob(ctx context.Context, job *JobRun) {
 					_, err = jobType(job.jobDef.JobTypeId).wellTypedTaskDetails(details)
 				}
 				return &JobTask{
-					Resource:        Resource{job.Id + "_" + strconv.Itoa(numTasks)},
-					JobRunId:        job.Id,
-					JobTypeId:       job.JobTypeId,
-					State:           Pending,
-					FinishTime:      nil,
-					StartTime:       nil,
-					ResourceVersion: 1,
-					Details:         details,
+					Id:         job.Id + "_" + strconv.Itoa(numTasks),
+					JobRunId:   job.Id,
+					JobTypeId:  job.JobTypeId,
+					State:      Pending,
+					FinishTime: nil,
+					StartTime:  nil,
+					Version:    1,
+					Details:    details,
 				}
 			})
 			if len(tasks) > 0 && err == nil {
@@ -244,7 +244,7 @@ func (it *engine) finalizeFinishedJob(ctx context.Context, job *JobRun) {
 		}
 		return err
 	}), job) == nil && it.eventHandlers.onJobRunExecuted != nil { // only count jobs that ran AND were stored
-		if jobStats, err := it.Stats(ctx, job.Resource); err == nil {
+		if jobStats, err := it.Stats(ctx, job.Id); err == nil {
 			it.eventHandlers.onJobRunExecuted(job, jobStats)
 		}
 	}

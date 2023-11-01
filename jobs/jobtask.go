@@ -6,15 +6,15 @@ import (
 )
 
 type JobTask struct {
-	Resource
+	Id string
 
-	JobTypeId       string
-	JobRunId        string
-	State           RunState
-	StartTime       *time.Time
-	FinishTime      *time.Time
-	Attempts        []*TaskAttempt
-	ResourceVersion int
+	JobTypeId  string
+	JobRunId   string
+	State      RunState
+	StartTime  *time.Time
+	FinishTime *time.Time
+	Attempts   []*TaskAttempt
+	Version    int
 
 	Details TaskDetails `json:"-"`
 	Results TaskResults `json:"-"`

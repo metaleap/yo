@@ -8,7 +8,7 @@ import (
 	"yo/util/sl"
 )
 
-type Filter[T Resource] interface {
+type Filter[T any] interface {
 	Ok(T) bool
 }
 
@@ -76,7 +76,7 @@ type JobRunFilter struct {
 	AutoScheduled            *bool
 	FinishedBefore           *time.Time
 	ScheduledNextAfterJobRun string
-	ResourceVersion          int
+	Version                  int
 	Due                      *bool
 }
 
@@ -121,7 +121,7 @@ func (it JobRunFilter) WithStates(states ...RunState) *JobRunFilter {
 }
 
 func (it JobRunFilter) WithVersion(version int) *JobRunFilter {
-	it.ResourceVersion = version
+	it.Version = version
 	return &it
 }
 
@@ -137,20 +137,20 @@ func (it *JobRunFilter) Ok(cmp *JobRun) bool {
 		(it.FinishedBefore != nil && (cmp.FinishTime == nil || !cmp.FinishTime.Before(*it.FinishedBefore))) ||
 		(it.Due != nil && *it.Due != cmp.DueTime.Before(*timeNow())) ||
 		(it.ScheduledNextAfterJobRun != "" && it.ScheduledNextAfterJobRun != cmp.ScheduledNextAfterJobRun) ||
-		(it.ResourceVersion != 0 && it.ResourceVersion != cmp.ResourceVersion) {
+		(it.Version != 0 && it.Version != cmp.Version) {
 		return false
 	}
 	return true
 }
 
 type JobTaskFilter struct {
-	Ids             []string
-	JobRuns         []string
-	JobTypes        []string
-	States          []RunState
-	StartedBefore   *time.Time
-	Failed          *bool
-	ResourceVersion int
+	Ids           []string
+	JobRuns       []string
+	JobTypes      []string
+	States        []RunState
+	StartedBefore *time.Time
+	Failed        *bool
+	Version       int
 }
 
 func (it JobTaskFilter) WithIds(ids ...string) *JobTaskFilter {
@@ -174,7 +174,7 @@ func (it JobTaskFilter) WithJobTypes(jobTypes ...string) *JobTaskFilter {
 }
 
 func (it JobTaskFilter) WithVersion(version int) *JobTaskFilter {
-	it.ResourceVersion = version
+	it.Version = version
 	return &it
 }
 
@@ -205,7 +205,7 @@ func (it *JobTaskFilter) Ok(cmp *JobTask) bool {
 		(len(it.States) > 0 && !sl.Has(it.States, cmp.State)) ||
 		(it.StartedBefore != nil && (cmp.StartTime == nil || !cmp.StartTime.Before(*it.StartedBefore))) ||
 		(it.Failed != nil && !If(*it.Failed, cmp.Failed, cmp.Succeeded)()) ||
-		(it.ResourceVersion != 0 && it.ResourceVersion != cmp.ResourceVersion) {
+		(it.Version != 0 && it.Version != cmp.Version) {
 		return false
 	}
 	return true

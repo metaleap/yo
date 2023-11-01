@@ -29,7 +29,7 @@ const (
 )
 
 type JobRun struct {
-	Resource
+	Id string
 
 	JobTypeId     string
 	JobDefId      string
@@ -59,7 +59,7 @@ type JobRun struct {
 		CancellationReason        CancellationReason
 	}
 
-	ResourceVersion int
+	Version int
 
 	jobDef *JobDef
 }

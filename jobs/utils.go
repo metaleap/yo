@@ -13,8 +13,6 @@ import (
 	"yo/util/str"
 )
 
-type hasId interface{ GetId() string }
-
 func newId(prefix string) string {
 	ret, _ := os.Hostname()
 	for _, n := range []int64{time.Now().In(Timezone).UnixNano(), rand.Int63n(math.MaxInt64), int64(os.Getpid()), int64(os.Getppid())} {
@@ -29,10 +27,6 @@ func ensureTz(times ...*time.Time) {
 			*t = t.In(Timezone)
 		}
 	}
-}
-
-func findById[T hasId](collection []T, id string) T {
-	return sl.FirstWhere(collection, func(v T) bool { return (v.GetId() == id) })
 }
 
 func errNotFoundJobRun(id string) error {

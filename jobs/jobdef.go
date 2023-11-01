@@ -13,7 +13,7 @@ import (
 )
 
 type JobDef struct {
-	Resource
+	Id string
 
 	JobTypeId          string
 	DisplayName        string
