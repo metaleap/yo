@@ -54,9 +54,9 @@ type JobRun struct {
 	FinalTaskListReq *ListRequest
 
 	Info struct { // Informational purposes only
-		DurationPrepInMinutes     *float64
-		DurationFinalizeInMinutes *float64
-		CancellationReason        CancellationReason
+		DurationPrepSecs     *float64
+		DurationFinalizeSecs *float64
+		CancellationReason   CancellationReason
 	}
 
 	Version int
@@ -75,8 +75,8 @@ type JobRunStats struct {
 	TasksTotal     int64
 
 	DurationTotalMins    *float64
-	DurationPrepMins     *float64
-	DurationFinalizeMins *float64
+	DurationPrepSecs     *float64
+	DurationFinalizeSecs *float64
 }
 
 // PercentDone returns a percentage `int` such that:

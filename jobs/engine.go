@@ -44,7 +44,7 @@ type (
 	}
 	engine struct {
 		running          bool
-		store            store
+		storage          storage
 		options          Options
 		taskCancelers    map[string]func()
 		taskCancelersMut sync.Mutex
@@ -72,17 +72,17 @@ type (
 		// IntervalDeleteStorageExpiredJobs can be on the order of hours: job storage-expiry is set in number-of-days.
 		IntervalDeleteStorageExpiredJobs time.Duration `default:"5h"`
 
-		// TimeoutShort is the usual timeout for most timeoutable calls (ie. brief DB queries and simple non-batch, non-transaction updates).
-		// It should be well under 1min, and is not applicable for the cases described for `const TimeoutLong`.
-		TimeoutShort time.Duration `default:"22s"`
-		// MaxConcurrentOps limits parallelism when processing multiple `Resource`s concurrently.
+		// MaxConcurrentOps semaphores worker bulk operations over multiple unrelated JobTasks, JobRuns or JobDefs
 		MaxConcurrentOps int `default:"6"`
 		// FetchTasksToRun denotes the maximum number of tasks-to-run-now to fetch, approx. every `IntervalRunTasks`.
 		FetchTasksToRun int `default:"3"`
+		// TimeoutShort is the usual timeout for most timeoutable calls (ie. brief DB queries and simple non-batch, non-transaction updates).
+		// It should be well under 1min, and is not applicable for the cases described for `const TimeoutLong`.
+		TimeoutShort time.Duration `default:"22s"`
 	}
 )
 
-func NewEngine(impl Store, options Options) (Engine, error) {
+func NewEngine(impl Storage, options Options) (Engine, error) {
 	err := sanitize[Options](2, 128, strconv.Atoi, map[string]*int{
 		"MaxConcurrentOps": &options.MaxConcurrentOps,
 		"FetchTasksToRun":  &options.FetchTasksToRun,
@@ -100,7 +100,7 @@ func NewEngine(impl Store, options Options) (Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &engine{store: store{impl: impl}, options: options, taskCancelers: map[string]func(){}}, nil
+	return &engine{storage: storage{impl: impl}, options: options, taskCancelers: map[string]func(){}}, nil
 }
 
 func (it *engine) Running() bool { return it.running }
@@ -114,7 +114,10 @@ func (it *engine) Resume() {
 }
 
 func (it *engine) CancelJobRuns(ctx context.Context, jobRunIds ...string) (errs []error) {
-	job_runs, _, _, err := it.store.listJobRuns(ctx, false, false, ListRequest{PageSize: len(jobRunIds)},
+	if len(jobRunIds) == 0 {
+		return
+	}
+	job_runs, _, _, err := it.storage.listJobRuns(ctx, false, false, ListRequest{PageSize: len(jobRunIds)},
 		JobRunFilter{}.WithStates(Running, Pending).WithIds(jobRunIds...))
 	if err != nil {
 		return []error{err}
@@ -125,18 +128,21 @@ func (it *engine) CancelJobRuns(ctx context.Context, jobRunIds ...string) (errs 
 	return
 }
 
-func (it *engine) cancelJobRuns(ctx context.Context, jobRuns map[CancellationReason][]*JobRun) (errs map[*JobRun]error) {
+func (it *engine) cancelJobRuns(ctx context.Context, jobRunsToCancel map[CancellationReason][]*JobRun) (errs map[*JobRun]error) {
+	if len(jobRunsToCancel) == 0 {
+		return
+	}
 	log := loggerNew()
 	var mut_errs sync.Mutex
-	errs = make(map[*JobRun]error, len(jobRuns)/2)
-	for reason, jobs := range jobRuns {
-		GoItems(ctx, jobs, func(ctx context.Context, jobRun *JobRun) {
+	errs = make(map[*JobRun]error, len(jobRunsToCancel)/2)
+	for reason, jobRuns := range jobRunsToCancel {
+		GoItems(ctx, jobRuns, func(ctx context.Context, jobRun *JobRun) {
 			state, version := jobRun.State, jobRun.Version
 			jobRun.State, jobRun.Info.CancellationReason = JobRunCancelling, reason
 			if it.logLifecycleEvents(nil, jobRun, nil) {
 				jobRun.logger(log).Infof("marking %s '%s' job run '%s' as %s", state, jobRun.JobDefId, jobRun.Id, jobRun.State)
 			}
-			if err := it.store.saveJobRun(ctx, jobRun); err != nil {
+			if err := it.storage.saveJobRun(ctx, jobRun); err != nil {
 				jobRun.State, jobRun.Version = state, version
 				mut_errs.Lock()
 				errs[jobRun] = err
@@ -148,14 +154,14 @@ func (it *engine) cancelJobRuns(ctx context.Context, jobRuns map[CancellationRea
 }
 
 func (it *engine) DeleteJobRun(ctx context.Context, jobRunId string) error {
-	job_run, err := it.store.getJobRun(ctx, false, false, jobRunId)
+	job_run, err := it.storage.getJobRun(ctx, false, false, jobRunId)
 	if err != nil {
 		return err
 	}
 	if (job_run.State != Done) && (job_run.State != Cancelled) {
 		return errors.New(str.Fmt("job run '%s' was expected in a `state` of '%s' or '%s', not '%s'", jobRunId, Done, Cancelled, job_run.State))
 	}
-	return it.store.deleteJobRuns(ctx, JobRunFilter{}.WithIds(jobRunId))
+	return it.storage.deleteJobRuns(ctx, JobRunFilter{}.WithIds(jobRunId))
 }
 
 func (it *engine) CreateJobRun(ctx context.Context, jobDef *JobDef, jobRunId string, dueTime *time.Time, jobDetails JobDetails) (jobRun *JobRun, err error) {
@@ -193,7 +199,7 @@ func (it *engine) createJobRun(ctx context.Context, jobDef *JobDef, jobRunId str
 	}
 	if autoScheduled && (lastJobRun != nil) {
 		jobRun.ScheduledNextAfterJobRun = lastJobRun.Id
-		already_there, err := it.store.findJobRun(ctx, true, true, JobRunFilter{}.WithScheduledNextAfterJobRun(jobRun.ScheduledNextAfterJobRun))
+		already_there, err := it.storage.findJobRun(ctx, true, true, JobRunFilter{}.WithScheduledNextAfterJobRun(jobRun.ScheduledNextAfterJobRun))
 		if (already_there != nil) || (err != nil) {
 			return If((already_there != nil), already_there, jobRun), err
 		}
@@ -201,11 +207,11 @@ func (it *engine) createJobRun(ctx context.Context, jobDef *JobDef, jobRunId str
 	if it.logLifecycleEvents(nil, jobRun, nil) {
 		jobRun.logger(log).Infof("creating %s '%s' job run '%s' scheduled for %s", Pending, jobRun.JobDefId, jobRun.Id, jobRun.DueTime)
 	}
-	return jobRun, it.store.insertJobRuns(ctx, jobRun)
+	return jobRun, it.storage.insertJobRuns(ctx, jobRun)
 }
 
 func (it *engine) RetryJobTask(ctx context.Context, jobRunId string, jobTaskId string) (*JobTask, error) {
-	job_task, err := it.store.getJobTask(ctx, true, true, jobTaskId)
+	job_task, err := it.storage.getJobTask(ctx, true, true, jobTaskId)
 	if err != nil {
 		return nil, err
 	}
@@ -220,14 +226,14 @@ func (it *engine) RetryJobTask(ctx context.Context, jobRunId string, jobTaskId s
 		return nil, errors.New(str.Fmt("job task '%s' must be in a `state` of %s (currently: %s) with the latest `attempts` (current len: %d) entry having an `error` set", job_task.Id, Done, job_task.State, len(job_task.Attempts)))
 	}
 
-	return job_task, it.store.transacted(ctx, func(ctx context.Context) error {
+	return job_task, it.storage.transacted(ctx, func(ctx context.Context) error {
 		if job_run.State != Running {
 			log := loggerNew()
 			if it.logLifecycleEvents(job_run.jobDef, job_run, job_task) {
 				job_run.logger(log).Infof("marking %s '%s' job run '%s' as %s (for manual task retry)", job_run.State, job_run.JobDefId, job_run.Id, Running)
 			}
 			job_run.State, job_run.FinishTime, job_run.Results, job_run.ResultsStore = Running, nil, nil, nil
-			if err := it.store.saveJobRun(ctx, job_run); err != nil {
+			if err := it.storage.saveJobRun(ctx, job_run); err != nil {
 				return err
 			}
 		}
@@ -236,31 +242,35 @@ func (it *engine) RetryJobTask(ctx context.Context, jobRunId string, jobTaskId s
 }
 
 func (it *engine) Stats(ctx context.Context, jobRunId string) (*JobRunStats, error) {
-	job_run, err := it.store.getJobRun(ctx, false, false, jobRunId)
+	job_run, err := it.storage.getJobRun(ctx, false, false, jobRunId)
 	if err != nil {
 		return nil, err
 	}
+	return it.stats(ctx, job_run)
+}
 
+func (it *engine) stats(ctx context.Context, jobRun *JobRun) (*JobRunStats, error) {
+	var err error
 	stats := JobRunStats{TasksByState: make(map[RunState]int64, 4)}
 	for _, state := range []RunState{Pending, Running, Done, Cancelled} {
-		if stats.TasksByState[state], err = it.store.countJobTasks(ctx, 0,
-			JobTaskFilter{}.WithJobRuns(job_run.Id).WithStates(state),
+		if stats.TasksByState[state], err = it.storage.countJobTasks(ctx, 0,
+			JobTaskFilter{}.WithJobRuns(jobRun.Id).WithStates(state),
 		); err != nil {
 			return nil, err
 		}
 		stats.TasksTotal += stats.TasksByState[state]
 	}
-	if stats.TasksFailed, err = it.store.countJobTasks(ctx, 0,
-		JobTaskFilter{}.WithJobRuns(job_run.Id).WithStates(Done).WithFailed(),
+	if stats.TasksFailed, err = it.storage.countJobTasks(ctx, 0,
+		JobTaskFilter{}.WithJobRuns(jobRun.Id).WithStates(Done).WithFailed(),
 	); err != nil {
 		return nil, err
 	}
 	stats.TasksSucceeded = stats.TasksByState[Done] - stats.TasksFailed
 
-	if (job_run.StartTime != nil) && (job_run.FinishTime != nil) {
-		stats.DurationTotalMins = ToPtr(job_run.FinishTime.Sub(*job_run.StartTime).Minutes())
+	if (jobRun.StartTime != nil) && (jobRun.FinishTime != nil) {
+		stats.DurationTotalMins = ToPtr(jobRun.FinishTime.Sub(*jobRun.StartTime).Minutes())
 	}
-	stats.DurationPrepMins, stats.DurationFinalizeMins = job_run.Info.DurationPrepInMinutes, job_run.Info.DurationFinalizeInMinutes
+	stats.DurationPrepSecs, stats.DurationFinalizeSecs = jobRun.Info.DurationPrepSecs, jobRun.Info.DurationFinalizeSecs
 	return &stats, err
 }
 

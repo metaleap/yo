@@ -28,7 +28,7 @@ func GoItems[T any](ctx context.Context, workSet []T, op func(context.Context, T
 		if customTimeout, _ := (any(item)).(HasTimeout); timeout == 0 && customTimeout != nil {
 			timeout = customTimeout.Timeout()
 		}
-		DoTimeout(ctx, timeout, func(ctx context.Context) {
+		Timeout(ctx, timeout, func(ctx context.Context) {
 			op(ctx, item)
 		})
 	}
@@ -60,7 +60,7 @@ func GoItems[T any](ctx context.Context, workSet []T, op func(context.Context, T
 	}
 }
 
-func DoTimeout(ctx context.Context, timeout time.Duration, op func(context.Context)) {
+func Timeout(ctx context.Context, timeout time.Duration, op func(context.Context)) {
 	if timeout != 0 {
 		ctxTimeout, done := context.WithTimeout(ctx, timeout)
 		defer done()

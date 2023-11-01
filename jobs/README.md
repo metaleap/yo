@@ -14,7 +14,7 @@ The lib and its data access patterns and state transition strategies are designe
         - produces all the individual `JobTask`s that will belong to this particular `JobRun` (via `JobType.TaskDetails`)
         - runs the actual logic of a particular given `JobTask` (via `JobType.TaskResults`) when called to do so
         - finally at the end, gathers (if needed) any summary/aggregate outcome details/infos from the results of all the completed `JobTask`s (via `JobType.JobResults`)
-- A `Store` provides the complete storage-and-retrieval implementation that a `Engine` needs.
+- A `Storage` provides the complete storage-and-retrieval implementation that a `Engine` needs.
 - The `Engine` is what importers instantiate (`NewEngine`) and then start aka. `Resume()`.
     - exposes lifecycle-related methods: `CreateJobRun`, `CancelJobRun`, `DeleteJobRun`, `Stats`.
 

@@ -64,7 +64,7 @@ func logFor(log logger, jobDef *JobDef, jobRun *JobRun, jobTask *JobTask) logger
 func (it *engine) logErr(log logger, err error, objs ...interface {
 	logger(logger) logger
 }) error {
-	if (!IsDevMode) || it.store.isVersionConflictDuringSave(err) {
+	if (!IsDevMode) || it.storage.isVersionConflictDuringSave(err) {
 		// we don't noise up the logs (or otherwise handle err) just because another pod
 		// beat us to what both were attempting at the same time — it's by-design ignored
 		return err
