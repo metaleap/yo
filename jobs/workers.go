@@ -483,7 +483,7 @@ func (it *engine) runJobTasks() {
 		log := loggerNew()
 		pending_tasks, _, _, _, err = it.storage.listJobTasks(ctxNone, true, false, ListRequest{PageSize: it.options.FetchTasksToRun},
 			JobTaskFilter{}.WithStates(Pending))
-		if it.logErr(log, err) != nil {
+		if nil != it.logErr(log, err) {
 			return
 		}
 	}
@@ -495,11 +495,11 @@ func (it *engine) runJobTasks() {
 }
 
 func (it *engine) runTask(ctx context.Context, task *JobTask) error {
-	log, timeStarted := loggerNew(), timeNow()
-	ctxOrig := ctx
+	log, time_started := loggerNew(), timeNow()
+	ctx_orig := ctx
 	ctx, done := context.WithCancel(ctx)
-	if oldCanceller := it.setTaskCanceler(task.Id, done); oldCanceller != nil {
-		oldCanceller() // should never be the case, but let's be principled & clean...
+	if old_cancel := it.setTaskCanceler(task.Id, done); old_cancel != nil {
+		old_cancel() // should never be the case, but let's be principled & clean...
 	}
 	defer func() {
 		if done = it.setTaskCanceler(task.Id, nil); done != nil {
@@ -507,22 +507,23 @@ func (it *engine) runTask(ctx context.Context, task *JobTask) error {
 		} // else: already cancelled by concurrent `finalizeCancelingJobs` call
 	}()
 
-	taskJobDefOrType := task.JobTypeId
+	job_def_or_type_id := task.JobTypeId // just for infof loggings
 	if task.jobRun != nil {
-		taskJobDefOrType = task.jobRun.JobDefId
+		job_def_or_type_id = task.jobRun.JobDefId
 	}
+
 	// first, attempt to reserve task for running vs. other pods
-	alreadyCancelled := task.jobRun == nil || task.jobRun.State == Cancelled || task.jobRun.State == JobRunCancelling ||
-		task.jobRun.jobDef == nil || task.jobRun.jobDef.Disabled || task.jobRun.jobDef.jobType == nil ||
-		task.JobTypeId != task.jobRun.jobDef.JobTypeId || task.jobRun.JobTypeId != task.jobRun.jobDef.JobTypeId
-	oldTaskState := task.State
+	already_canceled := (task.jobRun == nil) || (task.jobRun.State == Cancelled) || (task.jobRun.State == JobRunCancelling) ||
+		(task.jobRun.jobDef == nil) || task.jobRun.jobDef.Disabled || (task.jobRun.jobDef.jobType == nil) ||
+		(task.JobTypeId != task.jobRun.jobDef.JobTypeId) || (task.jobRun.JobTypeId != task.jobRun.jobDef.JobTypeId)
+	task_state_old, time_now := task.State, timeNow()
 	task.State, task.FinishTime, task.Attempts =
-		If(alreadyCancelled, Cancelled, Running), nil, append([]*TaskAttempt{{Time: *timeNow()}}, task.Attempts...)
+		If(already_canceled, Cancelled, Running), nil, append([]*TaskAttempt{{Time: *time_now}}, task.Attempts...)
 	if task.StartTime == nil {
-		task.StartTime = timeNow()
+		task.StartTime = time_now
 	}
 	if it.logLifecycleEvents(nil, nil, task) {
-		task.logger(log).Infof("marking %s task '%s' (of '%s' job '%s') as %s", oldTaskState, task.Id, taskJobDefOrType, task.JobRunId, task.State)
+		task.logger(log).Infof("marking %s task '%s' (of '%s' job '%s') as %s", task_state_old, task.Id, job_def_or_type_id, task.JobRunId, task.State)
 	}
 	if err := it.logErr(log, it.storage.saveJobTask(ctx, task), task); err != nil {
 		return err
@@ -535,7 +536,7 @@ func (it *engine) runTask(ctx context.Context, task *JobTask) error {
 		task.Attempts[0].Err = errNotFoundJobDef(task.jobRun.JobDefId)
 	case task.jobRun.jobDef.jobType == nil:
 		task.Attempts[0].Err = errNotFoundJobType(task.jobRun.JobDefId, task.jobRun.jobDef.JobTypeId)
-	case !alreadyCancelled: // now run it
+	case !already_canceled: // now run it
 		task.Results, task.Attempts[0].Err = task.jobRun.jobDef.jobType.TaskResults(task.jobRun.ctx(ctx, task.Id), task.Details)
 		if task.Attempts[0].Err == nil {
 			_, task.Attempts[0].Err = jobType(task.jobRun.jobDef.JobTypeId).wellTypedTaskResults(task.Results)
@@ -543,34 +544,34 @@ func (it *engine) runTask(ctx context.Context, task *JobTask) error {
 	}
 
 	task.State, task.FinishTime =
-		If(alreadyCancelled, Cancelled, Done), timeNow()
-	ctxErr := ctx.Err()
-	if ctxErr != nil && errors.Is(ctxErr, context.Canceled) {
+		If(already_canceled, Cancelled, Done), timeNow()
+	err_ctx := ctx.Err()
+	if err_ctx != nil && errors.Is(err_ctx, context.Canceled) {
 		task.State = Cancelled
-	} else if (!alreadyCancelled) &&
-		((ctxErr != nil && errors.Is(ctxErr, context.DeadlineExceeded)) ||
+	} else if (!already_canceled) &&
+		(((err_ctx != nil) && errors.Is(err_ctx, context.DeadlineExceeded)) ||
 			((task.Attempts[0].Err != nil) && (task.jobRun.jobDef.jobType != nil) &&
 				task.jobRun.jobDef.jobType.IsTaskErrRetryable(task.Attempts[0].Err))) {
 		_ = task.markForRetryOrAsFailed(task.jobRun.jobDef)
 	}
 	if task.Attempts[0].Err == nil {
-		task.Attempts[0].Err = ctxErr
+		task.Attempts[0].Err = err_ctx
 	}
 	if _ = it.logErr(log, task.Attempts[0].Err, task); it.logLifecycleEvents(nil, nil, task) {
-		task.logger(log).Infof("marking just-%s %s task '%s' (of '%s' job '%s') as %s", If(task.Attempts[0].Err != nil, "failed", "finished"), Running, task.Id, taskJobDefOrType, task.JobRunId, task.State)
+		task.logger(log).Infof("marking just-%s %s task '%s' (of '%s' job '%s') as %s", If((task.Attempts[0].Err != nil), "failed", "finished"), Running, task.Id, job_def_or_type_id, task.JobRunId, task.State)
 	}
-	err := it.logErr(log, it.storage.saveJobTask(ctxOrig, task), task)
-	if err == nil && it.eventHandlers.onJobTaskExecuted != nil { // only count tasks that actually ran (failed or not) AND were stored
-		it.eventHandlers.onJobTaskExecuted(task, timeNow().Sub(*timeStarted))
+	err := it.logErr(log, it.storage.saveJobTask(ctx_orig, task), task)
+	if (err == nil) && (it.eventHandlers.onJobTaskExecuted != nil) { // only notify on tasks that actually ran (failed or not) AND were stored
+		it.eventHandlers.onJobTaskExecuted(task, timeNow().Sub(*time_started))
 	}
 	return err
 }
 
 func (it *engine) manualJobsPossible(ctx context.Context) bool {
 	log := loggerNew()
-	jobDefManual, err := it.storage.findJobDef(ctx,
+	job_def_allowing_manual, err := it.storage.findJobDef(ctx,
 		JobDefFilter{}.WithAllowManualJobRuns(true))
-	return it.logErr(log, err) != nil || jobDefManual != nil
+	return (nil != it.logErr(log, err)) || (job_def_allowing_manual != nil)
 }
 
 func (it *engine) setTaskCanceler(id string, cancel context.CancelFunc) (previous context.CancelFunc) {
