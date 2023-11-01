@@ -191,8 +191,8 @@ func (it *Task) Timeout() time.Duration {
 
 // Timeout implements utils.HasTimeout
 func (it *Job) Timeout() time.Duration {
-	if it.def != nil && it.def.Timeouts.JobPrepAndFinalize > 0 {
-		return it.def.Timeouts.JobPrepAndFinalize
+	if it.def != nil && it.def.Timeouts.JobRunPrepAndFinalize > 0 {
+		return it.def.Timeouts.JobRunPrepAndFinalize
 	}
 	return TimeoutLong
 }

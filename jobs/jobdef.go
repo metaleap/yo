@@ -21,15 +21,14 @@ type JobDef struct {
 	Schedules          []*Schedule
 	AllowManualJobRuns bool
 	Timeouts           struct {
-		JobPrepAndFinalize time.Duration
-		TaskRun            time.Duration
+		JobRunPrepAndFinalize time.Duration
+		TaskRun               time.Duration
 	}
-	TaskRetries             int
-	TaskResultsShrinkDownTo []string
-	DeleteAfterDays         int
-	LogJobLifecycleEvents   *bool
-	LogTaskLifecycleEvents  *bool
-	DefaultJobDetails       map[string]any
+	TaskRetries            int
+	DeleteAfterDays        int
+	LogJobLifecycleEvents  *bool
+	LogTaskLifecycleEvents *bool
+	DefaultJobDetails      map[string]any
 
 	handler Handler
 }
@@ -43,30 +42,30 @@ func (it *JobDef) defaultJobDetails() (details JobDetails, err error) {
 }
 
 type Schedule struct {
-	Disabled bool   `yaml:"disabled" json:"disabled,omitempty" bson:"disabled,omitempty"`
-	Crontab  string `yaml:"rule" json:"rule,omitempty" bson:"rule,omitempty"`
+	Disabled bool
+	Crontab  string
 
 	crontab crontab.Expr
 }
 
 func (it *JobDef) EnsureValidOrErrorIfEnabled() (*JobDef, error) {
 	for _, err := range it.EnsureValid() {
-		if !it.Disabled {
+		if !it.Disabled { // dont hoist out of loop , need the above call in any case
 			return nil, err
 		}
 	}
 	return it, nil
 }
 
-func (it *JobDef) EnsureValid() (errs []error) { // not quite the same as "validation"  =)
-	if handlerReg := handler(it.HandlerId); it.handler == nil && (!it.Disabled) && handlerReg != nil {
-		it.handler = handlerReg.ById(it.HandlerId)
+func (it *JobDef) EnsureValid() (errs []error) { // a mix of sanitization and validation really
+	if handler_reg := handler(it.HandlerId); (it.handler == nil) && (!it.Disabled) && (handler_reg != nil) {
+		it.handler = handler_reg.ById(it.HandlerId)
 	}
-	if it.handler == nil && !it.Disabled {
+	if (it.handler == nil) && !it.Disabled {
 		errs = append(errs, errNotFoundHandler(it.Id, it.HandlerId))
 	}
 	it.Timeouts.TaskRun = Clamp(11*time.Second, 22*time.Hour, it.Timeouts.TaskRun)
-	it.Timeouts.JobPrepAndFinalize = Clamp(22*time.Second, 11*time.Hour, it.Timeouts.JobPrepAndFinalize)
+	it.Timeouts.JobRunPrepAndFinalize = Clamp(22*time.Second, 11*time.Hour, it.Timeouts.JobRunPrepAndFinalize)
 	it.TaskRetries = Clamp(0, 1234, it.TaskRetries)
 	it.DeleteAfterDays = Clamp(0, math.MaxInt32, it.DeleteAfterDays)
 	for i, sched := range it.Schedules {
@@ -93,30 +92,30 @@ func (it *JobDef) findClosestToNowSchedulableTimeSince(after *time.Time, alwaysP
 	}
 	now := *timeNow()
 	var future, past *time.Time
-	const maxYearsInTheFuture = 123
-	maxSearchDate := now.AddDate(maxYearsInTheFuture, 0, 0)
+	const max_years_in_the_future = 77
+	max_search_date := now.AddDate(max_years_in_the_future, 0, 0)
 	for _, schedule := range it.Schedules {
 		if schedule.Disabled {
 			continue
 		}
-		p, f := schedule.crontab.SoonestTo(now, after, &maxSearchDate)
-		if p != nil && (past == nil || p.After(*past)) {
-			past = p
+		past_find, fut_find := schedule.crontab.SoonestTo(now, after, &max_search_date)
+		if (past_find != nil) && ((past == nil) || past_find.After(*past)) {
+			past = past_find
 		}
-		if f != nil && (future == nil || f.Before(*future)) {
-			future = f
+		if (fut_find != nil) && ((future == nil) || fut_find.Before(*future)) {
+			future = fut_find
 		}
 	}
 	if past == nil {
 		return future
-	} else if future == nil || (alwaysPreferOverdue && after != nil) {
+	} else if future == nil || (alwaysPreferOverdue && (after != nil)) {
 		return past
 	}
 	// if the latest-possible-past-occurrence-after-last `past` is closer to Now than
 	// the soonest-possible-future-occurrence `future`, the former is picked because
 	// it means catching up on a missed past schedule (due to outages or such).
-	// Edefially useful for daily/weekly schedules that'd by unlucky chance fall into such a rare situation.
-	return If(now.Sub(*past) < future.Sub(now), past, future)
+	// Especially useful for daily/weekly schedules that'd by unlucky chance fall into such a rare situation.
+	return If((now.Sub(*past) < future.Sub(now)), past, future)
 }
 
 func (it *JobDef) ok(t time.Time) bool {
