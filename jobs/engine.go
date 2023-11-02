@@ -8,6 +8,7 @@ import (
 	. "yo/ctx"
 	yodb "yo/db"
 	q "yo/db/query"
+	yojson "yo/json"
 	. "yo/util"
 	sl "yo/util/sl"
 )
@@ -158,6 +159,7 @@ func (it *engine) createJobRun(ctx *Ctx, jobDef *JobDef, dueTime time.Time, jobD
 	job_run := &JobRun{
 		state:         yodb.Text(Pending),
 		Details:       jobDetails,
+		details:       yojson.Dict(jobDetails),
 		JobTypeId:     jobDef.JobTypeId,
 		DueTime:       yodb.DtFrom(dueTime),
 		AutoScheduled: is_auto_scheduled,
@@ -165,8 +167,8 @@ func (it *engine) createJobRun(ctx *Ctx, jobDef *JobDef, dueTime time.Time, jobD
 	job_run.JobDef.SetId(jobDef.Id)
 	if is_auto_scheduled {
 		job_run.ScheduledNextAfter.SetId(autoScheduledNextAfter.Id)
-		if already_there := yodb.FindOne[JobRun](ctx, JobRunScheduledNextAfter.Equal(autoScheduledNextAfter.Id)); already_there != nil {
-			return already_there
+		if yodb.Exists[JobRun](ctx, JobRunScheduledNextAfter.Equal(autoScheduledNextAfter.Id)) {
+			return nil // this above check by design as-late-as-possible before our own below Create (db-uniqued anyway, but nice to avoid the bound-to-fail attempt without erroring)
 		}
 	}
 	job_run.Id = yodb.CreateOne[JobRun](ctx, job_run)

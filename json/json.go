@@ -37,3 +37,9 @@ func From(it any, indent bool) (ret []byte) {
 	}
 	return ret
 }
+
+func Dict(fromStruct any) (ret map[string]any) {
+	json_src := From(fromStruct, false)
+	Load(json_src, &ret)
+	return
+}
