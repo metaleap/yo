@@ -38,8 +38,16 @@ func From(it any, indent bool) (ret []byte) {
 	return ret
 }
 
-func Dict(fromStruct any) (ret map[string]any) {
+// if this is ever needed in hot/congested code paths, ditch json emit/parse roundtripping and reflect manually
+func DictFrom[T any](fromStruct T) (ret map[string]any) {
 	json_src := From(fromStruct, false)
+	Load(json_src, &ret)
+	return
+}
+
+// if this is ever needed in hot/congested code paths, ditch json emit/parse roundtripping and reflect manually
+func FromDict[T any](fromDict map[string]any) (ret T) {
+	json_src := From(fromDict, false)
 	Load(json_src, &ret)
 	return
 }

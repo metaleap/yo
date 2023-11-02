@@ -69,6 +69,15 @@ func (me *JobTask) jobDef(ctx *Ctx) *JobDef {
 	return me.jobRun(ctx).jobDef(ctx)
 }
 
+var _ yodb.Obj = (*JobTask)(nil)
+
+func (me *JobTask) OnAfterLoaded() {
+	me.Details, me.Results = yojson.FromDict[any](me.details), yojson.FromDict[any](me.results)
+}
+func (me *JobTask) OnBeforeStoring() {
+	me.details, me.results = yojson.DictFrom(me.Details), yojson.DictFrom(me.Results)
+}
+
 type TaskAttempt struct {
 	T   string
 	Err error

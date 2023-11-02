@@ -9,7 +9,6 @@ import (
 	. "yo/ctx"
 	yodb "yo/db"
 	q "yo/db/query"
-	yojson "yo/json"
 	. "yo/util"
 	sl "yo/util/sl"
 )
@@ -109,12 +108,15 @@ func NewEngine(options Options) (Engine, error) {
 
 func (me *engine) Running() bool { return me.running }
 func (me *engine) Resume() {
+	if me.running {
+		return
+	}
 	me.running = true
-	// DoAfter(it.options.IntervalStartAndFinalizeJobs, it.startAndFinalizeJobRuns)
-	// DoAfter(it.options.IntervalRunTasks, it.runJobTasks)
-	// DoAfter(it.options.IntervalExpireOrRetryDeadTasks, it.expireOrRetryDeadJobTasks)
-	// DoAfter(it.options.IntervalDeleteStorageExpiredJobs/10, it.deleteStorageExpiredJobRuns)
-	// DoAfter(Clamp(22*time.Second, 44*time.Second, it.options.IntervalEnsureJobSchedules), it.ensureJobRunSchedules)
+	// DoAfter(me.options.IntervalStartAndFinalizeJobs, me.startAndFinalizeJobRuns)
+	DoAfter(me.options.IntervalRunTasks, me.runJobTasks)
+	// DoAfter(me.options.IntervalExpireOrRetryDeadTasks, me.expireOrRetryDeadJobTasks)
+	// DoAfter(me.options.IntervalDeleteStorageExpiredJobs/10, me.deleteStorageExpiredJobRuns)
+	// DoAfter(Clamp(22*time.Second, 44*time.Second, me.options.IntervalEnsureJobSchedules), me.ensureJobRunSchedules)
 }
 
 func (me *engine) OnJobTaskExecuted(eventHandler func(*JobTask, time.Duration)) {
@@ -167,7 +169,6 @@ func (*engine) createJobRun(ctx *Ctx, jobDef *JobDef, dueTime *yodb.DateTime, jo
 	job_run := &JobRun{
 		state:         yodb.Text(Pending),
 		Details:       jobDetails,
-		details:       yojson.Dict(jobDetails),
 		JobTypeId:     jobDef.JobTypeId,
 		DueTime:       dueTime,
 		AutoScheduled: is_auto_scheduled,

@@ -5,6 +5,7 @@ import (
 
 	. "yo/ctx"
 	yodb "yo/db"
+	yojson "yo/json"
 	. "yo/util"
 )
 
@@ -148,4 +149,13 @@ func (me *JobRun) jobDef(ctx *Ctx) *JobDef {
 		return me.JobDef.Get(ctx)
 	}
 	return nil
+}
+
+var _ yodb.Obj = (*JobRun)(nil)
+
+func (me *JobRun) OnAfterLoaded() {
+	me.Details, me.Results = yojson.FromDict[any](me.details), yojson.FromDict[any](me.results)
+}
+func (me *JobRun) OnBeforeStoring() {
+	me.details, me.results = yojson.DictFrom(me.Details), yojson.DictFrom(me.Results)
 }

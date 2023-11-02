@@ -19,6 +19,11 @@ import (
 
 type dbArgs = pgx.NamedArgs
 
+type Obj interface {
+	OnAfterLoaded()
+	OnBeforeStoring()
+}
+
 func ById[T any](ctx *Ctx, id I64) *T {
 	if id <= 0 {
 		return nil
@@ -80,6 +85,9 @@ func Count[T any](ctx *Ctx, query q.Query, nonNullColumn q.C, distinct *q.C) int
 }
 
 func CreateOne[T any](ctx *Ctx, rec *T) (ret I64) {
+	if obj, _ := ((any)(rec)).(Obj); obj != nil {
+		obj.OnBeforeStoring()
+	}
 	desc := desc[T]()
 	args := dbArgsFill[T](desc, make(dbArgs, len(desc.fields)), rec, "")
 	result := doSelect[int64](ctx, new(sqlStmt).insert(desc, 1, desc.cols[numStdCols:]...), args, 1)
@@ -95,15 +103,17 @@ func CreateOne[T any](ctx *Ctx, rec *T) (ret I64) {
 func CreateMany[T any](ctx *Ctx, recs ...*T) {
 	if len(recs) == 0 {
 		return
-	}
-	if len(recs) == 1 {
+	} else if len(recs) == 1 {
 		_ = CreateOne[T](ctx, recs[0])
 		return
 	}
 	desc := desc[T]()
 	args := make(dbArgs, len(desc.fields)*len(recs))
-	for j := range recs {
-		args = dbArgsFill(desc, args, recs[j], str.FromInt(j))
+	for i := range recs {
+		if obj, _ := ((any)(recs[i])).(Obj); obj != nil {
+			obj.OnBeforeStoring()
+		}
+		args = dbArgsFill(desc, args, recs[i], str.FromInt(i))
 	}
 	_ = doExec(ctx, new(sqlStmt).insert(desc, len(recs), desc.cols[numStdCols:]...), args)
 }
@@ -123,16 +133,19 @@ func Delete[T any](ctx *Ctx, where q.Query) int64 {
 
 func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyFields ...q.F) int64 {
 	desc, args := desc[T](), dbArgs{}
-	col_names, col_vals := []string{}, []any{}
-	if upd != nil {
-		ForEachColField[T](upd, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
-			if only := (len(onlyFields) > 0); (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) &&
-				((!only) || sl.Has(onlyFields, fieldName)) &&
-				((!isZero) || (!skipNullsyFields) || only) {
-				col_names, col_vals = append(col_names, string(colName)), append(col_vals, fieldValue)
-			}
-		})
+	col_names, col_vals := make([]string, 0, len(onlyFields)), make([]any, 0, len(onlyFields))
+
+	if obj, _ := ((any)(upd)).(Obj); obj != nil {
+		obj.OnBeforeStoring()
 	}
+	ForEachColField[T](upd, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
+		if only := (len(onlyFields) > 0); (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) &&
+			((!only) || sl.Has(onlyFields, fieldName)) &&
+			((!isZero) || (!skipNullsyFields) || only) {
+			col_names, col_vals = append(col_names, string(colName)), append(col_vals, fieldValue)
+		}
+	})
+
 	if len(col_names) == 0 {
 		panic(ErrDbUpdate_ExpectedChangesForUpdate)
 	}
@@ -263,6 +276,9 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 		}
 		if err = rows.Scan(col_scanners...); err != nil {
 			panic(err)
+		}
+		if obj, _ := ((any)(&rec)).(Obj); obj != nil {
+			obj.OnAfterLoaded()
 		}
 		onRecord(&rec, &abort)
 		if abort {
