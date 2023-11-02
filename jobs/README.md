@@ -1,6 +1,6 @@
-# Jobs Scheduling & Execution **as-a-library**.
+# Jobs Scheduling & Execution **as-a-library**
 
-The lib and its data access patterns and state transition strategies are designed from the ground up for a multi-instance runtime reality.
+The lib and its data access and state transition patterns are designed from the ground up for a multi-instance/single-DB runtime reality.
 
 ## Data Model
 
@@ -14,7 +14,6 @@ The lib and its data access patterns and state transition strategies are designe
         - produces all the individual `JobTask`s that will belong to this particular `JobRun` (via `JobType.TaskDetails`)
         - runs the actual logic of a particular given `JobTask` (via `JobType.TaskResults`) when called to do so
         - finally at the end, gathers (if needed) any summary/aggregate outcome details/infos from the results of all the completed `JobTask`s (via `JobType.JobResults`)
-- A `Storage` provides the complete storage-and-retrieval implementation that a `Engine` needs.
 - The `Engine` is what importers instantiate (`NewEngine`) and then start aka. `Resume()`.
     - exposes lifecycle-related methods: `CreateJobRun`, `CancelJobRun`, `DeleteJobRun`, `Stats`.
 

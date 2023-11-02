@@ -1,12 +1,12 @@
-package yojobs
+package yo_jobs_old
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"strings"
 	"sync"
 
-	. "yo/ctx"
 	. "yo/util"
 	"yo/util/str"
 )
@@ -55,7 +55,8 @@ type JobType interface {
 	//     (in which case, also stop sending and return).
 	// The `TaskDetails` you are sending are of type *TTaskDetails (that this `JobType` was `Register`ed with).
 	// The `ctx.JobDetails` are of type *TJobDetails (that this `JobType` was `Register`ed with).
-	TaskDetails(ctx *Context, stream chan<- []TaskDetails, halt func(error) error)
+	// The return values (can be `nil`) will define sort+filter of the `JobTask`s stream passed to the final `JobResults` call.
+	TaskDetails(ctx *Context, stream chan<- []TaskDetails, halt func(error) error) (*ListRequest, *JobTaskFilter)
 
 	// TaskResults is called after a `JobTask` has been successfully set from `PENDING` to `RUNNING`.
 	// It implements the actual execution of a Task previously prepared in this `JobType`'s `TaskDetails` method.
@@ -80,7 +81,7 @@ type JobType interface {
 }
 
 type Context struct {
-	*Ctx
+	context.Context
 	JobRunId   string
 	JobDetails JobDetails
 	JobDef     JobDef

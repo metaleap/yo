@@ -1,4 +1,4 @@
-package yojobs
+package yo_jobs_old
 
 import (
 	"errors"
@@ -16,8 +16,12 @@ type JobTask struct {
 	Attempts   []*TaskAttempt
 	Version    int
 
-	Details TaskDetails
-	Results TaskResults
+	Details TaskDetails `json:"-"`
+	Results TaskResults `json:"-"`
+	// DetailsStore is for storage and not to be used in code outside internal un/marshaling hooks, use `Details`.
+	DetailsStore map[string]any
+	// ResultsStore is for storage and not to be used in code outside internal un/marshaling hooks, use `Results`.
+	ResultsStore map[string]any
 
 	jobRun *JobRun
 }
@@ -38,7 +42,7 @@ func (it *JobTask) JobDef() string {
 }
 
 func (it *JobTask) markForRetryOrAsFailed(jobDef *JobDef) (retry bool) {
-	if (jobDef != nil) && (len(it.Attempts) <= int(jobDef.MaxTaskRetries)) { // first attempt was not a RE-try
+	if (jobDef != nil) && (len(it.Attempts) <= jobDef.TaskRetries) { // first attempt was not a RE-try
 		it.State, it.StartTime, it.FinishTime = Pending, nil, nil
 		return true
 	}
@@ -74,8 +78,8 @@ func (it *TaskError) Error() (s string) {
 
 // Timeout implements utils.HasTimeout
 func (it *JobTask) Timeout() time.Duration {
-	if (it.jobRun != nil) && (it.jobRun.jobDef) != nil && (it.jobRun.jobDef.TimeoutTaskRunSecs) > 0 {
-		return time.Second * time.Duration(it.jobRun.jobDef.TimeoutTaskRunSecs)
+	if (it.jobRun != nil) && (it.jobRun.jobDef) != nil && (it.jobRun.jobDef.Timeouts.TaskRun) > 0 {
+		return it.jobRun.jobDef.Timeouts.TaskRun
 	}
 	return TimeoutLong
 }

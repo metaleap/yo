@@ -1,4 +1,4 @@
-package yojobs
+package yo_jobs_old
 
 import (
 	yolog "yo/log"

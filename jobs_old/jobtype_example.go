@@ -1,4 +1,4 @@
-package yojobs
+package yo_jobs_old
 
 import (
 	"crypto/rand"
@@ -46,21 +46,23 @@ func (it exampleJobType) JobDetails(ctx *Context) (JobDetails, error) {
 	return ctx.JobDetails, nil
 }
 
-func (exampleJobType) TaskDetails(_ *Context, stream chan<- []TaskDetails, _ func(error) error) {
+func (exampleJobType) TaskDetails(_ *Context, stream chan<- []TaskDetails, _ func(error) error) (*ListRequest, *JobTaskFilter) {
 	stream <- []TaskDetails{&exampleTaskDetails{Time: time.Now()}}
 	stream <- []TaskDetails{
 		&exampleTaskDetails{Time: time.Now().Add(-365 * 24 * time.Hour)},
 		&exampleTaskDetails{Time: time.Now().Add(-30 * 24 * time.Hour)},
 	}
+	return nil, nil
 }
 
 func (it exampleJobType) TaskResults(ctx *Context, task TaskDetails) (TaskResults, error) {
+	log := loggerNew()
 	msg := ctx.JobDetails.(*exampleJobDetails).MsgFmt
 	t := task.(*exampleTaskDetails).Time
 	if d := it.dice(); (d % 11) == 0 {
 		return nil, errors.New(str.Fmt("artificially provoked random error due to dice throw %d", d))
 	}
-	println(str.Fmt(msg, t.Format("2006-01-02 15:04:05"), time.Since(t)))
+	log.Infof(msg, t.Format("2006-01-02 15:04:05"), time.Since(t))
 	return &exampleTaskResults{NumLoggingsDone: 1}, nil
 }
 

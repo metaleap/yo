@@ -2,50 +2,29 @@ package yojobs
 
 import (
 	"errors"
-	"math"
-	"strings"
 	"time"
 
+	yodb "yo/db"
 	"yo/jobs/crontab"
 	. "yo/util"
-	"yo/util/sl"
 	"yo/util/str"
 )
 
 type JobDef struct {
-	Id string
+	Id   yodb.I64
+	Name yodb.Text
 
-	JobTypeId          string
-	DisplayName        string
-	Disabled           bool
-	Schedules          []*Schedule
-	AllowManualJobRuns bool
-	Timeouts           struct {
-		JobRunPrepAndFinalize time.Duration
-		TaskRun               time.Duration
-	}
-	TaskRetries            int
-	DeleteAfterDays        int
-	LogJobLifecycleEvents  *bool
-	LogTaskLifecycleEvents *bool
-	DefaultJobDetails      map[string]any
+	JobTypeId                        yodb.Text
+	Disabled                         yodb.Bool
+	AllowManualJobRuns               yodb.Bool
+	Schedules                        yodb.Arr[yodb.Text]
+	TimeoutJobRunPrepAndFinalizeSecs yodb.U32
+	TimeoutTaskRunSecs               yodb.U32
+	MaxTaskRetries                   yodb.U8
+	DeleteAfterDays                  yodb.U16
 
-	jobType JobType
-}
-
-func (it *JobDef) defaultJobDetails() (details JobDetails, err error) {
-	if len(it.DefaultJobDetails) > 0 {
-		details, _ = jobType(it.JobTypeId).wellTypedJobDetails(nil)
-		err = ensureValueFromMap(&it.DefaultJobDetails, &details)
-	}
-	return
-}
-
-type Schedule struct {
-	Disabled bool
-	Crontab  string
-
-	crontab crontab.Expr
+	jobType   JobType
+	schedules []crontab.Expr
 }
 
 func (it *JobDef) EnsureValidOrErrorIfEnabled() (*JobDef, error) {
@@ -58,32 +37,24 @@ func (it *JobDef) EnsureValidOrErrorIfEnabled() (*JobDef, error) {
 }
 
 func (it *JobDef) EnsureValid() (errs []error) { // a mix of sanitization and validation really
-	if job_type_reg := jobType(it.JobTypeId); (it.jobType == nil) && (!it.Disabled) && (job_type_reg != nil) {
-		it.jobType = job_type_reg.ById(it.JobTypeId)
+	if job_type_reg := jobType(string(it.JobTypeId)); (it.jobType == nil) && (!it.Disabled) && (job_type_reg != nil) {
+		it.jobType = job_type_reg.ById(string(it.JobTypeId))
 	}
 	if (it.jobType == nil) && !it.Disabled {
-		errs = append(errs, errNotFoundJobType(it.Id, it.JobTypeId))
+		errs = append(errs, errNotFoundJobType(it.Name, it.JobTypeId))
 	}
-	it.Timeouts.TaskRun = Clamp(11*time.Second, 22*time.Hour, it.Timeouts.TaskRun)
-	it.Timeouts.JobRunPrepAndFinalize = Clamp(22*time.Second, 11*time.Hour, it.Timeouts.JobRunPrepAndFinalize)
-	it.TaskRetries = Clamp(0, 1234, it.TaskRetries)
-	it.DeleteAfterDays = Clamp(0, math.MaxInt32, it.DeleteAfterDays)
 	for i, sched := range it.Schedules {
-		if sched.Crontab = strings.TrimSpace(sched.Crontab); sched.Crontab == "" {
-			errs = append(errs, errors.New(str.Fmt("job def '%s' schedule %d/%d requires a `rule`", it, i+1, len(it.Schedules))))
-		} else if sched.crontab == nil {
-			if crontab, err := crontab.Parse(sched.Crontab); err != nil {
-				errs = append(errs, errors.New(str.Fmt("job def '%s' schedule %d/%d syntax error in '%s': %s", it, i+1, len(it.Schedules), sched.Crontab, err)))
+		if sched.Set(str.Trim); sched == "" {
+			errs = append(errs, errors.New(str.Fmt("job def '%s' schedule %d/%d requires a crontab expression", it, i+1, len(it.Schedules))))
+		} else if it.schedules[i] == nil {
+			if crontab, err := crontab.Parse(string(sched)); err != nil {
+				errs = append(errs, errors.New(str.Fmt("job def '%s' schedule %d/%d syntax error in '%s': %s", it, i+1, len(it.Schedules), sched, err)))
 			} else {
-				sched.crontab = crontab
+				it.schedules[i] = crontab
 			}
 		}
 	}
 	return
-}
-
-func (it *JobDef) hasAnySchedulesEnabled() bool {
-	return sl.HasWhere(it.Schedules, func(s *Schedule) bool { return !s.Disabled })
 }
 
 func (it *JobDef) findClosestToNowSchedulableTimeSince(after *time.Time, alwaysPreferOverdue bool) *time.Time {
@@ -94,11 +65,8 @@ func (it *JobDef) findClosestToNowSchedulableTimeSince(after *time.Time, alwaysP
 	var future, past *time.Time
 	const max_years_in_the_future = 77
 	max_search_date := now.AddDate(max_years_in_the_future, 0, 0)
-	for _, schedule := range it.Schedules {
-		if schedule.Disabled {
-			continue
-		}
-		past_find, fut_find := schedule.crontab.SoonestTo(now, after, &max_search_date)
+	for _, schedule := range it.schedules {
+		past_find, fut_find := schedule.SoonestTo(now, after, &max_search_date)
 		if (past_find != nil) && ((past == nil) || past_find.After(*past)) {
 			past = past_find
 		}
@@ -122,11 +90,8 @@ func (it *JobDef) ok(t time.Time) bool {
 	if it.Disabled {
 		return false
 	}
-	for _, schedule := range it.Schedules {
-		if schedule.Disabled {
-			continue
-		}
-		if schedule.crontab.DateAndTimeOk(t) {
+	for _, schedule := range it.schedules {
+		if schedule.DateAndTimeOk(t) {
 			return true
 		}
 	}

@@ -1,9 +1,9 @@
-package yojobs
+package yo_jobs_old
 
 import (
+	"context"
 	"time"
 
-	. "yo/ctx"
 	. "yo/util"
 )
 
@@ -39,11 +39,19 @@ type JobRun struct {
 	FinishTime    *time.Time
 	AutoScheduled bool
 
-	Details JobDetails
-	Results JobResults
+	Details JobDetails `json:"-"`
+	Results JobResults `json:"-"`
+	// DetailsStore is for storage and not to be used in code outside internal un/marshaling hooks, use `Details`.
+	DetailsStore map[string]any
+	// ResultsStore is for storage and not to be used in code outside internal un/marshaling hooks, use `Results`.
+	ResultsStore map[string]any
 
 	// this is DB-uniqued and its only purpose is to avoid multiple instances concurrently scheduling the same next job in `ensureJobRunSchedules`
 	ScheduledNextAfterJobRun string
+	// FinalTaskFilter is obtained via call to JobType.TaskDetails() and stored for the later job finalization phase.
+	FinalTaskFilter *JobTaskFilter
+	// FinalTaskListReq is obtained via call to JobType.TaskDetails() and stored for the later job finalization phase.
+	FinalTaskListReq *ListRequest
 
 	Info struct { // Informational purposes only
 		DurationPrepSecs     *float64
@@ -56,8 +64,8 @@ type JobRun struct {
 	jobDef *JobDef
 }
 
-func (it *JobRun) ctx(ctx *Ctx, taskId string) *Context {
-	return &Context{Ctx: ctx, JobRunId: it.Id, JobDetails: it.Details, JobDef: *it.jobDef, JobTaskId: taskId}
+func (it *JobRun) ctx(ctx context.Context, taskId string) *Context {
+	return &Context{Context: ctx, JobRunId: it.Id, JobDetails: it.Details, JobDef: *it.jobDef, JobTaskId: taskId}
 }
 
 type JobRunStats struct {
@@ -107,8 +115,8 @@ func (it *JobRunStats) PercentSuccess() *int {
 
 // Timeout implements utils.HasTimeout
 func (it *JobRun) Timeout() time.Duration {
-	if (it.jobDef != nil) && (it.jobDef.TimeoutJobRunPrepAndFinalizeSecs > 0) {
-		return time.Second * time.Duration(it.jobDef.TimeoutJobRunPrepAndFinalizeSecs)
+	if (it.jobDef != nil) && (it.jobDef.Timeouts.JobRunPrepAndFinalize > 0) {
+		return it.jobDef.Timeouts.JobRunPrepAndFinalize
 	}
 	return TimeoutLong
 }

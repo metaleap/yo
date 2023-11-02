@@ -1,28 +1,31 @@
-package yojobs
+package yo_jobs_old
 
 import (
 	"context"
 
+	. "yo/util"
 	"yo/util/sl"
 )
+
+var defaultJobSorting = []Sorting{{Key: "due_time", Value: -1}, {Key: "finish_time", Value: -1}, {Key: "start_time", Value: -1}, {Key: "_id", Value: -1}}
 
 type (
 	// Storage (implementation provided by the importer) is for the raw CRUD backing storage.
 	Storage interface {
 		GetJobDef(ctx context.Context, id string) (*JobDef, error)
 		FindJobDef(ctx context.Context, filter *JobDefFilter) (*JobDef, error)
-		FindJobDefs(ctx context.Context, filter *JobDefFilter) ([]*JobDef, error)
+		FindJobDefs(ctx context.Context, filter *JobDefFilter, on func(jobDef *JobDef, enough *bool)) error
 
 		GetJobRun(ctx context.Context, id string) (*JobRun, error)
 		FindJobRun(ctx context.Context, filter *JobRunFilter, sort ...Sorting) (*JobRun, error)
-		FindJobRuns(ctx context.Context, req ListRequest, filter *JobRunFilter) ([]*JobRun, string, error)
+		FindJobRuns(ctx context.Context, filter *JobRunFilter, max int) ([]*JobRun, string, error)
 		CountJobRuns(ctx context.Context, limit int64, filter *JobRunFilter) (int64, error)
 		InsertJobRuns(ctx context.Context, objs ...*JobRun) error
 		DeleteJobRuns(ctx context.Context, filter *JobRunFilter) error
 
 		GetJobTask(ctx context.Context, id string) (*JobTask, error)
 		FindJobTask(ctx context.Context, filter *JobTaskFilter) (*JobTask, error)
-		FindJobTasks(ctx context.Context, req ListRequest, filter *JobTaskFilter) ([]*JobTask, string, error)
+		FindJobTasks(ctx context.Context, filter *JobTaskFilter, max int) ([]*JobTask, string, error)
 		CountJobTasks(ctx context.Context, limit int64, filter *JobTaskFilter) (int64, error)
 		InsertJobTasks(ctx context.Context, objs ...*JobTask) error
 		DeleteJobTasks(ctx context.Context, filter *JobTaskFilter) error
@@ -63,20 +66,25 @@ func (it storage) findJobDef(ctx context.Context, filter *JobDefFilter) (*JobDef
 	return job_def, err
 }
 
-func (it storage) listJobDefs(ctx context.Context, filter *JobDefFilter) ([]*JobDef, error) {
-	job_defs, err := it.impl.FindJobDefs(ctx, filter)
-	if err != nil {
-		return nil, err
-	}
-	for _, job_def := range job_defs {
-		if _, err = job_def.EnsureValidOrErrorIfEnabled(); err != nil {
-			return nil, err
+func (it storage) findJobDefs(ctx context.Context, filter *JobDefFilter, on func(jobDef *JobDef, enough *bool)) (err error) {
+	var err_inner error
+	err = it.impl.FindJobDefs(ctx, filter, func(jobDef *JobDef, enough *bool) {
+		if _, err_inner = jobDef.EnsureValidOrErrorIfEnabled(); err_inner != nil {
+			*enough = true
 		}
-	}
-	return job_defs, nil
+	})
+	return If(err != nil, err, err_inner)
 }
 
-var defaultJobSorting = []Sorting{{Key: "due_time", Value: -1}, {Key: "finish_time", Value: -1}, {Key: "start_time", Value: -1}, {Key: "_id", Value: -1}}
+func (it storage) listJobDefs(ctx context.Context, filter *JobDefFilter, max int) (ret []*JobDef, err error) {
+	ret = make([]*JobDef, 0, max)
+	err = it.findJobDefs(ctx, filter, func(jobDef *JobDef, enough *bool) {
+		if ret = append(ret, jobDef); (max > 0) && (len(ret) == max) {
+			*enough = true
+		}
+	})
+	return
+}
 
 func (it storage) getJobRun(ctx context.Context, loadDef bool, mustLoadDef bool, id string) (*JobRun, error) {
 	job_run, err := it.impl.GetJobRun(ctx, id)
@@ -104,22 +112,7 @@ func (it storage) findJobRun(ctx context.Context, loadDef bool, mustLoadDef bool
 	return job_run, err
 }
 
-func (it storage) findJobRuns(ctx context.Context, loadDefs bool, mustLoadDefs bool, req ListRequest, filter *JobRunFilter) (jobRuns []*JobRun, jobDefs []*JobDef, pageTok string, err error) {
-	if len(req.Sort) == 0 {
-		req.Sort = defaultJobSorting
-	}
-	jobRuns, pageTok, err = it.impl.FindJobRuns(ctx, req, filter)
-	if (err == nil) && loadDefs {
-		if jobDefs, err = it.listJobDefs(ctx, JobDefFilter{}.WithIds(sl.To(jobRuns, func(v *JobRun) string { return v.JobDefId })...)); err == nil {
-			for _, job := range jobRuns {
-				if job.jobDef = sl.FirstWhere(jobDefs, func(it *JobDef) bool { return (it.Id == job.JobDefId) }); (job.jobDef == nil) && mustLoadDefs {
-					return nil, nil, "", errNotFoundJobDef(job.JobDefId)
-				}
-			}
-		} else if !mustLoadDefs {
-			err = nil
-		}
-	}
+func (it storage) findJobRuns(ctx context.Context, loadDefs bool, mustLoadDefs bool, filter *JobRunFilter, max int) (jobRuns []*JobRun, jobDefs []*JobDef, pageTok string, err error) {
 	return
 }
 
@@ -150,10 +143,10 @@ func (it storage) findJobTask(ctx context.Context, loadJobRun bool, mustLoadJobR
 	return job_task, err
 }
 
-func (it storage) findJobTasks(ctx context.Context, loadJobRuns bool, mustLoadJobRuns bool, req ListRequest, filter *JobTaskFilter) (jobTasks []*JobTask, jobRuns []*JobRun, jobDefs []*JobDef, pageTok string, err error) {
-	jobTasks, pageTok, err = it.impl.FindJobTasks(ctx, req, filter)
+func (it storage) findJobTasks(ctx context.Context, loadJobRuns bool, mustLoadJobRuns bool, filter *JobTaskFilter, max int) (jobTasks []*JobTask, jobRuns []*JobRun, jobDefs []*JobDef, pageTok string, err error) {
+	jobTasks, pageTok, err = it.impl.FindJobTasks(ctx, filter, max)
 	if (err == nil) && loadJobRuns {
-		if jobRuns, jobDefs, _, err = it.findJobRuns(ctx, true, mustLoadJobRuns, ListRequest{PageSize: len(jobTasks)}, JobRunFilter{}.WithIds(sl.To(jobTasks, func(v *JobTask) string { return v.JobRunId })...)); err == nil {
+		if jobRuns, jobDefs, _, err = it.findJobRuns(ctx, true, mustLoadJobRuns, JobRunFilter{}.WithIds(sl.To(jobTasks, func(v *JobTask) string { return v.JobRunId })...), len(jobTasks)); err == nil {
 			for _, job_task := range jobTasks {
 				if job_task.jobRun = sl.FirstWhere(jobRuns, func(it *JobRun) bool { return (it.Id == job_task.JobRunId) }); (job_task.jobRun == nil) && mustLoadJobRuns {
 					return nil, nil, nil, "", errNotFoundJobRun(job_task.JobRunId)

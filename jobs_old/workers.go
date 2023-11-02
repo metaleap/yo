@@ -1,4 +1,4 @@
-package yojobs
+package yo_jobs_old
 
 import (
 	"context"
@@ -24,21 +24,20 @@ var (
 func (it *engine) startAndFinalizeJobRuns() {
 	defer doAfter(it.options.IntervalStartAndFinalizeJobs, it.startAndFinalizeJobRuns)
 
-	Timeout(ctxNone, TimeoutLong, it.finalizeJobRunsIfDone)
-	Timeout(ctxNone, TimeoutLong, it.startDueJobRuns)
-	Timeout(ctxNone, TimeoutLong, it.finalizeCancelingJobRuns)
+	it.finalizeJobRunsIfDone(ctxNone)
+	it.startDueJobRuns(ctxNone)
+	it.finalizeCancelingJobRuns(ctxNone)
 }
 
 func (it *engine) finalizeJobRunsIfDone(ctx context.Context) {
 	log := loggerNew()
 	var running_jobs []*JobRun
-	Timeout(ctx, it.options.TimeoutShort, func(ctx context.Context) {
-		jobs, _, _, err := it.storage.findJobRuns(ctx, true, false, noPaging,
-			JobRunFilter{}.WithStates(Running))
-		if nil == it.logErr(log, err) {
-			running_jobs = jobs
-		}
-	})
+
+	jobs, _, _, err := it.storage.findJobRuns(ctx, true, false,
+		JobRunFilter{}.WithStates(Running), 0)
+	if nil == it.logErr(log, err) {
+		running_jobs = jobs
+	}
 
 	cancel_jobs := map[CancellationReason][]*JobRun{}
 	for cancel_reason, check := range map[CancellationReason]func(*JobRun) bool{
@@ -71,34 +70,28 @@ func (it *engine) finalizeJobRunIfDone(ctx context.Context, jobRun *JobRun) {
 		return
 	}
 
-	tasks_filter, tasks_list_req, time_started :=
-		JobTaskFilter{}.WithJobRuns(jobRun.Id), ListRequest{}, timeNow()
+	tasks_filter, time_started :=
+		JobTaskFilter{}.WithJobRuns(jobRun.Id), timeNow()
 	if jobRun.FinalTaskFilter != nil {
 		tasks_filter = jobRun.FinalTaskFilter.WithJobRuns(jobRun.Id)
-	}
-	if jobRun.FinalTaskListReq != nil {
-		tasks_list_req = *jobRun.FinalTaskListReq
 	}
 	var tasks_stream chan *JobTask
 	abort_streaming := false
 	jobRun.Results, err = jobRun.jobDef.jobType.JobResults(jobRun.ctx(ctx, ""), func() <-chan *JobTask {
 		if tasks_stream == nil {
-			tasks_stream = make(chan *JobTask, Clamp(0, 1024, tasks_list_req.PageSize))
+			tasks_stream = make(chan *JobTask, Clamp(0, 1024, 128))
 			go func(ctx context.Context) {
 				defer close(tasks_stream)
-				for tasks_list_req.PageToken = ""; !abort_streaming; { // bools dont need a mutex =)
-					tasksPage, _, _, nextPageTok, err := it.storage.findJobTasks(ctx, false, false,
-						tasks_list_req, tasks_filter)
+				for !abort_streaming { // bools dont need a mutex =)
+					tasks_page, _, _, _, err := it.storage.findJobTasks(ctx, false, false,
+						tasks_filter, 0)
 					if nil != it.logErr(log, err, jobRun) {
 						return
 					}
-					for _, task := range tasksPage {
+					for _, task := range tasks_page {
 						if tasks_stream <- task; abort_streaming {
 							break
 						}
-					}
-					if tasks_list_req.PageToken = nextPageTok; tasks_list_req.PageToken == "" {
-						break
 					}
 				}
 			}(ctx)
@@ -137,13 +130,13 @@ func (it *engine) finalizeJobRunIfDone(ctx context.Context, jobRun *JobRun) {
 func (it *engine) finalizeCancelingJobRuns(ctx context.Context) {
 	log := loggerNew()
 	var cancel_jobruns []*JobRun
-	Timeout(ctx, it.options.TimeoutShort, func(ctx context.Context) {
-		job_runs, _, _, err := it.storage.findJobRuns(ctx, true, false, noPaging,
-			JobRunFilter{}.WithStates(JobRunCancelling))
-		if it.logErr(log, err) == nil {
-			cancel_jobruns = job_runs
-		}
-	})
+
+	job_runs, _, _, err := it.storage.findJobRuns(ctx, true, false,
+		JobRunFilter{}.WithStates(JobRunCancelling), 0)
+	if it.logErr(log, err) == nil {
+		cancel_jobruns = job_runs
+	}
+
 	GoItems(ctx, cancel_jobruns, it.finalizeCancelingJobRun,
 		it.options.MaxConcurrentOps, TimeoutLong)
 }
@@ -152,14 +145,13 @@ func (it *engine) finalizeCancelingJobRun(ctx context.Context, job *JobRun) {
 	log := loggerNew()
 	var num_canceled, num_tasks_to_cancel int
 
-	list_req := ListRequest{PageSize: 444}
-	for {
-		job_tasks, _, _, page_tok, err := it.storage.findJobTasks(ctx, false, false, list_req,
-			JobTaskFilter{}.WithJobRuns(job.Id).WithStates(Pending, Running))
+	{
+		job_tasks, _, _, _, err := it.storage.findJobTasks(ctx, false, false,
+			JobTaskFilter{}.WithJobRuns(job.Id).WithStates(Pending, Running), 0)
 		if it.logErr(log, err, job) != nil {
 			return
 		}
-		list_req.PageToken, num_tasks_to_cancel = page_tok, num_tasks_to_cancel+len(job_tasks)
+		num_tasks_to_cancel = num_tasks_to_cancel + len(job_tasks)
 		for _, job_task := range job_tasks {
 			if canceler := it.setTaskCanceler(job_task.Id, nil); canceler != nil {
 				go canceler()
@@ -175,10 +167,8 @@ func (it *engine) finalizeCancelingJobRun(ctx context.Context, job *JobRun) {
 				num_canceled++
 			}
 		}
-		if page_tok == "" {
-			break
-		}
 	}
+
 	if num_tasks_to_cancel == num_canceled { // no more tasks left to cancel, now finalize
 		job.State, job.FinishTime =
 			Cancelled, timeNow()
@@ -194,13 +184,13 @@ func (it *engine) finalizeCancelingJobRun(ctx context.Context, job *JobRun) {
 func (it *engine) startDueJobRuns(ctx context.Context) {
 	log := loggerNew()
 	var due_jobs []*JobRun
-	Timeout(ctx, it.options.TimeoutShort, func(ctx context.Context) {
-		pending_and_due_jobs, _, _, err := it.storage.findJobRuns(ctx, true, false, noPaging,
-			JobRunFilter{}.WithStates(Pending).WithDue(true))
-		if nil == it.logErr(log, err) {
-			due_jobs = pending_and_due_jobs
-		}
-	})
+
+	pending_and_due_jobs, _, _, err := it.storage.findJobRuns(ctx, true, false,
+		JobRunFilter{}.WithStates(Pending).WithDue(true), 0)
+	if nil == it.logErr(log, err) {
+		due_jobs = pending_and_due_jobs
+	}
+
 	{ // cancel rare duplicates and remnants of by-now-removed/disabled job-defs
 		cancel_jobs := map[CancellationReason][]*JobRun{}
 		sort.Slice(due_jobs, func(i int, j int) bool { return (!due_jobs[i].AutoScheduled) })
@@ -311,15 +301,15 @@ func (it *engine) startDueJob(ctx context.Context, jobRun *JobRun) {
 func (it *engine) ensureJobRunSchedules() {
 	defer doAfter(it.options.IntervalEnsureJobSchedules, it.ensureJobRunSchedules)
 
-	var jobDefs []*JobDef
+	var job_defs []*JobDef
 	{
 		var err error
 		log := loggerNew()
-		jobDefs, err = it.storage.listJobDefs(ctxNone,
-			JobDefFilter{}.WithDisabled(false).WithEnabledSchedules())
+		job_defs, err = it.storage.listJobDefs(ctxNone,
+			JobDefFilter{}.WithDisabled(false).WithEnabledSchedules(), 0)
 		it.logErr(log, err)
 	}
-	GoItems(ctxNone, jobDefs, it.ensureJobDefScheduled,
+	GoItems(ctxNone, job_defs, it.ensureJobDefScheduled,
 		it.options.MaxConcurrentOps, it.options.TimeoutShort)
 }
 
@@ -385,23 +375,21 @@ func (it *engine) scheduleJobRun(ctx context.Context, jobDef *JobDef, jobRunPrev
 func (it *engine) deleteStorageExpiredJobRuns() {
 	defer doAfter(it.options.IntervalDeleteStorageExpiredJobs, it.deleteStorageExpiredJobRuns)
 
-	Timeout(ctxNone, TimeoutLong, func(ctx context.Context) {
-		log := loggerNew()
-		job_defs, err := it.storage.listJobDefs(ctx, JobDefFilter{}.WithStorageExpiry(true))
-		if nil != it.logErr(log, err) {
-			return
-		}
-		for _, jobDef := range job_defs {
-			it.deleteStorageExpiredJobsForDef(ctx, jobDef)
-		}
-	})
+	log := loggerNew()
+	job_defs, err := it.storage.listJobDefs(ctxNone, JobDefFilter{}.WithStorageExpiry(true), 0)
+	if nil != it.logErr(log, err) {
+		return
+	}
+	for _, jobDef := range job_defs {
+		it.deleteStorageExpiredJobsForDef(ctxNone, jobDef)
+	}
 }
 
 func (it *engine) deleteStorageExpiredJobsForDef(ctx context.Context, jobDef *JobDef) {
 	log := loggerNew()
-	jobs_to_delete, _, _, err := it.storage.findJobRuns(ctx, true, false, noPaging,
+	jobs_to_delete, _, _, err := it.storage.findJobRuns(ctx, true, false,
 		JobRunFilter{}.WithStates(Done, Cancelled).WithJobDefs(jobDef.Id).
-			WithFinishedBefore(timeNow().AddDate(0, 0, -jobDef.DeleteAfterDays)))
+			WithFinishedBefore(timeNow().AddDate(0, 0, -jobDef.DeleteAfterDays)), 0)
 	if nil != it.logErr(log, err, jobDef) {
 		return
 	}
@@ -428,8 +416,8 @@ func (it *engine) expireOrRetryDeadJobTasks() {
 	currently_running := map[string][]*JobRun{} // gather candidate jobs for task selection
 	{
 		log := loggerNew()
-		running_jobs, _, _, err := it.storage.findJobRuns(ctxNone, true, true, noPaging,
-			JobRunFilter{}.WithStates(Running))
+		running_jobs, _, _, err := it.storage.findJobRuns(ctxNone, true, true,
+			JobRunFilter{}.WithStates(Running), 0)
 		if (nil != it.logErr(log, err)) || (len(running_jobs) == 0) {
 			return
 		}
@@ -454,7 +442,7 @@ func (it *engine) expireOrRetryDeadJobTasksForJobDef(ctx context.Context, jobDef
 	} else { //  the rare edge case: un-Done tasks still in DB for old now-disabled-or-deleted-from-config job def
 		task_filter = task_filter.WithStates(Running, Pending)
 	}
-	dead_tasks, _, _, _, err := it.storage.findJobTasks(ctx, false, false, noPaging, task_filter)
+	dead_tasks, _, _, _, err := it.storage.findJobTasks(ctx, false, false, task_filter, 0)
 	if nil != it.logErr(log, err, jobDef) {
 		return
 	}
@@ -481,8 +469,8 @@ func (it *engine) runJobTasks() {
 	{
 		var err error
 		log := loggerNew()
-		pending_tasks, _, _, _, err = it.storage.findJobTasks(ctxNone, true, false, ListRequest{PageSize: it.options.FetchTasksToRun},
-			JobTaskFilter{}.WithStates(Pending))
+		pending_tasks, _, _, _, err = it.storage.findJobTasks(ctxNone, true, false,
+			JobTaskFilter{}.WithStates(Pending), it.options.FetchTasksToRun)
 		if nil != it.logErr(log, err) {
 			return
 		}
