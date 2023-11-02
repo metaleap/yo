@@ -150,7 +150,14 @@ func (*engine) cancelJobRuns(ctx *Ctx, jobRunsToCancel map[CancellationReason][]
 	}
 }
 
-func (it *engine) createJobRun(ctx *Ctx, jobDef *JobDef, dueTime time.Time, jobDetails JobDetails, autoScheduledNextAfter *JobRun) *JobRun {
+func (me *engine) CreateJobRun(ctx *Ctx, jobDef *JobDef, dueTime *time.Time, jobDetails JobDetails) *JobRun {
+	if now := timeNow(); (dueTime == nil) || now.After(*dueTime) {
+		dueTime = now
+	}
+	return me.createJobRun(ctx, jobDef, *dueTime, jobDetails, nil)
+}
+
+func (*engine) createJobRun(ctx *Ctx, jobDef *JobDef, dueTime time.Time, jobDetails JobDetails, autoScheduledNextAfter *JobRun) *JobRun {
 	is_auto_scheduled := yodb.Bool(autoScheduledNextAfter != nil)
 	if jobDef.Disabled || ((!jobDef.AllowManualJobRuns) && !is_auto_scheduled) {
 		return nil
