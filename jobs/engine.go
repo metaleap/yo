@@ -125,6 +125,36 @@ func (me *engine) OnJobRunFinalized(eventHandler func(*JobRun, *JobRunStats)) {
 	me.eventHandlers.onJobRunFinalized = eventHandler
 }
 
+// func (it *engine) cancelJobRuns(ctx context.Context, jobRunsToCancel map[CancellationReason][]*JobRun) (errs map[*JobRun]error) {
+// 	if len(jobRunsToCancel) == 0 {
+// 		return
+// 	}
+// 	log := loggerNew()
+// 	var mut_errs sync.Mutex
+// 	errs = make(map[*JobRun]error, len(jobRunsToCancel)/2)
+// 	for reason, jobRuns := range jobRunsToCancel {
+// 		GoItems(ctx, jobRuns, func(ctx context.Context, jobRun *JobRun) {
+// 			state, version := jobRun.State, jobRun.Version
+// 			jobRun.State, jobRun.Info.CancellationReason = JobRunCancelling, reason
+// 			if it.logLifecycleEvents(nil, jobRun, nil) {
+// 				jobRun.logger(log).Infof("marking %s '%s' job run '%s' as %s", state, jobRun.JobDefId, jobRun.Id, jobRun.State)
+// 			}
+// 			if err := it.storage.saveJobRun(ctx, jobRun); err != nil {
+// 				jobRun.State, jobRun.Version = state, version
+// 				mut_errs.Lock()
+// 				errs[jobRun] = err
+// 				mut_errs.Unlock()
+// 			}
+// 		}, it.options.MaxConcurrentOps, it.options.TimeoutShort)
+// 	}
+// 	return
+// }
+
+func (it *engine) DeleteJobRuns(ctx *Ctx, jobRunIds ...yodb.I64) int64 {
+	return yodb.Delete[JobRun](ctx, JobRunId.In(yodb.Arr[yodb.I64](jobRunIds).ToAnys()...).And(
+		jobRunState.Equal(string(Done)).Or(jobRunState.Equal(string(Cancelled)))))
+}
+
 func (me *engine) Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats {
 	job_run := yodb.ById[JobRun](ctx, jobRunId)
 	return job_run.Stats(ctx)
