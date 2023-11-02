@@ -68,7 +68,7 @@ func (me Ref[_, _]) IsDbRef() bool { return true } // no direct callers, but che
 func (me *Ref[_, _]) SetId(id I64) { me.self, me.id = nil, id }
 func (me *Ref[T, _]) Get(ctx *yoctx.Ctx) *T {
 	if (me.self == nil) && (me.id != 0) {
-		me.self = FindOne[T](ctx, ColID.Equal(me.id))
+		me.self = ById[T](ctx, me.id)
 	}
 	return me.self
 }

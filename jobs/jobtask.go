@@ -3,6 +3,8 @@ package yojobs
 import (
 	"errors"
 	"time"
+
+	. "yo/ctx"
 )
 
 type JobTask struct {
@@ -22,27 +24,20 @@ type JobTask struct {
 	jobRun *JobRun
 }
 
-func (it *JobTask) Failed() bool {
-	return (it.State == Done) && (len(it.Attempts) > 0) && (it.Attempts[0].Err != nil)
+func (me *JobTask) Failed() bool {
+	return (me.State == Done) && (len(me.Attempts) > 0) && (me.Attempts[0].Err != nil)
 }
 
-func (it *JobTask) Succeeded() bool {
-	return (it.State == Done) && (len(it.Attempts) > 0) && (it.Attempts[0].Err == nil)
+func (me *JobTask) Succeeded() bool {
+	return (me.State == Done) && (len(me.Attempts) > 0) && (me.Attempts[0].Err == nil)
 }
 
-func (it *JobTask) JobDef() string {
-	if it.jobRun == nil {
-		return ""
-	}
-	return it.jobRun.JobDefId
-}
-
-func (it *JobTask) markForRetryOrAsFailed(jobDef *JobDef) (retry bool) {
-	if (jobDef != nil) && (len(it.Attempts) <= int(jobDef.MaxTaskRetries)) { // first attempt was not a RE-try
-		it.State, it.StartTime, it.FinishTime = Pending, nil, nil
+func (me *JobTask) markForRetryOrAsFailed(jobDef *JobDef) (retry bool) {
+	if (jobDef != nil) && (len(me.Attempts) <= int(jobDef.MaxTaskRetries)) { // first attempt was not a RE-try
+		me.State, me.StartTime, me.FinishTime = Pending, nil, nil
 		return true
 	}
-	it.State, it.FinishTime = Done, timeNow()
+	me.State, me.FinishTime = Done, timeNow()
 	return false
 }
 
@@ -58,24 +53,28 @@ type TaskError struct {
 	Message string
 }
 
-func (it *TaskError) Err() error {
-	if it == nil {
+func (me *TaskError) Err() error {
+	if me == nil {
 		return nil
 	}
-	return errors.New(it.Message)
+	return errors.New(me.Message)
 }
 
-func (it *TaskError) Error() (s string) {
-	if it != nil {
-		s = it.Err().Error()
+func (me *TaskError) Error() (s string) {
+	if me != nil {
+		s = me.Err().Error()
 	}
 	return
 }
 
 // Timeout implements utils.HasTimeout
-func (it *JobTask) Timeout() time.Duration {
-	if (it.jobRun != nil) && (it.jobRun.jobDef) != nil && (it.jobRun.jobDef.TimeoutTaskRunSecs) > 0 {
-		return time.Second * time.Duration(it.jobRun.jobDef.TimeoutTaskRunSecs)
+func (me *JobTask) Timeout(ctx *Ctx) time.Duration {
+	var job_def *JobDef
+	if me.jobRun != nil {
+		job_def = me.jobRun.JobDef.Get(ctx)
+	}
+	if (job_def != nil) && (job_def.TimeoutTaskRunSecs) > 0 {
+		return time.Second * time.Duration(job_def.TimeoutTaskRunSecs)
 	}
 	return TimeoutLong
 }

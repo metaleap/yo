@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	. "yo/ctx"
+	yodb "yo/db"
 	. "yo/util"
 	"yo/util/str"
 )
@@ -81,7 +82,7 @@ type JobType interface {
 
 type Context struct {
 	*Ctx
-	JobRunId   string
+	JobRunId   yodb.I64
 	JobDetails JobDetails
 	JobDef     JobDef
 	JobTaskId  string
@@ -148,12 +149,12 @@ func wellTypedFor[TImpl jobTypeDefined](check jobTypeDefined) (jobTypeDefined, e
 	return new(TImpl), nil
 }
 
-func (it *jobTypeReg) ById(jobTypeId string) (ret JobType) {
-	it.Lock()
-	defer it.Unlock()
-	if ret = it.byId[jobTypeId]; ret == nil {
-		ret = it.new(jobTypeId)
-		it.byId[jobTypeId] = ret
+func (me *jobTypeReg) ById(jobTypeId string) (ret JobType) {
+	me.Lock()
+	defer me.Unlock()
+	if ret = me.byId[jobTypeId]; ret == nil {
+		ret = me.new(jobTypeId)
+		me.byId[jobTypeId] = ret
 	}
 	return
 }

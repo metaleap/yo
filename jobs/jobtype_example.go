@@ -37,10 +37,10 @@ func (exampleJobType) dice() byte {
 	return b[0]
 }
 
-func (it exampleJobType) IsTaskErrRetryable(error) bool { return false }
+func (exampleJobType) IsTaskErrRetryable(error) bool { return false }
 
-func (it exampleJobType) JobDetails(ctx *Context) (JobDetails, error) {
-	if (it.dice() % 2) == 0 {
+func (me exampleJobType) JobDetails(ctx *Context) (JobDetails, error) {
+	if (me.dice() % 2) == 0 {
 		return &exampleJobDetails{MsgFmt: ">>>>>>>>>>>>>IT WAS %s JUST %s AGO"}, nil
 	}
 	return ctx.JobDetails, nil
@@ -54,10 +54,10 @@ func (exampleJobType) TaskDetails(_ *Context, stream chan<- []TaskDetails, _ fun
 	}
 }
 
-func (it exampleJobType) TaskResults(ctx *Context, task TaskDetails) (TaskResults, error) {
+func (me exampleJobType) TaskResults(ctx *Context, task TaskDetails) (TaskResults, error) {
 	msg := ctx.JobDetails.(*exampleJobDetails).MsgFmt
 	t := task.(*exampleTaskDetails).Time
-	if d := it.dice(); (d % 11) == 0 {
+	if d := me.dice(); (d % 11) == 0 {
 		return nil, errors.New(str.Fmt("artificially provoked random error due to dice throw %d", d))
 	}
 	println(str.Fmt(msg, t.Format("2006-01-02 15:04:05"), time.Since(t)))

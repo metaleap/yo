@@ -4,17 +4,17 @@ import (
 	"time"
 
 	. "yo/ctx"
+	yodb "yo/db"
 	. "yo/util"
 )
 
 type RunState string
 
 const (
-	RunStateUndefified RunState = ""
-	Pending            RunState = "PENDING"
-	Running            RunState = "RUNNING"
-	Done               RunState = "DONE"
-	Cancelled          RunState = "CANCELLED"
+	Pending   RunState = "PENDING"
+	Running   RunState = "RUNNING"
+	Done      RunState = "DONE"
+	Cancelled RunState = "CANCELLED"
 	// JobRunCancelling only exists for `JobRun`s, never for `JobTask`s.
 	JobRunCancelling RunState = "CANCELLING"
 )
@@ -22,42 +22,39 @@ const (
 type CancellationReason string
 
 const (
-	CancellationReasonDuplicate            CancellationReason = "JobRunDuplicate"
-	CancellationReasonDefInvalidOrGone     CancellationReason = "JobDefInvalidOrGone"
-	CancellationReasonDefChanged           CancellationReason = "JobDefChanged"
+	CancellationReasonJobRunDuplicate      CancellationReason = "JobRunDuplicate"
+	CancellationReasonJobDefInvalidOrGone  CancellationReason = "JobDefInvalidOrGone"
+	CancellationReasonJobDefChanged        CancellationReason = "JobDefChanged"
 	CancellationReasonJobTypeInvalidOrGone CancellationReason = "JobTypeInvalidOrGone"
 )
 
 type JobRun struct {
-	Id string
+	Id      yodb.I64
+	Version yodb.U32
 
-	JobTypeId     string
-	JobDefId      string
-	State         RunState
-	DueTime       time.Time
-	StartTime     *time.Time
-	FinishTime    *time.Time
-	AutoScheduled bool
+	JobTypeId     yodb.Text
+	JobDef        yodb.Ref[JobDef, yodb.RefOnDelSetNull]
+	state         yodb.Text
+	DueTime       *yodb.DateTime
+	StartTime     *yodb.DateTime
+	FinishTime    *yodb.DateTime
+	AutoScheduled yodb.Bool
+
+	// this is DB-uniqued and its only purpose is to avoid multiple instances concurrently scheduling the same next job in `ensureJobRunSchedules`
+	ScheduledNextAfterJobRun yodb.Ref[JobRun, yodb.RefOnDelSetNull]
+
+	InfoDurationPrepSecs     *float64
+	InfoDurationFinalizeSecs *float64
+	InfoCancellationReason   CancellationReason
 
 	Details JobDetails
 	Results JobResults
-
-	// this is DB-uniqued and its only purpose is to avoid multiple instances concurrently scheduling the same next job in `ensureJobRunSchedules`
-	ScheduledNextAfterJobRun string
-
-	Info struct { // Informational purposes only
-		DurationPrepSecs     *float64
-		DurationFinalizeSecs *float64
-		CancellationReason   CancellationReason
-	}
-
-	Version int
-
-	jobDef *JobDef
 }
 
-func (it *JobRun) ctx(ctx *Ctx, taskId string) *Context {
-	return &Context{Ctx: ctx, JobRunId: it.Id, JobDetails: it.Details, JobDef: *it.jobDef, JobTaskId: taskId}
+func (me *JobRun) State() RunState { return RunState(me.state) }
+
+func (me *JobRun) ctx(ctx *Ctx, taskId string) *Context {
+	return &Context{Ctx: ctx, JobRunId: me.Id, JobDetails: me.Details, JobDef: *me.JobDef.Get(ctx), JobTaskId: taskId}
 }
 
 type JobRunStats struct {
@@ -75,14 +72,14 @@ type JobRunStats struct {
 //   - 100 always means all tasks are DONE or CANCELLED,
 //   - 0 always means no tasks are DONE or CANCELLED (or none exist yet),
 //   - 1-99 means a (technically slightly imprecise) approximation of the actual ratio.
-func (it *JobRunStats) PercentDone() int {
-	switch it.TasksTotal {
-	case 0, (it.TasksByState[Pending] + it.TasksByState[Running]):
+func (me *JobRunStats) PercentDone() int {
+	switch me.TasksTotal {
+	case 0, (me.TasksByState[Pending] + me.TasksByState[Running]):
 		return 0
-	case (it.TasksByState[Done] + it.TasksByState[Cancelled]):
+	case (me.TasksByState[Done] + me.TasksByState[Cancelled]):
 		return 100
 	default:
-		return Clamp(1, 99, int(float64(it.TasksByState[Done]+it.TasksByState[Cancelled])*(100.0/float64(it.TasksTotal))))
+		return Clamp(1, 99, int(float64(me.TasksByState[Done]+me.TasksByState[Cancelled])*(100.0/float64(me.TasksTotal))))
 	}
 }
 
@@ -91,24 +88,25 @@ func (it *JobRunStats) PercentDone() int {
 //   - 0 always means "job fully failed" (all its tasks failed),
 //   - 1-99 means a (technically slightly imprecise) approximation of the actual success/failure ratio,
 //   - `nil` means the job is not yet `DONE`.
-func (it *JobRunStats) PercentSuccess() *int {
-	if it.TasksTotal == 0 || it.TasksByState[Done] != it.TasksTotal {
+func (me *JobRunStats) PercentSuccess() *int {
+	if me.TasksTotal == 0 || me.TasksByState[Done] != me.TasksTotal {
 		return nil
 	}
-	switch it.TasksTotal {
-	case it.TasksSucceeded:
+	switch me.TasksTotal {
+	case me.TasksSucceeded:
 		return ToPtr(100)
-	case it.TasksFailed:
+	case me.TasksFailed:
 		return ToPtr(0)
 	default:
-		return ToPtr(Clamp(1, 99, int(float64(it.TasksSucceeded)*(100.0/float64(it.TasksTotal)))))
+		return ToPtr(Clamp(1, 99, int(float64(me.TasksSucceeded)*(100.0/float64(me.TasksTotal)))))
 	}
 }
 
 // Timeout implements utils.HasTimeout
-func (it *JobRun) Timeout() time.Duration {
-	if (it.jobDef != nil) && (it.jobDef.TimeoutJobRunPrepAndFinalizeSecs > 0) {
-		return time.Second * time.Duration(it.jobDef.TimeoutJobRunPrepAndFinalizeSecs)
+func (me *JobRun) Timeout(ctx *Ctx) time.Duration {
+	job_def := me.JobDef.Get(ctx)
+	if (job_def != nil) && (job_def.TimeoutJobRunPrepAndFinalizeSecs > 0) {
+		return time.Second * time.Duration(job_def.TimeoutJobRunPrepAndFinalizeSecs)
 	}
 	return TimeoutLong
 }
