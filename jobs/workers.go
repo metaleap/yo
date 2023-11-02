@@ -16,6 +16,41 @@ func qSafe(id yodb.I64) q.Query {
 	return yodb.ColID.Equal(id)
 }
 
+// A died task is one whose runner died between its start and its finishing or orderly timeout.
+// It's found in the DB as still RUNNING despite its timeout moment being over a minute ago:
+func (me *engine) expireOrRetryDeadJobTasks() {
+	defer func() {
+		_ = recover() // the odd, super-rare connectivity/db-restart/etc fail doesnt bother us here on our regular interval
+		DoAfter(me.options.IntervalExpireOrRetryDeadTasks, me.expireOrRetryDeadJobTasks)
+	}()
+
+	ctx := NewCtxNonHttp(TimeoutLong, false, "")
+	jobs := map[yodb.I64][]*JobRun{} // gather candidate jobs for task selection
+	{
+		for _, job := range yodb.FindMany[JobRun](ctx, jobRunState.Equal(Running), 0, JobRunFields(JobRunId, JobRunJobDef, jobRunState)) {
+			jobs[job.JobDef.Id()] = append(jobs[job.JobDef.Id()], job)
+		}
+	}
+
+	GoItems(sl.Keys(jobs), func(jobDefId yodb.I64) {
+		if job_runs := jobs[jobDefId]; len(job_runs) > 0 {
+			job_def := job_runs[0].jobDef(ctx)
+			for _, job_run := range job_runs[1:] {
+				job_run.JobDef = job_runs[0].JobDef // copies the same `self` pointer
+			}
+			if currently_running := sl.Where(job_runs, func(it *JobRun) bool { return it.State() == Running }); len(currently_running) > 0 {
+				me.expireOrRetryDeadJobTasksForJobDef(job_def, sl.To(currently_running, func(it *JobRun) yodb.I64 { return it.Id }))
+			}
+			if is_jobdef_dead := (job_def == nil) || (job_def.jobType == nil) || job_def.Disabled; is_jobdef_dead {
+				for _, job_run := range job_runs {
+					job_run.state = yodb.Text(JobRunCancelling)
+					yodb.Update[JobRun](ctx, job_run, nil, false, jobRunState.F())
+				}
+			}
+		}
+	}, me.options.MaxConcurrentOps)
+}
+
 func (me *engine) expireOrRetryDeadJobTasksForJobDef(jobDef *JobDef, runningJobIds []yodb.I64) {
 	defer func() {
 		_ = recover() // the odd, super-rare connectivity/db-restart/etc fail doesnt bother us here on our regular interval

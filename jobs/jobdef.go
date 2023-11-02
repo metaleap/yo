@@ -5,6 +5,7 @@ import (
 	"time"
 
 	yodb "yo/db"
+	q "yo/db/query"
 	"yo/jobs/crontab"
 	. "yo/util"
 	"yo/util/str"
@@ -100,10 +101,12 @@ func (me *JobDef) ok(t time.Time) bool {
 	return false
 }
 
+var _ yodb.Obj = (*JobDef)(nil)
+
 func (me *JobDef) OnAfterLoaded() {
 	me.jobType = nil
 	if job_type_reg := jobType(string(me.JobTypeId)); (!me.Disabled) && (job_type_reg != nil) {
 		me.jobType = job_type_reg.ById(string(me.JobTypeId))
 	}
 }
-func (me *JobDef) OnBeforeStoring() {}
+func (me *JobDef) OnBeforeStoring() (q.Query, []q.F) { return nil, nil }
