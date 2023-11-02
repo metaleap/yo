@@ -16,33 +16,44 @@ func qSafe[TFld q.Field](id yodb.I64, versionField TFld, versionNr yodb.U32) q.Q
 	return yodb.ColID.Equal(id).And(versionField.Equal(versionNr))
 }
 
-// func (me *engine) expireOrRetryDeadJobTasksForJobDef(ctx *Ctx, jobDef *JobDef) {
-// 	is_jobdef_dead :=  bool(jobDef.Disabled) || (jobDef.jobType == nil)
-// 	task_filter := JobTaskFilter{}.WithJobRuns(sl.To(runningJobs, func(v *JobRun) string { return v.Id })...)
-// 	if !is_jobdef_dead { // the usual case.
-// 		task_filter = task_filter.WithStates(Running).WithStartedBefore(timeNow().Add(-(jobDef.Timeouts.TaskRun + time.Minute)))
-// 	} else { //  the rare edge case: un-Done tasks still in DB for old now-disabled-or-deleted-from-config job def
-// 		task_filter = task_filter.WithStates(Running, Pending)
-// 	}
-// 	dead_tasks, _, _, _, err := me.storage.findJobTasks(ctx, false, false, task_filter, 0)
-// 	if nil != me.logErr(log, err, jobDef) {
-// 		return
-// 	}
-// 	for _, task := range dead_tasks {
-// 		if is_jobdef_dead {
-// 			task.State = Cancelled
-// 			if len(task.Attempts) > 0 && task.Attempts[0].Err == nil {
-// 				task.Attempts[0].Err = context.Canceled
-// 			}
-// 		} else if (!task.markForRetryOrAsFailed(jobDef)) && (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
-// 			task.Attempts[0].Err = context.DeadlineExceeded
-// 		}
-// 		if me.logLifecycleEvents(jobDef, nil, task) {
-// 			task.logger(log).Infof("marking dead (state %s after timeout) task '%s' (of '%s' job '%s') as %s", Running, task.Id, jobDef.Id, task.JobRunId, task.State)
-// 		}
-// 		_ = me.logErr(log, me.storage.saveJobTask(ctx, task), task)
-// 	}
-// }
+func (me *engine) expireOrRetryDeadJobTasksForJobDef(jobDef *JobDef, runningJobIds []yodb.I64) {
+	is_jobdef_dead := bool(jobDef.Disabled) || (jobDef.jobType == nil)
+	ctx := NewCtxNonHttp(TimeoutLong, false, "")
+	query := JobTaskJobRun.In(yodb.Arr[yodb.I64](runningJobIds).ToAnys()...)
+	if is_jobdef_dead { //  the rare edge case: un-Done/un-Cancelled tasks still in DB for old now-disabled-or-deleted-from-config job def
+		query = query.And(jobTaskState.In(Running, Pending))
+	} else { // the usual case.
+		query = query.And(jobTaskState.Equal(Running)).And(
+			JobTaskStartTime.LessThan(time.Now().Add(-(time.Minute + (time.Second * time.Duration(jobDef.TimeoutSecsTaskRun))))))
+	}
+	yodb.Each[JobTask](ctx, query, 0, nil, func(rec *JobTask, enough *bool) {
+
+	})
+
+	// if !is_jobdef_dead { // the usual case.
+	// 	task_filter = task_filter.WithStates(Running).WithStartedBefore(timeNow().Add(-(jobDef.Timeouts.TaskRun + time.Minute)))
+	// } else { //  the rare edge case: un-Done tasks still in DB for old now-disabled-or-deleted-from-config job def
+	// 	task_filter = task_filter.WithStates(Running, Pending)
+	// }
+	// dead_tasks, _, _, _, err := me.storage.findJobTasks(ctx, false, false, task_filter, 0)
+	// if nil != me.logErr(log, err, jobDef) {
+	// 	return
+	// }
+	// for _, task := range dead_tasks {
+	// 	if is_jobdef_dead {
+	// 		task.State = Cancelled
+	// 		if len(task.Attempts) > 0 && task.Attempts[0].Err == nil {
+	// 			task.Attempts[0].Err = context.Canceled
+	// 		}
+	// 	} else if (!task.markForRetryOrAsFailed(jobDef)) && (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
+	// 		task.Attempts[0].Err = context.DeadlineExceeded
+	// 	}
+	// 	if me.logLifecycleEvents(jobDef, nil, task) {
+	// 		task.logger(log).Infof("marking dead (state %s after timeout) task '%s' (of '%s' job '%s') as %s", Running, task.Id, jobDef.Id, task.JobRunId, task.State)
+	// 	}
+	// 	_ = me.logErr(log, me.storage.saveJobTask(ctx, task), task)
+	// }
+}
 
 func (me *engine) runJobTasks() {
 	defer func() {
