@@ -107,7 +107,7 @@ func schemaCreateTable(desc *structDesc, didWriteUpdTriggerFuncYet *bool) (ret [
 			case ColCreatedAt, ColModifiedAt:
 				w("timestamp without time zone NOT NULL DEFAULT (current_timestamp)")
 			default:
-				field := desc.ty.Field(i)
+				field, _ := desc.ty.FieldByName(string(desc.fields[i]))
 				is_unique := sl.Has(desc.constraints.uniques, q.F(field.Name))
 				w(sqlColTypeDeclFrom(field.Type, is_unique))
 			}

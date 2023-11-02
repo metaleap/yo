@@ -22,9 +22,9 @@ func init() {
 }
 
 func Init(staticFileDirApp fs.FS, staticFileDirYo fs.FS) (listenAndServe func()) {
+	time.Local = time.UTC // between above `init` and now, `time` might have its own `init`-time ideas about setting `time.Local`...
 	yosrv.StaticFileDirApp, yosrv.StaticFileDirYo =
 		staticFileDirApp, staticFileDirYo
-	time.Local = time.UTC // between above `init` and now, `time` might have its own `init`-time ideas about setting `time.Local`...
 	yolog.PrintLnLn("DB init...")
 	db_structs := yodb.InitAndConnectAndMigrateAndMaybeCodegen()
 	yolog.PrintLnLn("API init...")

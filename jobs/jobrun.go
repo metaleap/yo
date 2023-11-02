@@ -43,10 +43,10 @@ type JobRun struct {
 	AutoScheduled      yodb.Bool
 
 	// this is DB-uniqued and its only purpose is to avoid multiple instances concurrently scheduling the same next job in `ensureJobRunSchedules`
-	ScheduledNextAfterJobRun yodb.Ref[JobRun, yodb.RefOnDelSetNull]
+	ScheduledNextAfter yodb.Ref[JobRun, yodb.RefOnDelSetNull]
 
-	DurationPrepSecs     *yodb.F32
-	DurationFinalizeSecs *yodb.F32
+	DurationPrepSecs     yodb.F32
+	DurationFinalizeSecs yodb.F32
 
 	Details JobDetails
 	Results JobResults
@@ -133,6 +133,11 @@ func (me *JobRun) Stats(ctx *Ctx) *JobRunStats {
 	if (me.StartTime != nil) && (me.FinishTime != nil) {
 		stats.DurationTotalMins = ToPtr(me.FinishTime.Sub(me.StartTime).Minutes())
 	}
-	stats.DurationPrepSecs, stats.DurationFinalizeSecs = me.DurationPrepSecs, me.DurationFinalizeSecs
+	if me.DurationPrepSecs != 0 {
+		stats.DurationPrepSecs = &me.DurationPrepSecs
+	}
+	if me.DurationFinalizeSecs != 0 {
+		stats.DurationFinalizeSecs = &me.DurationFinalizeSecs
+	}
 	return &stats
 }

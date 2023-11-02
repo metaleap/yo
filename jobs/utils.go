@@ -10,7 +10,7 @@ import (
 	"yo/util/str"
 )
 
-func timeNow() *time.Time { return ToPtr(time.Now().In(Timezone)) }
+func timeNow() *time.Time { return ToPtr(time.Now()) }
 
 func errNotFoundJobRun(id string) error {
 	return errors.New(str.Fmt("job run '%s' no longer exists", id))

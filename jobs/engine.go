@@ -14,7 +14,7 @@ import (
 
 func init() {
 	yodb.Ensure[JobDef, q.F]("", nil, false)
-	yodb.Ensure[JobRun, q.F]("", nil, false)
+	yodb.Ensure[JobRun, q.F]("", nil, false, yodb.Unique[JobRunField]{JobRunScheduledNextAfter})
 	yodb.Ensure[JobTask, q.F]("", nil, false)
 }
 
@@ -23,10 +23,6 @@ func init() {
 //   - the default fallback for `JobDef`s without a custom `Timeouts.JobPrepAndFinalize`.
 //   - the timeout active during multiple task cancellations. Left-overs are still picked up by a follow-up cancellation-finalizer.
 const TimeoutLong = 2 * time.Minute
-
-// All times handled, stored, loaded etc. are relocated into this `timezone`.
-// Only set it once no later than `init` time (if at all), and have it be the same every time across restarts (not a candidate for configurability).
-var Timezone = time.UTC
 
 type Engine interface {
 	// Resume starts the `Engine`, ie. its (from then on) regularly-recurring background watchers.
@@ -153,9 +149,37 @@ func (*engine) cancelJobRuns(ctx *Ctx, jobRunsToCancel map[CancellationReason][]
 	}
 }
 
+func (it *engine) createJobRun(ctx *Ctx, jobDef *JobDef, dueTime time.Time, jobDetails JobDetails, autoScheduledNextAfter *JobRun) *JobRun {
+	is_auto_scheduled := yodb.Bool(autoScheduledNextAfter != nil)
+	if jobDef.Disabled || ((!jobDef.AllowManualJobRuns) && !is_auto_scheduled) {
+		return nil
+	}
+	ctx.DbTx()
+	job_run := &JobRun{
+		state:         yodb.Text(Pending),
+		Details:       jobDetails,
+		JobTypeId:     jobDef.JobTypeId,
+		DueTime:       yodb.DtFrom(dueTime),
+		AutoScheduled: is_auto_scheduled,
+	}
+	job_run.JobDef.SetId(jobDef.Id)
+	if is_auto_scheduled {
+		job_run.ScheduledNextAfter.SetId(autoScheduledNextAfter.Id)
+		if already_there := yodb.FindOne[JobRun](ctx, JobRunScheduledNextAfter.Equal(autoScheduledNextAfter.Id)); already_there != nil {
+			return already_there
+		}
+	}
+	job_run.Id = yodb.CreateOne[JobRun](ctx, job_run)
+	return job_run
+}
+
 func (*engine) DeleteJobRuns(ctx *Ctx, jobRunIds ...yodb.I64) int64 {
 	return yodb.Delete[JobRun](ctx, JobRunId.In(yodb.Arr[yodb.I64](jobRunIds).ToAnys()...).And(
 		jobRunState.Equal(string(Done)).Or(jobRunState.Equal(string(Cancelled)))))
+}
+
+func (me *JobTask) Retry(ctx *Ctx) {
+	ctx.DbTx()
 }
 
 func (*engine) Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats {

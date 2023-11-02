@@ -441,8 +441,6 @@ func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField
 			desc.constraints.noUpdTrigger = constraints.qFs()
 		case ReadOnly[TFld]:
 			desc.constraints.readOnly = constraints.qFs()
-		default:
-			panic(constraints)
 		}
 	}
 	desc.mig.oldTableName, desc.mig.renamesOldColToNewField, desc.mig.constraintsChanged = oldTableName, renamesOldColToNewField, constraintsChanged

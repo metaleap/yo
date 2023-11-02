@@ -31,7 +31,7 @@ type JobDef struct {
 
 func (me *JobDef) EnsureValidOrErrorIfEnabled() (*JobDef, error) {
 	for _, err := range me.EnsureValid() {
-		if !me.Disabled { // dont hoist out of loop , need the above call in any case
+		if !me.Disabled { // dont hoist the line out of loop , need the above call in any case
 			return nil, err
 		}
 	}
