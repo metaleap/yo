@@ -57,7 +57,9 @@ func codegenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 						panic("no package name for " + pkgPath)
 					}
 					pkg_name = str.Trim(string(data[len("package "):idx]))
-					found[dir_path] = path
+					if !str.Begins(pkg_name, "_") {
+						found[dir_path] = path
+					}
 				}
 			}
 		},

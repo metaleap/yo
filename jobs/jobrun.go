@@ -29,8 +29,9 @@ const (
 )
 
 type JobRun struct {
-	Id      yodb.I64
-	Version yodb.U32
+	Id     yodb.I64
+	DtMade *yodb.DateTime
+	DtMod  *yodb.DateTime
 
 	JobTypeId          yodb.Text
 	JobDef             yodb.Ref[JobDef, yodb.RefOnDelSetNull]
@@ -110,8 +111,8 @@ func (me *JobRunStats) PercentSuccess() *int {
 // Timeout implements utils.HasTimeout
 func (me *JobRun) Timeout(ctx *Ctx) time.Duration {
 	job_def := me.JobDef.Get(ctx)
-	if (job_def != nil) && (job_def.TimeoutJobRunPrepAndFinalizeSecs > 0) {
-		return time.Second * time.Duration(job_def.TimeoutJobRunPrepAndFinalizeSecs)
+	if (job_def != nil) && (job_def.TimeoutSecsJobRunPrepAndFinalize > 0) {
+		return time.Second * time.Duration(job_def.TimeoutSecsJobRunPrepAndFinalize)
 	}
 	return TimeoutLong
 }

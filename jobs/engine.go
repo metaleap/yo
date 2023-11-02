@@ -1,11 +1,21 @@
 package yojobs
 
 import (
+	"strconv"
 	"sync"
 	"time"
 
 	. "yo/ctx"
+	yodb "yo/db"
+	q "yo/db/query"
+	// . "yo/util"
 )
+
+func init() {
+	yodb.Ensure[JobDef, q.F]("", nil, false)
+	yodb.Ensure[JobRun, q.F]("", nil, false)
+	yodb.Ensure[JobTask, q.F]("", nil, false)
+}
 
 // TimeoutLong is:
 //   - the default fallback for `JobDef`s without a custom `Timeouts.TaskRun`.
@@ -34,23 +44,10 @@ type Engine interface {
 	// RetryJobTask retries the defified failed task.
 	RetryJobTask(ctx *Ctx, jobRunId string, jobTaskId string) (*JobTask, error)
 
-	// OnJobTaskExecuted takes an event handler (only one is kept) to be invoked when a task run has been run (successfully or not) and that run stored
+	// OnJobTaskExecuted takes an event handler (only one is kept) to be invoked when a task run has finished (successfully or not) and that run fully stored
 	OnJobTaskExecuted(func(*JobTask, time.Duration))
 	// OnJobRunFinalized takes an event handler (only one is kept) that should take care to `nil`-check its `JobRunStats` arg
 	OnJobRunFinalized(func(*JobRun, *JobRunStats))
-}
-
-type engine struct {
-	running       bool
-	options       Options
-	taskCancelers struct {
-		cache map[string]func()
-		mut   sync.Mutex
-	}
-	eventHandlers struct {
-		onJobTaskExecuted func(*JobTask, time.Duration)
-		onJobRunFinalized func(*JobRun, *JobRunStats)
-	}
 }
 
 type Options struct {
@@ -80,4 +77,80 @@ type Options struct {
 	// TimeoutShort is the usual timeout for most timeoutable calls (ie. brief DB queries and simple non-batch, non-transaction updates).
 	// It should be well under 1min, and is not applicable for the cases described for `const TimeoutLong`.
 	TimeoutShort time.Duration `default:"22s"`
+}
+
+type engine struct {
+	running          bool
+	options          Options
+	taskCancelers    map[string]func()
+	taskCancelersMut sync.Mutex
+	eventHandlers    struct {
+		onJobTaskExecuted func(*JobTask, time.Duration)
+		onJobRunFinalized func(*JobRun, *JobRunStats)
+	}
+}
+
+func NewEngine(options Options) (Engine, error) {
+	err := sanitizeOptionsFields[Options](2, 128, strconv.Atoi, map[string]*int{
+		"MaxConcurrentOps": &options.MaxConcurrentOps,
+		"FetchTasksToRun":  &options.FetchTasksToRun,
+	})
+	if err == nil {
+		err = sanitizeOptionsFields[Options](2*time.Second, 22*time.Hour, time.ParseDuration, map[string]*time.Duration{
+			"TimeoutShort":                     &options.TimeoutShort,
+			"IntervalStartAndFinalizeJobs":     &options.IntervalStartAndFinalizeJobs,
+			"IntervalRunTasks":                 &options.IntervalRunTasks,
+			"IntervalExpireOrRetryDeadTasks":   &options.IntervalExpireOrRetryDeadTasks,
+			"IntervalEnsureJobSchedules":       &options.IntervalEnsureJobSchedules,
+			"IntervalDeleteStorageExpiredJobs": &options.IntervalDeleteStorageExpiredJobs,
+		})
+	}
+	return nil, err // &engine{options: options, taskCancelers: map[string]func(){}}, nil
+}
+
+func (it *engine) Running() bool { return it.running }
+func (it *engine) Resume() {
+	it.running = true
+	// DoAfter(it.options.IntervalStartAndFinalizeJobs, it.startAndFinalizeJobRuns)
+	// DoAfter(it.options.IntervalRunTasks, it.runJobTasks)
+	// DoAfter(it.options.IntervalExpireOrRetryDeadTasks, it.expireOrRetryDeadJobTasks)
+	// DoAfter(it.options.IntervalDeleteStorageExpiredJobs/10, it.deleteStorageExpiredJobRuns)
+	// DoAfter(Clamp(22*time.Second, 44*time.Second, it.options.IntervalEnsureJobSchedules), it.ensureJobRunSchedules)
+}
+
+func (it *engine) OnJobTaskExecuted(eventHandler func(*JobTask, time.Duration)) {
+	it.eventHandlers.onJobTaskExecuted = eventHandler
+}
+func (it *engine) OnJobRunFinalized(eventHandler func(*JobRun, *JobRunStats)) {
+	it.eventHandlers.onJobRunFinalized = eventHandler
+}
+
+func (it *engine) Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats {
+	job_run := yodb.ById[JobRun](ctx, jobRunId)
+	return job_run.Stats(ctx)
+}
+
+func (it *JobRun) Stats(ctx *Ctx) *JobRunStats {
+	stats := JobRunStats{TasksByState: make(map[RunState]int64, 4)}
+	// for _, state := range []RunState{Pending, Running, Done, Cancelled} {
+	// 	yodb.Count[JobTask](ctx,)
+	// 	if stats.TasksByState[state], err = it.storage.countJobTasks(ctx, 0,
+	// 		JobTaskFilter{}.WithJobRuns(jobRun.Id).WithStates(state),
+	// 	); err != nil {
+	// 		return nil, err
+	// 	}
+	// 	stats.TasksTotal += stats.TasksByState[state]
+	// }
+	// if stats.TasksFailed, err = it.storage.countJobTasks(ctx, 0,
+	// 	JobTaskFilter{}.WithJobRuns(jobRun.Id).WithStates(Done).WithFailed(),
+	// ); err != nil {
+	// 	return nil, err
+	// }
+	// stats.TasksSucceeded = stats.TasksByState[Done] - stats.TasksFailed
+
+	// if (jobRun.StartTime != nil) && (jobRun.FinishTime != nil) {
+	// 	stats.DurationTotalMins = ToPtr(jobRun.FinishTime.Sub(*jobRun.StartTime).Minutes())
+	// }
+	// stats.DurationPrepSecs, stats.DurationFinalizeSecs = jobRun.Info.DurationPrepSecs, jobRun.Info.DurationFinalizeSecs
+	return &stats
 }

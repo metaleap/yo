@@ -60,6 +60,9 @@ func init() {
 					for _, line := range str.Split(str.Trim(string(data)), "\n") {
 						if str.Begins(line, "package ") {
 							pkg_name = line[len("package "):]
+							if str.Begins(pkg_name, "_") {
+								return
+							}
 							pkgsFound[pkg_name] = filepath.Dir(fsPath)
 						} else if str.Begins(line, "\t") && str.Ends(line, `"yo/srv"`) && pkg_name != "" {
 							pkgsImportingSrv[pkg_name] = true

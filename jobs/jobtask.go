@@ -8,8 +8,9 @@ import (
 )
 
 type JobTask struct {
-	Id      yodb.I64
-	Version yodb.U32
+	Id     yodb.I64
+	DtMade *yodb.DateTime
+	DtMod  *yodb.DateTime
 
 	JobTypeId  yodb.Text
 	JobRun     yodb.Ref[JobRun, yodb.RefOnDelCascade]
@@ -71,8 +72,8 @@ func (me *JobTask) Timeout(ctx *Ctx) time.Duration {
 	if job_run != nil {
 		job_def = job_run.JobDef.Get(ctx)
 	}
-	if (job_def != nil) && (job_def.TimeoutTaskRunSecs) > 0 {
-		return time.Second * time.Duration(job_def.TimeoutTaskRunSecs)
+	if (job_def != nil) && (job_def.TimeoutSecsTaskRun) > 0 {
+		return time.Second * time.Duration(job_def.TimeoutSecsTaskRun)
 	}
 	return TimeoutLong
 }

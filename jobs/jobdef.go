@@ -11,15 +11,17 @@ import (
 )
 
 type JobDef struct {
-	Id   yodb.I64
-	Name yodb.Text
+	Id     yodb.I64
+	DtMade *yodb.DateTime
+	DtMod  *yodb.DateTime
 
+	Name                             yodb.Text
 	JobTypeId                        yodb.Text
 	Disabled                         yodb.Bool
 	AllowManualJobRuns               yodb.Bool
 	Schedules                        yodb.Arr[yodb.Text]
-	TimeoutJobRunPrepAndFinalizeSecs yodb.U32
-	TimeoutTaskRunSecs               yodb.U32
+	TimeoutSecsTaskRun               yodb.U32
+	TimeoutSecsJobRunPrepAndFinalize yodb.U32
 	MaxTaskRetries                   yodb.U8
 	DeleteAfterDays                  yodb.U16
 

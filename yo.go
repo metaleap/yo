@@ -7,7 +7,8 @@ import (
 
 	. "yo/cfg"
 	yodb "yo/db"
-	_ "yo/feat_auth" // because feat_auth it has its own admin-only endpoints: so api-related codegen (using api-refl) must know about them regardless of actual app using feat_auth or not
+	_ "yo/feat_auth"
+	_ "yo/jobs"
 	yolog "yo/log"
 	yosrv "yo/srv"
 	. "yo/util"
