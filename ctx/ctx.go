@@ -52,22 +52,32 @@ type Ctx struct {
 	DevModeNoCatch          bool
 }
 
-func newCtx(timeout time.Duration, timingsName string) *Ctx {
-	ctx := Ctx{Timings: NewTimings(timingsName, "init ctx"), Context: context.Background(), ctxVals: map[string]any{}}
+func newCtx(timeout time.Duration, cancelable bool, timingsName string) *Ctx {
+	me := Ctx{Timings: NewTimings(timingsName, "init ctx"), Context: context.Background(), ctxVals: map[string]any{}}
 	if timeout > 0 {
-		ctx.Context, ctx.ctxDone = context.WithTimeout(ctx.Context, timeout)
+		me.Context, me.ctxDone = context.WithTimeout(me.Context, timeout)
 	}
-	return &ctx
+	if cancelable {
+		me.Context, me.ctxDone = context.WithCancel(me.Context)
+		// we can lose the old me.ctxDone, cancel-context will ensure it's called when needed
+	}
+	return &me
 }
 
-func NewCtxForHttp(req *http.Request, resp http.ResponseWriter, timeout time.Duration) *Ctx {
-	ctx := newCtx(timeout, req.RequestURI)
+func NewCtxForHttp(req *http.Request, resp http.ResponseWriter, timeout time.Duration, cancelable bool) *Ctx {
+	ctx := newCtx(timeout, cancelable, req.RequestURI)
 	ctx.Http.Req, ctx.Http.Resp, ctx.Http.UrlPath, ctx.Http.respCookies, ctx.Http.reqCookies =
 		req, resp, str.TrimR(str.TrimL(req.URL.Path, "/"), "/"), map[string]*http.Cookie{}, str.Dict{}
 	return ctx
 }
 
 var NewCtxNonHttp = newCtx
+
+func (me *Ctx) Cancel() {
+	if me.ctxDone != nil {
+		me.ctxDone()
+	}
+}
 
 func (me *Ctx) OnDone(subTimings Timings) {
 	var fail any

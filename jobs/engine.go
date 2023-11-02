@@ -1,6 +1,7 @@
 package yojobs
 
 import (
+	"context"
 	"strconv"
 	"sync"
 	"time"
@@ -195,4 +196,16 @@ func (*engine) Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats {
 	ctx.DbTx()
 	job_run := yodb.ById[JobRun](ctx, jobRunId)
 	return job_run.Stats(ctx)
+}
+
+func (me *engine) setTaskCanceler(id string, cancel context.CancelFunc) (previous context.CancelFunc) {
+	me.taskCancelersMut.Lock()
+	defer me.taskCancelersMut.Unlock()
+	previous = me.taskCancelers[id]
+	if cancel == nil {
+		delete(me.taskCancelers, id)
+	} else {
+		me.taskCancelers[id] = cancel
+	}
+	return
 }
