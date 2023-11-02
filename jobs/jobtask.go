@@ -25,8 +25,24 @@ type JobTask struct {
 }
 
 type TaskAttempt struct {
-	Time time.Time
-	Err  string
+	T   string
+	Err string
+
+	t *time.Time
+}
+
+func taskAttempt() TaskAttempt {
+	t := timeNow()
+	return TaskAttempt{T: t.Format(time.RFC3339), t: t}
+}
+
+func (me *TaskAttempt) Time() *time.Time {
+	if (me.t == nil) && (me.T != "") {
+		if t, err := time.Parse(time.RFC3339, me.T); err == nil {
+			me.t = &t
+		}
+	}
+	return me.t
 }
 
 func (me *JobTask) State() RunState { return RunState(me.state) }
