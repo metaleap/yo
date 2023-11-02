@@ -295,9 +295,8 @@ func dbArgsCleanUpForPgx(args dbArgs) dbArgs {
 		} else if rv := reflect.ValueOf(v); !rv.IsValid() {
 			panic(v)
 		} else if rvt := rv.Type(); isDbJsonType(rvt) {
-			if jsonb, err := yojson.Marshal(v); err != nil {
-				panic(err)
-			} else if bytes.Equal(jsonb, yojson.JsonTokEmptyArr) || bytes.Equal(jsonb, yojson.JsonTokEmptyObj) || bytes.Equal(jsonb, yojson.JsonTokNull) {
+			jsonb := yojson.From(v, false)
+			if bytes.Equal(jsonb, yojson.JsonTokEmptyArr) || bytes.Equal(jsonb, yojson.JsonTokEmptyObj) || bytes.Equal(jsonb, yojson.JsonTokNull) {
 				args[k] = nil
 			} else {
 				args[k] = jsonb

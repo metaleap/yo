@@ -397,9 +397,7 @@ func (me scanner) Scan(it any) error {
 				}
 			} else if arr_item_type := dbArrType(me.ty); arr_item_type != nil {
 				dst := reflect.NewAt(me.ty, (unsafe.Pointer)(me.ptr)).Interface()
-				if err := yojson.Unmarshal(it, dst); err != nil {
-					panic(err)
-				}
+				yojson.Load(it, dst)
 				return nil
 			} else {
 				panic(str.Fmt("scanner.Scan %T into %s", it, me.ty.String()))

@@ -110,11 +110,7 @@ func handleHttpRequest(rw http.ResponseWriter, req *http.Request) {
 
 	if result, handler_called := apiHandleRequest(ctx); handler_called { // if not, `apiHandleRequest` did `http.Error()` and nothing more to do here
 		ctx.Timings.Step("jsonify resp")
-		resp_data, err := yojson.MarshalIndent(result, "", "  ")
-		if err != nil {
-			ctx.HttpErr(500, err.Error())
-			return
-		}
+		resp_data := yojson.From(result, true)
 
 		ctx.Timings.Step("write resp")
 		for k, v := range apiStdRespHeaders {

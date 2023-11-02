@@ -155,7 +155,7 @@ func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string)
 		reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint8:
 		return "." + rt_kind.String()
 	case reflect.Interface:
-		fail("any not supported")
+		return ".any"
 	case reflect.Chan, reflect.Complex128, reflect.Complex64, reflect.Func, reflect.Invalid, reflect.Uintptr, reflect.UnsafePointer:
 		return ""
 	}

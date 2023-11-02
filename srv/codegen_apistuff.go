@@ -364,8 +364,8 @@ func codegenTsSdkTypeName(apiRefl *apiReflect, typeName string) string {
 	apiRefl.codeGen.typesUsed[typeName] = true
 	if str.Begins(typeName, ".") {
 		switch t := typeName[1:]; t {
-		case "string":
-			return "string"
+		case "any", "string":
+			return t
 		case "bool":
 			return "boolean"
 		case "int8", "int16", "int32", "int64":

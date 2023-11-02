@@ -43,11 +43,7 @@ func ViaHttp[TIn any, TOut any](apiMethod ApiMethod, ctx *Ctx, args *TIn, client
 }
 
 func viaHttp[TIn any, TOut any](methodPath string, ctx *Ctx, args *TIn, client *http.Client, isMultipartForm bool) *TOut {
-	payload_bytes, err := yojson.Marshal(args)
-	if err != nil {
-		panic(err)
-	}
-
+	payload_bytes := yojson.From(args, false)
 	req_content_type := apisContentType
 	if isMultipartForm {
 		var buf bytes.Buffer
@@ -89,8 +85,6 @@ func viaHttp[TIn any, TOut any](methodPath string, ctx *Ctx, args *TIn, client *
 		return nil
 	}
 	var ret TOut
-	if err = yojson.Unmarshal(resp_raw, &ret); err != nil {
-		panic(string(resp_raw) + "\n" + err.Error())
-	}
+	yojson.Load(resp_raw, &ret)
 	return &ret
 }

@@ -114,24 +114,24 @@ func Up0(s string) string {
 }
 
 func Sub(s string, runeIdx int, runesLen int) string {
-	if s == "" || runesLen == 0 {
+	if (s == "") || (runesLen == 0) || (runeIdx < 0) {
 		return ""
 	}
-	n, idxStart, idxEnd := 0, -1, -1
+	rune_idx, idxStart, idxEnd := 0, -1, -1
 	for i := range s { // iter by runes
-		if n == runeIdx {
+		if rune_idx == runeIdx {
 			if idxStart = i; runesLen < 0 {
 				break
 			}
-		} else if (idxStart >= 0) && ((n - idxStart) == runesLen) {
+		} else if (idxStart >= 0) && ((rune_idx - idxStart) == runesLen) {
 			idxEnd = i
 			break
 		}
-		n++
+		rune_idx++
 	}
 	if idxStart < 0 {
 		return ""
-	} else if runesLen < 0 {
+	} else if (runesLen < 0) || (idxEnd < idxStart) {
 		return s[idxStart:]
 	}
 	return s[idxStart:idxEnd]

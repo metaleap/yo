@@ -154,6 +154,7 @@ var sqlDtAltNames = map[string]Text{
 	"int2":   "smallint",
 	"int4":   "integer",
 	"int8":   "bigint",
+	"float4": "real",
 	"text[]": "ARRAY",
 }
 

@@ -76,9 +76,7 @@ func init() {
 			new_val = v
 		default:
 			ptr := reflect.New(struc.Field(i).Type()).Interface()
-			if err := yojson.Unmarshal([]byte(env_val), ptr); err != nil {
-				panic(err)
-			}
+			yojson.Load([]byte(env_val), ptr)
 			new_val = reflect.ValueOf(ptr).Elem().Interface()
 		}
 		struc.Field(i).Set(reflect.ValueOf(new_val))
