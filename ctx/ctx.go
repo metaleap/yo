@@ -53,13 +53,13 @@ type Ctx struct {
 }
 
 func newCtx(timeout time.Duration, cancelable bool, timingsName string) *Ctx {
-	me := Ctx{Timings: NewTimings(timingsName, "init ctx"), Context: context.Background(), ctxVals: map[string]any{}}
+	me := Ctx{Context: context.Background(), ctxVals: map[string]any{},
+		Timings: NewTimings(timingsName, "init ctx"), TimingsNoPrintInDevMode: (timingsName == "")}
 	if timeout > 0 {
 		me.Context, me.ctxDone = context.WithTimeout(me.Context, timeout)
 	}
 	if cancelable {
-		me.Context, me.ctxDone = context.WithCancel(me.Context)
-		// we can lose the old me.ctxDone, cancel-context will ensure it's called when needed
+		me.Context, me.ctxDone = context.WithCancel(me.Context) // ok to overwrite the old me.ctxDone, as the cancelCtx itself will ensure it's called when needed
 	}
 	return &me
 }
@@ -77,6 +77,18 @@ func (me *Ctx) Cancel() {
 	if me.ctxDone != nil {
 		me.ctxDone()
 	}
+}
+
+func (me *Ctx) With(timeout time.Duration, cancelable bool) *Ctx {
+	ret := *me
+	if timeout > 0 {
+		ret.Context, ret.ctxDone = context.WithTimeout(ret.Context, timeout)
+	}
+	if cancelable {
+		ret.Context, ret.ctxDone = context.WithCancel(ret.Context)
+		// we can lose the old me.ctxDone, cancel-context will ensure it's called when needed
+	}
+	return &ret
 }
 
 func (me *Ctx) OnDone(subTimings Timings) {

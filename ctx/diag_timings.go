@@ -28,7 +28,7 @@ func NewTimings(name string, firstStep string) Timings {
 	return &ret
 }
 
-func (me *timings) noOp() bool     { return !IsDevMode }
+func (me *timings) noOp() bool     { return (!IsDevMode) || (me.name == "") }
 func (me *timings) String() string { return me.name }
 
 func (me *timings) Step(step string) {

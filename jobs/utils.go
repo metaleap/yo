@@ -3,6 +3,8 @@ package yojobs
 import (
 	"cmp"
 	"errors"
+	"sync/atomic"
+	"time"
 
 	yodb "yo/db"
 	. "yo/util"
@@ -32,4 +34,37 @@ func sanitizeOptionsFields[TStruct any, TField cmp.Ordered](min TField, max TFie
 		}
 	}
 	return
+}
+
+// GoItems is like a `sync.WaitGroup` when `maxConcurrentOps` is 0, but a semaphore with a `maxConcurrentOps` greater than 1.
+func GoItems[T any](workSet []T, do func(T), maxConcurrentOps int) {
+	if len(workSet) == 0 {
+		return
+	}
+
+	if maxConcurrentOps == 1 || len(workSet) == 1 {
+		for _, item := range workSet {
+			do(item)
+		}
+		return
+	}
+
+	allAtOnce, sema := (maxConcurrentOps == 0), make(chan struct{}, maxConcurrentOps)
+	var numDone atomic.Int64
+	for _, item := range workSet {
+		go func(item T) {
+			if allAtOnce {
+				<-sema
+			}
+			do(item)
+			numDone.Add(1)
+			if !allAtOnce {
+				<-sema
+			}
+		}(item)
+		sema <- struct{}{}
+	}
+	for n := int64(len(workSet)); numDone.Load() < n; { // wait for all
+		time.Sleep(time.Millisecond) // lets cpu breathe just a bit... without unduly delaying things
+	}
 }

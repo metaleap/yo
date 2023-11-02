@@ -16,17 +16,35 @@ func qSafe[TFld q.Field](id yodb.I64, versionField TFld, versionNr yodb.U32) q.Q
 	return yodb.ColID.Equal(id).And(versionField.Equal(versionNr))
 }
 
-func (me *engine) runTask(ctx *Ctx, task *JobTask) {
-	ctx.DbTx()
+func (me *engine) runJobTasks() {
+	defer func() {
+		_ = recover() // the odd, super-rare connectivity/db-restart/etc fail doesnt bother us here on our regular interval
+		DoAfter(me.options.IntervalRunTasks, me.runJobTasks)
+	}()
+
+	ctx := NewCtxNonHttp(TimeoutLong, false, "")
+	pending_tasks := yodb.FindMany[JobTask](ctx, jobTaskState.Equal(string(Pending)), me.options.FetchTasksToRun, nil)
+	GoItems(pending_tasks, func(it *JobTask) {
+		_ = it.jobDef(ctx) // preloads both jobRun and jobDef
+	}, me.options.MaxConcurrentOps)
+
+	// ...then run them
+	GoItems(pending_tasks, me.runTask, me.options.MaxConcurrentOps)
+}
+
+func (me *engine) runTask(task *JobTask) {
 	time_started := time.Now()
 	defer func() {
+		_ = recover() // the odd, super-rare connectivity/db-restart/etc fail doesnt bother us here on our regular interval
 		if old_canceler := me.setTaskCanceler(task.Id, nil); old_canceler != nil {
 			old_canceler()
 		} // else: already cancelled by concurrent `finalizeCancelingJobs` call
 	}()
 
-	job_run := task.JobRun.Get(ctx)
-	job_def := job_run.jobDef(ctx)
+	job_run := task.JobRun.Get(nil) // already preloaded by runJobTasks
+	job_def := job_run.jobDef(nil)  // dito
+	ctx := NewCtxNonHttp(task.Timeout(nil /*dito*/), true, "")
+	ctx.DbTx()
 	// first, attempt to reserve task for running vs. other pods
 	already_canceled := (job_run == nil) || (job_run.State() == Cancelled) || (job_run.State() == JobRunCancelling) ||
 		(job_def == nil) || bool(job_def.Disabled) || (job_def.jobType == nil) ||
