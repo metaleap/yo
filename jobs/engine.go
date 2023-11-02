@@ -140,13 +140,16 @@ func (*engine) cancelJobRuns(ctx *Ctx, jobRunsToCancel map[CancellationReason][]
 	}
 	ctx.DbTx()
 	for reason, job_runs := range jobRunsToCancel {
-		for _, job_run := range job_runs {
-			job_run.state, job_run.cancellationReason = yodb.Text(JobRunCancelling), yodb.Text(reason)
-		}
+		var failed bool
 		Try(func() {
 			yodb.Update[JobRun](ctx, &JobRun{cancellationReason: yodb.Text(reason), state: yodb.Text(JobRunCancelling)},
 				JobRunId.In(sl.To(job_runs, func(it *JobRun) any { return it.Id })), true, JobRunFields(jobRunState, jobRunCancellationReason)...)
-		}, nil)
+		}, func(any) { failed = true })
+		if !failed {
+			for _, job_run := range job_runs {
+				job_run.state, job_run.cancellationReason = yodb.Text(JobRunCancelling), yodb.Text(reason)
+			}
+		}
 	}
 }
 
