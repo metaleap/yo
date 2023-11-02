@@ -85,16 +85,16 @@ type Context struct {
 	JobRunId   yodb.I64
 	JobDetails JobDetails
 	JobDef     JobDef
-	JobTaskId  string
+	JobTaskId  yodb.I64
 }
 
 type jobTypeReg struct {
 	sync.Mutex
 	new                  func(jobTypeId string) JobType
-	wellTypedJobDetails  func(check jobTypeDefined) (new jobTypeDefined, err error)
-	wellTypedJobResults  func(check jobTypeDefined) (new jobTypeDefined, err error)
-	wellTypedTaskDetails func(check jobTypeDefined) (new jobTypeDefined, err error)
-	wellTypedTaskResults func(check jobTypeDefined) (new jobTypeDefined, err error)
+	checkTypeJobDetails  func(check jobTypeDefined)
+	checkTypeJobResults  func(check jobTypeDefined)
+	checkTypeTaskDetails func(check jobTypeDefined)
+	checkTypeTaskResults func(check jobTypeDefined)
 	byId                 map[string]JobType
 }
 
@@ -121,10 +121,10 @@ func register[TJobType JobType, TJobDetails JobDetails, TJobResults JobResults, 
 	it := jobTypeReg{
 		new:                  func(jobTypeId string) JobType { return new(jobTypeId) },
 		byId:                 map[string]JobType{},
-		wellTypedJobDetails:  wellTypedFor[TJobDetails],
-		wellTypedJobResults:  wellTypedFor[TJobResults],
-		wellTypedTaskDetails: wellTypedFor[TTaskDetails],
-		wellTypedTaskResults: wellTypedFor[TTaskResults],
+		checkTypeJobDetails:  checkTypeFor[TJobDetails],
+		checkTypeJobResults:  checkTypeFor[TJobResults],
+		checkTypeTaskDetails: checkTypeFor[TTaskDetails],
+		checkTypeTaskResults: checkTypeFor[TTaskResults],
 	}
 	if id != "" && registeredJobTypes[id] != nil {
 		return errors.New(str.Fmt("already have a `JobType` of type `%s` registered", id))
@@ -140,13 +140,12 @@ func jobType(id string) (ret *jobTypeReg) {
 	return
 }
 
-func wellTypedFor[TImpl jobTypeDefined](check jobTypeDefined) (jobTypeDefined, error) {
+func checkTypeFor[TImpl jobTypeDefined](check jobTypeDefined) {
 	if check != nil {
 		if _, ok := check.(*TImpl); !ok {
-			return nil, errors.New(str.Fmt("expected %s instead of %T", ReflType[*TImpl]().String(), check))
+			panic(str.Fmt("expected %s instead of %T", ReflType[*TImpl]().String(), check))
 		}
 	}
-	return new(TImpl), nil
 }
 
 func (me *jobTypeReg) ById(jobTypeId string) (ret JobType) {

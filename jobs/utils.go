@@ -3,25 +3,22 @@ package yojobs
 import (
 	"cmp"
 	"errors"
-	"time"
 
 	yodb "yo/db"
 	. "yo/util"
 	"yo/util/str"
 )
 
-func timeNow() *time.Time { return ToPtr(time.Now()) }
-
-func errNotFoundJobRun(id string) error {
-	return errors.New(str.Fmt("job run '%s' no longer exists", id))
+func errNotFoundJobRun(id yodb.I64) error {
+	return errors.New(str.Fmt("job run '%d' no longer exists", id))
 }
 
-func errNotFoundJobDef(id string) error {
-	return errors.New(str.Fmt("job def '%s' renamed or removed in configuration", id))
+func errNotFoundJobDef(jobRunId yodb.I64) error {
+	return errors.New(str.Fmt("job def of job run %d renamed or removed in configuration", jobRunId))
 }
 
-func errNotFoundJobType(jobDefId yodb.Text, jobTypeId yodb.Text) error {
-	return errors.New(str.Fmt("job def '%s' type '%s' renamed or removed", jobDefId, jobTypeId))
+func errNotFoundJobType(jobDefName yodb.Text, jobTypeId yodb.Text) error {
+	return errors.New(str.Fmt("job def '%s' type '%s' renamed or removed", jobDefName, jobTypeId))
 }
 
 func sanitizeOptionsFields[TStruct any, TField cmp.Ordered](min TField, max TField, parse func(string) (TField, error), fields map[string]*TField) (err error) {

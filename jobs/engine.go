@@ -81,7 +81,7 @@ type Options struct {
 type engine struct {
 	running          bool
 	options          Options
-	taskCancelers    map[string]func()
+	taskCancelers    map[yodb.I64]func()
 	taskCancelersMut sync.Mutex
 	eventHandlers    struct {
 		onJobTaskExecuted func(*JobTask, time.Duration)
@@ -151,14 +151,14 @@ func (*engine) cancelJobRuns(ctx *Ctx, jobRunsToCancel map[CancellationReason][]
 	}
 }
 
-func (me *engine) CreateJobRun(ctx *Ctx, jobDef *JobDef, dueTime *time.Time, jobDetails JobDetails) *JobRun {
-	if now := timeNow(); (dueTime == nil) || now.After(*dueTime) {
+func (me *engine) CreateJobRun(ctx *Ctx, jobDef *JobDef, dueTime *yodb.DateTime, jobDetails JobDetails) *JobRun {
+	if now := yodb.DtNow(); (dueTime == nil) || now.Time().After(*dueTime.Time()) {
 		dueTime = now
 	}
-	return me.createJobRun(ctx, jobDef, *dueTime, jobDetails, nil)
+	return me.createJobRun(ctx, jobDef, dueTime, jobDetails, nil)
 }
 
-func (*engine) createJobRun(ctx *Ctx, jobDef *JobDef, dueTime time.Time, jobDetails JobDetails, autoScheduledNextAfter *JobRun) *JobRun {
+func (*engine) createJobRun(ctx *Ctx, jobDef *JobDef, dueTime *yodb.DateTime, jobDetails JobDetails, autoScheduledNextAfter *JobRun) *JobRun {
 	is_auto_scheduled := yodb.Bool(autoScheduledNextAfter != nil)
 	if jobDef.Disabled || ((!jobDef.AllowManualJobRuns) && !is_auto_scheduled) {
 		return nil
@@ -169,7 +169,7 @@ func (*engine) createJobRun(ctx *Ctx, jobDef *JobDef, dueTime time.Time, jobDeta
 		Details:       jobDetails,
 		details:       yojson.Dict(jobDetails),
 		JobTypeId:     jobDef.JobTypeId,
-		DueTime:       yodb.DtFrom(dueTime),
+		DueTime:       dueTime,
 		AutoScheduled: is_auto_scheduled,
 	}
 	job_run.JobDef.SetId(jobDef.Id)
@@ -198,14 +198,14 @@ func (*engine) Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats {
 	return job_run.Stats(ctx)
 }
 
-func (me *engine) setTaskCanceler(id string, cancel context.CancelFunc) (previous context.CancelFunc) {
+func (me *engine) setTaskCanceler(taskId yodb.I64, cancel context.CancelFunc) (previous context.CancelFunc) {
 	me.taskCancelersMut.Lock()
 	defer me.taskCancelersMut.Unlock()
-	previous = me.taskCancelers[id]
+	previous = me.taskCancelers[taskId]
 	if cancel == nil {
-		delete(me.taskCancelers, id)
+		delete(me.taskCancelers, taskId)
 	} else {
-		me.taskCancelers[id] = cancel
+		me.taskCancelers[taskId] = cancel
 	}
 	return
 }

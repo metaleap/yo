@@ -33,6 +33,7 @@ type JobRun struct {
 	DtMade *yodb.DateTime
 	DtMod  *yodb.DateTime
 
+	Version            yodb.I64
 	JobTypeId          yodb.Text
 	JobDef             yodb.Ref[JobDef, yodb.RefOnDelSetNull]
 	state              yodb.Text
@@ -59,7 +60,7 @@ func (me *JobRun) CancellationReason() CancellationReason {
 	return CancellationReason(me.cancellationReason)
 }
 
-func (me *JobRun) ctx(ctx *Ctx, taskId string) *Context {
+func (me *JobRun) ctx(ctx *Ctx, taskId yodb.I64) *Context {
 	return &Context{Ctx: ctx, JobRunId: me.Id, JobDetails: me.Details, JobDef: *me.JobDef.Get(ctx), JobTaskId: taskId}
 }
 
@@ -110,7 +111,7 @@ func (me *JobRunStats) PercentSuccess() *int {
 
 // Timeout implements utils.HasTimeout
 func (me *JobRun) Timeout(ctx *Ctx) time.Duration {
-	job_def := me.JobDef.Get(ctx)
+	job_def := me.jobDef(ctx)
 	if (job_def != nil) && (job_def.TimeoutSecsJobRunPrepAndFinalize > 0) {
 		return time.Second * time.Duration(job_def.TimeoutSecsJobRunPrepAndFinalize)
 	}
@@ -140,4 +141,11 @@ func (me *JobRun) Stats(ctx *Ctx) *JobRunStats {
 		stats.DurationFinalizeSecs = &me.DurationFinalizeSecs
 	}
 	return &stats
+}
+
+func (me *JobRun) jobDef(ctx *Ctx) *JobDef {
+	if me != nil {
+		return me.JobDef.Get(ctx)
+	}
+	return nil
 }

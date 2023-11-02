@@ -63,7 +63,7 @@ func (me *JobDef) findClosestToNowSchedulableTimeSince(after *time.Time, alwaysP
 	if me.Disabled {
 		return nil
 	}
-	now := *timeNow()
+	now := time.Now()
 	var future, past *time.Time
 	const max_years_in_the_future = 77
 	max_search_date := now.AddDate(max_years_in_the_future, 0, 0)
