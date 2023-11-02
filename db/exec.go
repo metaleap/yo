@@ -21,7 +21,7 @@ type dbArgs = pgx.NamedArgs
 
 type Obj interface {
 	OnAfterLoaded()
-	OnBeforeStoring()
+	OnBeforeStoring() (q.Query, []q.F)
 }
 
 func ById[T any](ctx *Ctx, id I64) *T {
@@ -86,7 +86,7 @@ func Count[T any](ctx *Ctx, query q.Query, nonNullColumn q.C, distinct *q.C) int
 
 func CreateOne[T any](ctx *Ctx, rec *T) (ret I64) {
 	if obj, _ := ((any)(rec)).(Obj); obj != nil {
-		obj.OnBeforeStoring()
+		_, _ = obj.OnBeforeStoring()
 	}
 	desc := desc[T]()
 	args := dbArgsFill[T](desc, make(dbArgs, len(desc.fields)), rec, "")
@@ -111,7 +111,7 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 	args := make(dbArgs, len(desc.fields)*len(recs))
 	for i := range recs {
 		if obj, _ := ((any)(recs[i])).(Obj); obj != nil {
-			obj.OnBeforeStoring()
+			_, _ = obj.OnBeforeStoring()
 		}
 		args = dbArgsFill(desc, args, recs[i], str.FromInt(i))
 	}
@@ -134,9 +134,13 @@ func Delete[T any](ctx *Ctx, where q.Query) int64 {
 func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyFields ...q.F) int64 {
 	desc, args := desc[T](), dbArgs{}
 	col_names, col_vals := make([]string, 0, len(onlyFields)), make([]any, 0, len(onlyFields))
+	var query_and q.Query
 
 	if obj, _ := ((any)(upd)).(Obj); obj != nil {
-		obj.OnBeforeStoring()
+		var only_fields_add []q.F
+		if query_and, only_fields_add = obj.OnBeforeStoring(); len(onlyFields) > 0 {
+			onlyFields = sl.With(onlyFields, only_fields_add...)
+		}
 	}
 	ForEachColField[T](upd, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
 		if only := (len(onlyFields) > 0); (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) &&
@@ -177,7 +181,7 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 	for i, col_name := range col_names {
 		args[col_name] = col_vals[i]
 	}
-	result := doExec(ctx, new(sqlStmt).update(desc, col_names...).where(desc, true, where, args), args)
+	result := doExec(ctx, new(sqlStmt).update(desc, col_names...).where(desc, true, where.And(query_and), args), args)
 	num_rows_affected, err := result.RowsAffected()
 	if err != nil {
 		panic(err)

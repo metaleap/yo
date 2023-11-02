@@ -228,16 +228,16 @@ func ArrAreAllIn(arr any, operator Operator, arg any) Query {
 	return &query{op: operator + opArrAll, operands: operandsFrom(arr, arg)}
 }
 func AllTrue(conds ...Query) Query {
-	if len(conds) == 0 {
+	if conds = sl.Without(conds, nil); len(conds) == 0 {
 		panic("q.AllTrue reached the no-conds situation, double-check call-site and prototyped q.AllTrue impl")
 	}
-	return If((len(conds) == 0), V{true}.Equal(true), If((len(conds) == 1), conds[0], (Query)(&query{op: OpAnd, conds: conds})))
+	return If((len(conds) == 1), conds[0], (Query)(&query{op: OpAnd, conds: conds}))
 }
 func EitherOr(conds ...Query) Query {
-	if len(conds) == 0 {
+	if conds = sl.Without(conds, nil); len(conds) == 0 {
 		panic("q.EitherOr reached the no-conds situation, double-check call-site and prototyped q.EitherOr impl")
 	}
-	return If((len(conds) == 0), V{true}.Equal(true), If(len(conds) == 1, conds[0], (Query)(&query{op: OpOr, conds: conds})))
+	return If(len(conds) == 1, conds[0], (Query)(&query{op: OpOr, conds: conds}))
 }
 func Not(cond Query) Query {
 	switch q := cond.(*query); q.op {

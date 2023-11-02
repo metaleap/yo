@@ -5,6 +5,7 @@ import (
 
 	. "yo/ctx"
 	yodb "yo/db"
+	q "yo/db/query"
 	yojson "yo/json"
 	. "yo/util"
 )
@@ -133,11 +134,14 @@ func (me *JobRun) jobType(ctx *Ctx) JobType {
 	return nil
 }
 
-var _ yodb.Obj = (*JobRun)(nil)
+var _ yodb.Obj = (*JobRun)(nil) // compile-time interface compat check
 
-func (me *JobRun) OnAfterLoaded() {
+func (me *JobRun) OnAfterLoaded() { // any changes, keep in sync with JobTask.OnAfterLoaded
 	me.Details, me.Results = yojson.FromDict[any](me.details), yojson.FromDict[any](me.results)
 }
-func (me *JobRun) OnBeforeStoring() {
+func (me *JobRun) OnBeforeStoring() (q.Query, []q.F) { // any changes, keep in sync with JobTask.OnBeforeStoring
 	me.details, me.results = yojson.DictFrom(me.Details), yojson.DictFrom(me.Results)
+	old_version := me.Version
+	me.Version++
+	return JobRunVersion.Equal(old_version), JobRunFields(JobRunVersion)
 }

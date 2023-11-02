@@ -12,12 +12,15 @@ import (
 	"yo/util/sl"
 )
 
-func qSafe[TFld q.Field](id yodb.I64, versionField TFld, versionNr yodb.U32) q.Query {
-	return yodb.ColID.Equal(id).And(versionField.Equal(versionNr))
+func qSafe(id yodb.I64) q.Query {
+	return yodb.ColID.Equal(id)
 }
 
 func (me *engine) expireOrRetryDeadJobTasksForJobDef(jobDef *JobDef, runningJobIds []yodb.I64) {
-	is_jobdef_dead := bool(jobDef.Disabled) || (jobDef.jobType == nil)
+	defer func() {
+		_ = recover() // the odd, super-rare connectivity/db-restart/etc fail doesnt bother us here on our regular interval
+	}()
+	is_jobdef_dead := (jobDef.jobType == nil) || jobDef.Disabled
 	ctx := NewCtxNonHttp(TimeoutLong, false, "")
 	query := JobTaskJobRun.In(yodb.Arr[yodb.I64](runningJobIds).ToAnys()...)
 	if is_jobdef_dead { //  the rare edge case: un-Done/un-Cancelled tasks still in DB for old now-disabled-or-deleted-from-config job def
@@ -27,7 +30,8 @@ func (me *engine) expireOrRetryDeadJobTasksForJobDef(jobDef *JobDef, runningJobI
 			JobTaskStartTime.LessThan(time.Now().Add(-(time.Minute + (time.Second * time.Duration(jobDef.TimeoutSecsTaskRun))))))
 	}
 	yodb.Each[JobTask](ctx, query, 0, nil, func(task *JobTask, enough *bool) {
-		old_version, task_upd_fields := task.Version, JobTaskFields(jobTaskState, JobTaskAttempts, JobTaskVersion, JobTaskStartTime, JobTaskFinishTime)
+		defer func() { _ = recover() }()
+		task_upd_fields := JobTaskFields(jobTaskState, JobTaskAttempts, JobTaskStartTime, JobTaskFinishTime)
 		if is_jobdef_dead {
 			task.state = yodb.Text(Cancelled)
 			if (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
@@ -36,19 +40,8 @@ func (me *engine) expireOrRetryDeadJobTasksForJobDef(jobDef *JobDef, runningJobI
 		} else if (!task.markForRetryOrAsFailed(ctx)) && (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
 			task.Attempts[0].Err = context.DeadlineExceeded
 		}
-		task.Version++
-		yodb.Update[JobTask](ctx, task, qSafe(task.Id, JobTaskVersion, old_version), false, task_upd_fields...)
+		yodb.Update[JobTask](ctx, task, qSafe(task.Id), false, task_upd_fields...)
 	})
-
-	// for _, task := range dead_tasks {
-	// 	} else if (!task.markForRetryOrAsFailed(jobDef)) && (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
-	// 		task.Attempts[0].Err = context.DeadlineExceeded
-	// 	}
-	// 	if me.logLifecycleEvents(jobDef, nil, task) {
-	// 		task.logger(log).Infof("marking dead (state %s after timeout) task '%s' (of '%s' job '%s') as %s", Running, task.Id, jobDef.Id, task.JobRunId, task.State)
-	// 	}
-	// 	_ = me.logErr(log, me.storage.saveJobTask(ctx, task), task)
-	// }
 }
 
 func (me *engine) runJobTasks() {
@@ -88,13 +81,13 @@ func (me *engine) runTask(task *JobTask) {
 		(job_def == nil) || bool(job_def.Disabled) || (job_def.jobType == nil) ||
 		(task.JobTypeId != job_def.JobTypeId) || (job_run.JobTypeId != job_def.JobTypeId)
 
-	task_old_version, task_upd_fields := task.Version, JobTaskFields(jobTaskState, JobTaskFinishTime, JobTaskAttempts, JobTaskVersion)
-	task.Version, task.state, task.FinishTime, task.Attempts =
-		task.Version+1, yodb.Text(If(already_canceled, Cancelled, Running)), nil, append([]TaskAttempt{taskAttempt()}, task.Attempts...)
+	task_upd_fields := JobTaskFields(jobTaskState, JobTaskFinishTime, JobTaskAttempts)
+	task.state, task.FinishTime, task.Attempts =
+		yodb.Text(If(already_canceled, Cancelled, Running)), nil, append([]TaskAttempt{taskAttempt()}, task.Attempts...)
 	if task.StartTime == nil {
 		task.StartTime, task_upd_fields = (*yodb.DateTime)(task.Attempts[0].t), sl.With(task_upd_fields, JobTaskStartTime.F())
 	}
-	if yodb.Update[JobTask](ctx, task, qSafe(task.Id, JobTaskVersion, task_old_version), false, task_upd_fields...) <= 0 {
+	if yodb.Update[JobTask](ctx, task, qSafe(task.Id), false, task_upd_fields...) <= 0 {
 		return // concurrently changed by other instance, possibly in the same run attempt: bug out
 	}
 
@@ -136,9 +129,8 @@ func (me *engine) runTask(task *JobTask) {
 	}
 
 	// ready to save
-	task_old_version = task.Version
-	task.Version, task_upd_fields = task.Version+1, sl.Without(task_upd_fields, JobTaskStartTime.F())
-	did_store := (0 < yodb.Update[JobTask](ctx, task, qSafe(task.Id, JobTaskVersion, task_old_version), false, task_upd_fields...))
+	task_upd_fields = sl.Without(task_upd_fields, JobTaskStartTime.F())
+	did_store := (0 < yodb.Update[JobTask](ctx, task, qSafe(task.Id), false, task_upd_fields...))
 	if did_store && (me.eventHandlers.onJobTaskExecuted != nil) {
 		me.eventHandlers.onJobTaskExecuted(task, time.Now().Sub(time_started))
 	}
