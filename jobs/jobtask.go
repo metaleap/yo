@@ -22,7 +22,6 @@ type JobTask struct {
 	StartTime  *yodb.DateTime
 	FinishTime *yodb.DateTime
 	Attempts   yodb.JsonArr[TaskAttempt]
-	Failed     yodb.Bool
 
 	Details TaskDetails
 	Results TaskResults
@@ -40,12 +39,13 @@ func (me *JobTask) Succeeded() bool {
 	return (me.State() == Done) && (len(me.Attempts) > 0) && (me.Attempts[0].Err == nil)
 }
 
-func (me *JobTask) markForRetryOrAsFailed(jobDef *JobDef) (retry bool) {
-	if (jobDef != nil) && (len(me.Attempts) <= int(jobDef.MaxTaskRetries)) { // `<=` because first attempt was not a RE-try
+func (me *JobTask) markForRetryOrAsFailed(ctx *Ctx) (retry bool) {
+	job_def := me.jobDef(ctx)
+	if (job_def != nil) && (len(me.Attempts) <= int(job_def.MaxTaskRetries)) { // `<=` because first attempt was not a RE-try
 		me.state, me.StartTime, me.FinishTime = yodb.Text(Pending), nil, nil
 		return true
 	}
-	me.state, me.FinishTime, me.Failed = yodb.Text(Done), yodb.DtNow(), true
+	me.state, me.FinishTime = yodb.Text(Done), yodb.DtNow()
 	return false
 }
 
@@ -69,7 +69,12 @@ func (me *JobTask) jobDef(ctx *Ctx) *JobDef {
 	return me.jobRun(ctx).jobDef(ctx)
 }
 
-func (me *JobTask) jobType(ctx *Ctx) JobType { return me.jobDef(ctx).jobType }
+func (me *JobTask) jobType(ctx *Ctx) JobType {
+	if jobdef := me.jobDef(ctx); jobdef != nil {
+		return jobdef.jobType
+	}
+	return nil
+}
 
 var _ yodb.Obj = (*JobTask)(nil)
 

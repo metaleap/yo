@@ -67,7 +67,7 @@ func (me Ref[_, _]) IdRaw() int64  { return int64(me.id) }
 func (me Ref[_, _]) IsDbRef() bool { return true } // no direct callers, but checked for by `yo/srv` during codegen
 func (me *Ref[_, _]) SetId(id I64) { me.self, me.id = nil, id }
 func (me *Ref[T, _]) Get(ctx *yoctx.Ctx) *T {
-	if (me.self == nil) && (me.id != 0) {
+	if (me.self == nil) && (me.id != 0) && (ctx != nil) {
 		me.self = ById[T](ctx, me.id)
 	}
 	return me.self

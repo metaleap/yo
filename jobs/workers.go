@@ -26,25 +26,21 @@ func (me *engine) expireOrRetryDeadJobTasksForJobDef(jobDef *JobDef, runningJobI
 		query = query.And(jobTaskState.Equal(Running)).And(
 			JobTaskStartTime.LessThan(time.Now().Add(-(time.Minute + (time.Second * time.Duration(jobDef.TimeoutSecsTaskRun))))))
 	}
-	yodb.Each[JobTask](ctx, query, 0, nil, func(rec *JobTask, enough *bool) {
-
+	yodb.Each[JobTask](ctx, query, 0, nil, func(task *JobTask, enough *bool) {
+		old_version, task_upd_fields := task.Version, JobTaskFields(jobTaskState, JobTaskAttempts, JobTaskVersion, JobTaskStartTime, JobTaskFinishTime)
+		if is_jobdef_dead {
+			task.state = yodb.Text(Cancelled)
+			if (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
+				task.Attempts[0].Err = context.Canceled
+			}
+		} else if (!task.markForRetryOrAsFailed(ctx)) && (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
+			task.Attempts[0].Err = context.DeadlineExceeded
+		}
+		task.Version++
+		yodb.Update[JobTask](ctx, task, qSafe(task.Id, JobTaskVersion, old_version), false, task_upd_fields...)
 	})
 
-	// if !is_jobdef_dead { // the usual case.
-	// 	task_filter = task_filter.WithStates(Running).WithStartedBefore(timeNow().Add(-(jobDef.Timeouts.TaskRun + time.Minute)))
-	// } else { //  the rare edge case: un-Done tasks still in DB for old now-disabled-or-deleted-from-config job def
-	// 	task_filter = task_filter.WithStates(Running, Pending)
-	// }
-	// dead_tasks, _, _, _, err := me.storage.findJobTasks(ctx, false, false, task_filter, 0)
-	// if nil != me.logErr(log, err, jobDef) {
-	// 	return
-	// }
 	// for _, task := range dead_tasks {
-	// 	if is_jobdef_dead {
-	// 		task.State = Cancelled
-	// 		if len(task.Attempts) > 0 && task.Attempts[0].Err == nil {
-	// 			task.Attempts[0].Err = context.Canceled
-	// 		}
 	// 	} else if (!task.markForRetryOrAsFailed(jobDef)) && (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
 	// 		task.Attempts[0].Err = context.DeadlineExceeded
 	// 	}
@@ -130,13 +126,13 @@ func (me *engine) runTask(task *JobTask) {
 		(((err_ctx != nil) && errors.Is(err_ctx, context.DeadlineExceeded)) ||
 			((task.Attempts[0].Err != nil) && (job_def.jobType != nil) &&
 				job_def.jobType.IsTaskErrRetryable(task.Attempts[0].Err))) {
-		did_mark_for_retry = task.markForRetryOrAsFailed(job_def)
+		did_mark_for_retry = task.markForRetryOrAsFailed(nil)
 	}
 	if task.Attempts[0].Err == nil {
 		task.Attempts[0].Err = err_ctx
 	}
-	if (task.Attempts[0].Err != nil) && !did_mark_for_retry {
-		task.Failed, task_upd_fields = true, sl.With(task_upd_fields, JobTaskFailed.F())
+	if (task.Attempts[0].Err != nil) && did_mark_for_retry {
+		task_upd_fields = sl.With(task_upd_fields, JobTaskStartTime.F())
 	}
 
 	// ready to save

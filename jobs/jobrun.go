@@ -66,10 +66,8 @@ func (me *JobRun) ctx(ctx *Ctx, taskId yodb.I64) *Context {
 }
 
 type JobRunStats struct {
-	TasksByState   map[RunState]int64
-	TasksFailed    int64
-	TasksSucceeded int64
-	TasksTotal     int64
+	TasksByState map[RunState]int64
+	TasksTotal   int64
 
 	DurationTotalMins    *float64
 	DurationPrepSecs     *yodb.F32
@@ -91,25 +89,6 @@ func (me *JobRunStats) PercentDone() int {
 	}
 }
 
-// PercentSuccess returns a percentage `int` such that:
-//   - 100 always means "job fully successful" (all its tasks succeeded),
-//   - 0 always means "job fully failed" (all its tasks failed),
-//   - 1-99 means a (technically slightly imprecise) approximation of the actual success/failure ratio,
-//   - `nil` means the job is not yet `DONE`.
-func (me *JobRunStats) PercentSuccess() *int {
-	if me.TasksTotal == 0 || me.TasksByState[Done] != me.TasksTotal {
-		return nil
-	}
-	switch me.TasksTotal {
-	case me.TasksSucceeded:
-		return ToPtr(100)
-	case me.TasksFailed:
-		return ToPtr(0)
-	default:
-		return ToPtr(Clamp(1, 99, int(float64(me.TasksSucceeded)*(100.0/float64(me.TasksTotal)))))
-	}
-}
-
 // Timeout implements utils.HasTimeout
 func (me *JobRun) Timeout(ctx *Ctx) time.Duration {
 	job_def := me.jobDef(ctx)
@@ -127,10 +106,6 @@ func (me *JobRun) Stats(ctx *Ctx) *JobRunStats {
 		stats.TasksByState[state] = yodb.Count[JobTask](ctx, JobTaskJobRun.Equal(me.Id).And(jobTaskState.Equal(string(state))), "", nil)
 		stats.TasksTotal += stats.TasksByState[state]
 	}
-	stats.TasksFailed = yodb.Count[JobTask](ctx,
-		JobTaskJobRun.Equal(me.Id).And(jobTaskState.Equal(string(Done))).And(JobTaskFailed.Equal(true)),
-		"", nil)
-	stats.TasksSucceeded = stats.TasksByState[Done] - stats.TasksFailed
 
 	if (me.StartTime != nil) && (me.FinishTime != nil) {
 		stats.DurationTotalMins = ToPtr(me.FinishTime.Sub(me.StartTime).Minutes())
@@ -151,7 +126,12 @@ func (me *JobRun) jobDef(ctx *Ctx) *JobDef {
 	return nil
 }
 
-func (me *JobRun) jobType(ctx *Ctx) JobType { return me.jobDef(ctx).jobType }
+func (me *JobRun) jobType(ctx *Ctx) JobType {
+	if jobdef := me.jobDef(ctx); jobdef != nil {
+		return jobdef.jobType
+	}
+	return nil
+}
 
 var _ yodb.Obj = (*JobRun)(nil)
 
