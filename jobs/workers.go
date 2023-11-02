@@ -16,9 +16,8 @@ func qSafe[TFld q.Field](id yodb.I64, versionField TFld, versionNr yodb.U32) q.Q
 	return yodb.ColID.Equal(id).And(versionField.Equal(versionNr))
 }
 
-// func (me *engine) expireOrRetryDeadJobTasksForJobDef(ctx *Ctx, jobDef *JobDef, runningJobs []*JobRun) {
-// 	log := loggerNew()
-// 	is_jobdef_dead := (jobDef == nil) || bool(jobDef.Disabled) || (jobDef.jobType == nil)
+// func (me *engine) expireOrRetryDeadJobTasksForJobDef(ctx *Ctx, jobDef *JobDef) {
+// 	is_jobdef_dead :=  bool(jobDef.Disabled) || (jobDef.jobType == nil)
 // 	task_filter := JobTaskFilter{}.WithJobRuns(sl.To(runningJobs, func(v *JobRun) string { return v.Id })...)
 // 	if !is_jobdef_dead { // the usual case.
 // 		task_filter = task_filter.WithStates(Running).WithStartedBefore(timeNow().Add(-(jobDef.Timeouts.TaskRun + time.Minute)))

@@ -151,6 +151,8 @@ func (me *JobRun) jobDef(ctx *Ctx) *JobDef {
 	return nil
 }
 
+func (me *JobRun) jobType(ctx *Ctx) JobType { return me.jobDef(ctx).jobType }
+
 var _ yodb.Obj = (*JobRun)(nil)
 
 func (me *JobRun) OnAfterLoaded() {
