@@ -125,6 +125,7 @@ const (
 	JobTaskStartTime                       JobTaskField = "StartTime"
 	JobTaskFinishTime                      JobTaskField = "FinishTime"
 	JobTaskAttempts                        JobTaskField = "Attempts"
+	JobTaskFailed                          JobTaskField = "Failed"
 	jobTaskDetails                         JobTaskField = "details"
 	jobTaskResults                         JobTaskField = "results"
 	JobTaskJobRun_Id                       JobTaskField = "JobRun.Id"

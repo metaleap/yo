@@ -18,6 +18,7 @@ type JobTask struct {
 	StartTime  *yodb.DateTime
 	FinishTime *yodb.DateTime
 	Attempts   yodb.JsonArr[TaskAttempt]
+	Failed     yodb.Bool
 
 	Details TaskDetails
 	Results TaskResults
@@ -48,7 +49,7 @@ func (me *TaskAttempt) Time() *time.Time {
 
 func (me *JobTask) State() RunState { return RunState(me.state) }
 
-func (me *JobTask) Failed() bool {
+func (me *JobTask) failed() bool {
 	return (me.State() == Done) && (len(me.Attempts) > 0) && (me.Attempts[0].Err != "")
 }
 

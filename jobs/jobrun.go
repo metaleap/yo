@@ -70,8 +70,8 @@ type JobRunStats struct {
 	TasksTotal     int64
 
 	DurationTotalMins    *float64
-	DurationPrepSecs     *float64
-	DurationFinalizeSecs *float64
+	DurationPrepSecs     *yodb.F32
+	DurationFinalizeSecs *yodb.F32
 }
 
 // PercentDone returns a percentage `int` such that:

@@ -8,7 +8,7 @@ import (
 	. "yo/ctx"
 	yodb "yo/db"
 	q "yo/db/query"
-	// . "yo/util"
+	. "yo/util"
 )
 
 func init() {
@@ -108,9 +108,9 @@ func NewEngine(options Options) (Engine, error) {
 	return nil, err // &engine{options: options, taskCancelers: map[string]func(){}}, nil
 }
 
-func (it *engine) Running() bool { return it.running }
-func (it *engine) Resume() {
-	it.running = true
+func (me *engine) Running() bool { return me.running }
+func (me *engine) Resume() {
+	me.running = true
 	// DoAfter(it.options.IntervalStartAndFinalizeJobs, it.startAndFinalizeJobRuns)
 	// DoAfter(it.options.IntervalRunTasks, it.runJobTasks)
 	// DoAfter(it.options.IntervalExpireOrRetryDeadTasks, it.expireOrRetryDeadJobTasks)
@@ -118,39 +118,33 @@ func (it *engine) Resume() {
 	// DoAfter(Clamp(22*time.Second, 44*time.Second, it.options.IntervalEnsureJobSchedules), it.ensureJobRunSchedules)
 }
 
-func (it *engine) OnJobTaskExecuted(eventHandler func(*JobTask, time.Duration)) {
-	it.eventHandlers.onJobTaskExecuted = eventHandler
+func (me *engine) OnJobTaskExecuted(eventHandler func(*JobTask, time.Duration)) {
+	me.eventHandlers.onJobTaskExecuted = eventHandler
 }
-func (it *engine) OnJobRunFinalized(eventHandler func(*JobRun, *JobRunStats)) {
-	it.eventHandlers.onJobRunFinalized = eventHandler
+func (me *engine) OnJobRunFinalized(eventHandler func(*JobRun, *JobRunStats)) {
+	me.eventHandlers.onJobRunFinalized = eventHandler
 }
 
-func (it *engine) Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats {
+func (me *engine) Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats {
 	job_run := yodb.ById[JobRun](ctx, jobRunId)
 	return job_run.Stats(ctx)
 }
 
-func (it *JobRun) Stats(ctx *Ctx) *JobRunStats {
+func (me *JobRun) Stats(ctx *Ctx) *JobRunStats {
 	stats := JobRunStats{TasksByState: make(map[RunState]int64, 4)}
-	// for _, state := range []RunState{Pending, Running, Done, Cancelled} {
-	// 	yodb.Count[JobTask](ctx,)
-	// 	if stats.TasksByState[state], err = it.storage.countJobTasks(ctx, 0,
-	// 		JobTaskFilter{}.WithJobRuns(jobRun.Id).WithStates(state),
-	// 	); err != nil {
-	// 		return nil, err
-	// 	}
-	// 	stats.TasksTotal += stats.TasksByState[state]
-	// }
-	// if stats.TasksFailed, err = it.storage.countJobTasks(ctx, 0,
-	// 	JobTaskFilter{}.WithJobRuns(jobRun.Id).WithStates(Done).WithFailed(),
-	// ); err != nil {
-	// 	return nil, err
-	// }
-	// stats.TasksSucceeded = stats.TasksByState[Done] - stats.TasksFailed
 
-	// if (jobRun.StartTime != nil) && (jobRun.FinishTime != nil) {
-	// 	stats.DurationTotalMins = ToPtr(jobRun.FinishTime.Sub(*jobRun.StartTime).Minutes())
-	// }
-	// stats.DurationPrepSecs, stats.DurationFinalizeSecs = jobRun.Info.DurationPrepSecs, jobRun.Info.DurationFinalizeSecs
+	for _, state := range []RunState{Pending, Running, Done, Cancelled} {
+		stats.TasksByState[state] = yodb.Count[JobTask](ctx, JobTaskJobRun.Equal(me.Id).And(jobTaskState.Equal(string(state))), "", nil)
+		stats.TasksTotal += stats.TasksByState[state]
+	}
+	stats.TasksFailed = yodb.Count[JobTask](ctx,
+		JobTaskJobRun.Equal(me.Id).And(jobTaskState.Equal(string(Done))).And(JobTaskFailed.Equal(true)),
+		"", nil)
+	stats.TasksSucceeded = stats.TasksByState[Done] - stats.TasksFailed
+
+	if (me.StartTime != nil) && (me.FinishTime != nil) {
+		stats.DurationTotalMins = ToPtr(me.FinishTime.Sub(me.StartTime).Minutes())
+	}
+	stats.DurationPrepSecs, stats.DurationFinalizeSecs = me.DurationPrepSecs, me.DurationFinalizeSecs
 	return &stats
 }

@@ -558,5 +558,6 @@ func (me *DateTime) Set(f func(time.Time) time.Time) {
 	*me = (DateTime)(f((time.Time)(*me)))
 }
 
-func (me DateTime) SinceNow() time.Duration { return time.Since((time.Time)(me)) }
-func (me *DateTime) Time() *time.Time       { return (*time.Time)(me) }
+func (me DateTime) SinceNow() time.Duration         { return time.Since((time.Time)(me)) }
+func (me *DateTime) Sub(it *DateTime) time.Duration { return me.Time().Sub(*it.Time()) }
+func (me *DateTime) Time() *time.Time               { return (*time.Time)(me) }
