@@ -1,77 +1,59 @@
 package yojobs
 
 import (
-	"errors"
 	"time"
 
 	. "yo/ctx"
+	yodb "yo/db"
 )
 
 type JobTask struct {
-	Id string
+	Id      yodb.I64
+	Version yodb.U32
 
-	JobTypeId  string
-	JobRunId   string
-	State      RunState
-	StartTime  *time.Time
-	FinishTime *time.Time
-	Attempts   []*TaskAttempt
-	Version    int
+	JobTypeId  yodb.Text
+	JobRun     yodb.Ref[JobRun, yodb.RefOnDelCascade]
+	state      yodb.Text
+	StartTime  *yodb.DateTime
+	FinishTime *yodb.DateTime
+	Attempts   yodb.JsonArr[TaskAttempt]
 
 	Details TaskDetails
 	Results TaskResults
-
-	jobRun *JobRun
+	details yodb.JsonMap[any]
+	results yodb.JsonMap[any]
 }
 
+type TaskAttempt struct {
+	Time time.Time
+	Err  string
+}
+
+func (me *JobTask) State() RunState { return RunState(me.state) }
+
 func (me *JobTask) Failed() bool {
-	return (me.State == Done) && (len(me.Attempts) > 0) && (me.Attempts[0].Err != nil)
+	return (me.State() == Done) && (len(me.Attempts) > 0) && (me.Attempts[0].Err != "")
 }
 
 func (me *JobTask) Succeeded() bool {
-	return (me.State == Done) && (len(me.Attempts) > 0) && (me.Attempts[0].Err == nil)
+	return (me.State() == Done) && (len(me.Attempts) > 0) && (me.Attempts[0].Err == "")
 }
 
 func (me *JobTask) markForRetryOrAsFailed(jobDef *JobDef) (retry bool) {
 	if (jobDef != nil) && (len(me.Attempts) <= int(jobDef.MaxTaskRetries)) { // first attempt was not a RE-try
-		me.State, me.StartTime, me.FinishTime = Pending, nil, nil
+		me.state, me.StartTime, me.FinishTime = yodb.Text(Pending), nil, nil
 		return true
 	}
-	me.State, me.FinishTime = Done, timeNow()
+	me.state, me.FinishTime = yodb.Text(Done), yodb.DtNow()
 	return false
-}
-
-type TaskAttempt struct {
-	Time      time.Time
-	TaskError *TaskError
-
-	// Err is the `error` equivalent of `TaskError`. For read accesses, both can be used interchangably. Write accesses (that last) don't occur outside this package.
-	Err error `json:"-"` // code in this package uses only `Err`, not `TaskError` which is just for storage and only used in un/marshaling hooks and API mapping code.
-}
-
-type TaskError struct {
-	Message string
-}
-
-func (me *TaskError) Err() error {
-	if me == nil {
-		return nil
-	}
-	return errors.New(me.Message)
-}
-
-func (me *TaskError) Error() (s string) {
-	if me != nil {
-		s = me.Err().Error()
-	}
-	return
 }
 
 // Timeout implements utils.HasTimeout
 func (me *JobTask) Timeout(ctx *Ctx) time.Duration {
 	var job_def *JobDef
-	if me.jobRun != nil {
-		job_def = me.jobRun.JobDef.Get(ctx)
+	job_run := me.JobRun.Get(ctx)
+	if job_run != nil {
+		job_def = job_run.JobDef.Get(ctx)
 	}
 	if (job_def != nil) && (job_def.TimeoutTaskRunSecs) > 0 {
 		return time.Second * time.Duration(job_def.TimeoutTaskRunSecs)

@@ -32,26 +32,31 @@ type JobRun struct {
 	Id      yodb.I64
 	Version yodb.U32
 
-	JobTypeId     yodb.Text
-	JobDef        yodb.Ref[JobDef, yodb.RefOnDelSetNull]
-	state         yodb.Text
-	DueTime       *yodb.DateTime
-	StartTime     *yodb.DateTime
-	FinishTime    *yodb.DateTime
-	AutoScheduled yodb.Bool
+	JobTypeId          yodb.Text
+	JobDef             yodb.Ref[JobDef, yodb.RefOnDelSetNull]
+	state              yodb.Text
+	cancellationReason yodb.Text
+	DueTime            *yodb.DateTime
+	StartTime          *yodb.DateTime
+	FinishTime         *yodb.DateTime
+	AutoScheduled      yodb.Bool
 
 	// this is DB-uniqued and its only purpose is to avoid multiple instances concurrently scheduling the same next job in `ensureJobRunSchedules`
 	ScheduledNextAfterJobRun yodb.Ref[JobRun, yodb.RefOnDelSetNull]
 
-	InfoDurationPrepSecs     *float64
-	InfoDurationFinalizeSecs *float64
-	InfoCancellationReason   CancellationReason
+	DurationPrepSecs     *yodb.F32
+	DurationFinalizeSecs *yodb.F32
 
 	Details JobDetails
 	Results JobResults
+	details yodb.JsonMap[any]
+	results yodb.JsonMap[any]
 }
 
 func (me *JobRun) State() RunState { return RunState(me.state) }
+func (me *JobRun) CancellationReason() CancellationReason {
+	return CancellationReason(me.cancellationReason)
+}
 
 func (me *JobRun) ctx(ctx *Ctx, taskId string) *Context {
 	return &Context{Ctx: ctx, JobRunId: me.Id, JobDetails: me.Details, JobDef: *me.JobDef.Get(ctx), JobTaskId: taskId}
