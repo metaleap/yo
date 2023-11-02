@@ -9,6 +9,7 @@ import (
 	yodb "yo/db"
 	q "yo/db/query"
 	. "yo/util"
+	sl "yo/util/sl"
 )
 
 func init() {
@@ -125,56 +126,37 @@ func (me *engine) OnJobRunFinalized(eventHandler func(*JobRun, *JobRunStats)) {
 	me.eventHandlers.onJobRunFinalized = eventHandler
 }
 
-// func (it *engine) cancelJobRuns(ctx context.Context, jobRunsToCancel map[CancellationReason][]*JobRun) (errs map[*JobRun]error) {
-// 	if len(jobRunsToCancel) == 0 {
-// 		return
-// 	}
-// 	log := loggerNew()
-// 	var mut_errs sync.Mutex
-// 	errs = make(map[*JobRun]error, len(jobRunsToCancel)/2)
-// 	for reason, jobRuns := range jobRunsToCancel {
-// 		GoItems(ctx, jobRuns, func(ctx context.Context, jobRun *JobRun) {
-// 			state, version := jobRun.State, jobRun.Version
-// 			jobRun.State, jobRun.Info.CancellationReason = JobRunCancelling, reason
-// 			if it.logLifecycleEvents(nil, jobRun, nil) {
-// 				jobRun.logger(log).Infof("marking %s '%s' job run '%s' as %s", state, jobRun.JobDefId, jobRun.Id, jobRun.State)
-// 			}
-// 			if err := it.storage.saveJobRun(ctx, jobRun); err != nil {
-// 				jobRun.State, jobRun.Version = state, version
-// 				mut_errs.Lock()
-// 				errs[jobRun] = err
-// 				mut_errs.Unlock()
-// 			}
-// 		}, it.options.MaxConcurrentOps, it.options.TimeoutShort)
-// 	}
-// 	return
-// }
+func (*engine) CancelJobRuns(ctx *Ctx, jobRunIds ...string) {
+	if len(jobRunIds) == 0 {
+		return
+	}
+	yodb.Update[JobRun](ctx, &JobRun{state: yodb.Text(JobRunCancelling)},
+		JobRunId.In(yodb.Arr[string](jobRunIds).ToAnys()...), true, JobRunFields(jobRunState)...)
+}
 
-func (it *engine) DeleteJobRuns(ctx *Ctx, jobRunIds ...yodb.I64) int64 {
+func (*engine) cancelJobRuns(ctx *Ctx, jobRunsToCancel map[CancellationReason][]*JobRun) {
+	if len(jobRunsToCancel) == 0 {
+		return
+	}
+	ctx.DbTx()
+	for reason, job_runs := range jobRunsToCancel {
+		for _, job_run := range job_runs {
+			job_run.state, job_run.cancellationReason = yodb.Text(JobRunCancelling), yodb.Text(reason)
+		}
+		Try(func() {
+			yodb.Update[JobRun](ctx, &JobRun{cancellationReason: yodb.Text(reason), state: yodb.Text(JobRunCancelling)},
+				JobRunId.In(sl.To(job_runs, func(it *JobRun) any { return it.Id })), true, JobRunFields(jobRunState, jobRunCancellationReason)...)
+		}, nil)
+	}
+}
+
+func (*engine) DeleteJobRuns(ctx *Ctx, jobRunIds ...yodb.I64) int64 {
 	return yodb.Delete[JobRun](ctx, JobRunId.In(yodb.Arr[yodb.I64](jobRunIds).ToAnys()...).And(
 		jobRunState.Equal(string(Done)).Or(jobRunState.Equal(string(Cancelled)))))
 }
 
-func (me *engine) Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats {
+func (*engine) Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats {
+	ctx.DbTx()
 	job_run := yodb.ById[JobRun](ctx, jobRunId)
 	return job_run.Stats(ctx)
-}
-
-func (me *JobRun) Stats(ctx *Ctx) *JobRunStats {
-	stats := JobRunStats{TasksByState: make(map[RunState]int64, 4)}
-
-	for _, state := range []RunState{Pending, Running, Done, Cancelled} {
-		stats.TasksByState[state] = yodb.Count[JobTask](ctx, JobTaskJobRun.Equal(me.Id).And(jobTaskState.Equal(string(state))), "", nil)
-		stats.TasksTotal += stats.TasksByState[state]
-	}
-	stats.TasksFailed = yodb.Count[JobTask](ctx,
-		JobTaskJobRun.Equal(me.Id).And(jobTaskState.Equal(string(Done))).And(JobTaskFailed.Equal(true)),
-		"", nil)
-	stats.TasksSucceeded = stats.TasksByState[Done] - stats.TasksFailed
-
-	if (me.StartTime != nil) && (me.FinishTime != nil) {
-		stats.DurationTotalMins = ToPtr(me.FinishTime.Sub(me.StartTime).Minutes())
-	}
-	stats.DurationPrepSecs, stats.DurationFinalizeSecs = me.DurationPrepSecs, me.DurationFinalizeSecs
-	return &stats
 }

@@ -116,3 +116,23 @@ func (me *JobRun) Timeout(ctx *Ctx) time.Duration {
 	}
 	return TimeoutLong
 }
+
+func (me *JobRun) Stats(ctx *Ctx) *JobRunStats {
+	ctx.DbTx()
+	stats := JobRunStats{TasksByState: make(map[RunState]int64, 4)}
+
+	for _, state := range []RunState{Pending, Running, Done, Cancelled} {
+		stats.TasksByState[state] = yodb.Count[JobTask](ctx, JobTaskJobRun.Equal(me.Id).And(jobTaskState.Equal(string(state))), "", nil)
+		stats.TasksTotal += stats.TasksByState[state]
+	}
+	stats.TasksFailed = yodb.Count[JobTask](ctx,
+		JobTaskJobRun.Equal(me.Id).And(jobTaskState.Equal(string(Done))).And(JobTaskFailed.Equal(true)),
+		"", nil)
+	stats.TasksSucceeded = stats.TasksByState[Done] - stats.TasksFailed
+
+	if (me.StartTime != nil) && (me.FinishTime != nil) {
+		stats.DurationTotalMins = ToPtr(me.FinishTime.Sub(me.StartTime).Minutes())
+	}
+	stats.DurationPrepSecs, stats.DurationFinalizeSecs = me.DurationPrepSecs, me.DurationFinalizeSecs
+	return &stats
+}

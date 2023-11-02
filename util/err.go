@@ -36,3 +36,12 @@ func (me Err) HttpStatusCodeOr(preferredDefault int) int {
 	}
 	return preferredDefault
 }
+
+func Try(do func(), catch func(any)) {
+	defer func() {
+		if fail := recover(); (fail != nil) && (catch != nil) {
+			catch(fail)
+		}
+	}()
+	do()
+}
