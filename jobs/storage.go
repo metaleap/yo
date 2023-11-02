@@ -11,18 +11,18 @@ type (
 	Storage interface {
 		GetJobDef(ctx context.Context, id string) (*JobDef, error)
 		FindJobDef(ctx context.Context, filter *JobDefFilter) (*JobDef, error)
-		ListJobDefs(ctx context.Context, filter *JobDefFilter) ([]*JobDef, error)
+		FindJobDefs(ctx context.Context, filter *JobDefFilter) ([]*JobDef, error)
 
 		GetJobRun(ctx context.Context, id string) (*JobRun, error)
 		FindJobRun(ctx context.Context, filter *JobRunFilter, sort ...Sorting) (*JobRun, error)
-		ListJobRuns(ctx context.Context, req ListRequest, filter *JobRunFilter) ([]*JobRun, string, error)
+		FindJobRuns(ctx context.Context, req ListRequest, filter *JobRunFilter) ([]*JobRun, string, error)
 		CountJobRuns(ctx context.Context, limit int64, filter *JobRunFilter) (int64, error)
 		InsertJobRuns(ctx context.Context, objs ...*JobRun) error
 		DeleteJobRuns(ctx context.Context, filter *JobRunFilter) error
 
 		GetJobTask(ctx context.Context, id string) (*JobTask, error)
 		FindJobTask(ctx context.Context, filter *JobTaskFilter) (*JobTask, error)
-		ListJobTasks(ctx context.Context, req ListRequest, filter *JobTaskFilter) ([]*JobTask, string, error)
+		FindJobTasks(ctx context.Context, req ListRequest, filter *JobTaskFilter) ([]*JobTask, string, error)
 		CountJobTasks(ctx context.Context, limit int64, filter *JobTaskFilter) (int64, error)
 		InsertJobTasks(ctx context.Context, objs ...*JobTask) error
 		DeleteJobTasks(ctx context.Context, filter *JobTaskFilter) error
@@ -64,7 +64,7 @@ func (it storage) findJobDef(ctx context.Context, filter *JobDefFilter) (*JobDef
 }
 
 func (it storage) listJobDefs(ctx context.Context, filter *JobDefFilter) ([]*JobDef, error) {
-	job_defs, err := it.impl.ListJobDefs(ctx, filter)
+	job_defs, err := it.impl.FindJobDefs(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -104,11 +104,11 @@ func (it storage) findJobRun(ctx context.Context, loadDef bool, mustLoadDef bool
 	return job_run, err
 }
 
-func (it storage) listJobRuns(ctx context.Context, loadDefs bool, mustLoadDefs bool, req ListRequest, filter *JobRunFilter) (jobRuns []*JobRun, jobDefs []*JobDef, pageTok string, err error) {
+func (it storage) findJobRuns(ctx context.Context, loadDefs bool, mustLoadDefs bool, req ListRequest, filter *JobRunFilter) (jobRuns []*JobRun, jobDefs []*JobDef, pageTok string, err error) {
 	if len(req.Sort) == 0 {
 		req.Sort = defaultJobSorting
 	}
-	jobRuns, pageTok, err = it.impl.ListJobRuns(ctx, req, filter)
+	jobRuns, pageTok, err = it.impl.FindJobRuns(ctx, req, filter)
 	if (err == nil) && loadDefs {
 		if jobDefs, err = it.listJobDefs(ctx, JobDefFilter{}.WithIds(sl.To(jobRuns, func(v *JobRun) string { return v.JobDefId })...)); err == nil {
 			for _, job := range jobRuns {
@@ -150,10 +150,10 @@ func (it storage) findJobTask(ctx context.Context, loadJobRun bool, mustLoadJobR
 	return job_task, err
 }
 
-func (it storage) listJobTasks(ctx context.Context, loadJobRuns bool, mustLoadJobRuns bool, req ListRequest, filter *JobTaskFilter) (jobTasks []*JobTask, jobRuns []*JobRun, jobDefs []*JobDef, pageTok string, err error) {
-	jobTasks, pageTok, err = it.impl.ListJobTasks(ctx, req, filter)
+func (it storage) findJobTasks(ctx context.Context, loadJobRuns bool, mustLoadJobRuns bool, req ListRequest, filter *JobTaskFilter) (jobTasks []*JobTask, jobRuns []*JobRun, jobDefs []*JobDef, pageTok string, err error) {
+	jobTasks, pageTok, err = it.impl.FindJobTasks(ctx, req, filter)
 	if (err == nil) && loadJobRuns {
-		if jobRuns, jobDefs, _, err = it.listJobRuns(ctx, true, mustLoadJobRuns, ListRequest{PageSize: len(jobTasks)}, JobRunFilter{}.WithIds(sl.To(jobTasks, func(v *JobTask) string { return v.JobRunId })...)); err == nil {
+		if jobRuns, jobDefs, _, err = it.findJobRuns(ctx, true, mustLoadJobRuns, ListRequest{PageSize: len(jobTasks)}, JobRunFilter{}.WithIds(sl.To(jobTasks, func(v *JobTask) string { return v.JobRunId })...)); err == nil {
 			for _, job_task := range jobTasks {
 				if job_task.jobRun = sl.FirstWhere(jobRuns, func(it *JobRun) bool { return (it.Id == job_task.JobRunId) }); (job_task.jobRun == nil) && mustLoadJobRuns {
 					return nil, nil, nil, "", errNotFoundJobRun(job_task.JobRunId)

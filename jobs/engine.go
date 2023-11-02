@@ -120,7 +120,7 @@ func (it *engine) CancelJobRuns(ctx context.Context, jobRunIds ...string) (errs 
 	if len(jobRunIds) == 0 {
 		return
 	}
-	job_runs, _, _, err := it.storage.listJobRuns(ctx, false, false, ListRequest{PageSize: len(jobRunIds)},
+	job_runs, _, _, err := it.storage.findJobRuns(ctx, false, false, ListRequest{PageSize: len(jobRunIds)},
 		JobRunFilter{}.WithStates(Running, Pending).WithIds(jobRunIds...))
 	if err != nil {
 		return []error{err}
