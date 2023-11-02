@@ -41,8 +41,8 @@ type (
 		Value any    `json:"value,omitempty"`
 	}
 
-	// storage is the package-internal shim around `Backend` that all code in this
-	// package is to use instead of directly calling `Backend`s method implementations.
+	// storage is the package-internal shim around `Storage` that all code in this
+	// package is to use instead of directly calling `Storage`s method implementations.
 	// Most shim methods are not mere call wraps but add needed checks or logic.
 	storage struct{ impl Storage }
 )
