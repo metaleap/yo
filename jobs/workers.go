@@ -44,6 +44,9 @@ func (me *engine) runTask(task *JobTask) {
 	job_run := task.JobRun.Get(nil) // already preloaded by runJobTasks
 	job_def := job_run.jobDef(nil)  // dito
 	ctx := NewCtxNonHttp(task.Timeout(nil /*dito*/), true, "")
+	if old_cancel := me.setTaskCanceler(task.Id, ctx.Cancel); old_cancel != nil {
+		old_cancel() // should never be the case, but let's be principled & clean...
+	}
 	ctx.DbTx()
 	// first, attempt to reserve task for running vs. other pods
 	already_canceled := (job_run == nil) || (job_run.State() == Cancelled) || (job_run.State() == JobRunCancelling) ||
