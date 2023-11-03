@@ -20,14 +20,20 @@ func (me *engine) startAndFinalizeJobRuns() {
 
 	// me.finalizeJobRunsIfDone(ctxNone)
 	me.startDueJobRuns()
-	// me.finalizeCancelingJobRuns(ctxNone)
+	me.finalizeCancellingJobRuns()
 }
 
-func (me *engine) finalizeCancellingJobRun(ctx *Ctx, jobRun *JobRun) {
-	// no db-tx wanted here by design
-	yodb.Update[JobTask](ctx, &JobTask{state: yodb.Text(Cancelled)}, JobTaskJobRun.Equal(jobRun.Id).And(jobTaskState.In(Pending, Running)), false, JobTaskFields(jobTaskState)...)
-	jobRun.state, jobRun.FinishTime = yodb.Text(Cancelled), yodb.DtNow()
-	yodb.Update[JobRun](ctx, jobRun, nil, false, JobRunFields(jobRunState, JobRunFinishTime)...)
+func (me *engine) finalizeCancellingJobRuns() {
+	defer Finally(nil)
+
+	// no db-tx(s) wanted here by design
+	ctx := NewCtxNonHttp(TimeoutLong, false, "")
+	yodb.Update[JobTask](ctx, &JobTask{state: yodb.Text(Cancelled)},
+		jobTaskJobRun_state.Equal(JobRunCancelling).And(jobTaskState.In(Pending, Running)),
+		false, JobTaskFields(jobTaskState)...)
+	yodb.Update[JobRun](ctx, &JobRun{state: yodb.Text(Cancelled)},
+		jobRunState.Equal(JobRunCancelling),
+		false, JobRunFields(jobRunState, JobRunFinishTime)...)
 }
 
 func (me *engine) startDueJobRuns() {
