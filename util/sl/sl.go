@@ -86,6 +86,15 @@ func IdxWhere[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) i
 	return -1
 }
 
+func IdxsWhere[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) (ret []int) {
+	for i := range slice {
+		if pred(slice[i]) {
+			ret = append(ret, i)
+		}
+	}
+	return
+}
+
 func HasWhere[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) bool {
 	return (IdxWhere(slice, pred) >= 0)
 }

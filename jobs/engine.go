@@ -116,7 +116,7 @@ func (me *engine) Resume() {
 		return
 	}
 	me.running = true
-	// DoAfter(me.options.IntervalStartAndFinalizeJobs, me.startAndFinalizeJobRuns)
+	DoAfter(me.options.IntervalStartAndFinalizeJobs, me.startAndFinalizeJobRuns)
 	DoAfter(me.options.IntervalRunTasks, me.runJobTasks)
 	DoAfter(me.options.IntervalExpireOrRetryDeadTasks, me.expireOrRetryDeadJobTasks)
 	DoAfter(me.options.IntervalDeleteStorageExpiredJobs/10, me.deleteStorageExpiredJobRuns)

@@ -15,7 +15,17 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
+func (me *engine) startAndFinalizeJobRuns() {
+	defer Finally(func() { DoAfter(me.options.IntervalStartAndFinalizeJobs, me.startAndFinalizeJobRuns) })
+
+	// me.finalizeJobRunsIfDone(ctxNone)
+	me.startDueJobRuns()
+	// me.finalizeCancelingJobRuns(ctxNone)
+}
+
 func (me *engine) startDueJobRuns() {
+	defer Finally(nil)
+
 	ctx := NewCtxNonHttp(TimeoutLong, false, "")
 	jobs_due := yodb.FindMany[JobRun](ctx, jobRunState.Equal(Pending).And(JobRunDueTime.LessThan(time.Now())), 0, nil, JobRunDueTime.Asc())
 	jobs_cancel := map[CancellationReason][]*JobRun{}
@@ -28,7 +38,7 @@ func (me *engine) startDueJobRuns() {
 		jobdef := this.jobDef(ctx)
 		var reason CancellationReason
 		switch {
-		case (idx_dupl >= 0) && (idx_dupl != i):
+		case (idx_dupl >= 0):
 			reason = CancellationReasonJobRunDuplicate
 		case jobdef == nil:
 			reason = CancellationReasonJobDefInvalidOrGone
