@@ -1,9 +1,7 @@
 package yojobs
 
 import (
-	"context"
 	"strconv"
-	"sync"
 	"time"
 
 	. "yo/ctx"
@@ -82,11 +80,9 @@ type Options struct {
 }
 
 type engine struct {
-	running          bool
-	options          Options
-	taskCancelers    map[yodb.I64]func()
-	taskCancelersMut sync.Mutex
-	eventHandlers    struct {
+	running       bool
+	options       Options
+	eventHandlers struct {
 		onJobTaskExecuted func(*JobTask, time.Duration)
 		onJobRunFinalized func(*JobRun, *JobRunStats)
 	}
@@ -200,16 +196,4 @@ func (*engine) Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats {
 	ctx.DbTx()
 	job_run := yodb.ById[JobRun](ctx, jobRunId)
 	return job_run.Stats(ctx)
-}
-
-func (me *engine) setTaskCanceler(taskId yodb.I64, cancel context.CancelFunc) (previous context.CancelFunc) {
-	me.taskCancelersMut.Lock()
-	defer me.taskCancelersMut.Unlock()
-	previous = me.taskCancelers[taskId]
-	if cancel == nil {
-		delete(me.taskCancelers, taskId)
-	} else {
-		me.taskCancelers[taskId] = cancel
-	}
-	return
 }

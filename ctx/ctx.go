@@ -98,10 +98,10 @@ func (me *Ctx) CopyButWith(timeout time.Duration, cancelable bool) *Ctx {
 	return &ret
 }
 
-func (me *Ctx) OnDone(subTimings Timings) {
+func (me *Ctx) OnDone(alsoDo func()) {
 	var fail any
 	if (!IsDevMode) || catchPanics { // comptime branch
-		if !me.DevModeNoCatch { // runtime branch, keep sep from above one
+		if !me.DevModeNoCatch { // runtime branch, keep sep from above comptime one
 			if fail = recover(); IsDevMode && (fail != nil) {
 				println(str.Fmt(">>>>>>>>>%v<<<<<<<<<", fail))
 			}
@@ -109,6 +109,9 @@ func (me *Ctx) OnDone(subTimings Timings) {
 	}
 	if err, _ := fail.(error); err == context.DeadlineExceeded {
 		fail = ErrTimedOut
+	}
+	if alsoDo != nil {
+		alsoDo()
 	}
 	if me.Db.Tx != nil {
 		if fail == nil {
@@ -140,18 +143,11 @@ func (me *Ctx) OnDone(subTimings Timings) {
 	if me.ctxDone != nil {
 		me.ctxDone()
 	}
-	clear(me.caches.maps)
-	clear(me.caches.muts)
 	if IsDevMode && !me.TimingsNoPrintInDevMode {
-		do_print_timings := func(it Timings) {
-			total_duration, steps := it.AllDone()
-			println("\n" + it.String() + "\n  . . . " + str.DurationMs(total_duration) + ", like so:")
-			for _, step := range steps {
-				println(step.Step + ":\t" + str.DurationMs(step.Time))
-			}
-		}
-		if do_print_timings(me.Timings); subTimings != nil {
-			do_print_timings(subTimings)
+		total_duration, steps := me.Timings.AllDone()
+		println("\n" + me.Timings.String() + "\n  . . . " + str.DurationMs(total_duration) + ", like so:")
+		for _, step := range steps {
+			println(step.Step + ":\t" + str.DurationMs(step.Time))
 		}
 	}
 }
