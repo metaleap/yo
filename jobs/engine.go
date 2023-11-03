@@ -139,6 +139,9 @@ func (*engine) cancelJobRuns(ctx *Ctx, jobRunsToCancel map[CancellationReason][]
 		return
 	}
 	for reason, job_runs := range jobRunsToCancel {
+		if len(job_runs) == 0 {
+			continue
+		}
 		var failed bool
 		Try(func() {
 			yodb.Update[JobRun](ctx, &JobRun{cancellationReason: yodb.Text(reason), state: yodb.Text(JobRunCancelling)},

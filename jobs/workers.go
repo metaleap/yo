@@ -18,9 +18,39 @@ import (
 func (me *engine) startAndFinalizeJobRuns() {
 	defer DoAfter(me.options.IntervalStartAndFinalizeJobs, me.startAndFinalizeJobRuns)
 
-	// me.finalizeJobRunsIfDone(ctxNone)
+	me.finalizeDoneJobRuns()
 	me.startDueJobRuns()
 	me.finalizeCancellingJobRuns()
+}
+
+func (me *engine) finalizeDoneJobRuns() {
+	ctx := NewCtxNonHttp(TimeoutLong, false, "")
+	defer ctx.OnDone(nil)
+	job_runs := yodb.FindMany[JobRun](ctx, jobRunState.Equal(Running), 0, nil)
+
+	cancel_jobs := map[CancellationReason][]*JobRun{}
+	for reason, check := range map[CancellationReason]func(*JobRun) bool{
+		CancellationReasonJobDefInvalidOrGone: func(it *JobRun) bool {
+			return (it.jobDef(ctx) == nil)
+		},
+		CancellationReasonJobDefChanged: func(it *JobRun) bool {
+			job_def := it.jobDef(ctx)
+			return (job_def != nil) && ((it.JobTypeId != job_def.JobTypeId) || bool(job_def.Disabled))
+		},
+		CancellationReasonJobTypeInvalidOrGone: func(it *JobRun) bool {
+			job_def := it.jobDef(ctx)
+			return (job_def != nil) && (job_def.JobTypeId == it.JobTypeId) && (job_def.jobType == nil)
+		},
+	} {
+		jobs_to_cancel_due_to_check := sl.Where(job_runs, check)
+		cancel_jobs[reason], job_runs =
+			jobs_to_cancel_due_to_check, sl.Without(job_runs, jobs_to_cancel_due_to_check...)
+	}
+	me.cancelJobRuns(ctx, cancel_jobs)
+
+	GoItems(job_runs, func(it *JobRun) {
+		me.finalizeDoneJobRun(ctx, it)
+	}, me.options.MaxConcurrentOps)
 }
 
 func (me *engine) finalizeDoneJobRun(ctxForCacheReuse *Ctx, jobRun *JobRun) {
