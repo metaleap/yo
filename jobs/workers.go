@@ -107,8 +107,8 @@ func (me *engine) finalizeCancellingJobRuns() {
 	jobs := yodb.FindMany[JobRun](ctx, jobRunState.Equal(JobRunCancelling), 0, JobRunFields(JobRunId))
 	if len(jobs) > 0 {
 		tasks := yodb.FindMany[JobTask](ctx, jobTaskState.In(Pending, Running).And(JobTaskJobRun.In(sl.To(jobs, (*JobRun).id).ToAnys()...)), 0, JobTaskFields(JobTaskId, JobTaskVersion))
-		dbBatchUpdate[JobTask](ctx, tasks, &JobTask{state: yodb.Text(Cancelled)}, JobTaskFields(jobTaskState)...)
-		dbBatchUpdate[JobRun](ctx, jobs, &JobRun{state: yodb.Text(Cancelled)}, JobRunFields(jobRunState)...)
+		dbBatchUpdate[JobTask](me, ctx, tasks, &JobTask{state: yodb.Text(Cancelled)}, JobTaskFields(jobTaskState)...)
+		dbBatchUpdate[JobRun](me, ctx, jobs, &JobRun{state: yodb.Text(Cancelled)}, JobRunFields(jobRunState)...)
 	}
 }
 
@@ -298,7 +298,7 @@ func (me *engine) expireOrRetryDeadJobTasks() {
 			me.expireOrRetryDeadJobTasksForJobDef(job_def, sl.To(job_runs, (*JobRun).id))
 
 			if is_jobdef_dead := (job_def == nil) || (job_def.jobType == nil) || (job_def.Disabled); is_jobdef_dead {
-				dbBatchUpdate(ctx, job_runs, &JobRun{state: yodb.Text(JobRunCancelling)}, JobRunFields(jobRunState)...)
+				dbBatchUpdate(me, ctx, job_runs, &JobRun{state: yodb.Text(JobRunCancelling)}, JobRunFields(jobRunState)...)
 			}
 		}
 	}, me.options.MaxConcurrentOps)

@@ -122,33 +122,20 @@ func (me *engine) OnJobRunFinalized(eventHandler func(*JobRun, *JobRunStats)) {
 	me.eventHandlers.onJobRunFinalized = eventHandler
 }
 
-func (*engine) CancelJobRuns(ctx *Ctx, jobRunIds ...string) {
-	if len(jobRunIds) == 0 {
-		return
-	}
-	dbBatchUpdate(ctx, nil, &JobRun{state: yodb.Text(JobRunCancelling)}, JobRunFields(jobRunState)...)
-	yodb.Update[JobRun](ctx, &JobRun{state: yodb.Text(JobRunCancelling)},
-		JobRunId.In(sl.Of[string](jobRunIds).ToAnys()...), true, JobRunFields(jobRunState)...)
+func (me *engine) CancelJobRuns(ctx *Ctx, jobRunIds ...string) {
+	me.cancelJobRuns(ctx, map[CancellationReason][]*JobRun{
+		"": yodb.FindMany[JobRun](ctx, JobRunId.In(sl.Of[string](jobRunIds).ToAnys()...).And(jobRunState.In(Running, Pending)), 0, JobRunFields(JobRunId)),
+	})
 }
 
-func (*engine) cancelJobRuns(ctx *Ctx, jobRunsToCancel map[CancellationReason][]*JobRun) {
+func (me *engine) cancelJobRuns(ctx *Ctx, jobRunsToCancel map[CancellationReason][]*JobRun) {
 	if len(jobRunsToCancel) == 0 {
 		return
 	}
 	for reason, job_runs := range jobRunsToCancel {
-		if len(job_runs) == 0 {
-			continue
-		}
-		var failed bool
 		Try(func() {
-			yodb.Update[JobRun](ctx, &JobRun{cancellationReason: yodb.Text(reason), state: yodb.Text(JobRunCancelling)},
-				JobRunId.In(sl.To(job_runs, (*JobRun).id)), true, JobRunFields(jobRunState, jobRunCancellationReason)...)
-		}, func(any) { failed = true })
-		if !failed {
-			for _, job_run := range job_runs {
-				job_run.state, job_run.cancellationReason = yodb.Text(JobRunCancelling), yodb.Text(reason)
-			}
-		}
+			dbBatchUpdate(me, ctx, job_runs, &JobRun{state: yodb.Text(JobRunCancelling), cancellationReason: yodb.Text(reason)}, JobRunFields(jobRunState, jobRunCancellationReason)...)
+		}, nil)
 	}
 }
 
@@ -198,9 +185,11 @@ func (*engine) Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats {
 	return job_run.Stats(ctx)
 }
 
-func dbBatchUpdate[TObj any](ctx *Ctx, objs []*TObj, upd *TObj, onlyFields ...q.F) {
-	for _, obj := range objs { // no real SQL-single-statement batch update sadly, due to necessary `Job[Task|Run].Version` field increment
-		obj := any(obj).(interface{ id() yodb.I64 })
-		yodb.Update[TObj](ctx, upd, yodb.ColID.Equal(obj.id()), false, onlyFields...)
-	}
+func dbBatchUpdate[TObj any](me *engine, ctx *Ctx, objs []*TObj, upd *TObj, onlyFields ...q.F) {
+	type task_or_job = interface{ id() yodb.I64 }
+	GoItems(objs, func(obj *TObj) {
+		ctx := ctx.CopyButWith(0, false)
+		defer ctx.OnDone(nil)
+		yodb.Update[TObj](ctx, upd, yodb.ColID.Equal(any(obj).(task_or_job).id()), false, onlyFields...)
+	}, me.options.MaxConcurrentOps)
 }
