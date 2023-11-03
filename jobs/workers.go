@@ -221,6 +221,8 @@ func (me *engine) ensureJobRunSchedules() {
 		DoAfter(me.options.IntervalEnsureJobSchedules, me.ensureJobRunSchedules)
 	})
 
+	ctx.Db.PrintRawSqlInDevMode = true
+
 	yodb.Each[JobDef](ctx, q.Not(q.ArrIsEmpty(JobDefSchedules)), 0, nil,
 		func(jobDef *JobDef, enough *bool) {
 			latest := yodb.FindOne[JobRun](ctx, JobRunJobDef.Equal(jobDef.Id).And(JobRunAutoScheduled.Equal(true)), JobRunDueTime.Desc())
@@ -259,7 +261,8 @@ func (me *engine) scheduleJobRun(ctx *Ctx, jobDef *JobDef, jobRunPrev *JobRun) *
 	if jobRunPrev != nil {
 		last_time = sl.FirstNonNil(jobRunPrev.FinishTime, jobRunPrev.StartTime, jobRunPrev.DueTime)
 	}
-	if due_time := jobDef.findClosestToNowSchedulableTimeSince(last_time.Time(), true); due_time != nil {
+	due_time := jobDef.findClosestToNowSchedulableTimeSince(last_time.Time(), true)
+	if due_time != nil {
 		return me.createJobRun(ctx, jobDef, yodb.DtFrom(*due_time), nil, jobRunPrev)
 	}
 	return nil

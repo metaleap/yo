@@ -195,7 +195,10 @@ func (me *sqlStmt) where(desc *structDesc, isMut bool, where q.Query, args pgx.N
 		w(desc.tableName)
 	}
 	// add JOINs if any
-	dotteds := where.(interface{ AllDottedFs() map[q.F][]string }).AllDottedFs()
+	var dotteds map[q.F][]string
+	if where, _ := where.(interface{ AllDottedFs() map[q.F][]string }); where != nil {
+		dotteds = where.AllDottedFs()
+	}
 	var idx_join int
 	if len(dotteds) > 0 {
 		w(" LEFT OUTER JOIN ")

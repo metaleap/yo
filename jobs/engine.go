@@ -58,15 +58,16 @@ type Options struct {
 	// IntervalExpireOrRetryDeadTasks is advised every couple of minutes (under 5). It ensures (in storage) retry-or-done-with-error of tasks whose last runner died between their completion and updating their Result and RunState in storage accordingly.
 	IntervalExpireOrRetryDeadTasks time.Duration `default:"3m"`
 	// IntervalEnsureJobSchedules is advised every couple of minutes (under 5). It is only there to catch up scheduling-wise with new or changed `JobDef`s; otherwise a finalized `JobRun` gets its next occurrence scheduled right at finalization.
-	IntervalEnsureJobSchedules time.Duration `default:"22s"`
+	IntervalEnsureJobSchedules time.Duration `default:"11s"`
 	// IntervalDeleteStorageExpiredJobs can be on the order of hours: job storage-expiry is set in number-of-days.
 	// However, a fluke failure (connectivity/DB-restart/etc) will not see immediate retries (since running on an interval anyway), so no need to stretch too long either.
 	IntervalDeleteStorageExpiredJobs time.Duration `default:"11h"`
 
-	// MaxConcurrentOps semaphores worker bulk operations over multiple unrelated JobTasks, JobRuns or JobDefs
-	MaxConcurrentOps int `default:"6"`
+	// MaxConcurrentOps semaphores worker bulk operations over multiple unrelated JobTasks, JobRuns or JobDefs.
+	// keep it lowish since importers are also serving api/asset requests and many such bulk-operations might incur DB table-locks (or db driver locks) anyway
+	MaxConcurrentOps int `default:"4"`
 	// FetchTasksToRun denotes the maximum number of tasks-to-run-now to fetch, approx. every `IntervalRunTasks`.
-	FetchTasksToRun int `default:"3"`
+	FetchTasksToRun int `default:"22"`
 	// TimeoutShort is the usual timeout for most timeoutable calls (ie. brief DB queries and simple non-batch, non-transaction updates).
 	// It should be well under 1min, and is not applicable for the cases described for `const TimeoutLong`.
 	TimeoutShort time.Duration `default:"22s"`

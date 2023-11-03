@@ -1,7 +1,6 @@
 package yojobs
 
 import (
-	"errors"
 	"time"
 
 	yodb "yo/db"
@@ -28,36 +27,6 @@ type JobDef struct {
 
 	jobType   JobType
 	schedules []crontab.Expr
-}
-
-func (me *JobDef) EnsureValidOrErrorIfEnabled() (*JobDef, error) {
-	for _, err := range me.EnsureValid() {
-		if !me.Disabled { // dont hoist the line out of loop , need the above call in any case
-			return nil, err
-		}
-	}
-	return me, nil
-}
-
-func (me *JobDef) EnsureValid() (errs []error) { // a mix of sanitization and validation really
-	if job_type_reg := jobType(string(me.JobTypeId)); (me.jobType == nil) && (!me.Disabled) && (job_type_reg != nil) {
-		me.jobType = job_type_reg.ById(string(me.JobTypeId))
-	}
-	if (me.jobType == nil) && !me.Disabled {
-		errs = append(errs, errNotFoundJobType(me.Name, me.JobTypeId))
-	}
-	for i, sched := range me.Schedules {
-		if sched.Set(str.Trim); sched == "" {
-			errs = append(errs, errors.New(str.Fmt("job def '%s' schedule %d/%d requires a crontab expression", me, i+1, len(me.Schedules))))
-		} else if me.schedules[i] == nil {
-			if crontab, err := crontab.Parse(string(sched)); err != nil {
-				errs = append(errs, errors.New(str.Fmt("job def '%s' schedule %d/%d syntax error in '%s': %s", me, i+1, len(me.Schedules), sched, err)))
-			} else {
-				me.schedules[i] = crontab
-			}
-		}
-	}
-	return
 }
 
 func (me *JobDef) id() yodb.I64 { return me.Id }
@@ -105,9 +74,19 @@ func (me *JobDef) ok(t time.Time) bool {
 
 var _ yodb.Obj = (*JobDef)(nil)
 
+func (me *JobDef) OnBeforeStoring() (q.Query, []q.F) { return nil, nil }
 func (me *JobDef) OnAfterLoaded() {
 	if job_type_reg := jobType(string(me.JobTypeId)); (!me.Disabled) && (job_type_reg != nil) {
 		me.jobType = job_type_reg.ById(string(me.JobTypeId))
 	}
+	me.schedules = make([]crontab.Expr, len(me.Schedules))
+	for i, sched := range me.Schedules {
+		if sched.Set(str.Trim); sched == "" {
+			panic(str.Fmt("job def '%s' schedule %d/%d requires a crontab expression", me, i+1, len(me.Schedules)))
+		} else if crontab, err := crontab.Parse(string(sched)); err != nil {
+			panic(str.Fmt("job def '%s' schedule %d/%d syntax error in '%s': %s", me, i+1, len(me.Schedules), sched, err))
+		} else {
+			me.schedules[i] = crontab
+		}
+	}
 }
-func (me *JobDef) OnBeforeStoring() (q.Query, []q.F) { return nil, nil }
