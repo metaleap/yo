@@ -24,10 +24,48 @@ func (me *engine) startAndFinalizeJobRuns() {
 }
 
 func (me *engine) finalizeDoneJobRun(ctxForCacheReuse *Ctx, jobRun *JobRun) {
-	// job_def := jobRun.jobDef(ctxForCacheReuse)
+	job_def, time_started := jobRun.jobDef(ctxForCacheReuse), time.Now()
 	ctx := ctxForCacheReuse.CopyButWith(jobRun.TimeoutPrepAndFinalize(ctxForCacheReuse), false)
+	defer ctx.OnDone(nil)
+
 	if yodb.Exists[JobTask](ctx, JobTaskJobRun.Equal(jobRun.id()).And(jobTaskState.In(Pending, Running))) {
+		return // still have busy tasks in job, it's not Done
+	}
+	if (job_def == nil) || (job_def.jobType == nil) || job_def.Disabled {
+		jobRun.state = yodb.Text(JobRunCancelling)
+		yodb.Update[JobRun](ctx, jobRun, nil, false, JobRunFields(jobRunState)...)
 		return
+	}
+
+	var tasks_stream chan *JobTask
+	var err error
+	abort_streaming := false
+	jobRun.Results, err = job_def.jobType.JobResults(jobRun.ctx(ctx, 0), func() <-chan *JobTask {
+		if tasks_stream == nil {
+			tasks_stream = make(chan *JobTask)
+			go func() {
+				defer close(tasks_stream)
+				yodb.Each[JobTask](ctx, JobTaskJobRun.Equal(jobRun.Id), 0, nil, func(task *JobTask, enough *bool) {
+					if abort_streaming {
+						*enough = true
+					} else {
+						tasks_stream <- task
+					}
+				})
+			}()
+		}
+		return tasks_stream
+	})
+	abort_streaming = true
+	if err != nil {
+		panic(err)
+	}
+	jobType(string(job_def.JobTypeId)).checkTypeJobResults(jobRun.Results)
+	jobRun.state, jobRun.FinishTime, jobRun.DurationFinalizeSecs =
+		yodb.Text(Done), yodb.DtNow(), yodb.F32(time.Since(time_started).Seconds())
+	yodb.Update[JobRun](ctx, jobRun, nil, false, JobRunFields(jobRunState, JobRunFinishTime, JobRunDurationFinalizeSecs)...)
+	if me.eventHandlers.onJobRunFinalized != nil {
+		me.eventHandlers.onJobRunFinalized(jobRun, jobRun.Stats(ctx))
 	}
 }
 
@@ -102,6 +140,7 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 	if err != nil {
 		panic(err)
 	}
+	jobType(string(jobDef.JobTypeId)).checkTypeJobDetails(jobRun.Details)
 	ctx_job.JobDetails = jobRun.Details
 
 	// 2. JobType.TaskDetails
@@ -132,7 +171,9 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 			task.JobRun.SetId(jobRun.Id)
 			return task
 		})
-		yodb.CreateMany[JobTask](ctx, tasks...)
+		if err == nil { // `err` set concurrently, also see remark above at loop start
+			yodb.CreateMany[JobTask](ctx, tasks...)
+		}
 	}
 	if err != nil {
 		panic(err)
