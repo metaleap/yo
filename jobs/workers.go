@@ -10,14 +10,45 @@ import (
 	q "yo/db/query"
 	. "yo/util"
 	"yo/util/sl"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func (me *engine) startDueJobRuns() {
 	ctx := NewCtxNonHttp(TimeoutLong, false, "")
-	// cancel_jobs := map[CancellationReason][]*JobRun{}
-	yodb.Each[JobRun](ctx, nil, 0, []q.OrderBy{JobRunDueTime.Asc()}, func(rec *JobRun, enough *bool) {
+	jobs_due := yodb.FindMany[JobRun](ctx, jobRunState.Equal(Pending).And(JobRunDueTime.LessThan(time.Now())), 0, nil, JobRunDueTime.Asc())
+	jobs_cancel := map[CancellationReason][]*JobRun{}
+	for i := len(jobs_due) - 1; i >= 0; i-- {
+		this := jobs_due[i]
+		idx_dupl := sl.IdxWhere(jobs_due[:i], func(it *JobRun) bool {
+			return (it.JobDef.Id() == this.JobDef.Id()) &&
+				cmp.Equal(it.Details, this.Details, cmpopts.IgnoreUnexported(), cmpopts.EquateEmpty())
+		})
+		jobdef := this.jobDef(ctx)
+		var reason CancellationReason
+		switch {
+		case (idx_dupl >= 0) && (idx_dupl != i):
+			reason = CancellationReasonJobRunDuplicate
+		case jobdef == nil:
+			reason = CancellationReasonJobDefInvalidOrGone
+		case (this.JobTypeId != jobdef.JobTypeId) || bool(jobdef.Disabled):
+			reason = CancellationReasonJobDefChanged
+		case (jobdef.jobType == nil) && (this.JobTypeId == jobdef.JobTypeId):
+			reason = CancellationReasonJobTypeInvalidOrGone
+		}
+		if reason != "" {
+			jobs_cancel[reason] = append(jobs_cancel[reason], this)
+			jobs_due = append(jobs_due[:i], jobs_due[i+1:]...)
+			i++
+		}
+	}
 
-	})
+	GoItems(jobs_due, func(it *JobRun) {
+		me.startDueJob(ctx, it, it.jobDef(ctx))
+	}, me.options.MaxConcurrentOps)
+
+	me.cancelJobRuns(ctx, jobs_cancel)
 }
 
 func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *JobDef) {

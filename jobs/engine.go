@@ -142,7 +142,6 @@ func (*engine) cancelJobRuns(ctx *Ctx, jobRunsToCancel map[CancellationReason][]
 	if len(jobRunsToCancel) == 0 {
 		return
 	}
-	ctx.DbTx()
 	for reason, job_runs := range jobRunsToCancel {
 		var failed bool
 		Try(func() {
