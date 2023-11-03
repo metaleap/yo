@@ -340,19 +340,14 @@ func (me *engine) runJobTasks() {
 	})
 
 	pending_tasks := yodb.FindMany[JobTask](ctx, jobTaskState.Equal(string(Pending)), me.options.FetchTasksToRun, nil)
-	GoItems(pending_tasks, func(it *JobTask) {
-		_ = it.jobDef(ctx) // preloads both jobRun and jobDef
-	}, me.options.MaxConcurrentOps)
-
-	// ...then run them
 	GoItems(pending_tasks, func(it *JobTask) { me.runTask(ctx, it) }, me.options.MaxConcurrentOps)
 }
 
 func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 	time_started := time.Now()
-	job_run := task.JobRun.Get(nil) // already preloaded by runJobTasks
-	job_def := job_run.jobDef(nil)  // dito
-	ctx := ctxForCacheReuse.CopyButWith(task.TimeoutRun(nil /*dito*/), true)
+	job_run := task.JobRun.Get(ctxForCacheReuse)
+	job_def := job_run.jobDef(ctxForCacheReuse)
+	ctx := ctxForCacheReuse.CopyButWith(task.TimeoutRun(ctxForCacheReuse), true)
 	defer ctx.OnDone(nil)
 	ctx.DbTx()
 	// first, attempt to reserve task for running vs. other pods

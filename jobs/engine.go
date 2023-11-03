@@ -33,15 +33,13 @@ type Engine interface {
 	// Running returns `true` after `Resume` was called and `false` until then.
 	Running() bool
 	// CreateJobRun "manually schedules" an off-schedule job at the defified `dueTime`, which if missing (or set in the past) defaults to `timeNow()`.
-	CreateJobRun(ctx *Ctx, jobDef *JobDef, jobRunId string, dueTime *time.Time, details JobDetails) (jobRun *JobRun, err error)
+	CreateJobRun(ctx *Ctx, jobDef *JobDef, dueTime *yodb.DateTime, jobDetails JobDetails) *JobRun
 	// CancelJobRuns marks the defified jobs as `CANCELLING`. The `len(errs)` is always `<= len(jobIDs)`.
-	CancelJobRuns(ctx *Ctx, jobRunIds ...string) (errs []error)
+	CancelJobRuns(ctx *Ctx, jobRunIds ...string)
 	// DeleteJobRun clears from storage the defified DONE or CANCELLED `JobRun` and all its `JobTask`s, if any.
-	DeleteJobRuns(ctx *Ctx, jobRunIds ...string) error
+	DeleteJobRuns(ctx *Ctx, jobRunIds ...yodb.I64) int64
 	// Stats gathers progress stats of a `JobRun` and its `JobTask`s.
-	Stats(ctx *Ctx, jobRunId string) (*JobRunStats, error)
-	// RetryJobTask retries the defified failed task.
-	RetryJobTask(ctx *Ctx, jobRunId string, jobTaskId string) (*JobTask, error)
+	Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats
 
 	// OnJobTaskExecuted takes an event handler (only one is kept) to be invoked when a task run has finished (successfully or not) and that run fully stored
 	OnJobTaskExecuted(func(*JobTask, time.Duration))
@@ -50,13 +48,6 @@ type Engine interface {
 }
 
 type Options struct {
-	// LogJobLifecycleEvents enables the info-level logging of every attempted RunState transition of all `JobRun`s.
-	LogJobLifecycleEvents bool
-	// LogTaskLifecycleEvents enables the info-level logging of every attempted RunState transition of all `JobTask`s.
-	LogTaskLifecycleEvents bool
-
-	// these "intervals" aren't "every n, do" but more like "wait n to go again _after_ done"
-
 	// IntervalStartAndFinalizeJobs should be under 0.5 minutes.
 	IntervalStartAndFinalizeJobs time.Duration `default:"22s"`
 	// IntervalRunTasks should be under 0.5 minutes.
@@ -87,7 +78,7 @@ type engine struct {
 	}
 }
 
-func NewEngine(options Options) (Engine, error) {
+func NewEngine(options Options) Engine {
 	err := sanitizeOptionsFields[Options](2, 128, strconv.Atoi, map[string]*int{
 		"MaxConcurrentOps": &options.MaxConcurrentOps,
 		"FetchTasksToRun":  &options.FetchTasksToRun,
@@ -102,7 +93,10 @@ func NewEngine(options Options) (Engine, error) {
 			"IntervalDeleteStorageExpiredJobs": &options.IntervalDeleteStorageExpiredJobs,
 		})
 	}
-	return nil, err // &engine{options: options, taskCancelers: map[string]func(){}}, nil
+	if err != nil {
+		panic(err)
+	}
+	return &engine{options: options}
 }
 
 func (me *engine) Running() bool { return me.running }
