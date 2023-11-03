@@ -126,11 +126,16 @@ func (me *sqlStmt) update(desc *structDesc, colNames ...string) *sqlStmt {
 	return me
 }
 
-func (me *sqlStmt) selCols(desc *structDesc, cols ...q.C) *sqlStmt {
+func (me *sqlStmt) selCols(desc *structDesc, colsPtr *[]q.C, ignoreAlwaysFetchFields bool) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	w("SELECT ")
+	cols := *colsPtr
 	if len(cols) == 0 {
 		cols = desc.cols
+	} else if !ignoreAlwaysFetchFields {
+		for _, field_name := range desc.constraints.alwaysFetch {
+			cols = sl.With(cols, desc.cols[sl.IdxOf(desc.fields, field_name)])
+		}
 	}
 	for i, col := range cols {
 		if i > 0 {
@@ -149,6 +154,7 @@ func (me *sqlStmt) selCols(desc *structDesc, cols ...q.C) *sqlStmt {
 			w(string(col))
 		}
 	}
+	*colsPtr = cols
 	return me
 }
 

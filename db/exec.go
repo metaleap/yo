@@ -33,7 +33,7 @@ func ById[T any](ctx *Ctx, id I64) *T {
 
 func Exists[T any](ctx *Ctx, query q.Query) bool {
 	desc, args := desc[T](), dbArgs{}
-	result := doSelect[T](ctx, new(sqlStmt).selCols(desc, ColID).where(desc, false, query, args).limit(1), args, 1, ColID)
+	result := doSelect[T](ctx, new(sqlStmt).selCols(desc, &[]q.C{ColID}, true).where(desc, false, query, args).limit(1), args, 1, ColID)
 	return (len(result) > 0)
 }
 
@@ -52,12 +52,16 @@ func FindMany[T any](ctx *Ctx, query q.Query, maxResults int, onlyFields []q.F, 
 		cols[i] = desc.cols[sl.IdxOf(desc.fields, field_name)]
 	}
 	return doSelect[T](ctx,
-		new(sqlStmt).selCols(desc, cols...).where(desc, false, query, args, orderBy...).limit(maxResults), args, maxResults, cols...)
+		new(sqlStmt).selCols(desc, &cols, false).where(desc, false, query, args, orderBy...).limit(maxResults), args, maxResults, cols...)
 }
 
-func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.OrderBy, onRecord func(rec *T, enough *bool)) {
+func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.OrderBy, onRecord func(rec *T, enough *bool), onlyFields ...q.F) {
 	desc, args := desc[T](), dbArgs{}
-	doStream[T](ctx, new(sqlStmt).selCols(desc).where(desc, false, query, args, orderBy...).limit(maxResults), onRecord, args)
+	cols := make([]q.C, len(onlyFields))
+	for i, field_name := range onlyFields {
+		cols[i] = desc.cols[sl.IdxOf(desc.fields, field_name)]
+	}
+	doStream[T](ctx, new(sqlStmt).selCols(desc, &cols, false).where(desc, false, query, args, orderBy...).limit(maxResults), onRecord, args, cols...)
 }
 
 func Page[T any](ctx *Ctx, query q.Query, limit int, orderBy q.OrderBy, pageTok any) (resultsPage []*T, nextPageTok any) {
@@ -223,7 +227,7 @@ func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {
 
 func doSelect[T any](ctx *Ctx, stmt *sqlStmt, args dbArgs, maxResults int, cols ...q.C) (ret []*T) {
 	if maxResults > 0 {
-		ret = make([]*T, 0, maxResults)
+		ret = make([]*T, 0, Clamp(4, 128, maxResults))
 	}
 	doStream[T](ctx, stmt, func(rec *T, endNow *bool) {
 		if ret = append(ret, rec); (maxResults > 0) && (len(ret) == maxResults) {
@@ -256,10 +260,6 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 	}
 	if (len(cols) == 0) && (struct_desc != nil) {
 		cols = struct_desc.cols
-	} else if struct_desc != nil {
-		for _, field_name := range struct_desc.constraints.alwaysFetch {
-			cols = sl.With(cols, struct_desc.cols[sl.IdxOf(struct_desc.fields, field_name)])
-		}
 	}
 	var abort bool
 	for rows.Next() {
