@@ -14,9 +14,13 @@ import (
 )
 
 func init() {
-	yodb.Ensure[JobDef, q.F]("", nil, false)
-	yodb.Ensure[JobRun, q.F]("", nil, false, yodb.Unique[JobRunField]{JobRunScheduledNextAfter})
-	yodb.Ensure[JobTask, q.F]("", nil, false)
+	yodb.Ensure[JobDef, q.F]("", nil, false,
+		yodb.Unique[JobDefField]{JobDefName})
+	yodb.Ensure[JobRun, q.F]("", nil, false,
+		yodb.Unique[JobRunField]{JobRunScheduledNextAfter},
+		yodb.Index[JobRunField]{jobRunState})
+	yodb.Ensure[JobTask, q.F]("", nil, false,
+		yodb.Index[JobTaskField]{jobTaskState})
 }
 
 // TimeoutLong is:
@@ -115,7 +119,7 @@ func (me *engine) Resume() {
 	// DoAfter(me.options.IntervalStartAndFinalizeJobs, me.startAndFinalizeJobRuns)
 	DoAfter(me.options.IntervalRunTasks, me.runJobTasks)
 	DoAfter(me.options.IntervalExpireOrRetryDeadTasks, me.expireOrRetryDeadJobTasks)
-	// DoAfter(me.options.IntervalDeleteStorageExpiredJobs/10, me.deleteStorageExpiredJobRuns)
+	DoAfter(me.options.IntervalDeleteStorageExpiredJobs/10, me.deleteStorageExpiredJobRuns)
 	// DoAfter(Clamp(22*time.Second, 44*time.Second, me.options.IntervalEnsureJobSchedules), me.ensureJobRunSchedules)
 }
 

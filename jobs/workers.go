@@ -7,13 +7,22 @@ import (
 
 	. "yo/ctx"
 	yodb "yo/db"
-	q "yo/db/query"
 	. "yo/util"
 	"yo/util/sl"
 )
 
-func qSafe(id yodb.I64) q.Query {
-	return yodb.ColID.Equal(id)
+func (it *engine) deleteStorageExpiredJobRuns() {
+	defer Finally(func() {
+		DoAfter(it.options.IntervalDeleteStorageExpiredJobs, it.deleteStorageExpiredJobRuns)
+	})
+
+	ctx := NewCtxNonHttp(TimeoutLong, false, "")
+	yodb.Each[JobDef](ctx, JobDefDeleteAfterDays.GreaterThan(0), 0, nil, func(jobDef *JobDef, enough *bool) {
+		yodb.Delete[JobRun](ctx, JobRunJobDef.Equal(jobDef.Id).
+			And(jobRunState.In(Done, Cancelled)).
+			And(JobRunFinishTime.LessThan(time.Now().AddDate(0, 0, -int(jobDef.DeleteAfterDays)))),
+		)
+	})
 }
 
 // A died task is one whose runner died between its start and its finishing or orderly timeout.
@@ -72,7 +81,7 @@ func (me *engine) expireOrRetryDeadJobTasksForJobDef(jobDef *JobDef, runningJobI
 		} else if (!task.markForRetryOrAsFailed(ctx)) && (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
 			task.Attempts[0].Err = context.DeadlineExceeded
 		}
-		yodb.Update[JobTask](ctx, task, qSafe(task.Id), false, task_upd_fields...)
+		yodb.Update[JobTask](ctx, task, qById(task.Id), false, task_upd_fields...)
 	})
 }
 
@@ -117,7 +126,7 @@ func (me *engine) runTask(task *JobTask) {
 	if task.StartTime == nil {
 		task.StartTime, task_upd_fields = (*yodb.DateTime)(task.Attempts[0].t), sl.With(task_upd_fields, JobTaskStartTime.F())
 	}
-	if yodb.Update[JobTask](ctx, task, qSafe(task.Id), false, task_upd_fields...) <= 0 {
+	if yodb.Update[JobTask](ctx, task, qById(task.Id), false, task_upd_fields...) <= 0 {
 		return // concurrently changed by other instance, possibly in the same run attempt: bug out
 	}
 
@@ -160,7 +169,7 @@ func (me *engine) runTask(task *JobTask) {
 
 	// ready to save
 	task_upd_fields = sl.Without(task_upd_fields, JobTaskStartTime.F())
-	did_store := (0 < yodb.Update[JobTask](ctx, task, qSafe(task.Id), false, task_upd_fields...))
+	did_store := (0 < yodb.Update[JobTask](ctx, task, qById(task.Id), false, task_upd_fields...))
 	if did_store && (me.eventHandlers.onJobTaskExecuted != nil) {
 		me.eventHandlers.onJobTaskExecuted(task, time.Now().Sub(time_started))
 	}

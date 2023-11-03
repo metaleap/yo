@@ -104,7 +104,6 @@ func (me *JobDef) ok(t time.Time) bool {
 var _ yodb.Obj = (*JobDef)(nil)
 
 func (me *JobDef) OnAfterLoaded() {
-	me.jobType = nil
 	if job_type_reg := jobType(string(me.JobTypeId)); (!me.Disabled) && (job_type_reg != nil) {
 		me.jobType = job_type_reg.ById(string(me.JobTypeId))
 	}

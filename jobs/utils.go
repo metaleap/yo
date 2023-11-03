@@ -7,9 +7,14 @@ import (
 	"time"
 
 	yodb "yo/db"
+	q "yo/db/query"
 	. "yo/util"
 	"yo/util/str"
 )
+
+func qById(id yodb.I64) q.Query {
+	return yodb.ColID.Equal(id)
+}
 
 func errNotFoundJobRun(id yodb.I64) error {
 	return errors.New(str.Fmt("job run '%d' no longer exists", id))
