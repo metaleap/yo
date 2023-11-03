@@ -124,7 +124,7 @@ func (*engine) CancelJobRuns(ctx *Ctx, jobRunIds ...string) {
 		return
 	}
 	yodb.Update[JobRun](ctx, &JobRun{state: yodb.Text(JobRunCancelling)},
-		JobRunId.In(yodb.Arr[string](jobRunIds).ToAnys()...), true, JobRunFields(jobRunState)...)
+		JobRunId.In(sl.Of[string](jobRunIds).ToAnys()...), true, JobRunFields(jobRunState)...)
 }
 
 func (*engine) cancelJobRuns(ctx *Ctx, jobRunsToCancel map[CancellationReason][]*JobRun) {
@@ -180,7 +180,7 @@ func (*engine) createJobRun(ctx *Ctx, jobDef *JobDef, dueTime *yodb.DateTime, jo
 }
 
 func (*engine) DeleteJobRuns(ctx *Ctx, jobRunIds ...yodb.I64) int64 {
-	return yodb.Delete[JobRun](ctx, JobRunId.In(yodb.Arr[yodb.I64](jobRunIds).ToAnys()...).And(
+	return yodb.Delete[JobRun](ctx, JobRunId.In(sl.Of[yodb.I64](jobRunIds).ToAnys()...).And(
 		jobRunState.Equal(string(Done)).Or(jobRunState.Equal(string(Cancelled)))))
 }
 
