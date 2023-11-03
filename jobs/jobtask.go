@@ -81,7 +81,10 @@ func (me *JobTask) jobType(ctx *Ctx) JobType {
 var _ yodb.Obj = (*JobTask)(nil) // compile-time interface compat check
 
 func (me *JobTask) OnAfterLoaded() { // any changes, keep in sync with JobRun.OnAfterLoaded
-	me.Details, me.Results = yojson.FromDict[any](me.details), yojson.FromDict[any](me.results)
+	job_type_reg := jobType(string(me.JobTypeId))
+	if job_type_reg != nil {
+		me.Details, me.Results = job_type_reg.loadTaskDetails(me.details), job_type_reg.loadTaskResults(me.results)
+	}
 }
 func (me *JobTask) OnBeforeStoring() (q.Query, []q.F) { // any changes, keep in sync with JobRun.OnBeforeStoring
 	me.details, me.results = yojson.DictFrom(me.Details), yojson.DictFrom(me.Results)

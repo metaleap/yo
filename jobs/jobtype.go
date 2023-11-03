@@ -7,6 +7,7 @@ import (
 
 	. "yo/ctx"
 	yodb "yo/db"
+	yojson "yo/json"
 	. "yo/util"
 	"yo/util/str"
 )
@@ -94,6 +95,10 @@ type jobTypeReg struct {
 	checkTypeJobResults  func(check jobTypeDefined)
 	checkTypeTaskDetails func(check jobTypeDefined)
 	checkTypeTaskResults func(check jobTypeDefined)
+	loadJobDetails       func(yodb.JsonMap[any]) jobTypeDefined
+	loadJobResults       func(yodb.JsonMap[any]) jobTypeDefined
+	loadTaskDetails      func(yodb.JsonMap[any]) jobTypeDefined
+	loadTaskResults      func(yodb.JsonMap[any]) jobTypeDefined
 	byId                 map[string]JobType
 }
 
@@ -122,6 +127,10 @@ func register[TJobType JobType, TJobDetails JobDetails, TJobResults JobResults, 
 		checkTypeJobResults:  checkTypeFor[TJobResults],
 		checkTypeTaskDetails: checkTypeFor[TTaskDetails],
 		checkTypeTaskResults: checkTypeFor[TTaskResults],
+		loadJobDetails:       loadFor[TJobDetails],
+		loadJobResults:       loadFor[TJobResults],
+		loadTaskDetails:      loadFor[TTaskDetails],
+		loadTaskResults:      loadFor[TTaskResults],
 	}
 	if id != "" && registeredJobTypes[id] != nil {
 		panic(str.Fmt("already have a `JobType` of type `%s` registered", id))
@@ -145,6 +154,11 @@ func checkTypeFor[TImpl jobTypeDefined](check jobTypeDefined) {
 			panic(str.Fmt("expected %s instead of %T", ReflType[*TImpl]().String(), check))
 		}
 	}
+}
+
+func loadFor[TImpl jobTypeDefined](fromDict yodb.JsonMap[any]) jobTypeDefined {
+	ret := yojson.FromDict[TImpl](fromDict)
+	return &ret
 }
 
 func (me *jobTypeReg) ById(jobTypeId string) (ret JobType) {

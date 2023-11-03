@@ -35,11 +35,11 @@ type Engine interface {
 	Resume()
 	// Running returns `true` after `Resume` was called and `false` until then.
 	Running() bool
-	// CreateJobRun "manually schedules" an off-schedule job at the defified `dueTime`, which if missing (or set in the past) defaults to `timeNow()`.
-	CreateJobRun(ctx *Ctx, jobDef *JobDef, dueTime *yodb.DateTime, jobDetails JobDetails) *JobRun
-	// CancelJobRuns marks the defified jobs as `CANCELLING`. The `len(errs)` is always `<= len(jobIDs)`.
+	// CreateJobRun "manually schedules" an off-schedule job at the specified `dueTime`, which if missing (or set in the past) defaults to `timeNow()`.
+	CreateJobRun(ctx *Ctx, jobDef *JobDef, dueTime *yodb.DateTime) *JobRun
+	// CancelJobRuns marks the specified jobs as `CANCELLING`. The `len(errs)` is always `<= len(jobIDs)`.
 	CancelJobRuns(ctx *Ctx, jobRunIds ...string)
-	// DeleteJobRun clears from storage the defified DONE or CANCELLED `JobRun` and all its `JobTask`s, if any.
+	// DeleteJobRun clears from storage the specified DONE or CANCELLED `JobRun` and all its `JobTask`s, if any.
 	DeleteJobRuns(ctx *Ctx, jobRunIds ...yodb.I64) int64
 	// Stats gathers progress stats of a `JobRun` and its `JobTask`s.
 	Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats
@@ -140,28 +140,26 @@ func (me *engine) cancelJobRuns(ctx *Ctx, jobRunsToCancel map[CancellationReason
 	}
 }
 
-func (me *engine) CreateJobRun(ctx *Ctx, jobDef *JobDef, dueTime *yodb.DateTime, jobDetails JobDetails) *JobRun {
+func (me *engine) CreateJobRun(ctx *Ctx, jobDef *JobDef, dueTime *yodb.DateTime) *JobRun {
 	if now := yodb.DtNow(); (dueTime == nil) || now.Time().After(*dueTime.Time()) {
 		dueTime = now
 	}
-	return me.createJobRun(ctx, jobDef, dueTime, jobDetails, nil)
+	return me.createJobRun(ctx, jobDef, dueTime, nil, false)
 }
 
-func (*engine) createJobRun(ctx *Ctx, jobDef *JobDef, dueTime *yodb.DateTime, jobDetails JobDetails, autoScheduledNextAfter *JobRun) *JobRun {
-	is_auto_scheduled := yodb.Bool(autoScheduledNextAfter != nil)
-	if jobDef.Disabled || ((!jobDef.AllowManualJobRuns) && !is_auto_scheduled) {
+func (*engine) createJobRun(ctx *Ctx, jobDef *JobDef, dueTime *yodb.DateTime, autoScheduledNextAfter *JobRun, isAutoScheduled yodb.Bool) *JobRun {
+	if jobDef.Disabled || ((!jobDef.AllowManualJobRuns) && !isAutoScheduled) {
 		return nil
 	}
 	ctx.DbTx()
 	job_run := &JobRun{
 		state:         yodb.Text(Pending),
-		Details:       jobDetails,
 		JobTypeId:     jobDef.JobTypeId,
 		DueTime:       dueTime,
-		AutoScheduled: is_auto_scheduled,
+		AutoScheduled: isAutoScheduled, // need this extra bool arg in case `autoScheduledNextAfter` is nil for the very first auto-scheduling
 	}
 	job_run.JobDef.SetId(jobDef.Id)
-	if is_auto_scheduled {
+	if autoScheduledNextAfter != nil {
 		job_run.ScheduledNextAfter.SetId(autoScheduledNextAfter.Id)
 		if yodb.Exists[JobRun](ctx, JobRunScheduledNextAfter.Equal(autoScheduledNextAfter.Id)) {
 			return nil // this above check by design as-late-as-possible before our own below Create (db-uniqued anyway, but nice to avoid the bound-to-fail attempt without erroring)

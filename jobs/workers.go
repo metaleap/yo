@@ -93,7 +93,7 @@ func (me *engine) finalizeDoneJobRun(ctxForCacheReuse *Ctx, jobRun *JobRun) {
 	jobType(string(job_def.JobTypeId)).checkTypeJobResults(jobRun.Results)
 	jobRun.state, jobRun.FinishTime, jobRun.DurationFinalizeSecs =
 		yodb.Text(Done), yodb.DtNow(), yodb.F32(time.Since(time_started).Seconds())
-	yodb.Update[JobRun](ctx, jobRun, nil, false, JobRunFields(jobRunState, JobRunFinishTime, JobRunDurationFinalizeSecs)...)
+	yodb.Update[JobRun](ctx, jobRun, nil, false, JobRunFields(jobRunState, jobRunResults, JobRunFinishTime, JobRunDurationFinalizeSecs)...)
 	if me.eventHandlers.onJobRunFinalized != nil {
 		me.eventHandlers.onJobRunFinalized(jobRun, jobRun.Stats(ctx))
 	}
@@ -212,7 +212,7 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 	// 3. update job
 	jobRun.state, jobRun.StartTime, jobRun.DurationPrepSecs =
 		yodb.Text(Running), yodb.DtNow(), yodb.F32(time.Since(time_started).Seconds())
-	yodb.Update[JobRun](ctx, jobRun, nil, false, JobRunFields(jobRunState, JobRunStartTime, JobRunDurationPrepSecs)...)
+	yodb.Update[JobRun](ctx, jobRun, nil, false, JobRunFields(jobRunDetails, jobRunState, JobRunStartTime, JobRunDurationPrepSecs)...)
 }
 
 func (me *engine) ensureJobRunSchedules() {
@@ -263,7 +263,7 @@ func (me *engine) scheduleJobRun(ctx *Ctx, jobDef *JobDef, jobRunPrev *JobRun) *
 	}
 	due_time := jobDef.findClosestToNowSchedulableTimeSince(last_time.Time(), true)
 	if due_time != nil {
-		return me.createJobRun(ctx, jobDef, yodb.DtFrom(*due_time), nil, jobRunPrev)
+		return me.createJobRun(ctx, jobDef, yodb.DtFrom(*due_time), jobRunPrev, true)
 	}
 	return nil
 }
@@ -378,7 +378,7 @@ func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 			task.Attempts[0].Err = err
 		}
 		if task.Attempts[0].Err == nil {
-			jobType(string(job_def.JobTypeId)).checkTypeJobResults(task.Results)
+			jobType(string(job_def.JobTypeId)).checkTypeTaskResults(task.Results)
 			task_upd_fields = sl.With(task_upd_fields, jobTaskResults.F())
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	. "yo/util"
 	"yo/util/str"
 )
 
@@ -40,10 +41,7 @@ func (ExampleJobType) dice() byte {
 func (ExampleJobType) IsTaskErrRetryable(error) bool { return false }
 
 func (me ExampleJobType) JobDetails(ctx *Context) (JobDetails, error) {
-	if (me.dice() % 2) == 0 {
-		return &exampleJobDetails{MsgFmt: ">>>>>>>>>>>>>IT WAS %s JUST %s AGO"}, nil
-	}
-	return ctx.JobDetails, nil
+	return &exampleJobDetails{MsgFmt: If(((me.dice() % 2) == 0), "<<<<<IT WAS %s JUST %s AGO", ">>>>>IT WAS %s JUST %s AGO")}, nil
 }
 
 func (ExampleJobType) TaskDetails(_ *Context, stream chan<- []TaskDetails, _ func(error) error) {
