@@ -97,6 +97,7 @@ func (me *engine) finalizeDoneJobRun(ctxForCacheReuse *Ctx, jobRun *JobRun) {
 	if me.eventHandlers.onJobRunFinalized != nil {
 		me.eventHandlers.onJobRunFinalized(jobRun, jobRun.Stats(ctx))
 	}
+	me.scheduleJobRun(ctx, job_def, jobRun)
 }
 
 func (me *engine) finalizeCancellingJobRuns() {
@@ -219,8 +220,6 @@ func (me *engine) ensureJobRunSchedules() {
 	defer ctx.OnDone(func() {
 		DoAfter(me.options.IntervalEnsureJobSchedules, me.ensureJobRunSchedules)
 	})
-
-	ctx.Db.PrintRawSqlInDevMode = true
 
 	yodb.Each[JobDef](ctx, q.Not(q.ArrIsEmpty(JobDefSchedules)), 0, nil,
 		func(jobDef *JobDef, enough *bool) {
