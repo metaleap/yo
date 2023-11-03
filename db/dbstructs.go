@@ -38,9 +38,9 @@ type F32 float32
 type F64 float64
 type Text string
 type DateTime time.Time
-type Arr[T any] sl.Slice[T]
+type Arr[T any] sl.Of[T]
 type JsonMap[T any] map[string]T
-type JsonArr[T any] sl.Slice[T]
+type JsonArr[T any] sl.Of[T]
 
 type IsJsonOf[T any] struct{ self *T }
 

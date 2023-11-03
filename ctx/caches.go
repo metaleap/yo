@@ -20,7 +20,7 @@ func (me *Ctx) cacheEnsure(typeIdent string) (cacheMap map[any]any, cacheMut *sy
 	return
 }
 
-func Cache[TKey any, TValue any](ctx *Ctx, key TKey, new func() TValue) (ret TValue) {
+func Cache[TKey comparable, TValue any](ctx *Ctx, key TKey, new func() TValue) (ret TValue) {
 	if ctx == nil {
 		return new()
 	}

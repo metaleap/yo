@@ -141,7 +141,7 @@ func codegenDbPkgOwn() (didEmit bool) {
 		buf.WriteString("package " + yodbPkg.PkgName() + "\n")
 		buf.WriteString("import sl \"yo/util/sl\"\n")
 		for _, arr_type_name := range []string{"JsonArr[T]", "Arr[T]"} {
-			codegenCloneMethods(&buf, arr_type_name, "sl", reflect.TypeOf(sl.Slice[map[Void]Void]{}), true)
+			codegenCloneMethods(&buf, arr_type_name, "sl", reflect.TypeOf(sl.Of[map[Void]Void]{}), true)
 		}
 
 		src_old, src_new := ReadFile(out_file_path), []byte(str.Replace(buf.String(), str.Dict{"map[util.Void]util.Void": "T", "map[yo/util.Void]yo/util.Void": "T"}))

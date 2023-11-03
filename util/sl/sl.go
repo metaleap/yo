@@ -199,6 +199,15 @@ func FirstNonNil[T any](slice ...*T) *T {
 	return nil
 }
 
+func Grouped[TKey comparable, TItem any, TSlice ~[]TItem](slice TSlice, key func(TItem) TKey) (ret map[TKey]TSlice) {
+	ret = make(map[TKey]TSlice, len(slice)/2)
+	for i := range slice {
+		key := key(slice[i])
+		ret[key] = append(ret[key], slice[i])
+	}
+	return
+}
+
 func Where[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) (ret TSlice) {
 	ret = make(TSlice, 0, len(slice))
 	for i := range slice {
@@ -249,25 +258,23 @@ func ToPtrs[TSlice ~[]TItem, TItem any](slice TSlice) (ret []*TItem) {
 	return
 }
 
-type Slice[T any] []T
+type Of[T any] []T
 
-func Of[T any](items ...T) Slice[T] {
-	return items
-}
+func New[T any](items ...T) Of[T] { return items }
 
-func (me Slice[T]) Any(pred func(T) bool) bool       { return Any(me, pred) }
-func (me Slice[T]) All(pred func(T) bool) bool       { return All(me, pred) }
-func (me Slice[T]) IdxWhere(pred func(T) bool) int   { return IdxWhere(me, pred) }
-func (me Slice[T]) Where(pred func(T) bool) Slice[T] { return Where(me, pred) }
-func (me Slice[T]) Without(pred func(T) bool) Slice[T] {
+func (me Of[T]) Any(pred func(T) bool) bool     { return Any(me, pred) }
+func (me Of[T]) All(pred func(T) bool) bool     { return All(me, pred) }
+func (me Of[T]) IdxWhere(pred func(T) bool) int { return IdxWhere(me, pred) }
+func (me Of[T]) Where(pred func(T) bool) Of[T]  { return Where(me, pred) }
+func (me Of[T]) Without(pred func(T) bool) Of[T] {
 	return Where(me, func(it T) bool { return !pred(it) })
 }
 
-func (me Slice[T]) ToAnys() (ret []any) {
+func (me Of[T]) ToAnys() (ret []any) {
 	return ToAnys(me)
 }
 
-func (me *Slice[T]) EnsureAllUnique(areEqual func(T, T) bool) {
+func (me *Of[T]) EnsureAllUnique(areEqual func(T, T) bool) {
 	if areEqual == nil {
 		areEqual = func(lhs T, rhs T) bool { return reflect.DeepEqual(reflect.ValueOf(lhs), reflect.ValueOf(rhs)) }
 	}

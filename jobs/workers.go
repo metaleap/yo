@@ -14,12 +14,13 @@ import (
 
 func (me *engine) startDueJobRuns() {
 	ctx := NewCtxNonHttp(TimeoutLong, false, "")
+	// cancel_jobs := map[CancellationReason][]*JobRun{}
 	yodb.Each[JobRun](ctx, nil, 0, []q.OrderBy{JobRunDueTime.Asc()}, func(rec *JobRun, enough *bool) {
 
 	})
 }
 
-func (me *engine) startDueJob(jobRun *JobRun, jobDef *JobDef) {
+func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *JobDef) {
 	defer Finally(nil)
 
 	if jobDef == nil {
@@ -29,7 +30,7 @@ func (me *engine) startDueJob(jobRun *JobRun, jobDef *JobDef) {
 	}
 
 	time_started := time.Now()
-	ctx := NewCtxNonHttp(jobRun.TimeoutPrepAndFinalize(nil), false, "")
+	ctx := ctxForCacheReuse.CopyButWith(jobRun.TimeoutPrepAndFinalize(nil), false)
 	ctx.DbTx()
 	ctx_job := jobRun.ctx(ctx, 0)
 
@@ -154,27 +155,21 @@ func (me *engine) expireOrRetryDeadJobTasks() {
 	})
 
 	ctx := NewCtxNonHttp(TimeoutLong, false, "")
-	jobs := map[yodb.I64][]*JobRun{} // gather candidate jobs for task selection
-	{
-		for _, job := range yodb.FindMany[JobRun](ctx, jobRunState.Equal(Running), 0, JobRunFields(JobRunId, JobRunJobDef, jobRunState)) {
-			jobs[job.JobDef.Id()] = append(jobs[job.JobDef.Id()], job)
-		}
-	}
+	jobs := sl.Grouped(
+		yodb.FindMany[JobRun](ctx, jobRunState.Equal(Running), 0, JobRunFields(JobRunId, JobRunJobDef, jobRunState)),
+		func(it *JobRun) yodb.I64 { return it.JobDef.Id() },
+	)
 
 	GoItems(sl.Keys(jobs), func(jobDefId yodb.I64) {
 		if job_runs := jobs[jobDefId]; len(job_runs) > 0 {
 			job_def := job_runs[0].jobDef(ctx)
-			for _, job_run := range job_runs[1:] {
-				job_run.JobDef = job_runs[0].JobDef // copies the same `self` pointer
-			}
-			if currently_running := sl.Where(job_runs, func(it *JobRun) bool { return it.State() == Running }); len(currently_running) > 0 {
-				me.expireOrRetryDeadJobTasksForJobDef(job_def, sl.To(currently_running, func(it *JobRun) yodb.I64 { return it.Id }))
-			}
-			if is_jobdef_dead := (job_def == nil) || (job_def.jobType == nil) || job_def.Disabled; is_jobdef_dead {
-				for _, job_run := range job_runs {
-					job_run.state = yodb.Text(JobRunCancelling)
-					yodb.Update[JobRun](ctx, job_run, nil, false, jobRunState.F())
-				}
+			job_run_ids := sl.To(job_runs, func(it *JobRun) yodb.I64 { return it.Id })
+			me.expireOrRetryDeadJobTasksForJobDef(job_def, job_run_ids)
+
+			if is_jobdef_dead := (job_def == nil) || (job_def.jobType == nil) || (job_def.Disabled); is_jobdef_dead {
+				yodb.Update[JobRun](ctx, &JobRun{state: yodb.Text(JobRunCancelling)},
+					JobRunId.In(sl.Of[yodb.I64](job_run_ids).ToAnys()...),
+					false, JobRunFields(jobRunState)...)
 			}
 		}
 	}, me.options.MaxConcurrentOps)
@@ -184,14 +179,14 @@ func (me *engine) expireOrRetryDeadJobTasksForJobDef(jobDef *JobDef, runningJobI
 	defer Finally(nil)
 	is_jobdef_dead := (jobDef.jobType == nil) || jobDef.Disabled
 	ctx := NewCtxNonHttp(TimeoutLong, false, "")
-	query := JobTaskJobRun.In(yodb.Arr[yodb.I64](runningJobIds).ToAnys()...)
+	query_tasks := JobTaskJobRun.In(sl.Of[yodb.I64](runningJobIds).ToAnys()...)
 	if is_jobdef_dead { //  the rare edge case: un-Done/un-Cancelled tasks still in DB for old now-disabled-or-deleted-from-config job def
-		query = query.And(jobTaskState.In(Running, Pending))
+		query_tasks = query_tasks.And(jobTaskState.In(Running, Pending))
 	} else { // the usual case.
-		query = query.And(jobTaskState.Equal(Running)).And(
+		query_tasks = query_tasks.And(jobTaskState.Equal(Running)).And(
 			JobTaskStartTime.LessThan(time.Now().Add(-(time.Minute + (time.Second * time.Duration(jobDef.TimeoutSecsTaskRun))))))
 	}
-	yodb.Each[JobTask](ctx, query, 0, nil, func(task *JobTask, enough *bool) {
+	yodb.Each[JobTask](ctx, query_tasks, 0, nil, func(task *JobTask, enough *bool) {
 		defer func() { _ = recover() }()
 		task_upd_fields := JobTaskFields(jobTaskState, JobTaskAttempts, JobTaskStartTime, JobTaskFinishTime)
 		if is_jobdef_dead {
