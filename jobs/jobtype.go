@@ -1,7 +1,6 @@
 package yojobs
 
 import (
-	"errors"
 	"reflect"
 	"strings"
 	"sync"
@@ -100,22 +99,20 @@ type jobTypeReg struct {
 
 var registeredJobTypes = map[string]*jobTypeReg{}
 
-func Register[TJobType JobType, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](new func(string) TJobType) error {
-	return register[TJobType, TJobDetails, TJobResults, TTaskDetails, TTaskResults](strings.TrimLeft(ReflType[TJobType]().String(), "*"), new)
+func Register[TJobType JobType, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](new func(string) TJobType) {
+	register[TJobType, TJobDetails, TJobResults, TTaskDetails, TTaskResults](strings.TrimLeft(ReflType[TJobType]().String(), "*"), new)
 }
 
 func RegisterDefault[TJobType JobType, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](new func(string) TJobType) {
-	if err := register[TJobType, TJobDetails, TJobResults, TTaskDetails, TTaskResults]("", new); err != nil {
-		panic(err)
-	}
+	register[TJobType, TJobDetails, TJobResults, TTaskDetails, TTaskResults]("", new)
 }
 
-func register[TJobType JobType, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](id string, new func(string) TJobType) error {
+func register[TJobType JobType, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](id string, new func(string) TJobType) {
 	if typeIs[TJobDetails](reflect.Pointer) || typeIs[TJobResults](reflect.Pointer) || typeIs[TTaskDetails](reflect.Pointer) || typeIs[TTaskResults](reflect.Pointer) {
-		return errors.New("TJobDetails, TJobResults, TTaskDetails, TTaskResults must not be pointer types")
+		panic("TJobDetails, TJobResults, TTaskDetails, TTaskResults must not be pointer types")
 	}
 	if !(typeIs[TJobDetails](reflect.Struct) && typeIs[TJobResults](reflect.Struct) && typeIs[TTaskDetails](reflect.Struct) && typeIs[TTaskResults](reflect.Struct)) {
-		return errors.New("TJobDetails, TJobResults, TTaskDetails, TTaskResults must be `struct` types")
+		panic("TJobDetails, TJobResults, TTaskDetails, TTaskResults must be `struct` types")
 	}
 
 	it := jobTypeReg{
@@ -127,10 +124,12 @@ func register[TJobType JobType, TJobDetails JobDetails, TJobResults JobResults, 
 		checkTypeTaskResults: checkTypeFor[TTaskResults],
 	}
 	if id != "" && registeredJobTypes[id] != nil {
-		return errors.New(str.Fmt("already have a `JobType` of type `%s` registered", id))
+		panic(str.Fmt("already have a `JobType` of type `%s` registered", id))
+	}
+	if IsDevMode {
+		println("RegJobType:'" + id + "'")
 	}
 	registeredJobTypes[id] = &it
-	return nil
 }
 
 func jobType(id string) (ret *jobTypeReg) {

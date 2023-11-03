@@ -11,7 +11,7 @@ import (
 type ExampleJobType struct{}
 
 func init() {
-	_ = Register[ExampleJobType, exampleJobDetails, exampleJobResults, exampleTaskDetails, exampleTaskResults](
+	Register[ExampleJobType, exampleJobDetails, exampleJobResults, exampleTaskDetails, exampleTaskResults](
 		func(string) ExampleJobType { return ExampleJobType{} })
 }
 

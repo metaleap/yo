@@ -154,14 +154,14 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 		panic(ErrDbUpdate_ExpectedChangesForUpdate)
 	}
 
-	{ // ensuring the query has either the obj id...
+	if where == nil { // ensuring the query has either the obj id...
 		id_maybe, _ := reflFieldValueOf(upd, FieldID).(I64)
 		if lower := q.F(str.Lo(string(FieldID))); (id_maybe <= 0) && sl.Has(desc.fields, lower) {
 			id_maybe = reflFieldValueOf(upd, lower).(I64)
 		}
-		if where == nil && id_maybe > 0 {
+		if id_maybe > 0 {
 			where = q.C(ColID).Equal(id_maybe)
-		} else if (where == nil) && (len(onlyFields) > 0) { // ...or else another unique field (that isnt in onlyFields and so is an exists-in-db queryable)
+		} else if len(onlyFields) > 0 { // ...or else another unique field (that isnt in onlyFields and so is an exists-in-db queryable)
 			for _, unique_field_name := range desc.constraints.uniques {
 				if !sl.Has(onlyFields, unique_field_name) {
 					if field, _ := desc.ty.FieldByName(string(unique_field_name)); isDbRefType(field.Type) {
@@ -187,6 +187,22 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 		panic(err)
 	}
 	return num_rows_affected
+}
+
+func Upsert[TObj any, TFld q.Field](ctx *Ctx, unchangedUniqueField TFld, it *TObj) {
+	if IsDevMode {
+		desc := desc[TObj]()
+		if !sl.Has(desc.constraints.uniques, unchangedUniqueField.F()) {
+			panic("not a unique field: " + unchangedUniqueField.F())
+		}
+	}
+	ctx.DbTx()
+	query := unchangedUniqueField.Equal(reflFieldValueOf(it, unchangedUniqueField.F()))
+	if Exists[TObj](ctx, query) {
+		Update[TObj](ctx, it, query, false)
+	} else {
+		CreateOne[TObj](ctx, it)
+	}
 }
 
 func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {
