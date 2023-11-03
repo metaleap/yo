@@ -123,14 +123,14 @@ func register[TJobType JobType, TJobDetails JobDetails, TJobResults JobResults, 
 	it := jobTypeReg{
 		new:                  func(jobTypeId string) JobType { return new(jobTypeId) },
 		byId:                 map[string]JobType{},
-		checkTypeJobDetails:  checkTypeFor[TJobDetails],
-		checkTypeJobResults:  checkTypeFor[TJobResults],
-		checkTypeTaskDetails: checkTypeFor[TTaskDetails],
-		checkTypeTaskResults: checkTypeFor[TTaskResults],
-		loadJobDetails:       loadFor[TJobDetails],
-		loadJobResults:       loadFor[TJobResults],
-		loadTaskDetails:      loadFor[TTaskDetails],
-		loadTaskResults:      loadFor[TTaskResults],
+		checkTypeJobDetails:  jobTypeCheckType[TJobDetails],
+		checkTypeJobResults:  jobTypeCheckType[TJobResults],
+		checkTypeTaskDetails: jobTypeCheckType[TTaskDetails],
+		checkTypeTaskResults: jobTypeCheckType[TTaskResults],
+		loadJobDetails:       jobTypeLoadFromDict[TJobDetails],
+		loadJobResults:       jobTypeLoadFromDict[TJobResults],
+		loadTaskDetails:      jobTypeLoadFromDict[TTaskDetails],
+		loadTaskResults:      jobTypeLoadFromDict[TTaskResults],
 	}
 	if id != "" && registeredJobTypes[id] != nil {
 		panic(str.Fmt("already have a `JobType` of type `%s` registered", id))
@@ -148,15 +148,15 @@ func jobType(id string) (ret *jobTypeReg) {
 	return
 }
 
-func checkTypeFor[TImpl jobTypeDefined](check jobTypeDefined) {
-	if check != nil {
-		if _, ok := check.(*TImpl); !ok {
-			panic(str.Fmt("expected %s instead of %T", ReflType[*TImpl]().String(), check))
+func jobTypeCheckType[TImpl jobTypeDefined](objToCheck jobTypeDefined) {
+	if IsDevMode {
+		if _, ok := objToCheck.(*TImpl); (!ok) && (objToCheck != nil) {
+			panic(str.Fmt("expected %s instead of %T", ReflType[*TImpl]().String(), objToCheck))
 		}
 	}
 }
 
-func loadFor[TImpl jobTypeDefined](fromDict yodb.JsonMap[any]) jobTypeDefined {
+func jobTypeLoadFromDict[TImpl jobTypeDefined](fromDict yodb.JsonMap[any]) jobTypeDefined {
 	ret := yojson.FromDict[TImpl](fromDict)
 	return &ret
 }

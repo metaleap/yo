@@ -190,9 +190,7 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 			continue // ...undisciplined `JobType.TaskDetails` impls (they should stop sending on err)
 		}
 		tasks := sl.To(multiple_task_details, func(taskDetails TaskDetails) *JobTask {
-			if num_tasks++; err == nil {
-				jobType(string(jobRun.JobTypeId)).checkTypeTaskDetails(taskDetails)
-			}
+			jobType(string(jobRun.JobTypeId)).checkTypeTaskDetails(taskDetails)
 			task := &JobTask{
 				JobTypeId: jobRun.JobTypeId,
 				state:     yodb.Text(Pending),
@@ -204,6 +202,7 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 		if err == nil { // `err` set concurrently, also see remark above at loop start
 			yodb.CreateMany[JobTask](ctx, tasks...)
 		}
+		num_tasks++
 	}
 	if err != nil {
 		panic(err)

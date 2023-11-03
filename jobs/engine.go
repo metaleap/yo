@@ -52,13 +52,13 @@ type Engine interface {
 
 type Options struct {
 	// IntervalStartAndFinalizeJobs should be under 0.5 minutes.
-	IntervalStartAndFinalizeJobs time.Duration `default:"22s"`
+	IntervalStartAndFinalizeJobs time.Duration `default:"44s"`
 	// IntervalRunTasks should be under 0.5 minutes.
-	IntervalRunTasks time.Duration `default:"11s"`
+	IntervalRunTasks time.Duration `default:"22s"`
 	// IntervalExpireOrRetryDeadTasks is advised every couple of minutes (under 5). It ensures (in storage) retry-or-done-with-error of tasks whose last runner died between their completion and updating their Result and RunState in storage accordingly.
 	IntervalExpireOrRetryDeadTasks time.Duration `default:"2m"`
 	// IntervalEnsureJobSchedules is advised every couple of minutes (under 5). It is only there to catch up scheduling-wise with new or changed `JobDef`s; otherwise a finalized `JobRun` gets its next occurrence scheduled right at finalization.
-	IntervalEnsureJobSchedules time.Duration `default:"11s"`
+	IntervalEnsureJobSchedules time.Duration `default:"1m"`
 	// IntervalDeleteStorageExpiredJobs can be on the order of hours: job storage-expiry is set in number-of-days.
 	// However, a fluke failure (connectivity/DB-restart/etc) will not see immediate retries (since running on an interval anyway), so no need to stretch too long either.
 	IntervalDeleteStorageExpiredJobs time.Duration `default:"11h"`
@@ -109,11 +109,12 @@ func (me *engine) Resume() {
 		return
 	}
 	me.running = true
-	DoAfter(me.options.IntervalStartAndFinalizeJobs, me.startAndFinalizeJobRuns)
-	DoAfter(me.options.IntervalRunTasks, me.runJobTasks)
-	DoAfter(me.options.IntervalExpireOrRetryDeadTasks, me.expireOrRetryDeadJobTasks)
-	DoAfter(me.options.IntervalDeleteStorageExpiredJobs/10, me.deleteStorageExpiredJobRuns)
-	DoAfter(me.options.IntervalEnsureJobSchedules, me.ensureJobRunSchedules)
+	// why the `Clamp`s: no matter the intervals for future iterations, the very first call per worker upon (re)start should be "soon-ish"
+	DoAfter(Clamp(time.Second, time.Minute, me.options.IntervalStartAndFinalizeJobs), me.startAndFinalizeJobRuns)
+	DoAfter(Clamp(time.Second, time.Minute, me.options.IntervalRunTasks), me.runJobTasks)
+	DoAfter(Clamp(time.Second, time.Minute, me.options.IntervalExpireOrRetryDeadTasks), me.expireOrRetryDeadJobTasks)
+	DoAfter(Clamp(time.Second, time.Minute, me.options.IntervalDeleteStorageExpiredJobs)/10, me.deleteStorageExpiredJobRuns)
+	DoAfter(Clamp(time.Second, time.Minute, me.options.IntervalEnsureJobSchedules), me.ensureJobRunSchedules)
 }
 
 func (me *engine) OnJobTaskExecuted(eventHandler func(*JobTask, time.Duration)) {
