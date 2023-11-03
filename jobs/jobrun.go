@@ -90,8 +90,7 @@ func (me *JobRunStats) PercentDone() int {
 	}
 }
 
-// Timeout implements utils.HasTimeout
-func (me *JobRun) Timeout(ctx *Ctx) time.Duration {
+func (me *JobRun) TimeoutPrepAndFinalize(ctx *Ctx) time.Duration {
 	job_def := me.jobDef(ctx)
 	if (job_def != nil) && (job_def.TimeoutSecsJobRunPrepAndFinalize > 0) {
 		return time.Second * time.Duration(job_def.TimeoutSecsJobRunPrepAndFinalize)

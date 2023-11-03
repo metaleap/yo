@@ -12,8 +12,72 @@ import (
 	"yo/util/sl"
 )
 
+func (me *engine) startDueJob(jobRun *JobRun, jobDef *JobDef) {
+	defer Finally(nil)
+
+	if jobDef == nil {
+		panic(errNotFoundJobDef(jobRun.Id))
+	} else if jobDef.jobType == nil {
+		errNotFoundJobType(jobDef.Name, jobDef.JobTypeId)
+	}
+
+	time_started := time.Now()
+	ctx := NewCtxNonHttp(jobRun.TimeoutPrepAndFinalize(nil), false, "")
+	ctx.DbTx()
+	ctx_job := jobRun.ctx(ctx, 0)
+
+	// 1. JobType.JobDetails
+	var err error
+	jobRun.Details, err = jobDef.jobType.JobDetails(ctx_job)
+	if err != nil {
+		panic(err)
+	}
+	ctx_job.JobDetails = jobRun.Details
+
+	// 2. JobType.TaskDetails
+	task_details_stream := make(chan []TaskDetails)
+	go func() {
+		defer close(task_details_stream)
+		jobDef.jobType.TaskDetails(ctx_job, task_details_stream, func(e error) error {
+			if (e != nil) && (err == nil) {
+				err = e
+			}
+			return err
+		})
+	}()
+	var num_tasks int
+	for task_details := range task_details_stream {
+		if err != nil { // don't `break` here: we need to drain the chan to close it, in the case of...
+			continue // ...undisciplined `JobType.TaskDetails` impls (they should stop sending on err)
+		}
+		tasks := sl.To(task_details, func(it TaskDetails) *JobTask {
+			if num_tasks++; err == nil {
+				jobType(string(jobRun.JobTypeId)).checkTypeTaskDetails(task_details)
+			}
+			task := &JobTask{
+				JobTypeId: jobRun.JobTypeId,
+				state:     yodb.Text(Pending),
+				Details:   task_details,
+			}
+			task.JobRun.SetId(jobRun.Id)
+			return task
+		})
+		yodb.CreateMany[JobTask](ctx, tasks...)
+	}
+	if err != nil {
+		panic(err)
+	}
+
+	// 3. update job
+	jobRun.state, jobRun.StartTime, jobRun.DurationPrepSecs =
+		yodb.Text(Running), yodb.DtNow(), yodb.F32(time.Since(time_started).Seconds())
+	yodb.Update[JobRun](ctx, jobRun, nil, false, JobRunFields(jobRunState, JobRunStartTime, JobRunDurationPrepSecs)...)
+}
+
 func (me *engine) ensureJobRunSchedules() {
-	defer Finally(func() { DoAfter(me.options.IntervalEnsureJobSchedules, me.ensureJobRunSchedules) })
+	defer Finally(func() {
+		DoAfter(me.options.IntervalEnsureJobSchedules, me.ensureJobRunSchedules)
+	})
 
 	ctx := NewCtxNonHttp(TimeoutLong, false, "")
 	yodb.Each[JobDef](ctx, q.Not(q.ArrIsEmpty(JobDefSchedules)), 0, nil,
@@ -160,7 +224,7 @@ func (me *engine) runTask(task *JobTask) {
 	time_started := time.Now()
 	job_run := task.JobRun.Get(nil) // already preloaded by runJobTasks
 	job_def := job_run.jobDef(nil)  // dito
-	ctx := NewCtxNonHttp(task.Timeout(nil /*dito*/), true, "")
+	ctx := NewCtxNonHttp(task.TimeoutRun(nil /*dito*/), true, "")
 	if old_cancel := me.setTaskCanceler(task.Id, ctx.Cancel); old_cancel != nil {
 		old_cancel() // should never be the case, but let's be principled & clean...
 	}

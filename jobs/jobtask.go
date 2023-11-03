@@ -50,8 +50,7 @@ func (me *JobTask) markForRetryOrAsFailed(ctx *Ctx) (retry bool) {
 	return false
 }
 
-// Timeout implements utils.HasTimeout
-func (me *JobTask) Timeout(ctx *Ctx) time.Duration {
+func (me *JobTask) TimeoutRun(ctx *Ctx) time.Duration {
 	job_def := me.jobDef(ctx)
 	if (job_def != nil) && (job_def.TimeoutSecsTaskRun) > 0 {
 		return time.Second * time.Duration(job_def.TimeoutSecsTaskRun)
