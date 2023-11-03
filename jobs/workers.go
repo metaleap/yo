@@ -46,18 +46,18 @@ func (me *engine) startDueJob(jobRun *JobRun, jobDef *JobDef) {
 		})
 	}()
 	var num_tasks int
-	for task_details := range task_details_stream {
+	for multiple_task_details := range task_details_stream {
 		if err != nil { // don't `break` here: we need to drain the chan to close it, in the case of...
 			continue // ...undisciplined `JobType.TaskDetails` impls (they should stop sending on err)
 		}
-		tasks := sl.To(task_details, func(it TaskDetails) *JobTask {
+		tasks := sl.To(multiple_task_details, func(taskDetails TaskDetails) *JobTask {
 			if num_tasks++; err == nil {
-				jobType(string(jobRun.JobTypeId)).checkTypeTaskDetails(task_details)
+				jobType(string(jobRun.JobTypeId)).checkTypeTaskDetails(taskDetails)
 			}
 			task := &JobTask{
 				JobTypeId: jobRun.JobTypeId,
 				state:     yodb.Text(Pending),
-				Details:   task_details,
+				Details:   taskDetails,
 			}
 			task.JobRun.SetId(jobRun.Id)
 			return task
