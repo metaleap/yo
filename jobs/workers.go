@@ -7,9 +7,44 @@ import (
 
 	. "yo/ctx"
 	yodb "yo/db"
+	q "yo/db/query"
 	. "yo/util"
 	"yo/util/sl"
 )
+
+func (me *engine) ensureJobRunSchedules() {
+	defer Finally(func() { DoAfter(me.options.IntervalEnsureJobSchedules, me.ensureJobRunSchedules) })
+
+	ctx := NewCtxNonHttp(TimeoutLong, false, "")
+	yodb.Each[JobDef](ctx, q.Not(q.ArrIsEmpty(JobDefSchedules)), 0, nil,
+		func(jobDef *JobDef, enough *bool) {
+			latest := yodb.FindOne[JobRun](ctx, JobRunJobDef.Equal(jobDef.Id).And(JobRunAutoScheduled.Equal(true)), JobRunDueTime.Desc())
+			if (latest != nil) && ((latest.State() == Running) || (latest.State() == JobRunCancelling)) {
+				return // still busy: then need no scheduling here & now
+			}
+			if (latest == nil) || (latest.State() != Pending) { // `latest` is Done or Cancelled (or none)...
+				_ = me.scheduleJobRun(ctx, jobDef, latest) // ...so schedule the next
+				return
+			}
+
+			if latest.DueTime.Time().After(time.Now()) { // `latest` is definitely `Pending` at this point
+				var after *yodb.DateTime
+				// check-and-maybe-fix the existing Pending job's future DueTime wrt the current `jobDef.Schedules` in case the latter changed after the former was scheduled
+				last_done := yodb.FindOne[JobRun](ctx, JobRunJobDef.Equal(jobDef.Id).And(jobRunState.In(Done, Cancelled)), JobRunDueTime.Desc())
+				if last_done != nil {
+					after = sl.FirstNonNil(last_done.FinishTime, last_done.StartTime, last_done.DueTime)
+				}
+				due_time := jobDef.findClosestToNowSchedulableTimeSince(after.Time(), true)
+				if due_time == nil { // jobDef or all its Schedules were Disabled after that Pending job was scheduled
+					me.cancelJobRuns(ctx, map[CancellationReason][]*JobRun{CancellationReasonJobDefChanged: {latest}})
+				} else if (!jobDef.ok(*latest.DueTime.Time())) || !due_time.Equal(*latest.DueTime.Time()) {
+					// update outdated-by-now DueTime
+					latest.DueTime = (*yodb.DateTime)(due_time)
+					yodb.Update[JobRun](ctx, latest, nil, false, JobRunFields(JobRunDueTime)...)
+				}
+			}
+		})
+}
 
 func (me *engine) scheduleJobRun(ctx *Ctx, jobDef *JobDef, jobRunPrev *JobRun) *JobRun {
 	defer Finally(nil)

@@ -323,7 +323,7 @@ func (it *engine) ensureJobDefScheduled(ctx context.Context, jobDef *JobDef) {
 		return
 	}
 	if job_run != nil {
-		job_run.jobDef = jobDef
+		job_run.job	Def = jobDef
 	}
 	if (job_run == nil) || (job_run.State != Pending) { // ensuring we always have a Pending `JobRun` scheduled (although largely ensured already at the end of `finalizeJobRunIfDone` unless disrupted)
 		_ = it.logErr(log, it.scheduleJobRun(ctx, jobDef, job_run), jobDef)

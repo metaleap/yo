@@ -61,7 +61,7 @@ func (me *JobDef) EnsureValid() (errs []error) { // a mix of sanitization and va
 }
 
 func (me *JobDef) findClosestToNowSchedulableTimeSince(after *time.Time, alwaysPreferOverdue bool) *time.Time {
-	if me.Disabled {
+	if me.Disabled || (len(me.schedules) == 0) {
 		return nil
 	}
 	now := time.Now()
@@ -79,7 +79,7 @@ func (me *JobDef) findClosestToNowSchedulableTimeSince(after *time.Time, alwaysP
 	}
 	if past == nil {
 		return future
-	} else if future == nil || (alwaysPreferOverdue && (after != nil)) {
+	} else if (future == nil) || (alwaysPreferOverdue && (after != nil)) {
 		return past
 	}
 	// if the latest-possible-past-occurrence-after-last `past` is closer to Now than
