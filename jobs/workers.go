@@ -11,9 +11,24 @@ import (
 	"yo/util/sl"
 )
 
-func (it *engine) deleteStorageExpiredJobRuns() {
+func (me *engine) scheduleJobRun(ctx *Ctx, jobDef *JobDef, jobRunPrev *JobRun) *JobRun {
+	defer Finally(nil)
+	if jobDef.Disabled || (jobDef.jobType == nil) {
+		return nil
+	}
+	var last_time *yodb.DateTime
+	if jobRunPrev != nil {
+		last_time = sl.FirstNonNil(jobRunPrev.FinishTime, jobRunPrev.StartTime, jobRunPrev.DueTime)
+	}
+	if due_time := jobDef.findClosestToNowSchedulableTimeSince(last_time.Time(), true); due_time != nil {
+		return me.createJobRun(ctx, jobDef, yodb.DtFrom(*due_time), nil, jobRunPrev)
+	}
+	return nil
+}
+
+func (me *engine) deleteStorageExpiredJobRuns() {
 	defer Finally(func() {
-		DoAfter(it.options.IntervalDeleteStorageExpiredJobs, it.deleteStorageExpiredJobRuns)
+		DoAfter(me.options.IntervalDeleteStorageExpiredJobs, me.deleteStorageExpiredJobRuns)
 	})
 
 	ctx := NewCtxNonHttp(TimeoutLong, false, "")

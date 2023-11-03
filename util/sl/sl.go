@@ -190,6 +190,15 @@ func FirstWhere[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool)
 	return
 }
 
+func FirstNonNil[T any](slice ...*T) *T {
+	for i := range slice {
+		if slice[i] != nil {
+			return slice[i]
+		}
+	}
+	return nil
+}
+
 func Where[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) (ret TSlice) {
 	ret = make(TSlice, 0, len(slice))
 	for i := range slice {
