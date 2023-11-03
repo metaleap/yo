@@ -129,7 +129,10 @@ func (me *sqlStmt) update(desc *structDesc, colNames ...string) *sqlStmt {
 func (me *sqlStmt) selCols(desc *structDesc, colsPtr *[]q.C, ignoreAlwaysFetchFields bool) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	w("SELECT ")
-	cols := *colsPtr
+	var cols []q.C
+	if colsPtr != nil {
+		cols = *colsPtr
+	}
 	if len(cols) == 0 {
 		cols = desc.cols
 	} else if !ignoreAlwaysFetchFields {
@@ -154,7 +157,9 @@ func (me *sqlStmt) selCols(desc *structDesc, colsPtr *[]q.C, ignoreAlwaysFetchFi
 			w(string(col))
 		}
 	}
-	*colsPtr = cols
+	if colsPtr != nil {
+		*colsPtr = cols
+	}
 	return me
 }
 

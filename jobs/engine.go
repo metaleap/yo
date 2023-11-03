@@ -56,7 +56,7 @@ type Options struct {
 	// IntervalRunTasks should be under 0.5 minutes.
 	IntervalRunTasks time.Duration `default:"11s"`
 	// IntervalExpireOrRetryDeadTasks is advised every couple of minutes (under 5). It ensures (in storage) retry-or-done-with-error of tasks whose last runner died between their completion and updating their Result and RunState in storage accordingly.
-	IntervalExpireOrRetryDeadTasks time.Duration `default:"3m"`
+	IntervalExpireOrRetryDeadTasks time.Duration `default:"2m"`
 	// IntervalEnsureJobSchedules is advised every couple of minutes (under 5). It is only there to catch up scheduling-wise with new or changed `JobDef`s; otherwise a finalized `JobRun` gets its next occurrence scheduled right at finalization.
 	IntervalEnsureJobSchedules time.Duration `default:"11s"`
 	// IntervalDeleteStorageExpiredJobs can be on the order of hours: job storage-expiry is set in number-of-days.
