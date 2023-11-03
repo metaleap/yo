@@ -69,7 +69,7 @@ type Options struct {
 	// IntervalEnsureJobSchedules is advised every couple of minutes (under 5). It is only there to catch up scheduling-wise with new or changed `JobDef`s; otherwise a finalized `JobRun` gets its next occurrence scheduled right at finalization.
 	IntervalEnsureJobSchedules time.Duration `default:"2m"`
 	// IntervalDeleteStorageExpiredJobs can be on the order of hours: job storage-expiry is set in number-of-days.
-	// However, a fluke failure will not see immediate retries (since running on an interval anyway), so no need to stretch too long either.
+	// However, a fluke failure (connectivity/DB-restart/etc) will not see immediate retries (since running on an interval anyway), so no need to stretch too long either.
 	IntervalDeleteStorageExpiredJobs time.Duration `default:"11h"`
 
 	// MaxConcurrentOps semaphores worker bulk operations over multiple unrelated JobTasks, JobRuns or JobDefs
@@ -120,7 +120,7 @@ func (me *engine) Resume() {
 	DoAfter(me.options.IntervalRunTasks, me.runJobTasks)
 	DoAfter(me.options.IntervalExpireOrRetryDeadTasks, me.expireOrRetryDeadJobTasks)
 	DoAfter(me.options.IntervalDeleteStorageExpiredJobs/10, me.deleteStorageExpiredJobRuns)
-	// DoAfter(Clamp(22*time.Second, 44*time.Second, me.options.IntervalEnsureJobSchedules), me.ensureJobRunSchedules)
+	DoAfter(Clamp(22*time.Second, 44*time.Second, me.options.IntervalEnsureJobSchedules), me.ensureJobRunSchedules)
 }
 
 func (me *engine) OnJobTaskExecuted(eventHandler func(*JobTask, time.Duration)) {
