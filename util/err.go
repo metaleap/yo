@@ -37,6 +37,16 @@ func (me Err) HttpStatusCodeOr(preferredDefault int) int {
 	return preferredDefault
 }
 
+func Finally(do func()) {
+	fail := recover()
+	if IsDevMode && (fail != nil) {
+		println(str.Fmt(">>>>recover-caught:%v<<<<", fail))
+	}
+	if do != nil {
+		do()
+	}
+}
+
 func Try(do func(), catch func(any)) {
 	defer func() {
 		if fail := recover(); (fail != nil) && (catch != nil) {

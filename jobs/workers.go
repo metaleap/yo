@@ -19,10 +19,9 @@ func qSafe(id yodb.I64) q.Query {
 // A died task is one whose runner died between its start and its finishing or orderly timeout.
 // It's found in the DB as still RUNNING despite its timeout moment being over a minute ago:
 func (me *engine) expireOrRetryDeadJobTasks() {
-	defer func() {
-		_ = recover() // the odd, super-rare connectivity/db-restart/etc fail doesnt bother us here on our regular interval
+	defer Finally(func() {
 		DoAfter(me.options.IntervalExpireOrRetryDeadTasks, me.expireOrRetryDeadJobTasks)
-	}()
+	})
 
 	ctx := NewCtxNonHttp(TimeoutLong, false, "")
 	jobs := map[yodb.I64][]*JobRun{} // gather candidate jobs for task selection
@@ -52,9 +51,7 @@ func (me *engine) expireOrRetryDeadJobTasks() {
 }
 
 func (me *engine) expireOrRetryDeadJobTasksForJobDef(jobDef *JobDef, runningJobIds []yodb.I64) {
-	defer func() {
-		_ = recover() // the odd, super-rare connectivity/db-restart/etc fail doesnt bother us here on our regular interval
-	}()
+	defer Finally(nil)
 	is_jobdef_dead := (jobDef.jobType == nil) || jobDef.Disabled
 	ctx := NewCtxNonHttp(TimeoutLong, false, "")
 	query := JobTaskJobRun.In(yodb.Arr[yodb.I64](runningJobIds).ToAnys()...)
@@ -80,10 +77,9 @@ func (me *engine) expireOrRetryDeadJobTasksForJobDef(jobDef *JobDef, runningJobI
 }
 
 func (me *engine) runJobTasks() {
-	defer func() {
-		_ = recover() // the odd, super-rare connectivity/db-restart/etc fail doesnt bother us here on our regular interval
+	defer Finally(func() {
 		DoAfter(me.options.IntervalRunTasks, me.runJobTasks)
-	}()
+	})
 
 	ctx := NewCtxNonHttp(TimeoutLong, false, "")
 	pending_tasks := yodb.FindMany[JobTask](ctx, jobTaskState.Equal(string(Pending)), me.options.FetchTasksToRun, nil)
@@ -96,14 +92,13 @@ func (me *engine) runJobTasks() {
 }
 
 func (me *engine) runTask(task *JobTask) {
-	time_started := time.Now()
-	defer func() {
-		_ = recover() // the odd, super-rare connectivity/db-restart/etc fail doesnt bother us here on our regular interval
+	defer Finally(func() {
 		if old_canceler := me.setTaskCanceler(task.Id, nil); old_canceler != nil {
 			old_canceler()
 		} // else: already cancelled by concurrent `finalizeCancelingJobs` call
-	}()
+	})
 
+	time_started := time.Now()
 	job_run := task.JobRun.Get(nil) // already preloaded by runJobTasks
 	job_def := job_run.jobDef(nil)  // dito
 	ctx := NewCtxNonHttp(task.Timeout(nil /*dito*/), true, "")
