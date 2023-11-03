@@ -6,6 +6,7 @@ import (
 
 	. "yo/ctx"
 	yodb "yo/db"
+	q "yo/db/query"
 	. "yo/util"
 	sl "yo/util/sl"
 )
@@ -15,8 +16,10 @@ func init() {
 		yodb.Unique[JobDefField]{JobDefName})
 	yodb.Ensure[JobRun, JobRunField]("", nil, false,
 		yodb.Unique[JobRunField]{JobRunScheduledNextAfter},
+		yodb.AlwaysFetch[JobRunField]{JobRunVersion},
 		yodb.Index[JobRunField]{jobRunState})
 	yodb.Ensure[JobTask, JobTaskField]("", nil, false,
+		yodb.AlwaysFetch[JobTaskField]{JobTaskVersion},
 		yodb.Index[JobTaskField]{jobTaskState})
 }
 
@@ -123,6 +126,7 @@ func (*engine) CancelJobRuns(ctx *Ctx, jobRunIds ...string) {
 	if len(jobRunIds) == 0 {
 		return
 	}
+	dbBatchUpdate(ctx, nil, &JobRun{state: yodb.Text(JobRunCancelling)}, JobRunFields(jobRunState)...)
 	yodb.Update[JobRun](ctx, &JobRun{state: yodb.Text(JobRunCancelling)},
 		JobRunId.In(sl.Of[string](jobRunIds).ToAnys()...), true, JobRunFields(jobRunState)...)
 }
@@ -192,4 +196,11 @@ func (*engine) Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats {
 	ctx.DbTx()
 	job_run := yodb.ById[JobRun](ctx, jobRunId)
 	return job_run.Stats(ctx)
+}
+
+func dbBatchUpdate[TObj any](ctx *Ctx, objs []*TObj, upd *TObj, onlyFields ...q.F) {
+	for _, obj := range objs { // no real SQL-single-statement batch update sadly, due to necessary `Job[Task|Run].Version` field increment
+		obj := any(obj).(interface{ id() yodb.I64 })
+		yodb.Update[TObj](ctx, upd, yodb.ColID.Equal(obj.id()), false, onlyFields...)
+	}
 }

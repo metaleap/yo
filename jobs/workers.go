@@ -99,22 +99,17 @@ func (me *engine) finalizeDoneJobRun(ctxForCacheReuse *Ctx, jobRun *JobRun) {
 	}
 }
 
-func dbBatchUpdate[TObj any](ctx *Ctx, objs []*TObj, upd *TObj, onlyFields ...q.F) {
-	for _, obj := range objs { // no real SQL-single-statement batch update sadly, due to necessary `Job[Task|Run].Version` field increment
-		obj := any(obj).(interface{ id() yodb.I64 })
-		yodb.Update(ctx, upd, yodb.ColID.Equal(obj.id()), false, onlyFields...)
-	}
-}
-
 func (me *engine) finalizeCancellingJobRuns() {
 	ctx := NewCtxNonHttp(TimeoutLong, false, "")
 	defer ctx.OnDone(nil)
 
-	// no db-tx(s) wanted here by design
+	// no db-tx(s) wanted here by design, as many task cancellations as we can get are fine for us, running on an interval anyway
 	jobs := yodb.FindMany[JobRun](ctx, jobRunState.Equal(JobRunCancelling), 0, JobRunFields(JobRunId))
-	tasks := yodb.FindMany[JobTask](ctx, jobTaskState.In(Pending, Running).And(JobTaskJobRun.In(sl.To(jobs, (*JobRun).id).ToAnys()...)), 0, JobTaskFields(JobTaskId, JobTaskVersion))
-	dbBatchUpdate[JobTask](ctx, tasks, &JobTask{state: yodb.Text(Cancelled)}, JobTaskFields(jobTaskState)...)
-	dbBatchUpdate[JobRun](ctx, jobs, &JobRun{state: yodb.Text(Cancelled)}, JobRunFields(jobRunState)...)
+	if len(jobs) > 0 {
+		tasks := yodb.FindMany[JobTask](ctx, jobTaskState.In(Pending, Running).And(JobTaskJobRun.In(sl.To(jobs, (*JobRun).id).ToAnys()...)), 0, JobTaskFields(JobTaskId, JobTaskVersion))
+		dbBatchUpdate[JobTask](ctx, tasks, &JobTask{state: yodb.Text(Cancelled)}, JobTaskFields(jobTaskState)...)
+		dbBatchUpdate[JobRun](ctx, jobs, &JobRun{state: yodb.Text(Cancelled)}, JobRunFields(jobRunState)...)
+	}
 }
 
 func (me *engine) startDueJobRuns() {

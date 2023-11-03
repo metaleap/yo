@@ -173,11 +173,13 @@ type Unique[T q.Field] []T
 type Index[T q.Field] []T
 type ReadOnly[T q.Field] []T
 type NoUpdTrigger[T q.Field] []T
+type AlwaysFetch[T q.Field] []T
 
 func (me Unique[TFld]) qFs() []q.F       { return sl.To(me, func(it TFld) q.F { return it.F() }) }
 func (me Index[TFld]) qFs() []q.F        { return sl.To(me, func(it TFld) q.F { return it.F() }) }
 func (me ReadOnly[TFld]) qFs() []q.F     { return sl.To(me, func(it TFld) q.F { return it.F() }) }
 func (me NoUpdTrigger[TFld]) qFs() []q.F { return sl.To(me, func(it TFld) q.F { return it.F() }) }
+func (me AlwaysFetch[TFld]) qFs() []q.F  { return sl.To(me, func(it TFld) q.F { return it.F() }) }
 
 type structDesc struct {
 	ty          reflect.Type
@@ -189,6 +191,7 @@ type structDesc struct {
 		indexed      []q.F
 		readOnly     []q.F
 		noUpdTrigger []q.F
+		alwaysFetch  []q.F
 	}
 	mig struct {
 		oldTableName            string
@@ -439,6 +442,8 @@ func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField
 			desc.constraints.noUpdTrigger = constraints.qFs()
 		case ReadOnly[TFld]:
 			desc.constraints.readOnly = constraints.qFs()
+		case AlwaysFetch[TFld]:
+			desc.constraints.alwaysFetch = constraints.qFs()
 		default:
 			panic(str.Fmt("%T %#v", constraints, constraints))
 		}

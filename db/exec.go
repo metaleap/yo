@@ -254,8 +254,12 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 	if !is_i64_returned_from_insert_or_count {
 		struct_desc = desc[T]()
 	}
-	if (len(cols) == 0) && struct_desc != nil {
+	if (len(cols) == 0) && (struct_desc != nil) {
 		cols = struct_desc.cols
+	} else if struct_desc != nil {
+		for _, field_name := range struct_desc.constraints.alwaysFetch {
+			cols = sl.With(cols, struct_desc.cols[sl.IdxOf(struct_desc.fields, field_name)])
+		}
 	}
 	var abort bool
 	for rows.Next() {
