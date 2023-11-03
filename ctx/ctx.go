@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
 	. "yo/util"
@@ -34,7 +35,12 @@ type Ctx struct {
 	context.Context
 	ctxDone func()
 	ctxVals map[string]any
-	Http    struct {
+	caches  struct {
+		maps map[string]map[any]any
+		muts map[string]*sync.RWMutex
+		mut  *sync.Mutex
+	}
+	Http struct {
 		Req         *http.Request
 		Resp        http.ResponseWriter
 		UrlPath     string
@@ -55,6 +61,7 @@ type Ctx struct {
 func newCtx(timeout time.Duration, cancelable bool, timingsName string) *Ctx {
 	me := Ctx{Context: context.Background(), ctxVals: map[string]any{},
 		Timings: NewTimings(timingsName, "init ctx"), TimingsNoPrintInDevMode: (timingsName == "")}
+	me.caches.mut, me.caches.maps, me.caches.muts = new(sync.Mutex), map[string]map[any]any{}, map[string]*sync.RWMutex{}
 	if timeout > 0 {
 		me.Context, me.ctxDone = context.WithTimeout(me.Context, timeout)
 	}
@@ -79,14 +86,14 @@ func (me *Ctx) Cancel() {
 	}
 }
 
-func (me *Ctx) With(timeout time.Duration, cancelable bool) *Ctx {
+func (me *Ctx) CopyButWith(timeout time.Duration, cancelable bool) *Ctx {
 	ret := *me
+	// overwriting our old `ctxDone`s below is fine, as the new parent ctxs ensure they're called when due
 	if timeout > 0 {
 		ret.Context, ret.ctxDone = context.WithTimeout(ret.Context, timeout)
 	}
 	if cancelable {
 		ret.Context, ret.ctxDone = context.WithCancel(ret.Context)
-		// we can lose the old me.ctxDone, cancel-context will ensure it's called when needed
 	}
 	return &ret
 }
@@ -133,6 +140,8 @@ func (me *Ctx) OnDone(subTimings Timings) {
 	if me.ctxDone != nil {
 		me.ctxDone()
 	}
+	clear(me.caches.maps)
+	clear(me.caches.muts)
 	if IsDevMode && !me.TimingsNoPrintInDevMode {
 		do_print_timings := func(it Timings) {
 			total_duration, steps := it.AllDone()

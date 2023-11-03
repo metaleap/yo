@@ -60,7 +60,7 @@ func (me *JobTask) TimeoutRun(ctx *Ctx) time.Duration {
 
 func (me *JobTask) jobRun(ctx *Ctx) *JobRun {
 	if me != nil {
-		return me.JobRun.Get(ctx)
+		return Cache(ctx, me.JobRun.Id(), func() *JobRun { return me.JobRun.Get(ctx) })
 	}
 	return nil
 }

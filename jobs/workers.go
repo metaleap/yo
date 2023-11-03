@@ -12,6 +12,13 @@ import (
 	"yo/util/sl"
 )
 
+func (me *engine) startDueJobRuns() {
+	ctx := NewCtxNonHttp(TimeoutLong, false, "")
+	yodb.Each[JobRun](ctx, nil, 0, []q.OrderBy{JobRunDueTime.Asc()}, func(rec *JobRun, enough *bool) {
+
+	})
+}
+
 func (me *engine) startDueJob(jobRun *JobRun, jobDef *JobDef) {
 	defer Finally(nil)
 
@@ -211,10 +218,10 @@ func (me *engine) runJobTasks() {
 	}, me.options.MaxConcurrentOps)
 
 	// ...then run them
-	GoItems(pending_tasks, me.runTask, me.options.MaxConcurrentOps)
+	GoItems(pending_tasks, func(it *JobTask) { me.runTask(ctx, it) }, me.options.MaxConcurrentOps)
 }
 
-func (me *engine) runTask(task *JobTask) {
+func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 	defer Finally(func() {
 		if old_canceler := me.setTaskCanceler(task.Id, nil); old_canceler != nil {
 			old_canceler()
@@ -224,7 +231,7 @@ func (me *engine) runTask(task *JobTask) {
 	time_started := time.Now()
 	job_run := task.JobRun.Get(nil) // already preloaded by runJobTasks
 	job_def := job_run.jobDef(nil)  // dito
-	ctx := NewCtxNonHttp(task.TimeoutRun(nil /*dito*/), true, "")
+	ctx := ctxForCacheReuse.CopyButWith(task.TimeoutRun(nil /*dito*/), true)
 	if old_cancel := me.setTaskCanceler(task.Id, ctx.Cancel); old_cancel != nil {
 		old_cancel() // should never be the case, but let's be principled & clean...
 	}

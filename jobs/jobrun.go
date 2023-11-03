@@ -121,7 +121,7 @@ func (me *JobRun) Stats(ctx *Ctx) *JobRunStats {
 
 func (me *JobRun) jobDef(ctx *Ctx) *JobDef {
 	if me != nil {
-		return me.JobDef.Get(ctx)
+		return Cache(ctx, me.JobDef.Id(), func() *JobDef { return me.JobDef.Get(ctx) })
 	}
 	return nil
 }
