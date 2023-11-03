@@ -60,6 +60,8 @@ func (me *JobDef) EnsureValid() (errs []error) { // a mix of sanitization and va
 	return
 }
 
+func (me *JobDef) id() yodb.I64 { return me.Id }
+
 func (me *JobDef) findClosestToNowSchedulableTimeSince(after *time.Time, alwaysPreferOverdue bool) *time.Time {
 	if me.Disabled || (len(me.schedules) == 0) {
 		return nil

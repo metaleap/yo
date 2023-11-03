@@ -36,6 +36,8 @@ func (me *JobTask) failed() bool {
 	return (me.State() == Done) && (len(me.Attempts) > 0) && (me.Attempts[0].Err != nil)
 }
 
+func (me *JobTask) id() yodb.I64 { return me.Id }
+
 func (me *JobTask) Succeeded() bool {
 	return (me.State() == Done) && (len(me.Attempts) > 0) && (me.Attempts[0].Err == nil)
 }

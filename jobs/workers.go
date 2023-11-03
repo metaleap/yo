@@ -23,6 +23,13 @@ func (me *engine) startAndFinalizeJobRuns() {
 	// me.finalizeCancelingJobRuns(ctxNone)
 }
 
+func (me *engine) finalizeCancellingJobRun(ctx *Ctx, jobRun *JobRun) {
+	// no db-tx wanted here by design
+	yodb.Update[JobTask](ctx, &JobTask{state: yodb.Text(Cancelled)}, JobTaskJobRun.Equal(jobRun.Id).And(jobTaskState.In(Pending, Running)), false, JobTaskFields(jobTaskState)...)
+	jobRun.state, jobRun.FinishTime = yodb.Text(Cancelled), yodb.DtNow()
+	yodb.Update[JobRun](ctx, jobRun, nil, false, JobRunFields(jobRunState, JobRunFinishTime)...)
+}
+
 func (me *engine) startDueJobRuns() {
 	defer Finally(nil)
 
@@ -204,7 +211,7 @@ func (me *engine) expireOrRetryDeadJobTasks() {
 	GoItems(sl.Keys(jobs), func(jobDefId yodb.I64) {
 		if job_runs := jobs[jobDefId]; len(job_runs) > 0 {
 			job_def := job_runs[0].jobDef(ctx)
-			job_run_ids := sl.To(job_runs, func(it *JobRun) yodb.I64 { return it.Id })
+			job_run_ids := sl.To(job_runs, (*JobRun).id)
 			me.expireOrRetryDeadJobTasksForJobDef(job_def, job_run_ids)
 
 			if is_jobdef_dead := (job_def == nil) || (job_def.jobType == nil) || (job_def.Disabled); is_jobdef_dead {
@@ -261,7 +268,7 @@ func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 	defer Finally(func() {
 		if old_canceler := me.setTaskCanceler(task.Id, nil); old_canceler != nil {
 			old_canceler()
-		} // else: already cancelled by concurrent `finalizeCancelingJobs` call
+		}
 	})
 
 	time_started := time.Now()

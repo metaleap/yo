@@ -66,6 +66,8 @@ func (me *JobRun) ctx(ctx *Ctx, taskId yodb.I64) *Context {
 	return &Context{Ctx: ctx, JobRunId: me.Id, JobDetails: me.Details, JobDef: *me.JobDef.Get(ctx), JobTaskId: taskId}
 }
 
+func (me *JobRun) id() yodb.I64 { return me.Id }
+
 type JobRunStats struct {
 	TasksByState map[RunState]int64
 	TasksTotal   int64
