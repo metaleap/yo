@@ -389,9 +389,9 @@ func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 		task.state = yodb.Text(Cancelled)
 	} else if (!already_canceled) &&
 		(((err_ctx != nil) && errors.Is(err_ctx, context.DeadlineExceeded)) ||
-			((task.Attempts[0].Err != nil) && (job_def.jobType != nil) &&
+			((task.Attempts[0].Err != nil) && (job_def != nil) && (job_def.jobType != nil) &&
 				job_def.jobType.IsTaskErrRetryable(task.Attempts[0].Err))) {
-		did_mark_for_retry = task.markForRetryOrAsFailed(nil)
+		did_mark_for_retry = task.markForRetryOrAsFailed(ctx)
 	}
 	if task.Attempts[0].Err == nil {
 		task.Attempts[0].Err = err_ctx

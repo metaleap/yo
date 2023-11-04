@@ -38,8 +38,6 @@ func (ExampleJobType) dice() byte {
 	return b[0]
 }
 
-func (ExampleJobType) IsTaskErrRetryable(error) bool { return false }
-
 func (me ExampleJobType) JobDetails(ctx *Context) (JobDetails, error) {
 	return &exampleJobDetails{MsgFmt: If(((me.dice() % 2) == 0), "<<<<<IT WAS %s JUST %s AGO", ">>>>>IT WAS %s JUST %s AGO")}, nil
 }
@@ -60,6 +58,10 @@ func (me ExampleJobType) TaskResults(ctx *Context, task TaskDetails) (TaskResult
 	}
 	println(str.Fmt(msg, t.Format("2006-01-02 15:04:05"), time.Since(t)))
 	return &exampleTaskResults{NumLoggingsDone: 1}, nil
+}
+
+func (ExampleJobType) IsTaskErrRetryable(err error) bool {
+	return str.Begins(err.Error(), "artificially provoked random error due to dice throw ")
 }
 
 func (ExampleJobType) JobResults(_ *Context, tasks func() <-chan *JobTask) (JobResults, error) {
