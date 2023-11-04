@@ -89,11 +89,29 @@ func Count[T any](ctx *Ctx, query q.Query, nonNullColumn q.C, distinct *q.C) int
 }
 
 func CreateOne[T any](ctx *Ctx, rec *T) (ret I64) {
-	return upsertOne[T](ctx, false, rec)
+	if obj, _ := ((any)(rec)).(Obj); obj != nil {
+		_, _ = obj.OnBeforeStoring()
+	}
+	desc := desc[T]()
+	args := dbArgsFill[T](desc, make(dbArgs, len(desc.fields)), rec, "0")
+	result := doSelect[int64](ctx, new(sqlStmt).insert(desc, 1, false, desc.cols[numStdCols:]...), args, 1)
+	if (len(result) > 0) && (result[0] != nil) {
+		ret = I64(*result[0])
+	}
+	if ret <= 0 {
+		panic("new bug: INSERT INTO did not fail yet returned record id of 0")
+	}
+	return
 }
 
 func CreateMany[T any](ctx *Ctx, recs ...*T) {
-	upsertMany[T](ctx, false, recs...)
+	if len(recs) == 0 {
+		return
+	}
+	if len(recs) == 1 {
+		_ = CreateOne[T](ctx, recs[0])
+	}
+	upsert[T](ctx, false, recs...)
 }
 
 func Delete[T any](ctx *Ctx, where q.Query) int64 {
@@ -111,7 +129,7 @@ func Delete[T any](ctx *Ctx, where q.Query) int64 {
 
 func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyFields ...q.F) int64 {
 	desc, args := desc[T](), dbArgs{}
-	col_names, col_vals := make([]string, 0, len(onlyFields)), make([]any, 0, len(onlyFields))
+	col_names, col_vals := make([]q.C, 0, len(onlyFields)), make([]any, 0, len(onlyFields))
 	var query_and q.Query
 
 	if obj, _ := ((any)(upd)).(Obj); obj != nil {
@@ -124,7 +142,7 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 		if only := (len(onlyFields) > 0); (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) &&
 			((!only) || sl.Has(onlyFields, fieldName)) &&
 			((!isZero) || (!skipNullsyFields) || only) {
-			col_names, col_vals = append(col_names, string(colName)), append(col_vals, fieldValue)
+			col_names, col_vals = append(col_names, colName), append(col_vals, fieldValue)
 		}
 	})
 
@@ -157,7 +175,7 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 	}
 
 	for i, col_name := range col_names {
-		args[col_name] = col_vals[i]
+		args[string(col_name)] = col_vals[i]
 	}
 	result := doExec(ctx, new(sqlStmt).update(desc, col_names...).where(desc, true, where.And(query_and), args), args)
 	num_rows_affected, err := result.RowsAffected()
@@ -167,32 +185,16 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 	return num_rows_affected
 }
 
-func Upsert[TObj any](ctx *Ctx, objs ...*TObj) {
-	upsertMany[TObj](ctx, true, objs...)
+func Upsert[TObj any](ctx *Ctx, obj *TObj) {
+	upsert[TObj](ctx, true, obj)
 }
 
-func upsertOne[T any](ctx *Ctx, upsert bool, rec *T) (ret I64) {
-	if obj, _ := ((any)(rec)).(Obj); obj != nil {
-		_, _ = obj.OnBeforeStoring()
-	}
-	desc := desc[T]()
-	args := dbArgsFill[T](desc, make(dbArgs, len(desc.fields)), rec, "")
-	result := doSelect[int64](ctx, new(sqlStmt).insert(desc, 1, upsert, desc.cols[numStdCols:]...), args, 1)
-	if (len(result) > 0) && (result[0] != nil) {
-		ret = I64(*result[0])
-	}
-	if ret <= 0 {
-		panic("new bug: INSERT INTO did not fail yet returned record id of 0")
-	}
-	return
-}
-
-func upsertMany[T any](ctx *Ctx, upsert bool, recs ...*T) {
+func upsert[T any](ctx *Ctx, upsert bool, recs ...*T) {
 	if len(recs) == 0 {
 		return
-	} else if len(recs) == 1 {
-		_ = upsertOne[T](ctx, upsert, recs[0])
-		return
+	}
+	if upsert && (len(recs) > 1) {
+		panic(len(recs))
 	}
 	desc := desc[T]()
 	args := make(dbArgs, len(desc.fields)*len(recs))

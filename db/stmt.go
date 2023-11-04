@@ -37,12 +37,16 @@ func (me *sqlStmt) insert(desc *structDesc, numRows int, upsert bool, cols ...q.
 	w := (*str.Buf)(me).WriteString
 	w("INSERT INTO ")
 	w(desc.tableName)
-	if numRows < 1 {
+	if (numRows < 1) || (upsert && (numRows > 1)) {
 		panic(numRows)
 	}
+	var non_unique_cols []string
+	var non_unique_vals []string
 	if len(cols) == 0 {
 		if numRows != 1 {
-			panic("invalid INSERT: multiple rows but no cols specified")
+			panic("not-yet-supported INSERT: multiple rows but no cols specified")
+		} else if upsert {
+			panic("not-yet-supported INSERT: upsert but no cols specified")
 		}
 		w(" DEFAULT VALUES")
 	} else {
@@ -52,6 +56,9 @@ func (me *sqlStmt) insert(desc *structDesc, numRows int, upsert bool, cols ...q.
 				w(", ")
 			}
 			w(string(col_name))
+			if upsert && !sl.Has(desc.constraints.uniques, desc.fields[sl.IdxOf(desc.cols, col_name)]) {
+				non_unique_cols = append(non_unique_cols, string(col_name))
+			}
 		}
 		w(")")
 		w(" VALUES ")
@@ -68,40 +75,45 @@ func (me *sqlStmt) insert(desc *structDesc, numRows int, upsert bool, cols ...q.
 				if i > 0 {
 					w(", ")
 				}
-				if is_json_field {
-					w("jsonb_strip_nulls(")
-				}
-				w("@A")
-				w(string(col_name))
-				if numRows > 1 {
-					w(str.FromInt(j))
-				}
-				w(" ")
-				if is_json_field {
-					w(")")
+				col_val := If(is_json_field, "jsonb_strip_nulls(", "") +
+					"@A" + string(col_name) + str.FromInt(j) +
+					If(is_json_field, ")", "")
+				w(col_val)
+				if upsert && !sl.Has(desc.constraints.uniques, field_name) {
+					non_unique_vals = append(non_unique_vals, col_val)
 				}
 			}
 			w(")")
 		}
 	}
-	if upsert {
-		w(" ON CONFLICT DO UPDATE")
-	}
-	if numRows == 1 {
+	if upsert && (len(desc.constraints.uniques) > 0) {
+		w(" ON CONFLICT (")
+		for i, unique_field_name := range desc.constraints.uniques {
+			if i > 0 {
+				w(", ")
+			}
+			w(string(desc.cols[sl.IdxOf(desc.fields, unique_field_name)]))
+		}
+		w(") DO UPDATE SET (")
+		w(str.Join(non_unique_cols, ", "))
+		w(") = (")
+		w(str.Join(non_unique_vals, ", "))
+		w(")")
+	} else if numRows == 1 {
 		w(" RETURNING ")
 		w(string(ColID))
 	}
 	return me
 }
 
-func (me *sqlStmt) update(desc *structDesc, colNames ...string) *sqlStmt {
+func (me *sqlStmt) update(desc *structDesc, colNames ...q.C) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	w("UPDATE ")
 	w(desc.tableName)
 	w(" SET ")
 	var num_cols int
 	for _, col_name := range colNames {
-		field_name := desc.fields[sl.IdxOf(desc.cols, q.C(col_name))]
+		field_name := desc.fields[sl.IdxOf(desc.cols, col_name)]
 		if sl.Has(desc.constraints.readOnly, field_name) {
 			continue
 		}
@@ -110,15 +122,15 @@ func (me *sqlStmt) update(desc *structDesc, colNames ...string) *sqlStmt {
 		if num_cols > 0 {
 			w(", ")
 		}
-		w(col_name)
+		w(string(col_name))
 		w(" = ")
 		if isDbJsonType(field.Type) {
 			w("jsonb_strip_nulls(@")
-			w(col_name)
+			w(string(col_name))
 			w(" )")
 		} else {
 			w("@")
-			w(col_name)
+			w(string(col_name))
 			w(" ")
 		}
 		num_cols++
