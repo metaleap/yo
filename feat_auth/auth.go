@@ -25,15 +25,6 @@ type UserAuth struct {
 	pwdHashed yodb.Bytes
 }
 
-type UserPwdReq struct {
-	Id     yodb.I64
-	DtMade *yodb.DateTime
-	DtMod  *yodb.DateTime
-
-	EmailAddr yodb.Text
-	DoneId    yodb.I64
-}
-
 func init() {
 	yodb.Ensure[UserAuth, UserAuthField]("", nil, false,
 		yodb.Index[UserAuthField]{UserAuthEmailAddr},

@@ -94,15 +94,17 @@ type jobTypeReg struct {
 
 var registeredJobTypes = map[string]*jobTypeReg{}
 
-func Register[TJobType JobType, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](new func(string) TJobType) {
-	register[TJobType, TJobDetails, TJobResults, TTaskDetails, TTaskResults](strings.TrimLeft(ReflType[TJobType]().String(), "*"), new)
+func Register[TJobType JobType, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](new func(string) TJobType) string {
+	id := strings.TrimLeft(ReflType[TJobType]().String(), "*")
+	register[TJobType, TJobDetails, TJobResults, TTaskDetails, TTaskResults](id, new)
+	return id
 }
 
 func RegisterDefault[TJobType JobType, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](new func(string) TJobType) {
 	register[TJobType, TJobDetails, TJobResults, TTaskDetails, TTaskResults]("", new)
 }
 
-func register[TJobType JobType, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](id string, new func(string) TJobType) {
+func register[TJobType JobType, TJobDetails JobDetails, TJobResults JobResults, TTaskDetails TaskDetails, TTaskResults TaskResults](id string, new func(string) TJobType) string {
 	if typeIs[TJobDetails](reflect.Pointer) || typeIs[TJobResults](reflect.Pointer) || typeIs[TTaskDetails](reflect.Pointer) || typeIs[TTaskResults](reflect.Pointer) {
 		panic("TJobDetails, TJobResults, TTaskDetails, TTaskResults must not be pointer types")
 	}
@@ -129,6 +131,7 @@ func register[TJobType JobType, TJobDetails JobDetails, TJobResults JobResults, 
 		println("RegJobType:'" + id + "'")
 	}
 	registeredJobTypes[id] = &it
+	return id
 }
 
 func jobType(id string) (ret *jobTypeReg) {

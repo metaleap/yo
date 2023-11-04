@@ -12,6 +12,7 @@ import (
 	_ "yo/jobs"
 	yojobs "yo/jobs"
 	yolog "yo/log"
+	_ "yo/mail"
 	yosrv "yo/srv"
 	. "yo/util"
 	"yo/util/str"

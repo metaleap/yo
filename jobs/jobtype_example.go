@@ -9,7 +9,7 @@ import (
 	"yo/util/str"
 )
 
-var ExampleJobEnabled = false
+const ExampleJobEnabled = false
 
 var ExampleJobDef = JobDef{
 	Name:                             "exampleJob",
