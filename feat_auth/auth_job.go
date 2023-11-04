@@ -77,7 +77,7 @@ func (me userPwdReqJobType) TaskResults(ctx *yojobs.Context, task yojobs.TaskDet
 		ret.MailReqId = yomail.CreateMailReq(ctx.Ctx, &yomail.MailReq{
 			TmplId:   yodb.Text(tmpl_id),
 			TmplArgs: tmpl_args,
-			MailTo:   yodb.Arr[yodb.Text]{req.EmailAddr},
+			MailTo:   req.EmailAddr,
 		})
 
 		req.DoneId = ret.MailReqId

@@ -50,7 +50,7 @@ func (me mailReqJobType) TaskResults(ctx *yojobs.Context, task yojobs.TaskDetail
 			panic("no such template: '" + req.TmplId + "'")
 		}
 		msg := str.Repl(templ.Body, req.TmplArgs)
-		send(yodb.Text(templ.Subject), msg, req.MailTo...)
+		sendMailViaSmtp(req.MailTo, yodb.Text(templ.Subject), msg)
 		req.dtDone = yodb.DtNow()
 		yodb.Update[MailReq](ctx.Ctx, req, nil, false, MailReqFields(mailReqDtDone)...)
 	}

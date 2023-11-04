@@ -21,6 +21,12 @@ var Cfg struct {
 	YO_AUTH_PWD_MAX_LEN             int
 	YO_API_ADMIN_USER               string
 	YO_API_ADMIN_PWD                string
+	YO_MAIL_SMTP_HOST               string
+	YO_MAIL_SMTP_PORT               int
+	YO_MAIL_SMTP_USERNAME           string
+	YO_MAIL_SMTP_PASSWORD           string
+	YO_MAIL_SMTP_SENDER             string
+	YO_MAIL_SMTP_TIMEOUT            time.Duration
 	DB_REQ_TIMEOUT                  time.Duration
 	DATABASE_URL                    string
 	STATIC_FILE_STORAGE_DIRS        map[string]string
