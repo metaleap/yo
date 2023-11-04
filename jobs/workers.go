@@ -74,7 +74,7 @@ func (me *engine) finalizeDoneJobRun(ctxForCacheReuse *Ctx, jobRun *JobRun) {
 		yodb.Each[JobTask](ctx, JobTaskJobRun.Equal(jobRun.Id), 0, nil, on_next_task)
 	}
 	if final_results != nil {
-		jobRun.Results = final_results
+		jobRun.Results = final_results()
 	}
 
 	jobType(string(job_def.JobTypeId)).checkTypeJobResults(jobRun.Results)
