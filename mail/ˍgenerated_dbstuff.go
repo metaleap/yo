@@ -16,8 +16,6 @@ const (
 	MailReqTmplId   MailReqField = "TmplId"
 	MailReqTmplArgs MailReqField = "TmplArgs"
 	MailReqMailTo   MailReqField = "MailTo"
-	MailReqMailCc   MailReqField = "MailCc"
-	MailReqMailBcc  MailReqField = "MailBcc"
 	mailReqDtDone   MailReqField = "dtDone"
 )
 

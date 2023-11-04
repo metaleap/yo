@@ -5,6 +5,7 @@ import (
 	yojobs "yo/jobs"
 	. "yo/util"
 	"yo/util/sl"
+	"yo/util/str"
 )
 
 var JobTypeId = yojobs.Register[mailReqJobType, Void, Void, mailReqTaskDetails, mailReqTaskResults](func(string) mailReqJobType {
@@ -44,6 +45,12 @@ func (me mailReqJobType) TaskResults(ctx *yojobs.Context, task yojobs.TaskDetail
 	task_details := task.(*mailReqTaskDetails)
 
 	if req := yodb.FindOne[MailReq](ctx.Ctx, MailReqId.Equal(task_details.ReqId)); req != nil {
+		templ := Templates[string(req.TmplId)]
+		if templ == nil {
+			panic("no such template: '" + req.TmplId + "'")
+		}
+		msg := str.Repl(templ.Body, req.TmplArgs)
+		send(yodb.Text(templ.Subject), msg, req.MailTo...)
 		req.dtDone = yodb.DtNow()
 		yodb.Update[MailReq](ctx.Ctx, req, nil, false, MailReqFields(mailReqDtDone)...)
 	}

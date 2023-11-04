@@ -534,13 +534,9 @@ func (me *DateTime) MarshalJSON() ([]byte, error) {
 	return ((*time.Time)(me)).MarshalJSON()
 }
 
-func (me *Text) Set(f func(string) string) {
-	*me = (Text)(f((string)(*me)))
-}
-
-func (me Text) But(f func(string) string) Text {
-	return (Text)(f((string)(me)))
-}
+func (me *Text) Set(f func(string) string)     { *me = (Text)(f((string)(*me))) }
+func (me Text) But(f func(string) string) Text { return (Text)(f((string)(me))) }
+func (me Text) String() string                 { return string(me) }
 
 func DtFrom(t time.Time) *DateTime {
 	var ret DateTime
