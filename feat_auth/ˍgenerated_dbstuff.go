@@ -46,6 +46,7 @@ const (
 	UserPwdReqDtMade    UserPwdReqField = "DtMade"
 	UserPwdReqDtMod     UserPwdReqField = "DtMod"
 	UserPwdReqEmailAddr UserPwdReqField = "EmailAddr"
+	UserPwdReqDoneId    UserPwdReqField = "DoneId"
 )
 
 func (me UserPwdReqField) ArrLen(a1 ...interface{}) q.Operand { return ((q.F)(me)).ArrLen(a1...) }

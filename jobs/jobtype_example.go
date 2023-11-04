@@ -4,15 +4,19 @@ import (
 	"crypto/rand"
 	"time"
 
+	yodb "yo/db"
 	. "yo/util"
 	"yo/util/str"
 )
+
+var ExampleJobEnabled = false
 
 var ExampleJobDef = JobDef{
 	Name:                             "exampleJob",
 	JobTypeId:                        "yojobs.ExampleJobType",
 	MaxTaskRetries:                   2,
 	DeleteAfterDays:                  1,
+	Disabled:                         yodb.Bool(!ExampleJobEnabled),
 	TimeoutSecsTaskRun:               2,
 	TimeoutSecsJobRunPrepAndFinalize: 4,
 	Schedules:                        ScheduleOncePerMinute,
@@ -21,8 +25,10 @@ var ExampleJobDef = JobDef{
 type ExampleJobType struct{}
 
 func init() {
-	Register[ExampleJobType, exampleJobDetails, exampleJobResults, exampleTaskDetails, exampleTaskResults](
-		func(string) ExampleJobType { return ExampleJobType{} })
+	if ExampleJobEnabled {
+		Register[ExampleJobType, exampleJobDetails, exampleJobResults, exampleTaskDetails, exampleTaskResults](
+			func(string) ExampleJobType { return ExampleJobType{} })
+	}
 }
 
 type exampleJobDetails struct {

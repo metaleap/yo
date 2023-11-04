@@ -13,6 +13,7 @@ var UserPwdReqJobDef = JobDef{
 	Schedules:                        ScheduleOncePerMinute,
 	TimeoutSecsTaskRun:               11,
 	TimeoutSecsJobRunPrepAndFinalize: 11,
+	Disabled:                         false,
 	MaxTaskRetries:                   11,
 	DeleteAfterDays:                  11,
 }
