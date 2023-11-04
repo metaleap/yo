@@ -74,9 +74,8 @@ func sendMailViaSmtp(to yodb.Text, subject yodb.Text, msg string) error {
 	if writer != nil {
 		defer writer.Close()
 	}
-	if err != nil {
-		return err
+	if err == nil {
+		_, err = writer.Write(mail_body)
 	}
-	_, err = writer.Write(mail_body)
 	return err
 }
