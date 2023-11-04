@@ -12,7 +12,7 @@ import (
 	_ "yo/jobs"
 	yojobs "yo/jobs"
 	yolog "yo/log"
-	_ "yo/mail"
+	yomail "yo/mail"
 	yosrv "yo/srv"
 	. "yo/util"
 	"yo/util/str"
@@ -31,16 +31,19 @@ func Init(staticFileDirApp fs.FS, staticFileDirYo fs.FS) (listenAndServe func())
 
 	yolog.PrintLnLn("DB init...")
 	db_structs := yodb.InitAndConnectAndMigrateAndMaybeCodegen()
-	{
-		ctx := yoctx.NewCtxNonHttp(time.Minute, false, "")
-		defer ctx.OnDone(nil)
-		yodb.Upsert[yojobs.JobDef](ctx, &yoauth.UserPwdReqJobDef)
-	}
 
 	yolog.PrintLnLn("API init...")
 	listenAndServe = yosrv.InitAndMaybeCodegen(db_structs)
 	if ts2jsAppSideStaticDir != nil { // set only in dev-mode
 		ts2jsAppSideStaticDir()
+	}
+
+	yolog.PrintLnLn("Jobs init...")
+	{
+		ctx := yoctx.NewCtxNonHttp(time.Minute, false, "")
+		defer ctx.OnDone(nil)
+		yodb.Upsert[yojobs.JobDef](ctx, &yoauth.UserPwdReqJobDef)
+		yodb.Upsert[yojobs.JobDef](ctx, &yomail.MailReqJobDef)
 	}
 
 	yolog.PrintLnLn("yo.Init done")

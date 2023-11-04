@@ -11,6 +11,8 @@ import (
 	sl "yo/util/sl"
 )
 
+var Default = NewEngine(Options{})
+
 func init() {
 	yodb.Ensure[JobDef, JobDefField]("", nil, false,
 		yodb.Unique[JobDefField]{JobDefName})

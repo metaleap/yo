@@ -3,9 +3,13 @@ package yoauth
 import (
 	yodb "yo/db"
 	yojobs "yo/jobs"
+	yomail "yo/mail"
 	. "yo/util"
 	sl "yo/util/sl"
 )
+
+const MailTmplIdSignUp = "yoauth.signUp"
+const MailTmplIdPwdForgot = "yoauth.pwdForgot"
 
 type UserPwdReq struct {
 	Id     yodb.I64
@@ -32,7 +36,7 @@ var UserPwdReqJobDef = yojobs.JobDef{
 }
 
 type userPwdReqTaskDetails struct{ ReqId yodb.I64 }
-type userPwdReqTaskResults struct{ MailId yodb.I64 }
+type userPwdReqTaskResults struct{ MailReqId yodb.I64 }
 
 type userPwdReqJobType Void
 
@@ -51,12 +55,23 @@ func (userPwdReqJobType) TaskDetails(ctx *yojobs.Context, stream func([]yojobs.T
 }
 
 func (me userPwdReqJobType) TaskResults(ctx *yojobs.Context, task yojobs.TaskDetails) yojobs.TaskResults {
-	task_details := task.(*userPwdReqTaskDetails)
+	task_details, ret := task.(*userPwdReqTaskDetails), &userPwdReqTaskResults{}
 
 	if req := yodb.FindOne[UserPwdReq](ctx.Ctx, UserPwdReqId.Equal(task_details.ReqId)); req != nil {
-		req.DoneId = req.Id
+		user := yodb.FindOne[UserAuth](ctx.Ctx, UserAuthEmailAddr.Equal(req.EmailAddr))
+		tmpl_id := If(user == nil, MailTmplIdSignUp, MailTmplIdPwdForgot)
+		tmpl := yomail.Templates[tmpl_id]
+		if tmpl == "" {
+			panic("no such mail template: '" + tmpl_id + "'")
+		}
+		tmpl_args := yodb.JsonMap[string]{}
+		ret.MailReqId = yomail.CreateMailReq(ctx.Ctx, &yomail.MailReq{
+			TmplId:   yodb.Text(tmpl_id),
+			TmplArgs: tmpl_args,
+			MailTo:   yodb.Arr[yodb.Text]{req.EmailAddr},
+		})
+		req.DoneId = ret.MailReqId
 		yodb.Update[UserPwdReq](ctx.Ctx, req, nil, false, UserPwdReqFields(UserPwdReqDoneId)...)
-		return &userPwdReqTaskResults{MailId: req.Id}
 	}
-	return &userPwdReqTaskResults{MailId: 0}
+	return ret
 }

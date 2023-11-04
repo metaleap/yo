@@ -7,23 +7,6 @@ import (
 	"yo/util/sl"
 )
 
-func init() {
-	yodb.Ensure[MailReq, MailReqField]("", nil, false)
-}
-
-type MailReq struct {
-	Id     yodb.I64
-	DtMade *yodb.DateTime
-	DtMod  *yodb.DateTime
-
-	TmplId   yodb.Text
-	TmplArgs yodb.JsonMap[string]
-	MailTo   yodb.Arr[yodb.Text]
-	MailCc   yodb.Arr[yodb.Text]
-	MailBcc  yodb.Arr[yodb.Text]
-	DtDone   *yodb.DateTime
-}
-
 var JobTypeId = yojobs.Register[mailReqJobType, Void, Void, mailReqTaskDetails, mailReqTaskResults](func(string) mailReqJobType {
 	return mailReqJobType{}
 })
@@ -52,7 +35,7 @@ func (mailReqJobType) JobResults(_ *yojobs.Context) (func(*yojobs.JobTask, *bool
 }
 
 func (mailReqJobType) TaskDetails(ctx *yojobs.Context, stream func([]yojobs.TaskDetails)) {
-	reqs := yodb.FindMany[MailReq](ctx.Ctx, MailReqDtDone.Equal(nil), 0, nil)
+	reqs := yodb.FindMany[MailReq](ctx.Ctx, mailReqDtDone.Equal(nil), 0, nil)
 	stream(sl.To(reqs,
 		func(it *MailReq) yojobs.TaskDetails { return &mailReqTaskDetails{ReqId: it.Id} }))
 }
@@ -61,8 +44,8 @@ func (me mailReqJobType) TaskResults(ctx *yojobs.Context, task yojobs.TaskDetail
 	task_details := task.(*mailReqTaskDetails)
 
 	if req := yodb.FindOne[MailReq](ctx.Ctx, MailReqId.Equal(task_details.ReqId)); req != nil {
-		req.DtDone = yodb.DtNow()
-		yodb.Update[MailReq](ctx.Ctx, req, nil, false, MailReqFields(MailReqDtDone)...)
+		req.dtDone = yodb.DtNow()
+		yodb.Update[MailReq](ctx.Ctx, req, nil, false, MailReqFields(mailReqDtDone)...)
 	}
 	return &mailReqTaskResults{}
 }

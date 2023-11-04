@@ -18,7 +18,7 @@ const (
 	MailReqMailTo   MailReqField = "MailTo"
 	MailReqMailCc   MailReqField = "MailCc"
 	MailReqMailBcc  MailReqField = "MailBcc"
-	MailReqDtDone   MailReqField = "DtDone"
+	mailReqDtDone   MailReqField = "dtDone"
 )
 
 func (me MailReqField) ArrLen(a1 ...interface{}) q.Operand { return ((q.F)(me)).ArrLen(a1...) }
