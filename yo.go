@@ -6,9 +6,11 @@ import (
 	"time"
 
 	. "yo/cfg"
+	yoctx "yo/ctx"
 	yodb "yo/db"
-	_ "yo/feat_auth"
+	yoauth "yo/feat_auth"
 	_ "yo/jobs"
+	yojobs "yo/jobs"
 	yolog "yo/log"
 	yosrv "yo/srv"
 	. "yo/util"
@@ -25,13 +27,21 @@ func Init(staticFileDirApp fs.FS, staticFileDirYo fs.FS) (listenAndServe func())
 	time.Local = time.UTC // between above `init` and now, `time` might have its own `init`-time ideas about setting `time.Local`...
 	yosrv.StaticFileDirApp, yosrv.StaticFileDirYo =
 		staticFileDirApp, staticFileDirYo
+
 	yolog.PrintLnLn("DB init...")
 	db_structs := yodb.InitAndConnectAndMigrateAndMaybeCodegen()
+	{
+		ctx := yoctx.NewCtxNonHttp(time.Minute, false, "")
+		defer ctx.OnDone(nil)
+		yodb.Upsert[yojobs.JobDef](ctx, &yoauth.UserPwdReqJobDef)
+	}
+
 	yolog.PrintLnLn("API init...")
 	listenAndServe = yosrv.InitAndMaybeCodegen(db_structs)
 	if ts2jsAppSideStaticDir != nil { // set only in dev-mode
 		ts2jsAppSideStaticDir()
 	}
+
 	yolog.PrintLnLn("yo.Init done")
 	if IsDevMode {
 		go runBrowser()

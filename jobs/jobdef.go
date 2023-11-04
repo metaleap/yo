@@ -10,6 +10,8 @@ import (
 	"yo/util/str"
 )
 
+var ScheduleOncePerMinute = yodb.Arr[yodb.Text]{"* * * * *"}
+
 type JobDef struct {
 	Id     yodb.I64
 	DtMade *yodb.DateTime
