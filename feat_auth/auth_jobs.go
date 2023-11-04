@@ -40,7 +40,8 @@ func (userPwdReqJobType) JobResults(_ *Context, tasks func() <-chan *JobTask) (J
 }
 
 func (userPwdReqJobType) TaskDetails(ctx *Context, stream chan<- []TaskDetails, _ func(error) error) {
-	stream <- sl.To(yodb.FindMany[UserPwdReq](ctx.Ctx, nil, 0, nil),
+	reqs := yodb.FindMany[UserPwdReq](ctx.Ctx, nil, 0, nil)
+	stream <- sl.To(reqs,
 		func(it *UserPwdReq) TaskDetails { return &userPwdReqTaskDetails{ReqId: it.Id} })
 }
 

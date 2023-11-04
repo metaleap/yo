@@ -69,7 +69,7 @@ func newCtx(timeout time.Duration, cancelable bool, timingsName string) *Ctx {
 		me.Context, me.ctxDone = context.WithTimeout(me.Context, timeout)
 	}
 	if cancelable {
-		me.Context, me.ctxDone = context.WithCancel(me.Context) // ok to overwrite the old me.ctxDone, as the cancelCtx itself will ensure it's called when needed
+		me.Context, me.ctxDone = context.WithCancel(me.Context)
 	}
 	return &me
 }

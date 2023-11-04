@@ -106,12 +106,11 @@ func (me *engine) Resume() {
 		return
 	}
 	me.running = true
-	// why the `Clamp`s: no matter the intervals for future iterations, the very first call per worker upon (re)start should be "soon-ish"
-	DoAfter(Clamp(time.Second, time.Minute, me.options.IntervalStartAndFinalizeJobs), me.startAndFinalizeJobRuns)
-	DoAfter(Clamp(time.Second, time.Minute, me.options.IntervalRunTasks), me.runJobTasks)
-	DoAfter(Clamp(time.Second, time.Minute, me.options.IntervalExpireOrRetryDeadTasks), me.expireOrRetryDeadJobTasks)
-	DoAfter(Clamp(time.Second, time.Minute, me.options.IntervalDeleteStorageExpiredJobs)/10, me.deleteStorageExpiredJobRuns)
-	DoAfter(Clamp(time.Second, time.Minute, me.options.IntervalEnsureJobSchedules), me.ensureJobRunSchedules)
+	DoAfter(1*time.Second, me.startAndFinalizeJobRuns)
+	DoAfter(2*time.Second, me.runJobTasks)
+	DoAfter(3*time.Second, me.ensureJobRunSchedules)
+	DoAfter(4*time.Second, me.expireOrRetryDeadJobTasks)
+	DoAfter(5*time.Second, me.deleteStorageExpiredJobRuns)
 }
 
 func (me *engine) OnJobTaskExecuted(eventHandler func(*JobTask, time.Duration)) {

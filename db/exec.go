@@ -110,6 +110,7 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 	}
 	if len(recs) == 1 {
 		_ = CreateOne[T](ctx, recs[0])
+		return
 	}
 	upsert[T](ctx, false, recs...)
 }

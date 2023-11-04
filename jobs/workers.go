@@ -185,7 +185,6 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 			return err
 		})
 	}()
-	var num_tasks int
 	for multiple_task_details := range task_details_stream {
 		if err != nil { // don't `break` here: we need to drain the chan to close it, in the case of...
 			continue // ...undisciplined `JobType.TaskDetails` impls (they should stop sending on err)
@@ -203,7 +202,6 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 		if err == nil { // `err` set concurrently, also see remark above at loop start
 			yodb.CreateMany[JobTask](ctx, tasks...)
 		}
-		num_tasks++
 	}
 	if err != nil {
 		panic(err)
