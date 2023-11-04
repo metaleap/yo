@@ -42,7 +42,7 @@ The lifecycle "state machinery" always operates as follows:
     - upon success, it is run via `JobType.TaskResults`
     - store outcome, whether error or results:
         - if timed out and retryable (as per `JobDef` settings), set to `PENDING` again
-        - if errored but retryable (as per `JobType.IsTaskErrRetryable` and `JobDef` settings), set to `PENDING` again
+        - if errored but retryable (as per `JobDef` settings), set to `PENDING` again
         - else, set to `DONE`
     - if pod is restarted after starting but before completing that task run:
       - will be eventually detected and timed-out or marked-for-retry by another worker

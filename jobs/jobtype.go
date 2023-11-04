@@ -40,7 +40,7 @@ type JobType interface {
 	// In the manual case, they may or may not be equal, depending on the `CreateJobRun` call.
 	// In either case only the *returned* `JobDetails` are stored (and later passed to the below methods).
 	// Both `ctx.JobDetails` and the return value are of type *TJobDetails (that this `JobType` was `Register`ed with).
-	JobDetails(ctx *Context) (JobDetails, error)
+	JobDetails(ctx *Context) JobDetails
 
 	// TaskDetails is called when setting a `JobRun` from `PENDING` to `RUNNING`.
 	// This method prepares all the tasks for this job as `TaskDetails` and sends them to `stream`.
@@ -49,21 +49,16 @@ type JobType interface {
 	// on whether you are paging through some data-set or similar considerations).
 	// Each batch/slice sent equates to a DB save-multiple call (but all of them in 1 transaction).
 	// If you send zero `TaskDetails`, your `TaskResults` won't ever be called, but `JobResults` will as usual (only with zero `JobTask`s in `stream`).
-	// The `halt func(error) error` (which can be called with `nil`) has 2 purposes:
-	//   - its return value, if not `nil`, indicates that you should stop sending
-	//     and return, because the whole transaction is anyway aborted already.
-	//   - if you pass it an error, this will also abort the whole transaction
-	//     (in which case, also stop sending and return).
 	// The `TaskDetails` you are sending are of type *TTaskDetails (that this `JobType` was `Register`ed with).
 	// The `ctx.JobDetails` are of type *TJobDetails (that this `JobType` was `Register`ed with).
-	TaskDetails(ctx *Context, stream chan<- []TaskDetails, halt func(error) error)
+	TaskDetails(ctx *Context, stream chan<- []TaskDetails)
 
 	// TaskResults is called after a `JobTask` has been successfully set from `PENDING` to `RUNNING`.
 	// It implements the actual execution of a Task previously prepared in this `JobType`'s `TaskDetails` method.
 	// The `taskDetails` are of type *TTaskDetails (that this `JobType` was `Register`ed with).
 	// The `ctx.JobDetails` are of type *TJobDetails (that this `JobType` was `Register`ed with).
 	// The `TaskResults` returned are of type *TTaskResults (that this `JobType` was `Register`ed with).
-	TaskResults(ctx *Context, taskDetails TaskDetails) (TaskResults, error)
+	TaskResults(ctx *Context, taskDetails TaskDetails) TaskResults
 
 	// JobResults is called when setting a job from `RUNNING` to `DONE`.
 	// All `JobTask`s of the job are coming in over `stream()` (filtered+sorted as your above `TaskDetails()` method indicated).
@@ -75,9 +70,7 @@ type JobType interface {
 	// The `JobResults` returned are of type *TJobResults (that this `JobType` was `Register`ed with).
 	// All `stream()[_].Details` are of type *TTaskDetails (that this `JobType` was `Register`ed with).
 	// All `stream()[_].Results` are of type *TTaskResults (that this `JobType` was `Register`ed with).
-	JobResults(ctx *Context, stream func() <-chan *JobTask) (JobResults, error)
-
-	IsTaskErrRetryable(err error) bool
+	JobResults(ctx *Context, stream func() <-chan *JobTask) JobResults
 }
 
 type Context struct {

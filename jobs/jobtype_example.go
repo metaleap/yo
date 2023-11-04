@@ -2,7 +2,6 @@ package yojobs
 
 import (
 	"crypto/rand"
-	"errors"
 	"time"
 
 	. "yo/util"
@@ -48,11 +47,11 @@ func (ExampleJobType) dice() byte {
 	return b[0]
 }
 
-func (me ExampleJobType) JobDetails(ctx *Context) (JobDetails, error) {
-	return &exampleJobDetails{MsgFmt: If(((me.dice() % 2) == 0), "<<<<<IT WAS %s JUST %s AGO", ">>>>>IT WAS %s JUST %s AGO")}, nil
+func (me ExampleJobType) JobDetails(ctx *Context) JobDetails {
+	return &exampleJobDetails{MsgFmt: If(((me.dice() % 2) == 0), "<<<<<IT WAS %s JUST %s AGO", ">>>>>IT WAS %s JUST %s AGO")}
 }
 
-func (ExampleJobType) TaskDetails(_ *Context, stream chan<- []TaskDetails, _ func(error) error) {
+func (ExampleJobType) TaskDetails(_ *Context, stream chan<- []TaskDetails) {
 	stream <- []TaskDetails{&exampleTaskDetails{Time: time.Now()}}
 	stream <- []TaskDetails{
 		&exampleTaskDetails{Time: time.Now().Add(-365 * 24 * time.Hour)},
@@ -60,26 +59,22 @@ func (ExampleJobType) TaskDetails(_ *Context, stream chan<- []TaskDetails, _ fun
 	}
 }
 
-func (me ExampleJobType) TaskResults(ctx *Context, task TaskDetails) (TaskResults, error) {
+func (me ExampleJobType) TaskResults(ctx *Context, task TaskDetails) TaskResults {
 	msg := ctx.JobDetails.(*exampleJobDetails).MsgFmt
 	t := task.(*exampleTaskDetails).Time
 	if d := me.dice(); (d % 11) == 0 {
-		return nil, errors.New(str.Fmt("artificially provoked random error due to dice throw %d", d))
+		panic(str.Fmt("artificially provoked random error due to dice throw %d", d))
 	}
 	println(str.Fmt(msg, t.Format("2006-01-02 15:04:05"), time.Since(t)))
-	return &exampleTaskResults{NumLoggingsDone: 1}, nil
+	return &exampleTaskResults{NumLoggingsDone: 1}
 }
 
-func (ExampleJobType) IsTaskErrRetryable(err error) bool {
-	return str.Begins(err.Error(), "artificially provoked random error due to dice throw ")
-}
-
-func (ExampleJobType) JobResults(_ *Context, tasks func() <-chan *JobTask) (JobResults, error) {
+func (ExampleJobType) JobResults(_ *Context, tasks func() <-chan *JobTask) JobResults {
 	var num int
 	for task := range tasks() {
 		if results, _ := task.Results.(*exampleTaskResults); results != nil {
 			num += results.NumLoggingsDone
 		}
 	}
-	return &exampleJobResults{NumLoggingsDone: num}, nil
+	return &exampleJobResults{NumLoggingsDone: num}
 }

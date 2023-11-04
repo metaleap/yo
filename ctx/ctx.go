@@ -91,7 +91,7 @@ func (me *Ctx) Cancel() {
 
 func (me *Ctx) CopyButWith(timeout time.Duration, cancelable bool) *Ctx {
 	ret := *me
-	ret.Context, ret.ctxDone = context.Background(), nil
+	ret.Db.Tx, ret.Context, ret.ctxDone = nil, context.Background(), nil
 	if IsDevMode && (timeout <= 0) && !cancelable {
 		panic("unsupported Ctx")
 	}

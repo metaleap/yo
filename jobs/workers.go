@@ -69,15 +69,14 @@ func (me *engine) finalizeDoneJobRun(ctxForCacheReuse *Ctx, jobRun *JobRun) {
 	}
 
 	var tasks_stream chan *JobTask
-	var err error
-	abort_streaming := false
-	jobRun.Results, err = job_def.jobType.JobResults(jobRun.ctx(ctx, 0), func() <-chan *JobTask {
+	halt_streaming := false
+	jobRun.Results = job_def.jobType.JobResults(jobRun.ctx(ctx, 0), func() <-chan *JobTask {
 		if tasks_stream == nil {
 			tasks_stream = make(chan *JobTask)
 			go func() {
 				defer close(tasks_stream)
 				yodb.Each[JobTask](ctx, JobTaskJobRun.Equal(jobRun.Id), 0, nil, func(task *JobTask, enough *bool) {
-					if abort_streaming {
+					if halt_streaming {
 						*enough = true
 					} else {
 						tasks_stream <- task
@@ -87,10 +86,7 @@ func (me *engine) finalizeDoneJobRun(ctxForCacheReuse *Ctx, jobRun *JobRun) {
 		}
 		return tasks_stream
 	})
-	abort_streaming = true
-	if err != nil {
-		panic(err)
-	}
+	halt_streaming = true
 	jobType(string(job_def.JobTypeId)).checkTypeJobResults(jobRun.Results)
 	jobRun.state, jobRun.FinishTime, jobRun.DurationFinalizeSecs =
 		yodb.Text(Done), yodb.DtNow(), yodb.F32(time.Since(time_started).Seconds())
@@ -166,11 +162,7 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 	ctx_job := jobRun.ctx(ctx, 0)
 
 	// 1. JobType.JobDetails
-	var err error
-	jobRun.Details, err = jobDef.jobType.JobDetails(ctx_job)
-	if err != nil {
-		panic(err)
-	}
+	jobRun.Details = jobDef.jobType.JobDetails(ctx_job)
 	jobType(string(jobDef.JobTypeId)).checkTypeJobDetails(jobRun.Details)
 	ctx_job.JobDetails = jobRun.Details
 
@@ -178,16 +170,11 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 	task_details_stream := make(chan []TaskDetails)
 	go func() {
 		defer close(task_details_stream)
-		jobDef.jobType.TaskDetails(ctx_job, task_details_stream, func(e error) error {
-			if (e != nil) && (err == nil) {
-				err = e
-			}
-			return err
-		})
+		jobDef.jobType.TaskDetails(ctx_job, task_details_stream)
 	}()
 	for multiple_task_details := range task_details_stream {
-		if err != nil { // don't `break` here: we need to drain the chan to close it, in the case of...
-			continue // ...undisciplined `JobType.TaskDetails` impls (they should stop sending on err)
+		if ctx.Err() != nil { // don't `break` here: we need to drain the chan to close it
+			continue
 		}
 		tasks := sl.To(multiple_task_details, func(taskDetails TaskDetails) *JobTask {
 			jobType(string(jobRun.JobTypeId)).checkTypeTaskDetails(taskDetails)
@@ -199,12 +186,7 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 			task.JobRun.SetId(jobRun.Id)
 			return task
 		})
-		if err == nil { // `err` set concurrently, also see remark above at loop start
-			yodb.CreateMany[JobTask](ctx, tasks...)
-		}
-	}
-	if err != nil {
-		panic(err)
+		yodb.CreateMany[JobTask](ctx, tasks...)
 	}
 
 	// 3. update job
@@ -372,14 +354,16 @@ func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 	case job_def.jobType == nil:
 		task.Attempts[0].Err = errNotFoundJobType(job_def.Name, job_def.JobTypeId)
 	case !already_canceled: // actual RUNNING of task
-		results, err := job_def.jobType.TaskResults(job_run.ctx(ctx, task.Id), task.Details)
-		if task.Results = results; err != nil {
-			task.Attempts[0].Err = err
-		}
-		if task.Attempts[0].Err == nil {
+		func() {
+			defer func() {
+				if err := recover(); (err != nil) && (task.Attempts[0].Err == nil) {
+					task.Attempts[0].Err, _ = err.(error)
+				}
+			}()
+			task.Results = job_def.jobType.TaskResults(job_run.ctx(ctx, task.Id), task.Details)
 			jobType(string(job_def.JobTypeId)).checkTypeTaskResults(task.Results)
 			task_upd_fields = sl.With(task_upd_fields, jobTaskResults.F())
-		}
+		}()
 	}
 
 	task.state, task.FinishTime =
@@ -390,8 +374,7 @@ func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 		task.state = yodb.Text(Cancelled)
 	} else if (!already_canceled) &&
 		(((err_ctx != nil) && errors.Is(err_ctx, context.DeadlineExceeded)) ||
-			((task.Attempts[0].Err != nil) && (job_def != nil) && (job_def.jobType != nil) &&
-				job_def.jobType.IsTaskErrRetryable(task.Attempts[0].Err))) {
+			((task.Attempts[0].Err != nil) && (job_def != nil) && (job_def.jobType != nil))) {
 		did_mark_for_retry = task.markForRetryOrAsFailed(ctx)
 	}
 	if task.Attempts[0].Err == nil {

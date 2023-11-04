@@ -31,6 +31,7 @@ type UserPwdReq struct {
 	DtMod  *yodb.DateTime
 
 	EmailAddr yodb.Text
+	DoneId    yodb.I64
 }
 
 func init() {
