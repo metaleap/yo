@@ -33,7 +33,7 @@ func (me *sqlStmt) delete(from string) *sqlStmt {
 	return me
 }
 
-func (me *sqlStmt) insert(desc *structDesc, numRows int, cols ...q.C) *sqlStmt {
+func (me *sqlStmt) insert(desc *structDesc, numRows int, upsert bool, cols ...q.C) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	w("INSERT INTO ")
 	w(desc.tableName)
@@ -83,6 +83,9 @@ func (me *sqlStmt) insert(desc *structDesc, numRows int, cols ...q.C) *sqlStmt {
 			}
 			w(")")
 		}
+	}
+	if upsert {
+		w(" ON CONFLICT DO UPDATE")
 	}
 	if numRows == 1 {
 		w(" RETURNING ")

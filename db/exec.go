@@ -89,37 +89,11 @@ func Count[T any](ctx *Ctx, query q.Query, nonNullColumn q.C, distinct *q.C) int
 }
 
 func CreateOne[T any](ctx *Ctx, rec *T) (ret I64) {
-	if obj, _ := ((any)(rec)).(Obj); obj != nil {
-		_, _ = obj.OnBeforeStoring()
-	}
-	desc := desc[T]()
-	args := dbArgsFill[T](desc, make(dbArgs, len(desc.fields)), rec, "")
-	result := doSelect[int64](ctx, new(sqlStmt).insert(desc, 1, desc.cols[numStdCols:]...), args, 1)
-	if (len(result) > 0) && (result[0] != nil) {
-		ret = I64(*result[0])
-	}
-	if ret <= 0 {
-		panic("new bug: INSERT INTO did not fail yet returned record id of 0")
-	}
-	return
+	return upsertOne[T](ctx, false, rec)
 }
 
 func CreateMany[T any](ctx *Ctx, recs ...*T) {
-	if len(recs) == 0 {
-		return
-	} else if len(recs) == 1 {
-		_ = CreateOne[T](ctx, recs[0])
-		return
-	}
-	desc := desc[T]()
-	args := make(dbArgs, len(desc.fields)*len(recs))
-	for i := range recs {
-		if obj, _ := ((any)(recs[i])).(Obj); obj != nil {
-			_, _ = obj.OnBeforeStoring()
-		}
-		args = dbArgsFill(desc, args, recs[i], str.FromInt(i))
-	}
-	_ = doExec(ctx, new(sqlStmt).insert(desc, len(recs), desc.cols[numStdCols:]...), args)
+	upsertMany[T](ctx, false, recs...)
 }
 
 func Delete[T any](ctx *Ctx, where q.Query) int64 {
@@ -193,20 +167,42 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 	return num_rows_affected
 }
 
-func Upsert[TObj any, TFld q.Field](ctx *Ctx, unchangedUniqueField TFld, it *TObj) {
-	if IsDevMode {
-		desc := desc[TObj]()
-		if !sl.Has(desc.constraints.uniques, unchangedUniqueField.F()) {
-			panic("not a unique field: " + unchangedUniqueField.F())
+func Upsert[TObj any](ctx *Ctx, objs ...*TObj) {
+	upsertMany[TObj](ctx, true, objs...)
+}
+
+func upsertOne[T any](ctx *Ctx, upsert bool, rec *T) (ret I64) {
+	if obj, _ := ((any)(rec)).(Obj); obj != nil {
+		_, _ = obj.OnBeforeStoring()
+	}
+	desc := desc[T]()
+	args := dbArgsFill[T](desc, make(dbArgs, len(desc.fields)), rec, "")
+	result := doSelect[int64](ctx, new(sqlStmt).insert(desc, 1, upsert, desc.cols[numStdCols:]...), args, 1)
+	if (len(result) > 0) && (result[0] != nil) {
+		ret = I64(*result[0])
+	}
+	if ret <= 0 {
+		panic("new bug: INSERT INTO did not fail yet returned record id of 0")
+	}
+	return
+}
+
+func upsertMany[T any](ctx *Ctx, upsert bool, recs ...*T) {
+	if len(recs) == 0 {
+		return
+	} else if len(recs) == 1 {
+		_ = upsertOne[T](ctx, upsert, recs[0])
+		return
+	}
+	desc := desc[T]()
+	args := make(dbArgs, len(desc.fields)*len(recs))
+	for i := range recs {
+		if obj, _ := ((any)(recs[i])).(Obj); obj != nil {
+			_, _ = obj.OnBeforeStoring()
 		}
+		args = dbArgsFill(desc, args, recs[i], str.FromInt(i))
 	}
-	ctx.DbTx()
-	query := unchangedUniqueField.Equal(reflFieldValueOf(it, unchangedUniqueField.F()))
-	if Exists[TObj](ctx, query) {
-		Update[TObj](ctx, it, query, false)
-	} else {
-		CreateOne[TObj](ctx, it)
-	}
+	_ = doExec(ctx, new(sqlStmt).insert(desc, len(recs), upsert, desc.cols[numStdCols:]...), args)
 }
 
 func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {

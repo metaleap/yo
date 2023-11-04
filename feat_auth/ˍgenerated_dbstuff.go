@@ -10,12 +10,11 @@ func UserAuthFields(fields ...UserAuthField) []q.F { return sl.To(fields, UserAu
 type UserAuthField q.F
 
 const (
-	UserAuthId           UserAuthField = "Id"
-	UserAuthDtMade       UserAuthField = "DtMade"
-	UserAuthDtMod        UserAuthField = "DtMod"
-	UserAuthEmailAddr    UserAuthField = "EmailAddr"
-	UserAuthPwdForgotten UserAuthField = "PwdForgotten"
-	userAuthPwdHashed    UserAuthField = "pwdHashed"
+	UserAuthId        UserAuthField = "Id"
+	UserAuthDtMade    UserAuthField = "DtMade"
+	UserAuthDtMod     UserAuthField = "DtMod"
+	UserAuthEmailAddr UserAuthField = "EmailAddr"
+	userAuthPwdHashed UserAuthField = "pwdHashed"
 )
 
 func (me UserAuthField) ArrLen(a1 ...interface{}) q.Operand { return ((q.F)(me)).ArrLen(a1...) }
@@ -37,3 +36,36 @@ func (me UserAuthField) NotEqual(a1 interface{}) q.Query       { return ((q.F)(m
 func (me UserAuthField) NotIn(a1 ...interface{}) q.Query       { return ((q.F)(me)).NotIn(a1...) }
 func (me UserAuthField) NotInArr(a1 interface{}) q.Query       { return ((q.F)(me)).NotInArr(a1) }
 func (me UserAuthField) StrLen(a1 ...interface{}) q.Operand    { return ((q.F)(me)).StrLen(a1...) }
+
+func UserPwdReqFields(fields ...UserPwdReqField) []q.F { return sl.To(fields, UserPwdReqField.F) }
+
+type UserPwdReqField q.F
+
+const (
+	UserPwdReqId        UserPwdReqField = "Id"
+	UserPwdReqDtMade    UserPwdReqField = "DtMade"
+	UserPwdReqDtMod     UserPwdReqField = "DtMod"
+	UserPwdReqEmailAddr UserPwdReqField = "EmailAddr"
+)
+
+func (me UserPwdReqField) ArrLen(a1 ...interface{}) q.Operand { return ((q.F)(me)).ArrLen(a1...) }
+func (me UserPwdReqField) Asc() q.OrderBy                     { return ((q.F)(me)).Asc() }
+func (me UserPwdReqField) Desc() q.OrderBy                    { return ((q.F)(me)).Desc() }
+func (me UserPwdReqField) Equal(a1 interface{}) q.Query       { return ((q.F)(me)).Equal(a1) }
+func (me UserPwdReqField) Eval(a1 interface{}, a2 func(q.C) q.F) interface{} {
+	return ((q.F)(me)).Eval(a1, a2)
+}
+func (me UserPwdReqField) F() q.F { return ((q.F)(me)).F() }
+func (me UserPwdReqField) GreaterOrEqual(a1 interface{}) q.Query {
+	return ((q.F)(me)).GreaterOrEqual(a1)
+}
+func (me UserPwdReqField) GreaterThan(a1 interface{}) q.Query { return ((q.F)(me)).GreaterThan(a1) }
+func (me UserPwdReqField) In(a1 ...interface{}) q.Query       { return ((q.F)(me)).In(a1...) }
+func (me UserPwdReqField) InArr(a1 interface{}) q.Query       { return ((q.F)(me)).InArr(a1) }
+func (me UserPwdReqField) LessOrEqual(a1 interface{}) q.Query { return ((q.F)(me)).LessOrEqual(a1) }
+func (me UserPwdReqField) LessThan(a1 interface{}) q.Query    { return ((q.F)(me)).LessThan(a1) }
+func (me UserPwdReqField) Not() q.Query                       { return ((q.F)(me)).Not() }
+func (me UserPwdReqField) NotEqual(a1 interface{}) q.Query    { return ((q.F)(me)).NotEqual(a1) }
+func (me UserPwdReqField) NotIn(a1 ...interface{}) q.Query    { return ((q.F)(me)).NotIn(a1...) }
+func (me UserPwdReqField) NotInArr(a1 interface{}) q.Query    { return ((q.F)(me)).NotInArr(a1) }
+func (me UserPwdReqField) StrLen(a1 ...interface{}) q.Operand { return ((q.F)(me)).StrLen(a1...) }

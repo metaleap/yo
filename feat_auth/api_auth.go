@@ -82,7 +82,7 @@ func ApiUserRegister(this *ApiCtx[ApiAccountPayload, struct {
 	Id yodb.I64
 }]) {
 	httpSetUser(this.Ctx, "")
-	this.Ret.Id = UserRegister(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, false)
+	this.Ret.Id = UserRegister(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain)
 }
 
 func ApiUserLogin(this *ApiCtx[ApiAccountPayload, Void]) {
