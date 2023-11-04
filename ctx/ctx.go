@@ -105,6 +105,9 @@ func (me *Ctx) CopyButWith(timeout time.Duration, cancelable bool) *Ctx {
 }
 
 func (me *Ctx) OnDone(alsoDo func()) {
+	if me == nil {
+		return
+	}
 	var fail any
 	if (!IsDevMode) || catchPanics { // comptime branch
 		if !me.DevModeNoCatch { // runtime branch, keep sep from above comptime one

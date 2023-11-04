@@ -51,12 +51,12 @@ func (me ExampleJobType) JobDetails(ctx *Context) JobDetails {
 	return &exampleJobDetails{MsgFmt: If(((me.dice() % 2) == 0), "<<<<<IT WAS %s JUST %s AGO", ">>>>>IT WAS %s JUST %s AGO")}
 }
 
-func (ExampleJobType) TaskDetails(_ *Context, stream chan<- []TaskDetails) {
-	stream <- []TaskDetails{&exampleTaskDetails{Time: time.Now()}}
-	stream <- []TaskDetails{
+func (ExampleJobType) TaskDetails(_ *Context, stream func([]TaskDetails)) {
+	stream([]TaskDetails{&exampleTaskDetails{Time: time.Now()}})
+	stream([]TaskDetails{
 		&exampleTaskDetails{Time: time.Now().Add(-365 * 24 * time.Hour)},
 		&exampleTaskDetails{Time: time.Now().Add(-30 * 24 * time.Hour)},
-	}
+	})
 }
 
 func (me ExampleJobType) TaskResults(ctx *Context, task TaskDetails) TaskResults {
@@ -69,12 +69,13 @@ func (me ExampleJobType) TaskResults(ctx *Context, task TaskDetails) TaskResults
 	return &exampleTaskResults{NumLoggingsDone: 1}
 }
 
-func (ExampleJobType) JobResults(_ *Context, tasks func() <-chan *JobTask) JobResults {
+func (ExampleJobType) JobResults(_ *Context) (stream func(*JobTask, *bool), results func() JobResults) {
 	var num int
-	for task := range tasks() {
-		if results, _ := task.Results.(*exampleTaskResults); results != nil {
-			num += results.NumLoggingsDone
-		}
+	stream = func(task *JobTask, abort *bool) {
+		num += task.Results.(*exampleTaskResults).NumLoggingsDone
 	}
-	return &exampleJobResults{NumLoggingsDone: num}
+	results = func() JobResults {
+		return &exampleJobResults{NumLoggingsDone: num}
+	}
+	return
 }

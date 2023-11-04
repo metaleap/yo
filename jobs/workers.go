@@ -10,6 +10,7 @@ import (
 	q "yo/db/query"
 	. "yo/util"
 	"yo/util/sl"
+	"yo/util/str"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -68,25 +69,14 @@ func (me *engine) finalizeDoneJobRun(ctxForCacheReuse *Ctx, jobRun *JobRun) {
 		return
 	}
 
-	var tasks_stream chan *JobTask
-	halt_streaming := false
-	jobRun.Results = job_def.jobType.JobResults(jobRun.ctx(ctx, 0), func() <-chan *JobTask {
-		if tasks_stream == nil {
-			tasks_stream = make(chan *JobTask)
-			go func() {
-				defer close(tasks_stream)
-				yodb.Each[JobTask](ctx, JobTaskJobRun.Equal(jobRun.Id), 0, nil, func(task *JobTask, enough *bool) {
-					if halt_streaming {
-						*enough = true
-					} else {
-						tasks_stream <- task
-					}
-				})
-			}()
-		}
-		return tasks_stream
-	})
-	halt_streaming = true
+	on_next_task, final_results := job_def.jobType.JobResults(jobRun.ctx(ctx, 0))
+	if on_next_task != nil {
+		yodb.Each[JobTask](ctx, JobTaskJobRun.Equal(jobRun.Id), 0, nil, on_next_task)
+	}
+	if final_results != nil {
+		jobRun.Results = final_results
+	}
+
 	jobType(string(job_def.JobTypeId)).checkTypeJobResults(jobRun.Results)
 	jobRun.state, jobRun.FinishTime, jobRun.DurationFinalizeSecs =
 		yodb.Text(Done), yodb.DtNow(), yodb.F32(time.Since(time_started).Seconds())
@@ -148,7 +138,8 @@ func (me *engine) startDueJobRuns() {
 }
 
 func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *JobDef) {
-	ctx := ctxForCacheReuse.CopyButWith(jobRun.TimeoutPrepAndFinalize(ctxForCacheReuse), false)
+	ctx :=
+		ctxForCacheReuse.CopyButWith(jobRun.TimeoutPrepAndFinalize(ctxForCacheReuse), false)
 	defer ctx.OnDone(nil)
 
 	if jobDef == nil {
@@ -159,24 +150,18 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 
 	time_started := time.Now()
 	ctx.DbTx()
-	ctx_job := jobRun.ctx(ctx, 0)
 
 	// 1. JobType.JobDetails
-	jobRun.Details = jobDef.jobType.JobDetails(ctx_job)
+	jobRun.Details = jobDef.jobType.JobDetails(jobRun.ctx(ctx, 0))
 	jobType(string(jobDef.JobTypeId)).checkTypeJobDetails(jobRun.Details)
-	ctx_job.JobDetails = jobRun.Details
 
 	// 2. JobType.TaskDetails
-	task_details_stream := make(chan []TaskDetails)
-	go func() {
-		defer close(task_details_stream)
-		jobDef.jobType.TaskDetails(ctx_job, task_details_stream)
-	}()
-	for multiple_task_details := range task_details_stream {
-		if ctx.Err() != nil { // don't `break` here: we need to drain the chan to close it
-			continue
+	done := false
+	jobDef.jobType.TaskDetails(jobRun.ctx(ctx, 0), func(multipleTaskDetails []TaskDetails) {
+		if done {
+			panic(jobDef.Name + ".TaskDetails: illegal call to feed func after return")
 		}
-		tasks := sl.To(multiple_task_details, func(taskDetails TaskDetails) *JobTask {
+		tasks := sl.To(multipleTaskDetails, func(taskDetails TaskDetails) *JobTask {
 			jobType(string(jobRun.JobTypeId)).checkTypeTaskDetails(taskDetails)
 			task := &JobTask{
 				JobTypeId: jobRun.JobTypeId,
@@ -187,7 +172,8 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 			return task
 		})
 		yodb.CreateMany[JobTask](ctx, tasks...)
-	}
+	})
+	done = true
 
 	// 3. update job
 	jobRun.state, jobRun.StartTime, jobRun.DurationPrepSecs =
@@ -357,7 +343,9 @@ func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 		func() {
 			defer func() {
 				if err := recover(); (err != nil) && (task.Attempts[0].Err == nil) {
-					task.Attempts[0].Err, _ = err.(error)
+					if task.Attempts[0].Err, _ = err.(error); task.Attempts[0].Err == nil {
+						task.Attempts[0].Err = errors.New(str.FmtV(err))
+					}
 				}
 			}()
 			task.Results = job_def.jobType.TaskResults(job_run.ctx(ctx, task.Id), task.Details)

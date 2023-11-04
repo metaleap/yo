@@ -28,7 +28,6 @@ type jobTypeDefined interface {
 //     given job are distributed among pods and run (or re-run) in no particular order.
 //   - For all methods: expect a call to be repeated after some time (on this or another pod) if
 //     the caller failed to store your results, or died beforehand (or upon returning `error`s).
-//   - All `chan`s mentioned are never `close`d by your method impl, but always by its caller.
 //   - JobDetails() -> initialize job
 //   - TaskDetails() -> initialize all tasks for a job
 //   - TaskResults() -> run the given task and return results
@@ -43,15 +42,14 @@ type JobType interface {
 	JobDetails(ctx *Context) JobDetails
 
 	// TaskDetails is called when setting a `JobRun` from `PENDING` to `RUNNING`.
-	// This method prepares all the tasks for this job as `TaskDetails` and sends them to `stream`.
-	// The caller `close`s `stream` right after this method returns.
-	// The chan-of-slice design allows to send batches-of-multiples or one-by-one (depending
+	// This method prepares all the tasks for this job as `TaskDetails` and sends them over `stream`.
+	// Any calls to `stream` right after this method returns will panic.
+	// The `stream` func param allows to send batches-of-multiples or one-by-one (depending
 	// on whether you are paging through some data-set or similar considerations).
 	// Each batch/slice sent equates to a DB save-multiple call (but all of them in 1 transaction).
-	// If you send zero `TaskDetails`, your `TaskResults` won't ever be called, but `JobResults` will as usual (only with zero `JobTask`s in `stream`).
 	// The `TaskDetails` you are sending are of type *TTaskDetails (that this `JobType` was `Register`ed with).
 	// The `ctx.JobDetails` are of type *TJobDetails (that this `JobType` was `Register`ed with).
-	TaskDetails(ctx *Context, stream chan<- []TaskDetails)
+	TaskDetails(ctx *Context, stream func([]TaskDetails))
 
 	// TaskResults is called after a `JobTask` has been successfully set from `PENDING` to `RUNNING`.
 	// It implements the actual execution of a Task previously prepared in this `JobType`'s `TaskDetails` method.
@@ -61,16 +59,15 @@ type JobType interface {
 	TaskResults(ctx *Context, taskDetails TaskDetails) TaskResults
 
 	// JobResults is called when setting a job from `RUNNING` to `DONE`.
-	// All `JobTask`s of the job are coming in over `stream()` (filtered+sorted as your above `TaskDetails()` method indicated).
-	// (If `stream` is never called, its return `chan` is never created and its feeder DB query is not even performed. All calls to `stream()` return the exact same `chan`.)
+	// All `JobTask`s of the job are coming in over `stream()`, which can be `nil` if none are needed.
+	// The final `results()` producer is called (unless `nil`) after the last call to `stream`.
 	// For DONE `JobTask`s without `Results`, check its `Task.Attempts[0].Err` (`Task.Attempts` are sorted newest-to-oldest).
-	// As soon as this method returns, `stream()` is `close`d by its caller.
 	// Mutations to the `JobTask`s are ignored/discarded.
 	// The `ctx.JobDetails` are of type *TJobDetails (that this `JobType` was `Register`ed with).
-	// The `JobResults` returned are of type *TJobResults (that this `JobType` was `Register`ed with).
-	// All `stream()[_].Details` are of type *TTaskDetails (that this `JobType` was `Register`ed with).
-	// All `stream()[_].Results` are of type *TTaskResults (that this `JobType` was `Register`ed with).
-	JobResults(ctx *Context, stream func() <-chan *JobTask) JobResults
+	// The `results()` returned are of type *TJobResults (that this `JobType` was `Register`ed with).
+	// All `stream().Details` are of type *TTaskDetails (that this `JobType` was `Register`ed with).
+	// All `stream().Results` are of type *TTaskResults (that this `JobType` was `Register`ed with).
+	JobResults(ctx *Context) (stream func(*JobTask, *bool), results func() JobResults)
 }
 
 type Context struct {

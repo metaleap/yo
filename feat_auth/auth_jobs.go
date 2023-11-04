@@ -18,29 +18,27 @@ var UserPwdReqJobDef = JobDef{
 }
 
 func init() {
-	Register[userPwdReqJobType, userPwdReqJobDetails, userPwdReqJobResults, userPwdReqTaskDetails, userPwdReqTaskResults](
+	Register[userPwdReqJobType, Void, Void, userPwdReqTaskDetails, userPwdReqTaskResults](
 		func(string) userPwdReqJobType { return userPwdReqJobType{} })
 }
 
-type userPwdReqJobDetails struct{}
-type userPwdReqJobResults struct{}
 type userPwdReqTaskDetails struct{ ReqId yodb.I64 }
 type userPwdReqTaskResults struct{ MailId yodb.I64 }
 
 type userPwdReqJobType struct{}
 
 func (me userPwdReqJobType) JobDetails(ctx *Context) JobDetails {
-	return &userPwdReqJobDetails{}
+	return nil
 }
 
-func (userPwdReqJobType) JobResults(_ *Context, tasks func() <-chan *JobTask) JobResults {
-	return &userPwdReqJobResults{}
+func (userPwdReqJobType) JobResults(_ *Context) (stream func(*JobTask, *bool), results func() JobResults) {
+	return
 }
 
-func (userPwdReqJobType) TaskDetails(ctx *Context, stream chan<- []TaskDetails) {
+func (userPwdReqJobType) TaskDetails(ctx *Context, stream func([]TaskDetails)) {
 	reqs := yodb.FindMany[UserPwdReq](ctx.Ctx, nil, 0, nil)
-	stream <- sl.To(reqs,
-		func(it *UserPwdReq) TaskDetails { return &userPwdReqTaskDetails{ReqId: it.Id} })
+	stream(sl.To(reqs,
+		func(it *UserPwdReq) TaskDetails { return &userPwdReqTaskDetails{ReqId: it.Id} }))
 }
 
 func (me userPwdReqJobType) TaskResults(ctx *Context, task TaskDetails) TaskResults {
