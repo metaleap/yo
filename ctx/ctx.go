@@ -59,6 +59,9 @@ type Ctx struct {
 }
 
 func newCtx(timeout time.Duration, cancelable bool, timingsName string) *Ctx {
+	if IsDevMode && (timeout <= 0) && !cancelable {
+		panic("unsupported Ctx")
+	}
 	me := Ctx{Context: context.Background(), ctxVals: map[string]any{},
 		Timings: NewTimings(timingsName, "init ctx"), TimingsNoPrintInDevMode: (timingsName == "")}
 	me.caches.mut, me.caches.maps, me.caches.muts = new(sync.Mutex), map[string]map[any]any{}, map[string]*sync.RWMutex{}
@@ -89,6 +92,9 @@ func (me *Ctx) Cancel() {
 func (me *Ctx) CopyButWith(timeout time.Duration, cancelable bool) *Ctx {
 	ret := *me
 	ret.Context, ret.ctxDone = context.Background(), nil
+	if IsDevMode && (timeout <= 0) && !cancelable {
+		panic("unsupported Ctx")
+	}
 	if timeout > 0 {
 		ret.Context, ret.ctxDone = context.WithTimeout(ret.Context, timeout)
 	}

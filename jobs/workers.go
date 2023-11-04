@@ -152,7 +152,7 @@ func (me *engine) startDueJobRuns() {
 }
 
 func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *JobDef) {
-	ctx := ctxForCacheReuse.CopyButWith(jobRun.TimeoutPrepAndFinalize(nil), false)
+	ctx := ctxForCacheReuse.CopyButWith(jobRun.TimeoutPrepAndFinalize(ctxForCacheReuse), false)
 	defer ctx.OnDone(nil)
 
 	if jobDef == nil {
