@@ -74,6 +74,7 @@ func (me userPwdReqJobType) TaskResults(ctx *yojobs.Context, task yojobs.TaskDet
 
 		tmpl_args := yodb.JsonMap[string]{MailTmplVarEmailAddr: string(req.EmailAddr), MailTmplVarName: string(req.EmailAddr)}
 		AppSideTmplPopulate(ctx, req.EmailAddr, user, tmpl_args)
+		tmpl_args[MailTmplVarTmpPwd] = "foobar"
 		ret.MailReqId = yomail.CreateMailReq(ctx.Ctx, &yomail.MailReq{
 			TmplId:   yodb.Text(tmpl_id),
 			TmplArgs: tmpl_args,

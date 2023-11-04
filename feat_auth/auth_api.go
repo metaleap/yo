@@ -3,12 +3,11 @@ package yoauth
 import (
 	. "yo/cfg"
 	. "yo/ctx"
+	yodb "yo/db"
 	q "yo/db/query"
 	. "yo/srv"
 	. "yo/util"
 	"yo/util/str"
-
-	yodb "yo/db"
 )
 
 const (

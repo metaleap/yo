@@ -50,9 +50,13 @@ func (me mailReqJobType) TaskResults(ctx *yojobs.Context, task yojobs.TaskDetail
 			panic("no such template: '" + req.TmplId + "'")
 		}
 		msg := str.Repl(templ.Body, req.TmplArgs)
-		sendMailViaSmtp(req.MailTo, yodb.Text(templ.Subject), msg)
-		req.dtDone = yodb.DtNow()
-		yodb.Update[MailReq](ctx.Ctx, req, nil, false, MailReqFields(mailReqDtDone)...)
+		err := sendMailViaSmtp(req.MailTo, yodb.Text(templ.Subject), msg)
+		if err == nil {
+			req.dtDone = yodb.DtNow()
+			yodb.Update[MailReq](ctx.Ctx, req, nil, false, MailReqFields(mailReqDtDone)...)
+		} else {
+			panic(err)
+		}
 	}
 	return &mailReqTaskResults{}
 }
