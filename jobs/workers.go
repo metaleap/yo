@@ -138,8 +138,7 @@ func (me *engine) startDueJobRuns() {
 }
 
 func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *JobDef) {
-	ctx :=
-		ctxForCacheReuse.CopyButWith(jobRun.TimeoutPrepAndFinalize(ctxForCacheReuse), false)
+	ctx := ctxForCacheReuse.CopyButWith(jobRun.TimeoutPrepAndFinalize(ctxForCacheReuse), false)
 	defer ctx.OnDone(nil)
 
 	if jobDef == nil {
@@ -263,9 +262,11 @@ func (me *engine) expireOrRetryDeadJobTasks() {
 	)
 
 	GoItems(sl.Keys(jobs), func(jobDefId yodb.I64) {
+		ctx := ctx.CopyButWith(TimeoutLong, false)
+		defer ctx.OnDone(nil)
 		if job_runs := jobs[jobDefId]; len(job_runs) > 0 {
 			job_def := job_runs[0].jobDef(ctx)
-			me.expireOrRetryDeadJobTasksForJobDef(job_def, sl.To(job_runs, (*JobRun).id))
+			me.expireOrRetryDeadJobTasksForJobDef(ctx, job_def, sl.To(job_runs, (*JobRun).id))
 
 			if is_jobdef_dead := (job_def == nil) || (job_def.jobType == nil) || (job_def.Disabled); is_jobdef_dead {
 				dbBatchUpdate(me, ctx, job_runs, &JobRun{state: yodb.Text(JobRunCancelling)}, JobRunFields(jobRunState)...)
@@ -274,9 +275,7 @@ func (me *engine) expireOrRetryDeadJobTasks() {
 	}, me.options.MaxConcurrentOps)
 }
 
-func (me *engine) expireOrRetryDeadJobTasksForJobDef(jobDef *JobDef, runningJobIds sl.Of[yodb.I64]) {
-	ctx := NewCtxNonHttp(TimeoutLong, false, "")
-	defer ctx.OnDone(nil)
+func (me *engine) expireOrRetryDeadJobTasksForJobDef(ctx *Ctx, jobDef *JobDef, runningJobIds sl.Of[yodb.I64]) {
 	is_jobdef_dead := (jobDef.jobType == nil) || jobDef.Disabled
 	query_tasks := JobTaskJobRun.In(runningJobIds.ToAnys()...)
 	if is_jobdef_dead { //  the rare edge case: un-Done/un-Cancelled tasks still in DB for old now-disabled-or-deleted-from-config job def
@@ -307,7 +306,9 @@ func (me *engine) runJobTasks() {
 	})
 
 	pending_tasks := yodb.FindMany[JobTask](ctx, jobTaskState.Equal(string(Pending)), me.options.FetchTasksToRun, nil)
-	GoItems(pending_tasks, func(it *JobTask) { me.runTask(ctx, it) }, me.options.MaxConcurrentOps)
+	GoItems(pending_tasks, func(it *JobTask) {
+		me.runTask(ctx, it)
+	}, me.options.MaxConcurrentOps)
 }
 
 func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
