@@ -39,9 +39,9 @@ var MailReqJobDef = yojobs.JobDef{
 }
 
 type mailReqTaskDetails struct{ ReqId yodb.I64 }
-type mailReqTaskResults struct{}
+type mailReqTaskResults Void
 
-type mailReqJobType struct{}
+type mailReqJobType Void
 
 func (me mailReqJobType) JobDetails(ctx *yojobs.Context) yojobs.JobDetails {
 	return nil

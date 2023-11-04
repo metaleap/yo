@@ -34,7 +34,7 @@ var UserPwdReqJobDef = yojobs.JobDef{
 type userPwdReqTaskDetails struct{ ReqId yodb.I64 }
 type userPwdReqTaskResults struct{ MailId yodb.I64 }
 
-type userPwdReqJobType struct{}
+type userPwdReqJobType Void
 
 func (me userPwdReqJobType) JobDetails(ctx *yojobs.Context) yojobs.JobDetails {
 	return nil
