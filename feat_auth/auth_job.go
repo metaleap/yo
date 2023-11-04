@@ -6,6 +6,7 @@ import (
 	yomail "yo/mail"
 	. "yo/util"
 	sl "yo/util/sl"
+	"yo/util/str"
 )
 
 const ( // change those only together with the tmpls in `init`
@@ -14,7 +15,6 @@ const ( // change those only together with the tmpls in `init`
 	MailTmplVarEmailAddr = "email_addr"
 	MailTmplVarName      = "name"
 	MailTmplVarTmpPwd    = "pwd_tmp"
-	MailTmplVarHref      = "href"
 )
 
 type UserPwdReq struct {
@@ -26,7 +26,7 @@ type UserPwdReq struct {
 	DoneId    yodb.I64
 }
 
-var AppSideTmplPopulate func(yodb.JsonMap[string])
+var AppSideTmplPopulate func(ctx *yojobs.Context, emailAddr yodb.Text, existingMaybe *UserAuth, tmplArgsToPopulate yodb.JsonMap[string])
 
 var JobTypeId = yojobs.Register[userPwdReqJobType, Void, Void, userPwdReqTaskDetails, userPwdReqTaskResults](func(string) userPwdReqJobType {
 	return userPwdReqJobType{}
@@ -67,16 +67,15 @@ func (me userPwdReqJobType) TaskResults(ctx *yojobs.Context, task yojobs.TaskDet
 	if req := yodb.FindOne[UserPwdReq](ctx.Ctx, UserPwdReqId.Equal(task_details.ReqId)); req != nil {
 		user := yodb.FindOne[UserAuth](ctx.Ctx, UserAuthEmailAddr.Equal(req.EmailAddr))
 		tmpl_id := If(user == nil, MailTmplIdSignUp, MailTmplIdPwdForgot)
-		tmpl := yomail.Templates[tmpl_id]
+		tmpl := str.Trim(yomail.Templates[tmpl_id])
 		if tmpl == "" {
 			panic("no such mail template: '" + tmpl_id + "'")
 		} else if AppSideTmplPopulate == nil {
 			panic("AppSideTmplPopulate not set")
 		}
 
-		tmpl_args := yodb.JsonMap[string]{}
-		AppSideTmplPopulate(tmpl_args)
-		tmpl_args[MailTmplVarEmailAddr] = string(req.EmailAddr)
+		tmpl_args := yodb.JsonMap[string]{MailTmplVarEmailAddr: string(req.EmailAddr), MailTmplVarName: string(req.EmailAddr)}
+		AppSideTmplPopulate(ctx, req.EmailAddr, user, tmpl_args)
 		ret.MailReqId = yomail.CreateMailReq(ctx.Ctx, &yomail.MailReq{
 			TmplId:   yodb.Text(tmpl_id),
 			TmplArgs: tmpl_args,
