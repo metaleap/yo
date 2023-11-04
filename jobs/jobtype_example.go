@@ -9,6 +9,16 @@ import (
 	"yo/util/str"
 )
 
+var ExampleJobDef = JobDef{
+	Name:                             "exampleJob",
+	JobTypeId:                        "yojobs.ExampleJobType",
+	MaxTaskRetries:                   2,
+	DeleteAfterDays:                  1,
+	TimeoutSecsTaskRun:               2,
+	TimeoutSecsJobRunPrepAndFinalize: 4,
+	Schedules:                        ScheduleOncePerMinute,
+}
+
 type ExampleJobType struct{}
 
 func init() {

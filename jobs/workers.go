@@ -119,7 +119,7 @@ func (me *engine) startDueJobRuns() {
 
 	jobs_due := yodb.FindMany[JobRun](ctx, jobRunState.Equal(Pending).And(JobRunDueTime.LessThan(time.Now())), 0, nil, JobRunDueTime.Asc())
 	jobs_cancel := map[CancellationReason][]*JobRun{}
-	for i := len(jobs_due) - 1; i >= 0; i-- {
+	for i := (len(jobs_due) - 1); i >= 0; i-- {
 		this := jobs_due[i]
 		idx_dupl := sl.IdxWhere(jobs_due[:i], func(it *JobRun) bool {
 			return (it.JobDef.Id() == this.JobDef.Id()) &&
@@ -140,7 +140,6 @@ func (me *engine) startDueJobRuns() {
 		if reason != "" {
 			jobs_cancel[reason] = append(jobs_cancel[reason], this)
 			jobs_due = append(jobs_due[:i], jobs_due[i+1:]...)
-			i++
 		}
 	}
 

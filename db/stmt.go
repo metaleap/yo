@@ -94,11 +94,16 @@ func (me *sqlStmt) insert(desc *structDesc, numRows int, upsert bool, cols ...q.
 			}
 			w(string(desc.cols[sl.IdxOf(desc.fields, unique_field_name)]))
 		}
-		w(") DO UPDATE SET (")
-		w(str.Join(non_unique_cols, ", "))
-		w(") = (")
-		w(str.Join(non_unique_vals, ", "))
-		w(")")
+		w(") DO ")
+		if len(non_unique_cols) == 0 {
+			w(" NOTHING")
+		} else {
+			w("UPDATE SET (")
+			w(str.Join(non_unique_cols, ", "))
+			w(") = (")
+			w(str.Join(non_unique_vals, ", "))
+			w(")")
+		}
 	} else if numRows == 1 {
 		w(" RETURNING ")
 		w(string(ColID))
