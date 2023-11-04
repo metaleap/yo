@@ -98,11 +98,22 @@ func (me *sqlStmt) insert(desc *structDesc, numRows int, upsert bool, cols ...q.
 		if len(non_unique_cols) == 0 {
 			w(" NOTHING")
 		} else {
-			w("UPDATE SET (")
+			w("UPDATE SET ")
+			if len(non_unique_cols) > 1 {
+				w("(")
+			}
 			w(str.Join(non_unique_cols, ", "))
-			w(") = (")
+			if len(non_unique_cols) > 1 {
+				w(")")
+			}
+			w(" = ")
+			if len(non_unique_vals) > 1 {
+				w("(")
+			}
 			w(str.Join(non_unique_vals, ", "))
-			w(")")
+			if len(non_unique_vals) > 1 {
+				w(")")
+			}
 		}
 	} else if numRows == 1 {
 		w(" RETURNING ")

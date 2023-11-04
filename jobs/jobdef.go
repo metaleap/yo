@@ -26,6 +26,7 @@ type JobDef struct {
 	TimeoutSecsJobRunPrepAndFinalize yodb.U32
 	MaxTaskRetries                   yodb.U8
 	DeleteAfterDays                  yodb.U16
+	StoreAndRunTasklessJobs          yodb.Bool
 
 	jobType   JobType
 	schedules []crontab.Expr

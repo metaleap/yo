@@ -37,7 +37,7 @@ func (userPwdReqJobType) JobResults(_ *Context) (func(*JobTask, *bool), func() J
 }
 
 func (userPwdReqJobType) TaskDetails(ctx *Context, stream func([]TaskDetails)) {
-	reqs := yodb.FindMany[UserPwdReq](ctx.Ctx, nil, 0, nil)
+	reqs := yodb.FindMany[UserPwdReq](ctx.Ctx, UserPwdReqDoneId.Equal(0), 0, nil)
 	stream(sl.To(reqs,
 		func(it *UserPwdReq) TaskDetails { return &userPwdReqTaskDetails{ReqId: it.Id} }))
 }
@@ -46,6 +46,8 @@ func (me userPwdReqJobType) TaskResults(ctx *Context, task TaskDetails) TaskResu
 	task_details := task.(*userPwdReqTaskDetails)
 
 	if req := yodb.FindOne[UserPwdReq](ctx.Ctx, UserPwdReqId.Equal(task_details.ReqId)); req != nil {
+		req.DoneId = req.Id
+		yodb.Update[UserPwdReq](ctx.Ctx, req, nil, false, UserPwdReqFields(UserPwdReqDoneId)...)
 		return &userPwdReqTaskResults{MailId: req.Id}
 	}
 	return &userPwdReqTaskResults{MailId: 0}

@@ -155,7 +155,7 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 	jobType(string(jobDef.JobTypeId)).checkTypeJobDetails(jobRun.Details)
 
 	// 2. JobType.TaskDetails
-	done := false
+	done, num_tasks := false, 0
 	jobDef.jobType.TaskDetails(jobRun.ctx(ctx, 0), func(multipleTaskDetails []TaskDetails) {
 		if done {
 			panic(jobDef.Name + ".TaskDetails: illegal call to feed func after return")
@@ -170,14 +170,17 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 			task.JobRun.SetId(jobRun.Id)
 			return task
 		})
+		num_tasks += len(tasks)
 		yodb.CreateMany[JobTask](ctx, tasks...)
 	})
 	done = true
 
 	// 3. update job
-	jobRun.state, jobRun.StartTime, jobRun.DurationPrepSecs =
-		yodb.Text(Running), yodb.DtNow(), yodb.F32(time.Since(time_started).Seconds())
-	yodb.Update[JobRun](ctx, jobRun, nil, false, JobRunFields(jobRunDetails, jobRunState, JobRunStartTime, JobRunDurationPrepSecs)...)
+	if (num_tasks > 0) || jobDef.StoreAndRunTasklessJobs {
+		jobRun.state, jobRun.StartTime, jobRun.DurationPrepSecs =
+			yodb.Text(Running), yodb.DtNow(), yodb.F32(time.Since(time_started).Seconds())
+		yodb.Update[JobRun](ctx, jobRun, nil, false, JobRunFields(jobRunDetails, jobRunState, JobRunStartTime, JobRunDurationPrepSecs)...)
+	}
 }
 
 func (me *engine) ensureJobRunSchedules() {
