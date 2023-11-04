@@ -39,7 +39,7 @@ var UserPwdReqJobDef = yojobs.JobDef{
 	TimeoutSecsTaskRun:               11,
 	TimeoutSecsJobRunPrepAndFinalize: 11,
 	Disabled:                         false,
-	MaxTaskRetries:                   11,
+	MaxTaskRetries:                   1, // keep low, those uncompleted `UserPwdReq`s in the DB (producing our job-tasks here) wont go away anyway
 	DeleteAfterDays:                  11,
 }
 
