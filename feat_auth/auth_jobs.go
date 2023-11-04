@@ -31,8 +31,8 @@ func (me userPwdReqJobType) JobDetails(ctx *Context) JobDetails {
 	return nil
 }
 
-func (userPwdReqJobType) JobResults(_ *Context) (stream func(*JobTask, *bool), results func() JobResults) {
-	return
+func (userPwdReqJobType) JobResults(_ *Context) (func(*JobTask, *bool), func() JobResults) {
+	return nil, nil
 }
 
 func (userPwdReqJobType) TaskDetails(ctx *Context, stream func([]TaskDetails)) {
