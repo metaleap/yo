@@ -21,7 +21,7 @@ type dbArgs = pgx.NamedArgs
 
 type Obj interface {
 	OnAfterLoaded()
-	OnBeforeStoring() (q.Query, []q.F)
+	OnBeforeStoring(isCreate bool) (q.Query, []q.F)
 }
 
 func ById[T any](ctx *Ctx, id I64) *T {
@@ -90,7 +90,7 @@ func Count[T any](ctx *Ctx, query q.Query, nonNullColumn q.C, distinct *q.C) int
 
 func CreateOne[T any](ctx *Ctx, rec *T) (ret I64) {
 	if obj, _ := ((any)(rec)).(Obj); obj != nil {
-		_, _ = obj.OnBeforeStoring()
+		_, _ = obj.OnBeforeStoring(true)
 	}
 	desc := desc[T]()
 	args := dbArgsFill[T](desc, make(dbArgs, len(desc.fields)), rec, "0")
@@ -134,7 +134,7 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 
 	if obj, _ := ((any)(upd)).(Obj); obj != nil {
 		var only_fields_add []q.F
-		if query_and, only_fields_add = obj.OnBeforeStoring(); len(onlyFields) > 0 {
+		if query_and, only_fields_add = obj.OnBeforeStoring(false); len(onlyFields) > 0 {
 			onlyFields = sl.With(onlyFields, only_fields_add...)
 		}
 	}
@@ -200,7 +200,7 @@ func upsert[T any](ctx *Ctx, upsert bool, recs ...*T) {
 	args := make(dbArgs, len(desc.fields)*len(recs))
 	for i := range recs {
 		if obj, _ := ((any)(recs[i])).(Obj); obj != nil {
-			_, _ = obj.OnBeforeStoring()
+			_, _ = obj.OnBeforeStoring(!upsert)
 		}
 		args = dbArgsFill(desc, args, recs[i], str.FromInt(i))
 	}

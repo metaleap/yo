@@ -88,7 +88,7 @@ func (me *Ctx) Cancel() {
 
 func (me *Ctx) CopyButWith(timeout time.Duration, cancelable bool) *Ctx {
 	ret := *me
-	// overwriting our old `ctxDone`s below is fine, as the new parent ctxs ensure they're called when due
+	ret.Context, ret.ctxDone = context.Background(), nil
 	if timeout > 0 {
 		ret.Context, ret.ctxDone = context.WithTimeout(ret.Context, timeout)
 	}

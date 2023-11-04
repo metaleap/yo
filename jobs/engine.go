@@ -26,19 +26,16 @@ func init() {
 // TimeoutLong is:
 //   - the default fallback for `JobDef`s without a custom `Timeouts.TaskRun`.
 //   - the default fallback for `JobDef`s without a custom `Timeouts.JobPrepAndFinalize`.
-//   - the timeout active during multiple task cancellations. Left-overs are still picked up by a follow-up cancellation-finalizer.
-const TimeoutLong = 2 * time.Minute
+//   - the timeout for the workers scheduled in `Engine.Resume` (further below)
+const TimeoutLong = time.Minute
 
 type Engine interface {
-	// Resume starts the `Engine`, ie. its (from then on) regularly-recurring background watchers.
-	// nb. no `Suspend()` yet, currently out of scope.
+	// Resume starts the `Engine`, ie. its (from then on) regularly-recurring background workers.
 	Resume()
 	// Running returns `true` after `Resume` was called and `false` until then.
 	Running() bool
 	// CreateJobRun "manually schedules" an off-schedule job at the specified `dueTime`, which if missing (or set in the past) defaults to `timeNow()`.
 	CreateJobRun(ctx *Ctx, jobDef *JobDef, dueTime *yodb.DateTime) *JobRun
-	// CancelJobRuns marks the specified jobs as `CANCELLING`. The `len(errs)` is always `<= len(jobIDs)`.
-	CancelJobRuns(ctx *Ctx, jobRunIds ...string)
 	// DeleteJobRun clears from storage the specified DONE or CANCELLED `JobRun` and all its `JobTask`s, if any.
 	DeleteJobRuns(ctx *Ctx, jobRunIds ...yodb.I64) int64
 	// Stats gathers progress stats of a `JobRun` and its `JobTask`s.
@@ -124,20 +121,12 @@ func (me *engine) OnJobRunFinalized(eventHandler func(*JobRun, *JobRunStats)) {
 	me.eventHandlers.onJobRunFinalized = eventHandler
 }
 
-func (me *engine) CancelJobRuns(ctx *Ctx, jobRunIds ...string) {
-	me.cancelJobRuns(ctx, map[CancellationReason][]*JobRun{
-		"": yodb.FindMany[JobRun](ctx, JobRunId.In(sl.Of[string](jobRunIds).ToAnys()...).And(jobRunState.In(Running, Pending)), 0, JobRunFields(JobRunId)),
-	})
-}
-
 func (me *engine) cancelJobRuns(ctx *Ctx, jobRunsToCancel map[CancellationReason][]*JobRun) {
 	if len(jobRunsToCancel) == 0 {
 		return
 	}
 	for reason, job_runs := range jobRunsToCancel {
-		Try(func() {
-			dbBatchUpdate(me, ctx, job_runs, &JobRun{state: yodb.Text(JobRunCancelling), cancellationReason: yodb.Text(reason)}, JobRunFields(jobRunState, jobRunCancellationReason)...)
-		}, nil)
+		dbBatchUpdate(me, ctx, job_runs, &JobRun{state: yodb.Text(JobRunCancelling), cancellationReason: yodb.Text(reason)}, JobRunFields(jobRunState, jobRunCancellationReason)...)
 	}
 }
 
@@ -185,11 +174,15 @@ func (*engine) Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats {
 	return job_run.Stats(ctx)
 }
 
+type jobRunOrTask = interface {
+	version(yodb.U32) yodb.U32
+	id() yodb.I64
+}
+
 func dbBatchUpdate[TObj any](me *engine, ctx *Ctx, objs []*TObj, upd *TObj, onlyFields ...q.F) {
-	type task_or_job = interface{ id() yodb.I64 }
 	GoItems(objs, func(obj *TObj) {
-		ctx := ctx.CopyButWith(0, false)
-		defer ctx.OnDone(nil)
-		yodb.Update[TObj](ctx, upd, yodb.ColID.Equal(any(obj).(task_or_job).id()), false, onlyFields...)
+		job_or_task := any(obj).(jobRunOrTask)
+		any(upd).(jobRunOrTask).version(job_or_task.version(0))
+		yodb.Update[TObj](ctx, upd, yodb.ColID.Equal(job_or_task.id()), false, onlyFields...)
 	}, me.options.MaxConcurrentOps)
 }

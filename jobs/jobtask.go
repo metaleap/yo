@@ -36,8 +36,6 @@ func (me *JobTask) failed() bool {
 	return (me.State() == Done) && (len(me.Attempts) > 0) && (me.Attempts[0].Err != nil)
 }
 
-func (me *JobTask) id() yodb.I64 { return me.Id }
-
 func (me *JobTask) Succeeded() bool {
 	return (me.State() == Done) && (len(me.Attempts) > 0) && (me.Attempts[0].Err == nil)
 }
@@ -78,7 +76,16 @@ func (me *JobTask) jobType(ctx *Ctx) JobType {
 	return nil
 }
 
-var _ yodb.Obj = (*JobTask)(nil) // compile-time interface compat check
+var _ yodb.Obj = (*JobTask)(nil)     // compile-time interface compat check
+var _ jobRunOrTask = (*JobTask)(nil) // dito
+
+func (me *JobTask) id() yodb.I64 { return me.Id }
+func (me *JobTask) version(newVersion yodb.U32) yodb.U32 {
+	if newVersion > 0 {
+		me.Version = newVersion
+	}
+	return me.Version
+}
 
 func (me *JobTask) OnAfterLoaded() { // any changes, keep in sync with JobRun.OnAfterLoaded
 	job_type_reg := jobType(string(me.JobTypeId))
@@ -86,9 +93,12 @@ func (me *JobTask) OnAfterLoaded() { // any changes, keep in sync with JobRun.On
 		me.Details, me.Results = job_type_reg.loadTaskDetails(me.details), job_type_reg.loadTaskResults(me.results)
 	}
 }
-func (me *JobTask) OnBeforeStoring() (q.Query, []q.F) { // any changes, keep in sync with JobRun.OnBeforeStoring
+func (me *JobTask) OnBeforeStoring(isCreate bool) (q.Query, []q.F) { // any changes, keep in sync with JobRun.OnBeforeStoring
 	me.details, me.results = yojson.DictFrom(me.Details), yojson.DictFrom(me.Results)
 	old_version := me.Version
+	if (!isCreate) && (old_version <= 0) {
+		panic("Update of JobTask without current version")
+	}
 	me.Version++
 	return JobTaskVersion.Equal(old_version), JobTaskFields(JobTaskVersion)
 }

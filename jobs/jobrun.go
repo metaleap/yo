@@ -35,7 +35,7 @@ type JobRun struct {
 	DtMade *yodb.DateTime
 	DtMod  *yodb.DateTime
 
-	Version            yodb.I64
+	Version            yodb.U32
 	JobTypeId          yodb.Text
 	JobDef             yodb.Ref[JobDef, yodb.RefOnDelSetNull]
 	state              yodb.Text
@@ -65,8 +65,6 @@ func (me *JobRun) CancellationReason() CancellationReason {
 func (me *JobRun) ctx(ctx *Ctx, taskId yodb.I64) *Context {
 	return &Context{Ctx: ctx, JobRunId: me.Id, JobDetails: me.Details, JobDef: *me.JobDef.Get(ctx), JobTaskId: taskId}
 }
-
-func (me *JobRun) id() yodb.I64 { return me.Id }
 
 type JobRunStats struct {
 	TasksByState map[RunState]int64
@@ -135,7 +133,16 @@ func (me *JobRun) jobType(ctx *Ctx) JobType {
 	return nil
 }
 
-var _ yodb.Obj = (*JobRun)(nil) // compile-time interface compat check
+var _ yodb.Obj = (*JobRun)(nil)     // compile-time interface compat check
+var _ jobRunOrTask = (*JobRun)(nil) // dito
+
+func (me *JobRun) id() yodb.I64 { return me.Id }
+func (me *JobRun) version(newVersion yodb.U32) yodb.U32 {
+	if newVersion > 0 {
+		me.Version = newVersion
+	}
+	return me.Version
+}
 
 func (me *JobRun) OnAfterLoaded() { // any changes, keep in sync with JobTask.OnAfterLoaded
 	job_type_reg := jobType(string(me.JobTypeId))
@@ -143,9 +150,12 @@ func (me *JobRun) OnAfterLoaded() { // any changes, keep in sync with JobTask.On
 		me.Details, me.Results = job_type_reg.loadJobDetails(me.details), job_type_reg.loadJobResults(me.results)
 	}
 }
-func (me *JobRun) OnBeforeStoring() (q.Query, []q.F) { // any changes, keep in sync with JobTask.OnBeforeStoring
+func (me *JobRun) OnBeforeStoring(isCreate bool) (q.Query, []q.F) { // any changes, keep in sync with JobTask.OnBeforeStoring
 	me.details, me.results = yojson.DictFrom(me.Details), yojson.DictFrom(me.Results)
 	old_version := me.Version
+	if (!isCreate) && (old_version <= 0) {
+		panic("Update of JobRun without current version")
+	}
 	me.Version++
 	return JobRunVersion.Equal(old_version), JobRunFields(JobRunVersion)
 }

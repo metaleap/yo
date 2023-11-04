@@ -46,11 +46,12 @@ func (me *engine) finalizeDoneJobRuns() {
 		cancel_jobs[reason], job_runs =
 			jobs_to_cancel_due_to_check, sl.Without(job_runs, jobs_to_cancel_due_to_check...)
 	}
-	me.cancelJobRuns(ctx, cancel_jobs)
 
 	GoItems(job_runs, func(it *JobRun) {
 		me.finalizeDoneJobRun(ctx, it)
 	}, me.options.MaxConcurrentOps)
+
+	me.cancelJobRuns(ctx, cancel_jobs)
 }
 
 func (me *engine) finalizeDoneJobRun(ctxForCacheReuse *Ctx, jobRun *JobRun) {
@@ -220,6 +221,7 @@ func (me *engine) ensureJobRunSchedules() {
 		DoAfter(me.options.IntervalEnsureJobSchedules, me.ensureJobRunSchedules)
 	})
 
+	cancel_jobs := map[CancellationReason][]*JobRun{}
 	yodb.Each[JobDef](ctx, q.Not(q.ArrIsEmpty(JobDefSchedules)), 0, nil,
 		func(jobDef *JobDef, enough *bool) {
 			latest := yodb.FindOne[JobRun](ctx, JobRunJobDef.Equal(jobDef.Id).And(JobRunAutoScheduled.Equal(true)), JobRunDueTime.Desc())
@@ -240,7 +242,7 @@ func (me *engine) ensureJobRunSchedules() {
 				}
 				due_time := jobDef.findClosestToNowSchedulableTimeSince(after.Time(), true)
 				if due_time == nil { // jobDef or all its Schedules were Disabled after that Pending job was scheduled
-					me.cancelJobRuns(ctx, map[CancellationReason][]*JobRun{CancellationReasonJobDefChanged: {latest}})
+					cancel_jobs[CancellationReasonJobDefChanged] = append(cancel_jobs[CancellationReasonJobDefChanged], latest)
 				} else if (!jobDef.ok(*latest.DueTime.Time())) || !due_time.Equal(*latest.DueTime.Time()) {
 					// update outdated-by-now DueTime
 					latest.DueTime = (*yodb.DateTime)(due_time)
@@ -248,6 +250,8 @@ func (me *engine) ensureJobRunSchedules() {
 				}
 			}
 		})
+
+	me.cancelJobRuns(ctx, cancel_jobs)
 }
 
 func (me *engine) scheduleJobRun(ctx *Ctx, jobDef *JobDef, jobRunPrev *JobRun) *JobRun {

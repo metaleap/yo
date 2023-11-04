@@ -15,7 +15,7 @@ The lib and its data access and state transition patterns are designed from the 
         - runs the actual logic of a particular given `JobTask` (via `JobType.TaskResults`) when called to do so
         - finally at the end, gathers (if needed) any summary/aggregate outcome details/infos from the results of all the completed `JobTask`s (via `JobType.JobResults`)
 - The `Engine` is what importers instantiate (`NewEngine`) and then start aka. `Resume()`.
-    - exposes lifecycle-related methods: `CreateJobRun`, `CancelJobRun`, `DeleteJobRun`, `Stats`.
+    - exposes lifecycle-related utility methods: `CreateJobRun`, `DeleteJobRun`, `Stats`.
 
 ## Lifecycle / State Transitions
 
