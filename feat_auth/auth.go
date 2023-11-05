@@ -6,6 +6,7 @@ import (
 	. "yo/cfg"
 	. "yo/ctx"
 	yodb "yo/db"
+	yomail "yo/mail"
 
 	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
@@ -23,6 +24,16 @@ type UserAuth struct {
 
 	EmailAddr yodb.Text
 	pwdHashed yodb.Bytes
+}
+
+type UserPwdReq struct {
+	Id     yodb.I64
+	DtMade *yodb.DateTime
+	DtMod  *yodb.DateTime
+
+	EmailAddr     yodb.Text
+	DoneMailReqId yodb.Ref[yomail.MailReq, yodb.RefOnDelCascade]
+	tmpPwdHashed  yodb.Bytes
 }
 
 func init() {

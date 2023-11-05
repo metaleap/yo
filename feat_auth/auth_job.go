@@ -1,11 +1,17 @@
 package yoauth
 
 import (
+	"math"
+	"math/rand"
+
 	yodb "yo/db"
 	yojobs "yo/jobs"
 	yomail "yo/mail"
 	. "yo/util"
 	sl "yo/util/sl"
+	"yo/util/str"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 const ( // change those only together with the tmpls in `init`
@@ -15,15 +21,6 @@ const ( // change those only together with the tmpls in `init`
 	MailTmplVarName      = "name"
 	MailTmplVarTmpPwd    = "pwd_tmp"
 )
-
-type UserPwdReq struct {
-	Id     yodb.I64
-	DtMade *yodb.DateTime
-	DtMod  *yodb.DateTime
-
-	EmailAddr yodb.Text
-	DoneId    yodb.I64
-}
 
 var AppSideTmplPopulate func(ctx *yojobs.Context, emailAddr yodb.Text, existingMaybe *UserAuth, tmplArgsToPopulate yodb.JsonMap[string])
 
@@ -55,7 +52,7 @@ func (userPwdReqJobType) JobResults(_ *yojobs.Context) (func(*yojobs.JobTask, *b
 }
 
 func (userPwdReqJobType) TaskDetails(ctx *yojobs.Context, stream func([]yojobs.TaskDetails)) {
-	reqs := yodb.FindMany[UserPwdReq](ctx.Ctx, UserPwdReqDoneId.Equal(0), 0, nil)
+	reqs := yodb.FindMany[UserPwdReq](ctx.Ctx, UserPwdReqDoneMailReqId.Equal(0), 0, nil)
 	stream(sl.To(reqs,
 		func(it *UserPwdReq) yojobs.TaskDetails { return &userPwdReqTaskDetails{ReqId: it.Id} }))
 }
@@ -72,17 +69,33 @@ func (me userPwdReqJobType) TaskResults(ctx *yojobs.Context, task yojobs.TaskDet
 			panic("AppSideTmplPopulate not set")
 		}
 
+		var tmp_one_time_pwd_plain string
+		var tmp_one_time_pwd_hashed []byte
+		for len(tmp_one_time_pwd_hashed) == 0 {
+			tmp_one_time_pwd_plain = newRandomAsciiOneTimePwd(11)
+			tmp_one_time_pwd_hashed, _ = bcrypt.GenerateFromPassword([]byte(tmp_one_time_pwd_plain), bcrypt.DefaultCost)
+		}
+
 		tmpl_args := yodb.JsonMap[string]{MailTmplVarEmailAddr: string(req.EmailAddr), MailTmplVarName: string(req.EmailAddr)}
 		AppSideTmplPopulate(ctx, req.EmailAddr, user, tmpl_args)
-		tmpl_args[MailTmplVarTmpPwd] = "foobar"
+		tmpl_args[MailTmplVarTmpPwd] = tmp_one_time_pwd_plain
+
 		ret.MailReqId = yomail.CreateMailReq(ctx.Ctx, &yomail.MailReq{
 			TmplId:   yodb.Text(tmpl_id),
 			TmplArgs: tmpl_args,
 			MailTo:   req.EmailAddr,
 		})
 
-		req.DoneId = ret.MailReqId
-		yodb.Update[UserPwdReq](ctx.Ctx, req, nil, false, UserPwdReqFields(UserPwdReqDoneId)...)
+		req.DoneMailReqId.SetId(ret.MailReqId)
+		req.tmpPwdHashed = tmp_one_time_pwd_hashed
+		yodb.Update[UserPwdReq](ctx.Ctx, req, nil, false, UserPwdReqFields(UserPwdReqDoneMailReqId, userPwdReqTmpPwdHashed)...)
 	}
 	return ret
+}
+
+func newRandomAsciiOneTimePwd(minLen int) (ret string) {
+	for len(ret) < minLen {
+		ret += str.FromI64(rand.Int63n(math.MaxInt64), 36)
+	}
+	return
 }

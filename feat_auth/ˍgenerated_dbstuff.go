@@ -42,11 +42,19 @@ func UserPwdReqFields(fields ...UserPwdReqField) []q.F { return sl.To(fields, Us
 type UserPwdReqField q.F
 
 const (
-	UserPwdReqId        UserPwdReqField = "Id"
-	UserPwdReqDtMade    UserPwdReqField = "DtMade"
-	UserPwdReqDtMod     UserPwdReqField = "DtMod"
-	UserPwdReqEmailAddr UserPwdReqField = "EmailAddr"
-	UserPwdReqDoneId    UserPwdReqField = "DoneId"
+	UserPwdReqId                     UserPwdReqField = "Id"
+	UserPwdReqDtMade                 UserPwdReqField = "DtMade"
+	UserPwdReqDtMod                  UserPwdReqField = "DtMod"
+	UserPwdReqEmailAddr              UserPwdReqField = "EmailAddr"
+	UserPwdReqDoneMailReqId          UserPwdReqField = "DoneMailReqId"
+	userPwdReqTmpPwdHashed           UserPwdReqField = "tmpPwdHashed"
+	UserPwdReqDoneMailReqId_Id       UserPwdReqField = "DoneMailReqId.Id"
+	UserPwdReqDoneMailReqId_DtMade   UserPwdReqField = "DoneMailReqId.DtMade"
+	UserPwdReqDoneMailReqId_DtMod    UserPwdReqField = "DoneMailReqId.DtMod"
+	UserPwdReqDoneMailReqId_TmplId   UserPwdReqField = "DoneMailReqId.TmplId"
+	UserPwdReqDoneMailReqId_TmplArgs UserPwdReqField = "DoneMailReqId.TmplArgs"
+	UserPwdReqDoneMailReqId_MailTo   UserPwdReqField = "DoneMailReqId.MailTo"
+	userPwdReqDoneMailReqId_dtDone   UserPwdReqField = "DoneMailReqId.dtDone"
 )
 
 func (me UserPwdReqField) ArrLen(a1 ...interface{}) q.Operand { return ((q.F)(me)).ArrLen(a1...) }
