@@ -90,7 +90,7 @@ func ApiUserRegister(this *ApiCtx[ApiAccountPayload, struct {
 
 func ApiUserLoginOrFinalizePwdReset(this *ApiCtx[ApiAccountPayload, Void]) {
 	httpSetUser(this.Ctx, "")
-	_, jwt_token := UserLogin(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.Password2Plain)
+	_, jwt_token := UserLoginOrFinalizePwdReset(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.Password2Plain)
 	jwt_signed, err := jwt_token.SignedString([]byte(Cfg.YO_AUTH_JWT_SIGN_KEY))
 	if err != nil {
 		panic(Err___yo_authLoginOrFinalizePwdReset_OkButFailedToCreateSignedToken)
