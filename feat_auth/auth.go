@@ -120,7 +120,10 @@ func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordP
 			user_auth = &UserAuth{pwdHashed: pwd_hash, EmailAddr: yodb.Text(emailAddr)}
 			_ = yodb.CreateOne[UserAuth](ctx, user_auth)
 		}
-		return UserLogin(ctx, emailAddr, password2Plain)
+		login_user_auth, login_jwt_token := UserLogin(ctx, emailAddr, password2Plain)
+		pwd_reset_req.tmpPwdHashed, pwd_reset_req.DtFinalized = nil, yodb.DtNow()
+		yodb.Update(ctx, pwd_reset_req, nil, false, UserPwdReqFields(userPwdReqTmpPwdHashed, UserPwdReqDtFinalized)...)
+		return login_user_auth, login_jwt_token
 	}
 
 	if password2Plain != "" {
