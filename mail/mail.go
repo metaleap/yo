@@ -1,6 +1,7 @@
 package yomail
 
 import (
+	"crypto/tls"
 	"encoding/base64"
 	"net"
 	"net/smtp"
@@ -54,6 +55,11 @@ func sendMailViaSmtp(to yodb.Text, subject yodb.Text, msg string) error {
 
 	client, err := smtp.NewClient(conn, Cfg.YO_MAIL_SMTP_HOST)
 	if err != nil {
+		return err
+	}
+	if err = client.StartTLS(&tls.Config{
+		ServerName: Cfg.YO_MAIL_SMTP_HOST,
+	}); err != nil {
 		return err
 	}
 	if err = client.Auth(smtp_auth); err != nil {
