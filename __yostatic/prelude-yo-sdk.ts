@@ -12,7 +12,7 @@ export type F64 = number
 
 export let userEmailAddr = ''
 export let reqTimeoutMsForJsonApis = 4321
-export let reqTimeoutMsForMultipartForms = 54321
+export let reqTimeoutMsForMultipartForms = 123456
 export let reqMaxReqPayloadSizeMb = 0           // declaration only, generated code sets the value
 export let errMaxReqPayloadSizeExceeded = ""    // declaration only, generated code sets the value
 
