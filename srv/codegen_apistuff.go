@@ -216,8 +216,11 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 	} {
 		buf.WriteString("export const " + ts_const_name + " = " + str.GoLike(cfg_setting_value) + "\n")
 	}
+	buf.WriteString("\n// " + yoSdkTsPreludeFileName + " next, more generated code afterwards\n")
 	buf.Write(ReadFile(filepath.Join(yoStaticDirPath, yoSdkTsPreludeFileName))) // emit yo-side code prelude
+	buf.WriteString("\n// " + yoSdkTsPreludeFileName + " ends, the rest is generated code:\n")
 
+	buf.WriteString("\nreqTimeoutMsForJsonApis = Cfg_YO_API_IMPL_TIMEOUT_MS\n")
 	buf.WriteString("\nerrMaxReqPayloadSizeExceeded = '" + string(ErrMissingOrExcessiveContentLength) + "'\n")
 	if Cfg.YO_API_MAX_REQ_CONTENTLENGTH_MB > 0 {
 		buf.WriteString("\nreqMaxReqPayloadSizeMb = " + str.FromInt(Cfg.YO_API_MAX_REQ_CONTENTLENGTH_MB) + "\n")
