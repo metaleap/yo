@@ -41,14 +41,10 @@ func CreateMailReq(ctx *Ctx, mailReq *MailReq) yodb.I64 {
 func sendMailViaSmtp(to yodb.Text, subject yodb.Text, msg string) error {
 	host_addr := Cfg.YO_MAIL_SMTP_HOST + ":" + str.FromInt(Cfg.YO_MAIL_SMTP_PORT)
 	mail_body := composeMimeMail(subject.String(), str.Trim(msg))
+	smtp_auth := smtp.PlainAuth("", Cfg.YO_MAIL_SMTP_USERNAME, Cfg.YO_MAIL_SMTP_PASSWORD, Cfg.YO_MAIL_SMTP_HOST)
 
 	if Cfg.YO_MAIL_SMTP_TIMEOUT == 0 { // for reference/fallback really, not for actual practice
-		return smtp.SendMail(
-			host_addr,
-			smtp.PlainAuth("", Cfg.YO_MAIL_SMTP_USERNAME, Cfg.YO_MAIL_SMTP_PASSWORD, Cfg.YO_MAIL_SMTP_HOST),
-			Cfg.YO_MAIL_SMTP_SENDER, []string{to.String()},
-			mail_body,
-		)
+		return smtp.SendMail(host_addr, smtp_auth, Cfg.YO_MAIL_SMTP_SENDER, []string{to.String()}, mail_body)
 	}
 
 	conn, err := net.DialTimeout("tcp", host_addr, Cfg.YO_MAIL_SMTP_TIMEOUT)
