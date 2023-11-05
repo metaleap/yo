@@ -21,8 +21,6 @@ func api[TIn any, TOut any](f func(*yosrv.ApiCtx[TIn, TOut]), failIfs ...yosrv.F
 const ErrDbUpdate_ExpectedChangesForUpdate util.Err = "DbUpdate_ExpectedChangesForUpdate"
 const ErrDbUpdate_ExpectedQueryForUpdate util.Err = "DbUpdate_ExpectedQueryForUpdate"
 const Err___yo_authChangePassword_NewPasswordExpectedToDiffer util.Err = "___yo_authChangePassword_NewPasswordExpectedToDiffer"
-const Err___yo_authChangePassword_NewPasswordInvalid util.Err = "___yo_authChangePassword_NewPasswordInvalid"
-const Err___yo_authChangePassword_NewPasswordTooLong util.Err = "___yo_authChangePassword_NewPasswordTooLong"
 const Err___yo_authChangePassword_NewPasswordTooShort util.Err = "___yo_authChangePassword_NewPasswordTooShort"
 const Err___yo_authLoginOrFinalizePwdReset_AccountDoesNotExist util.Err = "___yo_authLoginOrFinalizePwdReset_AccountDoesNotExist"
 const Err___yo_authLoginOrFinalizePwdReset_EmailInvalid util.Err = "___yo_authLoginOrFinalizePwdReset_EmailInvalid"

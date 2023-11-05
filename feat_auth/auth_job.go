@@ -52,7 +52,7 @@ func (userPwdReqJobType) JobResults(_ *yojobs.Context) (func(*yojobs.JobTask, *b
 }
 
 func (userPwdReqJobType) TaskDetails(ctx *yojobs.Context, stream func([]yojobs.TaskDetails)) {
-	reqs := yodb.FindMany[UserPwdReq](ctx.Ctx, UserPwdReqDoneMailReqId.Equal(0), 0, nil)
+	reqs := yodb.FindMany[UserPwdReq](ctx.Ctx, UserPwdReqDoneMailReqId.Equal(nil), 0, nil)
 	stream(sl.To(reqs,
 		func(it *UserPwdReq) yojobs.TaskDetails { return &userPwdReqTaskDetails{ReqId: it.Id} }))
 }
