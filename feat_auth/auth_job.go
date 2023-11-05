@@ -72,7 +72,7 @@ func (me userPwdReqJobType) TaskResults(ctx *yojobs.Context, task yojobs.TaskDet
 		var tmp_one_time_pwd_plain string
 		var tmp_one_time_pwd_hashed []byte
 		for len(tmp_one_time_pwd_hashed) == 0 {
-			tmp_one_time_pwd_plain = newRandomAsciiOneTimePwd(11)
+			tmp_one_time_pwd_plain = newRandomAsciiOneTimePwd(22)
 			tmp_one_time_pwd_hashed, _ = bcrypt.GenerateFromPassword([]byte(tmp_one_time_pwd_plain), bcrypt.DefaultCost)
 		}
 
