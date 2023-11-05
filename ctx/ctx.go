@@ -109,7 +109,7 @@ func (me *Ctx) OnDone(alsoDo func()) {
 		return
 	}
 	var fail any
-	if (!IsDevMode) || catchPanics { // comptime branch
+	if (!IsDevMode) || CatchPanics { // comptime branch
 		if (!IsDevMode) || !me.DevModeNoCatch { // runtime branch, keep sep from above comptime one
 			if fail = recover(); IsDevMode && (fail != nil) {
 				println(str.Fmt(">>>>>>>>>%v<<<<<<<<<", fail))

@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"time"
 
+	yoctx "yo/ctx"
 	yojson "yo/json"
 	. "yo/util"
 	"yo/util/str"
@@ -37,7 +38,7 @@ var Cfg struct {
 }
 
 func init() {
-	if IsDevMode {
+	if IsDevMode && !yoctx.CatchPanics {
 		defer func() { // for prolonged debugging/breakpoint staring sessions:
 			Cfg.DB_REQ_TIMEOUT = time.Minute
 			Cfg.YO_API_IMPL_TIMEOUT = 22 * time.Minute

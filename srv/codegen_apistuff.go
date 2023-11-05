@@ -210,6 +210,12 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 	apiRefl.codeGen.typesUsed, apiRefl.codeGen.typesEmitted = map[string]bool{}, map[string]bool{}
 
 	buf.Write([]byte(codegenEmitTopCommentLine))
+	for ts_const_name, cfg_setting_value := range map[string]any{
+		"Cfg_YO_API_IMPL_TIMEOUT_MS": Cfg.YO_API_IMPL_TIMEOUT.Milliseconds(),
+		"Cfg_YO_AUTH_PWD_MIN_LEN":    Cfg.YO_AUTH_PWD_MIN_LEN,
+	} {
+		buf.WriteString("export const " + ts_const_name + " = " + str.GoLike(cfg_setting_value) + "\n")
+	}
 	buf.Write(ReadFile(filepath.Join(yoStaticDirPath, yoSdkTsPreludeFileName))) // emit yo-side code prelude
 
 	buf.WriteString("\nerrMaxReqPayloadSizeExceeded = '" + string(ErrMissingOrExcessiveContentLength) + "'\n")
@@ -398,7 +404,8 @@ func codegenTsToJs(inDirPath string, isAppSide bool, reasons ...string) {
 	const use_tsc = false // ideally false, as our ts typechecking happens editor-side, and we want a *rapid*, dumb type-stripping-only transpilation in local dev, no bundling, no cross-checking, no polyfill-emits etc
 
 	yolog.Println("ts2js in " + inDirPath + " (" + str.Join(reasons, " , ") + ")")
-	if use_tsc { // the rare "slow path"
+
+	if use_tsc { // the usually-not-taken "slow path" via tsc
 		cmd_tsc := exec.Command("tsc")
 		cmd_tsc.Dir = inDirPath
 		if output, err := cmd_tsc.CombinedOutput(); err != nil {
@@ -407,7 +414,7 @@ func codegenTsToJs(inDirPath string, isAppSide bool, reasons ...string) {
 		return
 	}
 
-	// the "esbuild Transform API" way
+	// the much-faster "esbuild Transform API" way
 	WalkDir(inDirPath, func(path string, fsEntry fs.DirEntry) {
 		if (fsEntry.IsDir()) || str.Ends(path, ".d.ts") || (!str.Ends(path, ".ts")) ||
 			(isAppSide && !str.Ends(path, "/"+filepath.Join(StaticFilesDirNameYo, yoSdkTsFileName))) {
