@@ -16,10 +16,10 @@ const (
 	HttpUserHeader    = "X-Yo-User"
 	HttpJwtCookieName = "t"
 
-	MethodPathLogin          = "__/yo/authLogin"
-	MethodPathLogout         = "__/yo/authLogout"
-	MethodPathRegister       = "__/yo/authRegister"
-	MethodPathChangePassword = "__/yo/authChangePassword"
+	MethodPathLoginOrFinalizePwdReset = "__/yo/authLoginOrFinalizePwdReset"
+	MethodPathLogout                  = "__/yo/authLogout"
+	MethodPathRegister                = "__/yo/authRegister"
+	MethodPathChangePassword          = "__/yo/authChangePassword"
 )
 
 var (
@@ -30,29 +30,32 @@ func init() {
 	Apis(ApiMethods{
 		MethodPathLogout: api(ApiUserLogout),
 
-		MethodPathLogin: api(ApiUserLogin,
-			Fails{Err: "EmailRequiredButMissing", If: ___yo_authLoginEmailAddr.Equal("")},
-			Fails{Err: "EmailInvalid", If: IsEmailishEnough(___yo_authLoginEmailAddr).Not()},
+		MethodPathLoginOrFinalizePwdReset: api(ApiUserLoginOrFinalizePwdReset,
+			Fails{Err: "EmailRequiredButMissing", If: ___yo_authLoginOrFinalizePwdResetEmailAddr.Equal("")},
+			Fails{Err: "EmailInvalid", If: IsEmailishEnough(___yo_authLoginOrFinalizePwdResetEmailAddr).Not()},
 			Fails{Err: "WrongPassword",
-				If: ___yo_authLoginPasswordOldPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN).Or(
-					___yo_authLoginPasswordOldPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN))},
+				If: ___yo_authLoginOrFinalizePwdResetPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN).Or(
+					___yo_authLoginOrFinalizePwdResetPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)).Or(
+					___yo_authLoginOrFinalizePwdResetPasswordPlain.StrLen().GreaterThan(0).And(
+						___yo_authLoginOrFinalizePwdResetPassword2Plain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN).Or(
+							___yo_authLoginOrFinalizePwdResetPassword2Plain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN))))},
 		).
 			CouldFailWith("OkButFailedToCreateSignedToken", "AccountDoesNotExist"),
 
 		MethodPathRegister: api(ApiUserRegister,
 			Fails{Err: "EmailRequiredButMissing", If: ___yo_authRegisterEmailAddr.Equal("")},
 			Fails{Err: "EmailInvalid", If: IsEmailishEnough(___yo_authRegisterEmailAddr).Not()},
-			Fails{Err: "PasswordTooShort", If: ___yo_authRegisterPasswordOldPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
-			Fails{Err: "PasswordTooLong", If: ___yo_authRegisterPasswordOldPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
+			Fails{Err: "PasswordTooShort", If: ___yo_authRegisterPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
+			Fails{Err: "PasswordTooLong", If: ___yo_authRegisterPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
 		).
 			CouldFailWith("EmailAddrAlreadyExists", "PasswordInvalid"),
 
 		MethodPathChangePassword: api(apiChangePassword,
-			Fails{Err: "NewPasswordExpectedToDiffer", If: ___yo_authChangePasswordPasswordNewPlain.Equal(___yo_authChangePasswordPasswordOldPlain)},
-			Fails{Err: "NewPasswordTooShort", If: ___yo_authChangePasswordPasswordNewPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
-			Fails{Err: "NewPasswordTooLong", If: ___yo_authChangePasswordPasswordNewPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
+			Fails{Err: "NewPasswordExpectedToDiffer", If: ___yo_authChangePasswordPassword2Plain.Equal(___yo_authChangePasswordPasswordPlain)},
+			Fails{Err: "NewPasswordTooShort", If: ___yo_authChangePasswordPassword2Plain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
+			Fails{Err: "NewPasswordTooLong", If: ___yo_authChangePasswordPassword2Plain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
 		).
-			CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLogin, "NewPasswordInvalid", ErrUnauthorized),
+			CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLoginOrFinalizePwdReset, "NewPasswordInvalid", ErrUnauthorized),
 	})
 
 	PreServes = append(PreServes, Middleware{Name: "authCheck", Do: func(ctx *Ctx) {
@@ -60,7 +63,7 @@ func init() {
 		if IsDevMode && (forced_test_user != "") {
 			if cur_user_email_addr, cur_user_auth_id := httpUserFromJwtRaw(jwt_raw); (cur_user_auth_id == 0) ||
 				(cur_user_email_addr != forced_test_user) {
-				Do(ApiUserLogin, ctx, &ApiAccountPayload{EmailAddr: forced_test_user, PasswordOldPlain: "foobar"})
+				Do(ApiUserLoginOrFinalizePwdReset, ctx, &ApiAccountPayload{EmailAddr: forced_test_user, PasswordPlain: "foobar"})
 				return
 			}
 		}
@@ -69,9 +72,9 @@ func init() {
 }
 
 type ApiAccountPayload struct {
-	EmailAddr        string
-	PasswordOldPlain string
-	PasswordNewPlain string
+	EmailAddr      string
+	PasswordPlain  string
+	Password2Plain string
 }
 
 type ApiTokenPayload struct {
@@ -82,15 +85,15 @@ func ApiUserRegister(this *ApiCtx[ApiAccountPayload, struct {
 	Id yodb.I64
 }]) {
 	httpSetUser(this.Ctx, "")
-	this.Ret.Id = UserRegister(this.Ctx, this.Args.EmailAddr, this.Args.PasswordOldPlain)
+	this.Ret.Id = UserRegister(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain)
 }
 
-func ApiUserLogin(this *ApiCtx[ApiAccountPayload, Void]) {
+func ApiUserLoginOrFinalizePwdReset(this *ApiCtx[ApiAccountPayload, Void]) {
 	httpSetUser(this.Ctx, "")
-	_, jwt_token := UserLogin(this.Ctx, this.Args.EmailAddr, this.Args.PasswordOldPlain)
+	_, jwt_token := UserLogin(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.Password2Plain)
 	jwt_signed, err := jwt_token.SignedString([]byte(Cfg.YO_AUTH_JWT_SIGN_KEY))
 	if err != nil {
-		panic(Err___yo_authLogin_OkButFailedToCreateSignedToken)
+		panic(Err___yo_authLoginOrFinalizePwdReset_OkButFailedToCreateSignedToken)
 	}
 	httpSetUser(this.Ctx, jwt_signed)
 }
@@ -99,16 +102,13 @@ func ApiUserLogout(ctx *ApiCtx[Void, Void]) {
 	httpSetUser(ctx.Ctx, "")
 }
 
-func apiChangePassword(this *ApiCtx[struct {
-	ApiAccountPayload
-	PasswordNewPlain string
-}, Void]) {
+func apiChangePassword(this *ApiCtx[ApiAccountPayload, Void]) {
 	user_email_addr, _ := CurrentlyLoggedInUser(this.Ctx)
 	if user_email_addr != this.Args.EmailAddr {
 		panic(ErrUnauthorized)
 	}
 	httpSetUser(this.Ctx, "")
-	UserChangePassword(this.Ctx, this.Args.EmailAddr, this.Args.PasswordOldPlain, this.Args.PasswordNewPlain)
+	UserChangePassword(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.Password2Plain)
 }
 
 func httpUserFromJwtRaw(jwtRaw string) (userEmailAddr string, userAuthId yodb.I64) {
