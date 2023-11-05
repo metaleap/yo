@@ -129,8 +129,8 @@ func (me *Ctx) OnDone(alsoDo func()) {
 			}
 		}
 		if fail != nil {
-			if fail = me.Db.Tx.Rollback(); IsDevMode && (fail != nil) {
-				println(str.Fmt(">>TXR>>%v<<TXR<<", fail))
+			if err_rollback := me.Db.Tx.Rollback(); IsDevMode && (err_rollback != nil) {
+				println(str.Fmt(">>TXR>>%v<<TXR<<", err_rollback))
 			}
 		}
 	}

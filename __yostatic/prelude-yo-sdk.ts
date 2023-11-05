@@ -60,7 +60,14 @@ export async function req<TIn, TOut, TErr extends string>(methodPath: string, pa
         throw ({ 'status_code': resp?.status, 'status_text': resp?.statusText, 'body_text': body_text.trim(), 'body_err': body_err })
     }
     userEmailAddr = resp?.headers?.get('X-Yo-User') ?? ''
-    return (await resp.json()) as TOut
+
+    const resp_str_raw = await resp.text()
+    try {
+        return JSON.parse(resp_str_raw) as TOut
+    } catch (err) {
+        console.warn(resp_str_raw || "bug: empty non-JSON response despite 200 OK")
+        throw err
+    }
 }
 
 export class Err<T extends string> extends Error {
