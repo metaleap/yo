@@ -90,6 +90,10 @@ func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jw
 }
 
 func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordPlain string, password2Plain string) (*UserAuth, *jwt.Token) {
+	if password2Plain == "" {
+		return UserLogin(ctx, emailAddr, passwordPlain)
+	}
+
 	ctx.DbTx()
 	pwd_reset_req := yodb.FindOne[UserPwdReq](ctx,
 		UserPwdReqEmailAddr.Equal(emailAddr). // request for this email addr
@@ -98,7 +102,11 @@ func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordP
 							And(userPwdReqTmpPwdHashed.NotEqual(nil)).         // hence the temp one-time pwd is still there
 							And(UserPwdReqDtFinalized.Equal(nil)))             // because that pwd-req (sign-up or pwd-reset) wasn't finalized yet (which happens in here, below)
 
-	if pwd_reset_req != nil {
+	println(password2Plain, ">>>>", pwd_reset_req == nil)
+	if pwd_reset_req == nil {
+		UserChangePassword(ctx, emailAddr, passwordPlain, password2Plain)
+		return UserLogin(ctx, emailAddr, password2Plain)
+	} else {
 		// check temp one-time pwd
 		err := bcrypt.CompareHashAndPassword(pwd_reset_req.tmpPwdHashed, []byte(passwordPlain))
 		if err != nil {
@@ -126,12 +134,6 @@ func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordP
 		return login_user_auth, login_jwt_token
 	}
 
-	if password2Plain != "" {
-		UserChangePassword(ctx, emailAddr, passwordPlain, password2Plain)
-		return UserLogin(ctx, emailAddr, password2Plain)
-	}
-
-	return UserLogin(ctx, emailAddr, passwordPlain)
 }
 
 func UserVerify(jwtRaw string) *JwtPayload {

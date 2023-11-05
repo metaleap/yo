@@ -110,7 +110,7 @@ func (me *Ctx) OnDone(alsoDo func()) {
 	}
 	var fail any
 	if (!IsDevMode) || catchPanics { // comptime branch
-		if !me.DevModeNoCatch { // runtime branch, keep sep from above comptime one
+		if (!IsDevMode) || !me.DevModeNoCatch { // runtime branch, keep sep from above comptime one
 			if fail = recover(); IsDevMode && (fail != nil) {
 				println(str.Fmt(">>>>>>>>>%v<<<<<<<<<", fail))
 			}
@@ -124,10 +124,14 @@ func (me *Ctx) OnDone(alsoDo func()) {
 	}
 	if me.Db.Tx != nil {
 		if fail == nil {
-			fail = me.Db.Tx.Commit()
+			if fail = me.Db.Tx.Commit(); IsDevMode && (fail != nil) {
+				println(str.Fmt(">>TXC>>%v<<TXC<<", fail))
+			}
 		}
 		if fail != nil {
-			_ = me.Db.Tx.Rollback()
+			if fail = me.Db.Tx.Rollback(); IsDevMode && (fail != nil) {
+				println(str.Fmt(">>TXR>>%v<<TXR<<", fail))
+			}
 		}
 	}
 	if me.Http.Req != nil && me.Http.Resp != nil {
@@ -194,7 +198,7 @@ func (me *Ctx) Set(name string, value any) {
 }
 
 func (me *Ctx) DbTx() {
-	if me.Db.Tx == nil {
+	if me.Db.Tx != nil {
 		return
 	}
 	var err error
