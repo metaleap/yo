@@ -40,7 +40,7 @@ func init() {
 						___yo_authLoginOrFinalizePwdResetPassword2Plain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN).Or(
 							___yo_authLoginOrFinalizePwdResetPassword2Plain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN))))},
 		).
-			CouldFailWith("OkButFailedToCreateSignedToken", "AccountDoesNotExist"),
+			CouldFailWith("OkButFailedToCreateSignedToken", "AccountDoesNotExist", ":"+MethodPathChangePassword),
 
 		MethodPathRegister: api(ApiUserRegister,
 			Fails{Err: "EmailRequiredButMissing", If: ___yo_authRegisterEmailAddr.Equal("")},
@@ -90,7 +90,7 @@ func ApiUserRegister(this *ApiCtx[ApiAccountPayload, struct {
 
 func ApiUserLoginOrFinalizePwdReset(this *ApiCtx[ApiAccountPayload, Void]) {
 	httpSetUser(this.Ctx, "")
-	_, jwt_token := UserLoginOrFinalizePwdReset(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.Password2Plain)
+	_, jwt_token := UserLoginOrFinalizeRegisterOrPwdReset(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.Password2Plain)
 	jwt_signed, err := jwt_token.SignedString([]byte(Cfg.YO_AUTH_JWT_SIGN_KEY))
 	if err != nil {
 		panic(Err___yo_authLoginOrFinalizePwdReset_OkButFailedToCreateSignedToken)

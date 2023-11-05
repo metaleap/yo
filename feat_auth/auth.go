@@ -69,7 +69,7 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 	}))
 }
 
-func UserLoginOrFinalizePwdReset(ctx *Ctx, emailAddr string, passwordPlain string, password2Plain string) (*UserAuth, *jwt.Token) {
+func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jwt.Token) {
 	user_auth := yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr))
 	if user_auth == nil {
 		panic(Err___yo_authLoginOrFinalizePwdReset_AccountDoesNotExist)
@@ -79,7 +79,6 @@ func UserLoginOrFinalizePwdReset(ctx *Ctx, emailAddr string, passwordPlain strin
 	if err != nil {
 		panic(Err___yo_authLoginOrFinalizePwdReset_WrongPassword)
 	}
-
 	return user_auth, jwt.NewWithClaims(jwt.SigningMethodHS256, &JwtPayload{
 		UserAuthId: user_auth.Id,
 		StandardClaims: jwt.StandardClaims{
@@ -87,6 +86,43 @@ func UserLoginOrFinalizePwdReset(ctx *Ctx, emailAddr string, passwordPlain strin
 			ExpiresAt: time.Now().UTC().AddDate(0, 0, Cfg.YO_AUTH_JWT_EXPIRY_DAYS).Unix(),
 		},
 	})
+}
+
+func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordPlain string, password2Plain string) (*UserAuth, *jwt.Token) {
+	ctx.DbTx()
+	pwd_reset_req := yodb.FindOne[UserPwdReq](ctx, UserPwdReqEmailAddr.Equal(emailAddr))
+
+	if pwd_reset_req != nil {
+		// check temp one-time pwd
+		err := bcrypt.CompareHashAndPassword(pwd_reset_req.tmpPwdHashed, []byte(passwordPlain))
+		if err != nil {
+			panic(Err___yo_authLoginOrFinalizePwdReset_WrongPassword)
+		}
+		pwd_hash, err := bcrypt.GenerateFromPassword([]byte(password2Plain), bcrypt.DefaultCost)
+		if (err != nil) || (len(pwd_hash) == 0) {
+			if err == bcrypt.ErrPasswordTooLong {
+				panic(Err___yo_authChangePassword_NewPasswordTooLong)
+			} else {
+				panic(Err___yo_authChangePassword_NewPasswordInvalid)
+			}
+		}
+		user_auth := yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr))
+		if user_auth != nil { // existing user: pwd-reset
+			user_auth.pwdHashed = pwd_hash
+			_ = yodb.Update[UserAuth](ctx, user_auth, nil, true, userAuthPwdHashed.F())
+		} else { // new user: register
+			user_auth = &UserAuth{pwdHashed: pwd_hash, EmailAddr: yodb.Text(emailAddr)}
+			_ = yodb.CreateOne[UserAuth](ctx, user_auth)
+		}
+		return UserLogin(ctx, emailAddr, password2Plain)
+	}
+
+	if password2Plain != "" {
+		UserChangePassword(ctx, emailAddr, passwordPlain, password2Plain)
+		return UserLogin(ctx, emailAddr, password2Plain)
+	}
+
+	return UserLogin(ctx, emailAddr, passwordPlain)
 }
 
 func UserVerify(jwtRaw string) *JwtPayload {
@@ -103,7 +139,7 @@ func UserVerify(jwtRaw string) *JwtPayload {
 
 func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, passwordNewPlain string) {
 	ctx.DbTx()
-	user_account, _ := UserLoginOrFinalizePwdReset(ctx, emailAddr, passwordOldPlain, "")
+	user_account, _ := UserLogin(ctx, emailAddr, passwordOldPlain)
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordNewPlain), bcrypt.DefaultCost)
 	if (err != nil) || (len(hash) == 0) {
 		if err == bcrypt.ErrPasswordTooLong {
