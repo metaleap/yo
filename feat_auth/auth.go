@@ -33,6 +33,7 @@ type UserPwdReq struct {
 
 	EmailAddr     yodb.Text
 	DoneMailReqId yodb.Ref[yomail.MailReq, yodb.RefOnDelCascade]
+	DtFinalized   *yodb.DateTime
 	tmpPwdHashed  yodb.Bytes
 }
 
@@ -90,7 +91,12 @@ func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jw
 
 func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordPlain string, password2Plain string) (*UserAuth, *jwt.Token) {
 	ctx.DbTx()
-	pwd_reset_req := yodb.FindOne[UserPwdReq](ctx, UserPwdReqEmailAddr.Equal(emailAddr))
+	pwd_reset_req := yodb.FindOne[UserPwdReq](ctx,
+		UserPwdReqEmailAddr.Equal(emailAddr). // request for this email addr
+							And(UserPwdReqDoneMailReqId.NotEqual(nil)).        // where the corresponding mail-req was already created
+							And(userPwdReqDoneMailReqId_dtDone.NotEqual(nil)). // and its mail also sent out successfully
+							And(userPwdReqTmpPwdHashed.NotEqual(nil)).         // hence the temp one-time pwd is still there
+							And(UserPwdReqDtFinalized.Equal(nil)))             // because that pwd-req (sign-up or pwd-reset) wasn't finalized yet (which happens in here, below)
 
 	if pwd_reset_req != nil {
 		// check temp one-time pwd

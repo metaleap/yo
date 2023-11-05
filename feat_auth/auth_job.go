@@ -22,7 +22,7 @@ const ( // change those only together with the tmpls in `init`
 	MailTmplVarTmpPwd    = "pwd_tmp"
 )
 
-var AppSideTmplPopulate func(ctx *yojobs.Context, emailAddr yodb.Text, existingMaybe *UserAuth, tmplArgsToPopulate yodb.JsonMap[string])
+var AppSideTmplPopulate func(ctx *yojobs.Context, reqTime *yodb.DateTime, emailAddr yodb.Text, existingMaybe *UserAuth, tmplArgsToPopulate yodb.JsonMap[string])
 
 var JobTypeId = yojobs.Register[userPwdReqJobType, Void, Void, userPwdReqTaskDetails, userPwdReqTaskResults](func(string) userPwdReqJobType {
 	return userPwdReqJobType{}
@@ -77,7 +77,7 @@ func (me userPwdReqJobType) TaskResults(ctx *yojobs.Context, task yojobs.TaskDet
 		}
 
 		tmpl_args := yodb.JsonMap[string]{MailTmplVarEmailAddr: string(req.EmailAddr), MailTmplVarName: string(req.EmailAddr)}
-		AppSideTmplPopulate(ctx, req.EmailAddr, user, tmpl_args)
+		AppSideTmplPopulate(ctx, req.DtMod, req.EmailAddr, user, tmpl_args)
 		tmpl_args[MailTmplVarTmpPwd] = tmp_one_time_pwd_plain
 
 		ret.MailReqId = yomail.CreateMailReq(ctx.Ctx, &yomail.MailReq{

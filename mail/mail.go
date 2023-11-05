@@ -56,6 +56,9 @@ func sendMailViaSmtp(to yodb.Text, subject yodb.Text, msg string) error {
 	if err != nil {
 		return err
 	}
+	if err = client.Auth(smtp_auth); err != nil {
+		return err
+	}
 
 	if err = client.Mail(Cfg.YO_MAIL_SMTP_SENDER); err != nil { // from
 		return err
