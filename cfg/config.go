@@ -37,6 +37,8 @@ var Cfg struct {
 	STATIC_FILE_STORAGE_DIRS map[string]string
 }
 
+var envFile = str.Dict{}
+
 func init() {
 	if IsDevMode && !yoctx.CatchPanics {
 		defer func() { // for prolonged debugging/breakpoint staring sessions:
@@ -45,14 +47,13 @@ func init() {
 		}()
 	}
 
-	env_file := str.Dict{}
 	// Setenv from .env file if any
 	if env_file_data := bytes.TrimSpace(ReadFile(".env")); len(env_file_data) > 0 {
 		for i, lines := 0, str.Split(string(env_file_data), "\n"); i < len(lines); i++ {
 			if name, val, ok := str.Cut(lines[i], "="); !ok {
 				panic(lines[i])
 			} else if os.Getenv(name) == "" {
-				env_file[name] = val
+				envFile[name] = val
 			}
 		}
 	}
@@ -65,7 +66,7 @@ func init() {
 		env_name := tstruc.Field(i).Name
 		env_val := os.Getenv(env_name)
 		if env_val == "" {
-			if env_val = env_file[env_name]; env_val == "" {
+			if env_val = envFile[env_name]; env_val == "" {
 				panic("missing in env: " + env_name)
 			}
 		}
@@ -92,4 +93,25 @@ func init() {
 		}
 		struc.Field(i).Set(reflect.ValueOf(new_val))
 	}
+}
+
+func CfgGet[T any](envVarName string) (ret T) {
+	env_val := os.Getenv(envVarName)
+	if env_val == "" {
+		if env_val = envFile[envVarName]; env_val == "" {
+			panic("missing in env: " + envVarName)
+		}
+	}
+	switch any(ret).(type) {
+	case string:
+		env_val = str.Q(env_val)
+	case time.Duration:
+		v, err := time.ParseDuration(env_val)
+		if err != nil {
+			panic(err)
+		}
+		return any(v).(T)
+	}
+	yojson.Load([]byte(env_val), &ret)
+	return
 }
