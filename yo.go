@@ -24,7 +24,7 @@ func init() {
 	time.Local = time.UTC
 }
 
-func Init(staticFileDirApp fs.FS, staticFileDirYo fs.FS) (listenAndServe func()) {
+func Init(staticFileDirYo fs.FS, staticFileDirApp fs.FS) (listenAndServe func()) {
 	time.Local = time.UTC // repeat of init() above because who knows what happened in between (well, so far, we do. but still =)
 	yosrv.StaticFileDirApp, yosrv.StaticFileDirYo =
 		staticFileDirApp, staticFileDirYo

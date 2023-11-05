@@ -1,11 +1,5 @@
+go.sum
 .tmp
 *.js
-
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-go.work
+.env
+*__debug_bin*

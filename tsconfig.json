@@ -1,14 +1,16 @@
 {
     "compilerOptions": {
         "isolatedModules": true,
-        "noUnusedLocals": true,
         "target": "ESNext",
         "esModuleInterop": true,
+
+        "noUnusedLocals": true,
         "alwaysStrict": true,
         "strict": true,
         "strictPropertyInitialization": false,
         "useUnknownInCatchVariables": false,
         "allowImportingTsExtensions": true,
+
         "noEmit": true,
         "removeComments": true,
         "sourceMap": false,
