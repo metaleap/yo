@@ -140,9 +140,9 @@ func CurrentlyLoggedInUser(ctx *Ctx) (emailAddr string, authID yodb.I64) {
 	return ctx.GetStr(CtxKeyEmailAddr), ctx.Get(CtxKeyAuthId, yodb.I64(0)).(yodb.I64)
 }
 
-func CurrentlyLoggedIn(ctx *Ctx) bool {
+func IsCurrentlyLoggedIn(ctx *Ctx) bool {
 	user_email_addr, user_auth_id := CurrentlyLoggedInUser(ctx)
 	return (user_email_addr != "") && (user_auth_id > 0)
 }
 
-func CurrentlyNotLoggedIn(ctx *Ctx) bool { return !CurrentlyLoggedIn(ctx) }
+func IsNotCurrentlyLoggedIn(ctx *Ctx) bool { return !IsCurrentlyLoggedIn(ctx) }

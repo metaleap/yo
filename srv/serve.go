@@ -14,6 +14,7 @@ import (
 	yojson "yo/json"
 	yolog "yo/log"
 	. "yo/util"
+	"yo/util/sl"
 	"yo/util/str"
 )
 
@@ -51,10 +52,12 @@ var (
 	// They should kick off any IO-involving operations in a separate goroutine (but those shouldn't take the `Ctx`).
 	PostApiHandling = []Middleware{}
 
-	StaticFileFilters = map[string]func([]byte) (string, []byte){}
+	StaticFileFilters = map[string]func(*yoctx.Ctx, []byte) (fileExt string, fileSrc []byte){}
 
 	// set by app for home and vanity-URL (non-file, non-API) requests
 	AppSideStaticRePathFor func(string) string
+
+	OnBeforeServingStaticFile = func(*yoctx.Ctx) {}
 )
 
 func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
@@ -129,7 +132,8 @@ func handleHttpRequest(rw http.ResponseWriter, req *http.Request) {
 }
 
 func handleHttpStaticFileRequestMaybe(ctx *yoctx.Ctx) bool {
-	if (AppSideStaticRePathFor != nil) && !str.Begins(ctx.Http.UrlPath, "_") {
+	if (AppSideStaticRePathFor != nil) && (!str.Begins(ctx.Http.UrlPath, "__")) && (!str.Begins(ctx.Http.UrlPath, AppApiUrlPrefix)) &&
+		!sl.Any(sl.Keys(StaticFileDirs), func(it string) bool { return str.Begins(ctx.Http.UrlPath, it) }) {
 		if re_path := AppSideStaticRePathFor(ctx.Http.UrlPath); (re_path != "") && (re_path != ctx.Http.UrlPath) {
 			ctx.Http.UrlPath = re_path
 			ctx.Http.Req.RequestURI = "/" + re_path // loses query-args, which aren't expected for purely static content anyway
@@ -156,6 +160,7 @@ func handleHttpStaticFileRequestMaybe(ctx *yoctx.Ctx) bool {
 	}
 	if fs_handler != nil {
 		ctx.Timings.Step("static serve")
+		OnBeforeServingStaticFile(ctx)
 		if ctx.Http.Req.URL.RawQuery != "" {
 			for query_arg_name, static_file_filter := range StaticFileFilters {
 				if ctx.GetStr(query_arg_name) != "" {
@@ -170,7 +175,7 @@ func handleHttpStaticFileRequestMaybe(ctx *yoctx.Ctx) bool {
 					if err != nil {
 						panic(err)
 					}
-					file_ext, data := static_file_filter(data)
+					file_ext, data := static_file_filter(ctx, data)
 					ctx.HttpOnPreWriteResponse()
 					http.ServeContent(ctx.Http.Resp, ctx.Http.Req, ctx.Http.UrlPath+file_ext, time.Now(), bytes.NewReader(data))
 					return true
@@ -203,12 +208,11 @@ func authAdmin(ctx *yoctx.Ctx) {
 var httpDevModeUncachedFileServingResponseHeaders = map[string]string{"Expires": time.Unix(0, 0).Format(time.RFC1123), "Cache-Control": "no-cache, private, max-age=0", "Pragma": "no-cache", "X-Accel-Expires": "0"}
 var httpDevModeUncachedFileServingRequestHeaders = []string{"ETag", "If-Modified-Since", "If-Match", "If-None-Match", "If-Range", "If-Unmodified-Since"}
 
-// stackoverflow.com/a/33881296
-func httpFileServer(fileServingHandler http.Handler) http.Handler {
+func httpFileServer(fileServingHandler http.Handler) http.Handler { // stackoverflow.com/a/33881296
 	if !IsDevMode {
 		return fileServingHandler
 	}
-	// local dev: dont want cache-encouraging headers; also send cache-discouraging ones
+	// local dev: dont keep cache-encouraging req headers; also send cache-discouraging resp headers
 	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		for _, etag_header_name := range httpDevModeUncachedFileServingRequestHeaders {
 			if req.Header.Get(etag_header_name) != "" {
