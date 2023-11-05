@@ -90,18 +90,19 @@ func ApiUserRegister(this *ApiCtx[ApiAccountPayload, struct {
 	this.Ret.Id = UserRegister(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain)
 }
 
-func ApiUserLoginOrFinalizePwdReset(this *ApiCtx[ApiAccountPayload, Void]) {
+func ApiUserLoginOrFinalizePwdReset(this *ApiCtx[ApiAccountPayload, UserAuth]) {
 	if this.Args.Password2Plain != "" {
 		if user_email_addr, _ := CurrentlyLoggedInUser(this.Ctx); (user_email_addr != "") && (user_email_addr != this.Args.EmailAddr) {
 			panic(ErrUnauthorized)
 		}
 	}
 	httpSetUser(this.Ctx, "")
-	_, jwt_token := UserLoginOrFinalizeRegisterOrPwdReset(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.Password2Plain)
+	user_auth, jwt_token := UserLoginOrFinalizeRegisterOrPwdReset(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.Password2Plain)
 	jwt_signed, err := jwt_token.SignedString([]byte(Cfg.YO_AUTH_JWT_SIGN_KEY))
 	if err != nil {
 		panic(Err___yo_authLoginOrFinalizePwdReset_OkButFailedToCreateSignedToken)
 	}
+	this.Ret = user_auth
 	httpSetUser(this.Ctx, jwt_signed)
 }
 
