@@ -101,9 +101,9 @@ func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordP
 		pwd_hash, err := bcrypt.GenerateFromPassword([]byte(password2Plain), bcrypt.DefaultCost)
 		if (err != nil) || (len(pwd_hash) == 0) {
 			if err == bcrypt.ErrPasswordTooLong {
-				panic(Err___yo_authChangePassword_NewPasswordTooLong)
+				panic(Err___yo_authLoginOrFinalizePwdReset_NewPasswordTooLong)
 			} else {
-				panic(Err___yo_authChangePassword_NewPasswordInvalid)
+				panic(Err___yo_authLoginOrFinalizePwdReset_NewPasswordInvalid)
 			}
 		}
 		user_auth := yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr))
@@ -143,9 +143,9 @@ func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, pas
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordNewPlain), bcrypt.DefaultCost)
 	if (err != nil) || (len(hash) == 0) {
 		if err == bcrypt.ErrPasswordTooLong {
-			panic(Err___yo_authChangePassword_NewPasswordTooLong)
+			panic(Err___yo_authLoginOrFinalizePwdReset_NewPasswordTooLong)
 		} else {
-			panic(Err___yo_authChangePassword_NewPasswordInvalid)
+			panic(Err___yo_authLoginOrFinalizePwdReset_NewPasswordInvalid)
 		}
 	}
 	user_account.pwdHashed = hash
