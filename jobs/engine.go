@@ -66,7 +66,7 @@ type Options struct {
 	// keep it lowish since importers are also serving api/asset requests and many such bulk-operations might incur DB table-locks (or db driver locks) anyway
 	MaxConcurrentOps int `default:"4"`
 	// FetchTasksToRun denotes the maximum number of tasks-to-run-now to fetch, approx. every `IntervalRunTasks`.
-	FetchTasksToRun int `default:"22"`
+	FetchTasksToRun int `default:"44"`
 	// TimeoutShort is the usual timeout for most timeoutable calls (ie. brief DB queries and simple non-batch, non-transaction updates).
 	// It should be well under 1min, and is not applicable for the cases described for `const TimeoutLong`.
 	TimeoutShort time.Duration `default:"22s"`

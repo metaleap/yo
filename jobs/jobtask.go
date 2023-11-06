@@ -50,14 +50,6 @@ func (me *JobTask) markForRetryOrAsFailed(ctx *Ctx) (retry bool) {
 	return false
 }
 
-func (me *JobTask) TimeoutRun(ctx *Ctx) time.Duration {
-	job_def := me.jobDef(ctx)
-	if (job_def != nil) && (job_def.TimeoutSecsTaskRun) > 0 {
-		return time.Second * time.Duration(job_def.TimeoutSecsTaskRun)
-	}
-	return TimeoutLong
-}
-
 func (me *JobTask) jobRun(ctx *Ctx) *JobRun {
 	if me != nil {
 		return Cache(ctx, me.JobRun.Id(), func() *JobRun { return me.JobRun.Get(ctx) })

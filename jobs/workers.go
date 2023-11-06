@@ -317,7 +317,11 @@ func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 	time_started := time.Now()
 	job_run := task.JobRun.Get(ctxForCacheReuse)
 	job_def := job_run.jobDef(ctxForCacheReuse)
-	ctx := ctxForCacheReuse.CopyButWith(task.TimeoutRun(ctxForCacheReuse), true)
+	timeout := me.options.TimeoutShort
+	if job_def != nil {
+		timeout = time.Second * time.Duration(job_def.TimeoutSecsTaskRun)
+	}
+	ctx := ctxForCacheReuse.CopyButWith(timeout, true)
 	defer ctx.OnDone(nil)
 	ctx.DbTx()
 	// first, attempt to reserve task for running vs. other pods
