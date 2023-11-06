@@ -300,3 +300,16 @@ func (me *Of[T]) EnsureAllUnique(areEqual func(T, T) bool) {
 	this = WithoutIdxs(this, idxs_to_remove...)
 	*me = this
 }
+
+type Buf[T any] []*T
+
+func (me *Buf[T]) OnNext(item *T, push func([]*T)) {
+	this := *me
+	if (item == nil) || (len(this) == cap(this)) {
+		push(this)
+		this = this[:0]
+	} else {
+		this = append(this, item)
+	}
+	*me = this
+}
