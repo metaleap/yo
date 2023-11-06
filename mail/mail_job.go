@@ -8,40 +8,41 @@ import (
 	"yo/util/str"
 )
 
-var JobTypeId = yojobs.Register[mailReqJobType, Void, Void, mailReqTaskDetails, mailReqTaskResults](func(string) mailReqJobType {
-	return mailReqJobType{}
+var JobTypeId = yojobs.Register[mailReqJob, Void, Void, mailReqTaskDetails, mailReqTaskResults](func(string) mailReqJob {
+	return mailReqJob{}
 })
 
 var MailReqJobDef = yojobs.JobDef{
-	Name:                             yodb.Text(ReflType[mailReqJobType]().String()),
+	Name:                             yodb.Text(ReflType[mailReqJob]().String()),
 	JobTypeId:                        yodb.Text(JobTypeId),
 	Schedules:                        yojobs.ScheduleOncePerMinute,
 	TimeoutSecsTaskRun:               22,
 	TimeoutSecsJobRunPrepAndFinalize: 11,
 	Disabled:                         false,
+	DeleteAfterDays:                  11,
 	MaxTaskRetries:                   123,
 }
 
 type mailReqTaskDetails struct{ ReqId yodb.I64 }
 type mailReqTaskResults Void
 
-type mailReqJobType Void
+type mailReqJob Void
 
-func (me mailReqJobType) JobDetails(ctx *yojobs.Context) yojobs.JobDetails {
+func (me mailReqJob) JobDetails(ctx *yojobs.Context) yojobs.JobDetails {
 	return nil
 }
 
-func (mailReqJobType) JobResults(_ *yojobs.Context) (func(*yojobs.JobTask, *bool), func() yojobs.JobResults) {
+func (mailReqJob) JobResults(_ *yojobs.Context) (func(*yojobs.JobTask, *bool), func() yojobs.JobResults) {
 	return nil, nil
 }
 
-func (mailReqJobType) TaskDetails(ctx *yojobs.Context, stream func([]yojobs.TaskDetails)) {
+func (mailReqJob) TaskDetails(ctx *yojobs.Context, stream func([]yojobs.TaskDetails)) {
 	reqs := yodb.FindMany[MailReq](ctx.Ctx, mailReqDtDone.Equal(nil), 0, nil)
 	stream(sl.To(reqs,
 		func(it *MailReq) yojobs.TaskDetails { return &mailReqTaskDetails{ReqId: it.Id} }))
 }
 
-func (me mailReqJobType) TaskResults(ctx *yojobs.Context, task yojobs.TaskDetails) yojobs.TaskResults {
+func (me mailReqJob) TaskResults(ctx *yojobs.Context, task yojobs.TaskDetails) yojobs.TaskResults {
 	task_details := task.(*mailReqTaskDetails)
 
 	if req := yodb.FindOne[MailReq](ctx.Ctx, MailReqId.Equal(task_details.ReqId)); req != nil {
