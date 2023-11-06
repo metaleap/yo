@@ -303,9 +303,17 @@ func (me *Of[T]) EnsureAllUnique(areEqual func(T, T) bool) {
 
 type Buf[T any] []*T
 
+func (me *Buf[T]) Done(push func([]*T)) {
+	if this := *me; len(this) > 0 {
+		push(this)
+		this = this[:0]
+		*me = this
+	}
+}
+
 func (me *Buf[T]) OnNext(item *T, push func([]*T)) {
 	this := *me
-	if (item == nil) || (len(this) == cap(this)) {
+	if len(this) == cap(this) {
 		push(this)
 		this = this[:0]
 	} else {

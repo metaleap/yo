@@ -104,6 +104,7 @@ func NewEngine(options Options) Engine {
 
 func (me *engine) Running() bool { return me.running }
 func (me *engine) Resume() {
+	me.options.MaxConcurrentOps = 1
 	if me.running {
 		return
 	}

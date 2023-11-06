@@ -138,17 +138,15 @@ func (me *engine) startDueJobRuns() {
 }
 
 func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *JobDef) {
-	ctx := ctxForCacheReuse.CopyButWith(jobRun.TimeoutPrepAndFinalize(ctxForCacheReuse), false)
-	defer ctx.OnDone(nil)
-
+	time_started := time.Now()
 	if jobDef == nil {
 		panic(errNotFoundJobDef(jobRun.Id))
 	} else if jobDef.jobType == nil {
 		panic(errNotFoundJobType(jobDef.Name, jobDef.JobTypeId))
 	}
 
-	time_started := time.Now()
-	ctx.DbTx()
+	ctx := ctxForCacheReuse.CopyButWith(jobRun.TimeoutPrepAndFinalize(ctxForCacheReuse), false)
+	defer ctx.OnDone(nil)
 
 	// 1. JobType.JobDetails
 	jobRun.Details = jobDef.jobType.JobDetails(jobRun.ctx(ctx, 0))
