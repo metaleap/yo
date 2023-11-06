@@ -147,6 +147,7 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 
 	ctx := ctxForCacheReuse.CopyButWith(jobRun.TimeoutPrepAndFinalize(ctxForCacheReuse), false)
 	defer ctx.OnDone(nil)
+	ctx.DbTx()
 
 	// 1. JobType.JobDetails
 	jobRun.Details = jobDef.jobType.JobDetails(jobRun.ctx(ctx, 0))

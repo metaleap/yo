@@ -31,6 +31,18 @@ func ById[T any](ctx *Ctx, id I64) *T {
 	return FindOne[T](ctx, ColID.Equal(id))
 }
 
+func Ids[T any](ctx *Ctx, query q.Query) (ret sl.Of[I64]) {
+	type obj struct{ Id I64 }
+	Each[T](ctx, query, 0, nil, func(rec *T, enough *bool) {
+		obj := (*obj)(unsafe.Pointer(rec))
+		if obj.Id <= 0 {
+			panic("Ids: unsafe.Pointer a no-go after all")
+		}
+		ret = append(ret, obj.Id)
+	}, q.F("Id"))
+	return
+}
+
 func Exists[T any](ctx *Ctx, query q.Query) bool {
 	desc, args := desc[T](), dbArgs{}
 	result := doSelect[T](ctx, new(sqlStmt).selCols(desc, &[]q.C{ColID}, true).where(desc, false, query, args).limit(1), args, 1, ColID)
