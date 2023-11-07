@@ -2,7 +2,6 @@
 package yo
 
 import reflect "reflect"
-import yosrv "yo/srv"
 import util "yo/util"
 import q "yo/db/query"
 
@@ -13,7 +12,3 @@ func (apiPkgInfo) PkgName() string    { return "yo" }
 func (me apiPkgInfo) PkgPath() string { return reflect.TypeOf(me).PkgPath() }
 
 var yoPkg = apiPkgInfo{}
-
-func api[TIn any, TOut any](f func(*yosrv.ApiCtx[TIn, TOut]), failIfs ...yosrv.Fails) yosrv.ApiMethod {
-	return yosrv.Api[TIn, TOut](f, failIfs...).From(yoPkg)
-}

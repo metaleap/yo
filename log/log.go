@@ -10,11 +10,6 @@ import (
 
 var mut sync.Mutex
 
-func PrintLnLn(msg string, args ...any) {
-	Println("")
-	Println(msg, args...)
-}
-
 func Println(msg string, args ...any) {
 	now, buf := time.Now(), str.Buf{}
 	if msg != "" {
@@ -31,4 +26,9 @@ func Println(msg string, args ...any) {
 	mut.Lock()
 	defer mut.Unlock()
 	_, _ = os.Stderr.WriteString(buf.String())
+}
+
+func PrintLnLn(msg string, args ...any) {
+	Println("")
+	Println(msg, args...)
 }
