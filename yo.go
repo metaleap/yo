@@ -46,7 +46,13 @@ func Init(staticFileDirYo fs.FS, staticFileDirApp fs.FS) (listenAndServe func())
 		yodb.Upsert[yojobs.JobDef](ctx, &yoauth.UserPwdReqJobDef)
 		yodb.Upsert[yojobs.JobDef](ctx, &yomail.MailReqJobDef)
 		yodb.Upsert[yojobs.JobDef](ctx, &errJobDef)
-		yojobs.Init(ctx)
+		yojobs.Init(ctx) // some db clean-ups in there, doesn't `Engine.Resume` though, that's below
+
+		listen_and_serve := listenAndServe
+		listenAndServe = func() {
+			go yojobs.Default.Resume()
+			listen_and_serve()
+		}
 	}
 
 	yolog.PrintLnLn("yo.Init done")
