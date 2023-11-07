@@ -189,34 +189,34 @@ func (me *engine) ensureJobRunSchedules() {
 	})
 
 	cancel_jobs := map[CancellationReason][]*JobRun{}
-	yodb.Each[JobDef](ctx, q.Not(q.ArrIsEmpty(JobDefSchedules)), 0, nil,
-		func(jobDef *JobDef, enough *bool) {
-			latest := yodb.FindOne[JobRun](ctx, JobRunJobDef.Equal(jobDef.Id).And(JobRunAutoScheduled.Equal(true)), JobRunDueTime.Desc())
-			if (latest != nil) && ((latest.State() == Running) || (latest.State() == JobRunCancelling)) {
-				return // still busy: then need no scheduling here & now
-			}
-			if (latest == nil) || (latest.State() != Pending) { // `latest` is Done or Cancelled (or none)...
-				_ = me.scheduleJobRun(ctx, jobDef, latest) // ...so schedule the next
-				return
-			}
+	job_defs := yodb.FindMany[JobDef](ctx, q.Not(q.ArrIsEmpty(JobDefSchedules)), 0, nil)
+	for _, job_def := range job_defs {
+		latest := yodb.FindOne[JobRun](ctx, JobRunJobDef.Equal(job_def.Id).And(JobRunAutoScheduled.Equal(true)), JobRunDueTime.Desc())
+		if (latest != nil) && ((latest.State() == Running) || (latest.State() == JobRunCancelling)) {
+			return // still busy: then need no scheduling here & now
+		}
+		if (latest == nil) || (latest.State() != Pending) { // `latest` is Done or Cancelled (or none)...
+			_ = me.scheduleJobRun(ctx, job_def, latest) // ...so schedule the next
+			return
+		}
 
-			if latest.DueTime.Time().After(time.Now()) { // `latest` is definitely `Pending` at this point
-				var after *yodb.DateTime
-				// check-and-maybe-fix the existing Pending job's future DueTime wrt the current `jobDef.Schedules` in case the latter changed after the former was scheduled
-				last_done := yodb.FindOne[JobRun](ctx, JobRunJobDef.Equal(jobDef.Id).And(jobRunState.In(Done, Cancelled)), JobRunDueTime.Desc())
-				if last_done != nil {
-					after = sl.FirstNonNil(last_done.FinishTime, last_done.StartTime, last_done.DueTime)
-				}
-				due_time := jobDef.findClosestToNowSchedulableTimeSince(after.Time(), true)
-				if due_time == nil { // jobDef or all its Schedules were Disabled after that Pending job was scheduled
-					cancel_jobs[CancellationReasonJobDefChanged] = append(cancel_jobs[CancellationReasonJobDefChanged], latest)
-				} else if (!jobDef.ok(*latest.DueTime.Time())) || !due_time.Equal(*latest.DueTime.Time()) {
-					// update outdated-by-now DueTime
-					latest.DueTime = (*yodb.DateTime)(due_time)
-					yodb.Update[JobRun](ctx, latest, nil, false, JobRunFields(JobRunDueTime)...)
-				}
+		if latest.DueTime.Time().After(time.Now()) { // `latest` is definitely `Pending` at this point
+			var after *yodb.DateTime
+			// check-and-maybe-fix the existing Pending job's future DueTime wrt the current `jobDef.Schedules` in case the latter changed after the former was scheduled
+			last_done := yodb.FindOne[JobRun](ctx, JobRunJobDef.Equal(job_def.Id).And(jobRunState.In(Done, Cancelled)), JobRunDueTime.Desc())
+			if last_done != nil {
+				after = sl.FirstNonNil(last_done.FinishTime, last_done.StartTime, last_done.DueTime)
 			}
-		})
+			due_time := job_def.findClosestToNowSchedulableTimeSince(after.Time(), true)
+			if due_time == nil { // jobDef or all its Schedules were Disabled after that Pending job was scheduled
+				cancel_jobs[CancellationReasonJobDefChanged] = append(cancel_jobs[CancellationReasonJobDefChanged], latest)
+			} else if (!job_def.ok(*latest.DueTime.Time())) || !due_time.Equal(*latest.DueTime.Time()) {
+				// update outdated-by-now DueTime
+				latest.DueTime = (*yodb.DateTime)(due_time)
+				yodb.Update[JobRun](ctx, latest, nil, false, JobRunFields(JobRunDueTime)...)
+			}
+		}
+	}
 
 	me.cancelJobRuns(ctx, cancel_jobs)
 }
@@ -242,12 +242,13 @@ func (me *engine) deleteStorageExpiredJobRuns() {
 		DoAfter(me.options.IntervalDeleteStorageExpiredJobs, me.deleteStorageExpiredJobRuns)
 	})
 
-	yodb.Each[JobDef](ctx, JobDefDeleteAfterDays.GreaterThan(0), 0, nil, func(jobDef *JobDef, enough *bool) {
-		yodb.Delete[JobRun](ctx, JobRunJobDef.Equal(jobDef.Id).
+	job_defs := yodb.FindMany[JobDef](ctx, JobDefDeleteAfterDays.GreaterThan(0), 0, nil)
+	for _, job_def := range job_defs {
+		yodb.Delete[JobRun](ctx, JobRunJobDef.Equal(job_def.Id).
 			And(jobRunState.In(Done, Cancelled)).
-			And(JobRunFinishTime.LessThan(time.Now().AddDate(0, 0, -int(jobDef.DeleteAfterDays)))),
+			And(JobRunFinishTime.LessThan(time.Now().AddDate(0, 0, -int(job_def.DeleteAfterDays)))),
 		)
-	})
+	}
 }
 
 // A died task is one whose runner died between its start and its finishing or orderly timeout.
@@ -286,19 +287,27 @@ func (me *engine) expireOrRetryDeadJobTasksForJobDef(ctx *Ctx, jobDef *JobDef, r
 		query_tasks = query_tasks.And(jobTaskState.Equal(Running)).And(
 			JobTaskStartTime.LessThan(time.Now().Add(-(time.Minute + (time.Second * time.Duration(jobDef.TimeoutSecsTaskRun))))))
 	}
+
+	task_updates := map[*JobTask][]q.F{}
 	yodb.Each[JobTask](ctx, query_tasks, 0, nil, func(task *JobTask, enough *bool) {
-		defer func() { _ = recover() }()
-		task_upd_fields := JobTaskFields(jobTaskState, JobTaskAttempts, JobTaskStartTime, JobTaskFinishTime)
-		if is_jobdef_dead {
-			task.state = yodb.Text(Cancelled)
-			if (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
-				task.Attempts[0].Err = context.Canceled
+		Try(func() {
+			task_upd_fields := JobTaskFields(jobTaskState, JobTaskAttempts, JobTaskStartTime, JobTaskFinishTime)
+			if is_jobdef_dead {
+				task.state = yodb.Text(Cancelled)
+				if (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
+					task.Attempts[0].Err = context.Canceled
+				}
+			} else if (!task.markForRetryOrAsFailed(ctx)) && (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
+				task.Attempts[0].Err = ErrTimedOut
 			}
-		} else if (!task.markForRetryOrAsFailed(ctx)) && (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
-			task.Attempts[0].Err = context.DeadlineExceeded
-		}
-		yodb.Update[JobTask](ctx, task, nil, false, task_upd_fields...)
+			task_updates[task] = task_upd_fields
+		}, nil)
 	})
+	for task, task_upd_fields := range task_updates {
+		Try(func() {
+			yodb.Update[JobTask](ctx, task, nil, false, task_upd_fields...)
+		}, nil)
+	}
 }
 
 func (me *engine) runJobTasks() {
@@ -347,18 +356,17 @@ func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 	case job_def.jobType == nil:
 		task.Attempts[0].Err = errNotFoundJobType(job_def.Name, job_def.JobTypeId)
 	case !already_canceled: // actual RUNNING of task
-		func() {
-			defer func() {
-				if err := recover(); (err != nil) && (task.Attempts[0].Err == nil) {
-					if task.Attempts[0].Err, _ = err.(error); task.Attempts[0].Err == nil {
-						task.Attempts[0].Err = errors.New(str.FmtV(err))
-					}
-				}
-			}()
+		Try(func() {
 			task.Results = job_def.jobType.TaskResults(job_run.ctx(ctx, task.Id), task.Details)
 			jobType(string(job_def.JobTypeId)).checkTypeTaskResults(task.Results)
 			task_upd_fields = sl.With(task_upd_fields, jobTaskResults.F())
-		}()
+		}, func(err any) {
+			if task.Attempts[0].Err == nil {
+				if task.Attempts[0].Err, _ = err.(error); task.Attempts[0].Err == nil {
+					task.Attempts[0].Err = errors.New(str.FmtV(err))
+				}
+			}
+		})
 	}
 
 	task.state, task.FinishTime =
@@ -368,7 +376,7 @@ func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 	if err_ctx != nil && errors.Is(err_ctx, context.Canceled) {
 		task.state = yodb.Text(Cancelled)
 	} else if (!already_canceled) &&
-		(((err_ctx != nil) && errors.Is(err_ctx, context.DeadlineExceeded)) ||
+		(((err_ctx != nil) && ((err_ctx.Error() == ErrTimedOut.Error()) || errors.Is(err_ctx, context.DeadlineExceeded))) ||
 			((task.Attempts[0].Err != nil) && (job_def != nil) && (job_def.jobType != nil))) {
 		did_mark_for_retry = task.markForRetryOrAsFailed(ctx)
 	}
