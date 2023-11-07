@@ -203,11 +203,11 @@ func (me *engine) ensureJobRunSchedules() {
 	for _, job_def := range job_defs {
 		latest := yodb.FindOne[JobRun](ctx, JobRunJobDef.Equal(job_def.Id).And(JobRunAutoScheduled.Equal(true)), JobRunDueTime.Desc())
 		if (latest != nil) && ((latest.State() == Running) || (latest.State() == JobRunCancelling)) {
-			return // still busy: then need no scheduling here & now
+			continue // still busy: then need no scheduling here & now
 		}
 		if (latest == nil) || (latest.State() != Pending) { // `latest` is Done or Cancelled (or none)...
 			_ = me.scheduleJobRun(ctx, job_def, latest) // ...so schedule the next
-			return
+			continue
 		}
 
 		if latest.DueTime.Time().After(time.Now()) { // `latest` is definitely `Pending` at this point
