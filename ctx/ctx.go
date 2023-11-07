@@ -20,12 +20,13 @@ const (
 	ErrTimedOut           = Err("TimedOut")
 	ErrDbUpdExpectedIdGt0 = Err("DbUpdExpectedIdGt0")
 	CtxKeyForcedTestUser  = "yoUserTest" // handled only with IsDevMode==true
+	CtxKeyDbNoLogging     = "yoCtxDbNoLogging"
 )
 
 var (
 	DB              *sql.DB
 	OnDone          []func(ctx *Ctx, fail any)
-	NotifyErrCaught = func(nowInvalidCtx *Ctx, ctxVals sl.Dict, fail any, errDbRollback error, stackTrace string) {}
+	NotifyErrCaught = func(nowInvalidCtx *Ctx, ctxVals sl.Dict, fail any, stackTrace string) {}
 )
 
 type apiMethod interface {
@@ -127,7 +128,6 @@ func (me *Ctx) OnDone(alsoDo func()) {
 		return
 	}
 	var fail any
-	var err_rollback error
 	if (!IsDevMode) || CatchPanics { // comptime branch
 		if (!IsDevMode) || !me.DevModeNoCatch { // runtime branch, keep sep from above comptime one
 			if fail = recover(); IsDevMode && (fail != nil) {
@@ -148,9 +148,7 @@ func (me *Ctx) OnDone(alsoDo func()) {
 			}
 		}
 		if fail != nil {
-			if err_rollback = me.Db.Tx.Rollback(); IsDevMode && (err_rollback != nil) {
-				println(str.Fmt(">>TXR>>%v<<TXR<<", err_rollback))
-			}
+			_ = me.Db.Tx.Rollback()
 		}
 	}
 	if me.Http != nil {
@@ -176,7 +174,7 @@ func (me *Ctx) OnDone(alsoDo func()) {
 		me.ctxDone()
 	}
 
-	if err_no_notify := me.ErrNoNotify; (!err_no_notify) && ((fail != nil) || (err_rollback != nil)) {
+	if err_no_notify := me.ErrNoNotify; (!err_no_notify) && (fail != nil) {
 		if err, _ := fail.(Err); (err != "") && (len(me.ErrNoNotifyOf) > 0) {
 			err_no_notify = sl.Has(me.ErrNoNotifyOf, err)
 		}
@@ -190,7 +188,7 @@ func (me *Ctx) OnDone(alsoDo func()) {
 				frame, more = frames.Next()
 				stack_trace += str.Fmt("%s:%d %s\n", frame.File, frame.Line, frame.Function)
 			}
-			go NotifyErrCaught(me, me.ctxVals, fail, err_rollback, stack_trace)
+			go NotifyErrCaught(me, me.ctxVals, fail, stack_trace)
 		}
 	}
 	if IsDevMode && !me.TimingsNoPrintInDevMode {
@@ -241,6 +239,13 @@ func (me *Ctx) DbTx() {
 	var err error
 	if me.Db.Tx, err = DB.BeginTx(me, nil); err != nil {
 		panic(err)
+	}
+}
+
+func (me *Ctx) DbNoLoggingInDevMode() {
+	if IsDevMode {
+		me.Set(CtxKeyDbNoLogging, true)
+		me.Context = context.WithValue(me.Context, CtxKeyDbNoLogging, true)
 	}
 }
 

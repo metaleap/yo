@@ -19,12 +19,14 @@ import (
 )
 
 var ts2jsAppSideStaticDir func()
+var AppPkgPath = "yo/"
 
 func init() {
 	time.Local = time.UTC
 }
 
 func Init(staticFileDirYo fs.FS, staticFileDirApp fs.FS) (listenAndServe func()) {
+	AppPkgPath = AppPkgPath[:str.Idx(AppPkgPath, '/')]
 	time.Local = time.UTC // repeat of init() above because who knows what happened in between (well, so far, we do. but still =)
 	yosrv.StaticFileDirApp, yosrv.StaticFileDirYo =
 		staticFileDirApp, staticFileDirYo

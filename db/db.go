@@ -9,6 +9,7 @@ import (
 	. "yo/cfg"
 	. "yo/ctx"
 	yolog "yo/log"
+	. "yo/util"
 	"yo/util/sl"
 	"yo/util/str"
 
@@ -54,7 +55,9 @@ func InitAndConnectAndMigrateAndMaybeCodegen() (dbStructs []reflect.Type) {
 type dbLogger struct{}
 
 func (dbLogger) Log(ctx context.Context, level tracelog.LogLevel, msg string, data sl.Dict) {
-	yolog.Println("dbPgx: %s %v", msg, data)
+	if IsDevMode && (ctx.Value(CtxKeyDbNoLogging) == nil) {
+		yolog.Println("dbPgx %s %v", msg, data)
+	}
 }
 
 func NameFrom(s string) string {
