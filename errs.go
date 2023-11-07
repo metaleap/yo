@@ -20,6 +20,7 @@ type ErrEntry struct {
 
 	Err           yodb.Text
 	ErrDbRollback yodb.Text
+	StackTrace    yodb.Text
 	CtxVals       yodb.Text
 	HttpUrlPath   yodb.Text
 	HttpFullUri   yodb.Text
@@ -29,7 +30,7 @@ type ErrEntry struct {
 }
 
 func init() {
-	yoctx.NotifyErrCaught = func(nowInvalidCtx *yoctx.Ctx, ctxVals sl.Dict, err any, errDbRollback error) {
+	yoctx.NotifyErrCaught = func(nowInvalidCtx *yoctx.Ctx, ctxVals sl.Dict, err any, errDbRollback error, stackTrace string) {
 		ctx := yoctx.NewCtxNonHttp(timeoutLogErr, false, "")
 		ctx.ErrNoNotify = true
 		defer ctx.OnDone(nil)
@@ -43,6 +44,7 @@ func init() {
 		err_entry := ErrEntry{
 			Err:           yodb.Text(str.FmtV(err)),
 			ErrDbRollback: yodb.Text(str.FmtV(errDbRollback)),
+			StackTrace:    yodb.Text(stackTrace),
 			NumCaught:     1,
 			CtxVals:       yodb.Text(json_ctx_vals),
 		}
@@ -70,6 +72,7 @@ func init() {
 			}
 			similar_enough.HttpFullUri = If(err_entry.HttpFullUri == "", similar_enough.HttpFullUri, err_entry.HttpFullUri)
 			similar_enough.HttpUrlPath = If(err_entry.HttpUrlPath == "", similar_enough.HttpUrlPath, err_entry.HttpUrlPath)
+			similar_enough.StackTrace = If(err_entry.StackTrace == "", similar_enough.StackTrace, err_entry.StackTrace)
 			similar_enough.Err = If(err_entry.Err == "", similar_enough.Err, err_entry.Err)
 			similar_enough.ErrDbRollback = If(err_entry.ErrDbRollback == "", similar_enough.ErrDbRollback, err_entry.ErrDbRollback)
 			yodb.Update[ErrEntry](ctx, similar_enough, nil, false)

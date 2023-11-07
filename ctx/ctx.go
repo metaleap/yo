@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -24,7 +25,7 @@ const (
 var (
 	DB              *sql.DB
 	OnDone          []func(ctx *Ctx, fail any)
-	NotifyErrCaught = func(nowInvalidCtx *Ctx, ctxVals sl.Dict, fail any, errDbRollback error) {}
+	NotifyErrCaught = func(nowInvalidCtx *Ctx, ctxVals sl.Dict, fail any, errDbRollback error, stackTrace string) {}
 )
 
 type apiMethod interface {
@@ -173,8 +174,18 @@ func (me *Ctx) OnDone(alsoDo func()) {
 	if me.ctxDone != nil {
 		me.ctxDone()
 	}
+
 	if (!me.ErrNoNotify) && ((fail != nil) || (err_rollback != nil)) {
-		go NotifyErrCaught(me, me.ctxVals, fail, err_rollback)
+		callers := make([]uintptr, 128)
+		num_callers := runtime.Callers(0, callers)
+		callers = callers[:num_callers]
+		stack_trace, frames := "", runtime.CallersFrames(callers)
+		for more := len(callers) > 0; more; {
+			var frame runtime.Frame
+			frame, more = frames.Next()
+			stack_trace += str.Fmt("%s:%d %s\n", frame.File, frame.Line, frame.Function)
+		}
+		go NotifyErrCaught(me, me.ctxVals, fail, err_rollback, stack_trace)
 	}
 	if IsDevMode && !me.TimingsNoPrintInDevMode {
 		total_duration, steps := me.Timings.AllDone()
