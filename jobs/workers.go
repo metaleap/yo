@@ -92,7 +92,7 @@ func (me *engine) finalizeCancellingJobRuns() {
 	defer ctx.OnDone(nil)
 
 	// no db-tx(s) wanted here by design, as many task cancellations as we can get are fine for us, running on an interval anyway
-	jobs := yodb.FindMany[JobRun](ctx, jobRunState.Equal(JobRunCancelling), 0, JobRunFields(JobRunId))
+	jobs := yodb.FindMany[JobRun](ctx, jobRunState.Equal(JobRunCancelling), 0, JobRunFields(JobRunId, JobRunVersion))
 	if len(jobs) > 0 {
 		tasks := yodb.FindMany[JobTask](ctx, jobTaskState.In(Pending, Running).And(JobTaskJobRun.In(sl.To(jobs, (*JobRun).id).ToAnys()...)), 0, JobTaskFields(JobTaskId, JobTaskVersion))
 		dbBatchUpdate[JobTask](me, ctx, tasks, &JobTask{state: yodb.Text(Cancelled)}, JobTaskFields(jobTaskState)...)
@@ -259,7 +259,7 @@ func (me *engine) expireOrRetryDeadJobTasks() {
 	})
 
 	jobs := sl.Grouped(
-		yodb.FindMany[JobRun](ctx, jobRunState.Equal(Running), 0, JobRunFields(JobRunId, JobRunJobDef, jobRunState)),
+		yodb.FindMany[JobRun](ctx, jobRunState.Equal(Running), 0, JobRunFields(JobRunId, JobRunJobDef, jobRunState, JobRunVersion)),
 		func(it *JobRun) yodb.I64 { return it.JobDef.Id() },
 	)
 
