@@ -52,6 +52,7 @@ type Ctx struct {
 	TimingsNoPrintInDevMode bool // never printed in non-dev-mode anyway
 	DevModeNoCatch          bool
 	ErrNoNotify             bool
+	ErrNoNotifyOf           []Err
 }
 
 type ctxHttp struct {
@@ -175,17 +176,22 @@ func (me *Ctx) OnDone(alsoDo func()) {
 		me.ctxDone()
 	}
 
-	if (!me.ErrNoNotify) && ((fail != nil) || (err_rollback != nil)) {
-		callers := make([]uintptr, 128)
-		num_callers := runtime.Callers(0, callers)
-		callers = callers[:num_callers]
-		stack_trace, frames := "", runtime.CallersFrames(callers)
-		for more := len(callers) > 0; more; {
-			var frame runtime.Frame
-			frame, more = frames.Next()
-			stack_trace += str.Fmt("%s:%d %s\n", frame.File, frame.Line, frame.Function)
+	if err_no_notify := me.ErrNoNotify; (!err_no_notify) && ((fail != nil) || (err_rollback != nil)) {
+		if err, _ := fail.(Err); (err != "") && (len(me.ErrNoNotifyOf) > 0) {
+			err_no_notify = sl.Has(me.ErrNoNotifyOf, err)
 		}
-		go NotifyErrCaught(me, me.ctxVals, fail, err_rollback, stack_trace)
+		if !err_no_notify {
+			callers := make([]uintptr, 128)
+			num_callers := runtime.Callers(0, callers)
+			callers = callers[:num_callers]
+			stack_trace, frames := "", runtime.CallersFrames(callers)
+			for more := len(callers) > 0; more; {
+				var frame runtime.Frame
+				frame, more = frames.Next()
+				stack_trace += str.Fmt("%s:%d %s\n", frame.File, frame.Line, frame.Function)
+			}
+			go NotifyErrCaught(me, me.ctxVals, fail, err_rollback, stack_trace)
+		}
 	}
 	if IsDevMode && !me.TimingsNoPrintInDevMode {
 		total_duration, steps := me.Timings.AllDone()

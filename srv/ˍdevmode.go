@@ -16,9 +16,13 @@ import (
 
 type DummyLocalDomainJar []*http.Cookie
 
-func (me *DummyLocalDomainJar) Cookies(*url.URL) []*http.Cookie { return []*http.Cookie(*me) }
+func (me *DummyLocalDomainJar) Cookies(*url.URL) []*http.Cookie { return ([]*http.Cookie)(*me) }
 func (me *DummyLocalDomainJar) SetCookies(_ *url.URL, cookies []*http.Cookie) {
-	*me = DummyLocalDomainJar(cookies)
+	if len(cookies) > 0 {
+		*me = cookies
+	} else {
+		panic("HUH?")
+	}
 }
 
 func NewClient() *http.Client {

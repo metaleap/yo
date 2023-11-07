@@ -34,7 +34,6 @@ func init() {
 		ctx := yoctx.NewCtxNonHttp(timeoutLogErr, false, "")
 		ctx.ErrNoNotify = true
 		defer ctx.OnDone(nil)
-		ctx.DbTx()
 
 		var json_ctx_vals []byte
 		Try(func() {
