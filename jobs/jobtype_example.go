@@ -76,9 +76,9 @@ func (me ExampleJobType) TaskResults(ctx *Ctx, task TaskDetails) TaskResults {
 	return &exampleTaskResults{NumLoggingsDone: 1}
 }
 
-func (ExampleJobType) JobResults(_ *Ctx) (stream func(*JobTask, *bool), results func() JobResults) {
+func (ExampleJobType) JobResults(_ *Ctx) (stream func(func() *Ctx, *JobTask, *bool), results func() JobResults) {
 	var num int
-	stream = func(task *JobTask, abort *bool) {
+	stream = func(_ func() *Ctx, task *JobTask, abort *bool) {
 		num += task.Results.(*exampleTaskResults).NumLoggingsDone
 	}
 	results = func() JobResults {

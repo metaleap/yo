@@ -35,10 +35,10 @@ type jobTypeDefined interface {
 type JobType interface {
 	// JobDetails is called when setting a `JobRun` from `PENDING` to `RUNNING`, just before `TaskDetails`.
 	// Hence, JobDetails allows computing and storing shared preparatory details once that do not vary between tasks.
-	// If the job was scheduled automatically, not manually, `ctx.JobDetails` is always `ctx.JobDef.DefaultJobDetails` (which might be `nil`).
+	// If the job was scheduled automatically, not manually, `ctx.Job.Details` is always `nil`.
 	// In the manual case, they may or may not be equal, depending on the `CreateJobRun` call.
 	// In either case only the *returned* `JobDetails` are stored (and later passed to the below methods).
-	// Both `ctx.JobDetails` and the return value are of type *TJobDetails (that this `JobType` was `Register`ed with).
+	// Both `ctx.Job.Details` and the return value are of type *TJobDetails (that this `JobType` was `Register`ed with).
 	JobDetails(ctx *Ctx) JobDetails
 
 	// TaskDetails is called when setting a `JobRun` from `PENDING` to `RUNNING`.
@@ -48,13 +48,13 @@ type JobType interface {
 	// on whether you are paging through some data-set or similar considerations).
 	// Each batch/slice sent equates to a DB save-multiple call (but all of them in 1 transaction).
 	// The `TaskDetails` you are sending are of type *TTaskDetails (that this `JobType` was `Register`ed with).
-	// The `ctx.JobDetails` are of type *TJobDetails (that this `JobType` was `Register`ed with).
+	// The `ctx.Job.Details` are of type *TJobDetails (that this `JobType` was `Register`ed with).
 	TaskDetails(ctx *Ctx, stream func([]TaskDetails))
 
 	// TaskResults is called after a `JobTask` has been successfully set from `PENDING` to `RUNNING`.
 	// It implements the actual execution of a Task previously prepared in this `JobType`'s `TaskDetails` method.
 	// The `taskDetails` are of type *TTaskDetails (that this `JobType` was `Register`ed with).
-	// The `ctx.JobDetails` are of type *TJobDetails (that this `JobType` was `Register`ed with).
+	// The `ctx.Job.Details` are of type *TJobDetails (that this `JobType` was `Register`ed with).
 	// The `TaskResults` returned are of type *TTaskResults (that this `JobType` was `Register`ed with).
 	TaskResults(ctx *Ctx, taskDetails TaskDetails) TaskResults
 
@@ -63,11 +63,12 @@ type JobType interface {
 	// The final `results()` producer is called (unless `nil`) after the last call to `stream`.
 	// For DONE `JobTask`s without `Results`, check its `Task.Attempts[0].Err` (`Task.Attempts` are sorted newest-to-oldest).
 	// Mutations to the `JobTask`s are ignored/discarded.
-	// The `ctx.JobDetails` are of type *TJobDetails (that this `JobType` was `Register`ed with).
+	// The `ctx.Job.Details` are of type *TJobDetails (that this `JobType` was `Register`ed with).
 	// The `results()` returned are of type *TJobResults (that this `JobType` was `Register`ed with).
 	// All `stream().Details` are of type *TTaskDetails (that this `JobType` was `Register`ed with).
 	// All `stream().Results` are of type *TTaskResults (that this `JobType` was `Register`ed with).
-	JobResults(ctx *Ctx) (stream func(*JobTask, *bool), results func() JobResults)
+	// The `stream` must not use `ctx` for any DB operations. Instead, it should obtain a Ctx from its first argument.
+	JobResults(ctx *Ctx) (stream func(func() *Ctx, *JobTask, *bool), results func() JobResults)
 }
 
 type jobTypeReg struct {

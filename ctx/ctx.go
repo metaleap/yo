@@ -112,6 +112,8 @@ func (me *Ctx) CopyButWith(timeout time.Duration, cancelable bool) *Ctx {
 	}
 	if timeout > 0 {
 		ret.Context, ret.ctxDone = context.WithTimeout(ret.Context, timeout)
+	} else if dt_deadline, has := me.Context.Deadline(); has && (timeout < 0) {
+		ret.Context, ret.ctxDone = context.WithDeadline(ret.Context, dt_deadline)
 	}
 	if cancelable {
 		ret.Context, ret.ctxDone = context.WithCancel(ret.Context)

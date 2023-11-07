@@ -25,11 +25,11 @@ func init() {
 		yodb.Index[JobTaskField]{jobTaskState})
 }
 
-// TimeoutLong is:
+// Timeout1Min is:
 //   - the default fallback for `JobDef`s without a custom `Timeouts.TaskRun`.
 //   - the default fallback for `JobDef`s without a custom `Timeouts.JobPrepAndFinalize`.
 //   - the timeout for the workers scheduled in `Engine.Resume` (further below)
-const TimeoutLong = time.Minute
+const Timeout1Min = time.Minute
 
 type Engine interface {
 	// Resume starts the `Engine`, ie. its (from then on) regularly-recurring background workers.
@@ -67,9 +67,6 @@ type Options struct {
 	MaxConcurrentOps int `default:"4"`
 	// FetchTasksToRun denotes the maximum number of tasks-to-run-now to fetch, approx. every `IntervalRunTasks`.
 	FetchTasksToRun int `default:"44"`
-	// TimeoutShort is the usual timeout for most timeoutable calls (ie. brief DB queries and simple non-batch, non-transaction updates).
-	// It should be well under 1min, and is not applicable for the cases described for `const TimeoutLong`.
-	TimeoutShort time.Duration `default:"22s"`
 }
 
 type engine struct {
@@ -88,7 +85,6 @@ func NewEngine(options Options) Engine {
 	})
 	if err == nil {
 		err = sanitizeOptionsFields[Options](2*time.Second, 22*time.Hour, time.ParseDuration, map[string]*time.Duration{
-			"TimeoutShort":                     &options.TimeoutShort,
 			"IntervalStartAndFinalizeJobs":     &options.IntervalStartAndFinalizeJobs,
 			"IntervalRunTasks":                 &options.IntervalRunTasks,
 			"IntervalExpireOrRetryDeadTasks":   &options.IntervalExpireOrRetryDeadTasks,

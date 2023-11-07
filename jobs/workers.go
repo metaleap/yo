@@ -25,7 +25,7 @@ func (me *engine) startAndFinalizeJobRuns() {
 }
 
 func (me *engine) finalizeDoneJobRuns() {
-	ctx := NewCtxNonHttp(TimeoutLong, false, "")
+	ctx := NewCtxNonHttp(Timeout1Min, false, "")
 	defer ctx.OnDone(nil)
 	job_runs := yodb.FindMany[JobRun](ctx, jobRunState.Equal(Running), 0, nil)
 
@@ -71,12 +71,22 @@ func (me *engine) finalizeDoneJobRun(ctxForCacheReuse *Ctx, jobRun *JobRun) {
 
 	on_next_task, final_results := job_def.jobType.JobResults(jobRun.ctx(ctx, 0))
 	if on_next_task != nil {
-		yodb.Each[JobTask](ctx, JobTaskJobRun.Equal(jobRun.Id), 0, nil, on_next_task)
+		var ctx_sep *Ctx
+		yodb.Each[JobTask](ctx, JobTaskJobRun.Equal(jobRun.Id), 0, nil, func(rec *JobTask, enough *bool) {
+			on_next_task(func() *Ctx {
+				if ctx_sep == nil {
+					ctx_sep = ctx.CopyButWith(-1, false)
+				}
+				return ctx_sep
+			}, rec, enough)
+		})
+		ctx_sep.OnDone(nil)
 	}
 	if final_results != nil {
 		jobRun.Results = final_results()
 	}
 
+	ctx.DbTx()
 	jobType(string(job_def.JobTypeId)).checkTypeJobResults(jobRun.Results)
 	jobRun.state, jobRun.FinishTime, jobRun.DurationFinalizeSecs =
 		yodb.Text(Done), yodb.DtNow(), yodb.F32(time.Since(time_started).Seconds())
@@ -88,7 +98,7 @@ func (me *engine) finalizeDoneJobRun(ctxForCacheReuse *Ctx, jobRun *JobRun) {
 }
 
 func (me *engine) finalizeCancellingJobRuns() {
-	ctx := NewCtxNonHttp(TimeoutLong, false, "")
+	ctx := NewCtxNonHttp(Timeout1Min, false, "")
 	defer ctx.OnDone(nil)
 
 	// no db-tx(s) wanted here by design, as many task cancellations as we can get are fine for us, running on an interval anyway
@@ -101,7 +111,7 @@ func (me *engine) finalizeCancellingJobRuns() {
 }
 
 func (me *engine) startDueJobRuns() {
-	ctx := NewCtxNonHttp(TimeoutLong, false, "")
+	ctx := NewCtxNonHttp(Timeout1Min, false, "")
 	defer ctx.OnDone(nil)
 
 	jobs_due := yodb.FindMany[JobRun](ctx, jobRunState.Equal(Pending).And(JobRunDueTime.LessThan(time.Now())), 0, nil, JobRunDueTime.Asc())
@@ -175,15 +185,15 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 	done = true
 
 	// 3. update job
-	if (num_tasks > 0) || jobDef.StoreAndRunTasklessJobs {
+	if (num_tasks > 0) || jobDef.RunTasklessJobs {
 		jobRun.state, jobRun.StartTime, jobRun.DurationPrepSecs =
 			yodb.Text(Running), yodb.DtNow(), yodb.F32(time.Since(time_started).Seconds())
 		yodb.Update[JobRun](ctx, jobRun, nil, false, JobRunFields(jobRunDetails, jobRunState, JobRunStartTime, JobRunDurationPrepSecs)...)
-	}
+	} // else: just stays pending. eventually, it produces tasks. if never, it just remains with no need to cancel, re-schedule, cancel, re-schedule, etc.
 }
 
 func (me *engine) ensureJobRunSchedules() {
-	ctx := NewCtxNonHttp(TimeoutLong, false, "")
+	ctx := NewCtxNonHttp(Timeout1Min, false, "")
 	defer ctx.OnDone(func() {
 		DoAfter(me.options.IntervalEnsureJobSchedules, me.ensureJobRunSchedules)
 	})
@@ -237,7 +247,7 @@ func (me *engine) scheduleJobRun(ctx *Ctx, jobDef *JobDef, jobRunPrev *JobRun) *
 }
 
 func (me *engine) deleteStorageExpiredJobRuns() {
-	ctx := NewCtxNonHttp(TimeoutLong, false, "")
+	ctx := NewCtxNonHttp(Timeout1Min, false, "")
 	defer ctx.OnDone(func() {
 		DoAfter(me.options.IntervalDeleteStorageExpiredJobs, me.deleteStorageExpiredJobRuns)
 	})
@@ -254,7 +264,7 @@ func (me *engine) deleteStorageExpiredJobRuns() {
 // A died task is one whose runner died between its start and its finishing or orderly timeout.
 // It's found in the DB as still RUNNING despite its timeout moment being over a minute ago:
 func (me *engine) expireOrRetryDeadJobTasks() {
-	ctx := NewCtxNonHttp(TimeoutLong, false, "")
+	ctx := NewCtxNonHttp(Timeout1Min, false, "")
 	defer ctx.OnDone(func() {
 		DoAfter(me.options.IntervalExpireOrRetryDeadTasks, me.expireOrRetryDeadJobTasks)
 	})
@@ -265,7 +275,7 @@ func (me *engine) expireOrRetryDeadJobTasks() {
 	)
 
 	GoItems(sl.Keys(jobs), func(jobDefId yodb.I64) {
-		ctx := ctx.CopyButWith(TimeoutLong, false)
+		ctx := ctx.CopyButWith(-1, false)
 		defer ctx.OnDone(nil)
 		if job_runs := jobs[jobDefId]; len(job_runs) > 0 {
 			job_def := job_runs[0].jobDef(ctx)
@@ -279,7 +289,7 @@ func (me *engine) expireOrRetryDeadJobTasks() {
 }
 
 func (me *engine) expireOrRetryDeadJobTasksForJobDef(ctx *Ctx, jobDef *JobDef, runningJobIds sl.Of[yodb.I64]) {
-	is_jobdef_dead := (jobDef.jobType == nil) || jobDef.Disabled
+	is_jobdef_dead := (jobDef == nil) || (jobDef.jobType == nil) || jobDef.Disabled
 	query_tasks := JobTaskJobRun.In(runningJobIds.ToAnys()...)
 	if is_jobdef_dead { //  the rare edge case: un-Done/un-Cancelled tasks still in DB for old now-disabled-or-deleted-from-config job def
 		query_tasks = query_tasks.And(jobTaskState.In(Running, Pending))
@@ -290,18 +300,20 @@ func (me *engine) expireOrRetryDeadJobTasksForJobDef(ctx *Ctx, jobDef *JobDef, r
 
 	task_updates := map[*JobTask][]q.F{}
 	yodb.Each[JobTask](ctx, query_tasks, 0, nil, func(task *JobTask, enough *bool) {
-		Try(func() {
-			task_upd_fields := JobTaskFields(jobTaskState, JobTaskAttempts, JobTaskStartTime, JobTaskFinishTime)
-			if is_jobdef_dead {
-				task.state = yodb.Text(Cancelled)
-				if (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
-					task.Attempts[0].Err = context.Canceled
-				}
-			} else if (!task.markForRetryOrAsFailed(ctx)) && (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
-				task.Attempts[0].Err = ErrTimedOut
+		task_upd_fields := JobTaskFields(jobTaskState, JobTaskAttempts, JobTaskStartTime, JobTaskFinishTime)
+		if is_jobdef_dead {
+			task.state = yodb.Text(Cancelled)
+			if (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
+				task.Attempts[0].Err = context.Canceled
 			}
+		} else if (!task.markForRetryOrAsFailed(ctx)) && (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
+			task.Attempts[0].Err = ErrTimedOut
+		} else {
+			task_upd_fields = nil
+		}
+		if len(task_upd_fields) > 0 {
 			task_updates[task] = task_upd_fields
-		}, nil)
+		}
 	})
 	for task, task_upd_fields := range task_updates {
 		Try(func() {
@@ -311,7 +323,7 @@ func (me *engine) expireOrRetryDeadJobTasksForJobDef(ctx *Ctx, jobDef *JobDef, r
 }
 
 func (me *engine) runJobTasks() {
-	ctx := NewCtxNonHttp(TimeoutLong, false, "")
+	ctx := NewCtxNonHttp(Timeout1Min, false, "")
 	defer ctx.OnDone(func() {
 		DoAfter(me.options.IntervalRunTasks, me.runJobTasks)
 	})
@@ -326,13 +338,14 @@ func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 	time_started := time.Now()
 	job_run := task.JobRun.Get(ctxForCacheReuse)
 	job_def := job_run.jobDef(ctxForCacheReuse)
-	timeout := me.options.TimeoutShort
+	timeout := Timeout1Min
 	if job_def != nil {
 		timeout = time.Second * time.Duration(job_def.TimeoutSecsTaskRun)
 	}
 	ctx := ctxForCacheReuse.CopyButWith(timeout, true)
 	defer ctx.OnDone(nil)
 	ctx.DbTx()
+
 	// first, attempt to reserve task for running vs. other pods
 	already_canceled := (job_run == nil) || (job_run.State() == Cancelled) || (job_run.State() == JobRunCancelling) ||
 		(job_def == nil) || bool(job_def.Disabled) || (job_def.jobType == nil) ||

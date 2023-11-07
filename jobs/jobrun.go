@@ -95,7 +95,7 @@ func (me *JobRun) TimeoutPrepAndFinalize(ctx *Ctx) time.Duration {
 	if (job_def != nil) && (job_def.TimeoutSecsJobRunPrepAndFinalize > 0) {
 		return time.Second * time.Duration(job_def.TimeoutSecsJobRunPrepAndFinalize)
 	}
-	return TimeoutLong
+	return Timeout1Min
 }
 
 func (me *JobRun) Stats(ctx *Ctx) *JobRunStats {

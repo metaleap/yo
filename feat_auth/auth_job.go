@@ -48,7 +48,7 @@ func (me userPwdReqJobType) JobDetails(ctx *Ctx) yojobs.JobDetails {
 	return nil
 }
 
-func (userPwdReqJobType) JobResults(_ *Ctx) (func(*yojobs.JobTask, *bool), func() yojobs.JobResults) {
+func (userPwdReqJobType) JobResults(_ *Ctx) (func(func() *Ctx, *yojobs.JobTask, *bool), func() yojobs.JobResults) {
 	return nil, nil
 }
 
