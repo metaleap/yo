@@ -9,6 +9,7 @@ import (
 	. "yo/cfg"
 	. "yo/ctx"
 	yolog "yo/log"
+	"yo/util/sl"
 	"yo/util/str"
 
 	"github.com/jackc/pgx/v5"
@@ -52,7 +53,7 @@ func InitAndConnectAndMigrateAndMaybeCodegen() (dbStructs []reflect.Type) {
 
 type dbLogger struct{}
 
-func (dbLogger) Log(ctx context.Context, level tracelog.LogLevel, msg string, data map[string]any) {
+func (dbLogger) Log(ctx context.Context, level tracelog.LogLevel, msg string, data sl.Dict) {
 	yolog.Println("dbPgx: %s %v", msg, data)
 }
 

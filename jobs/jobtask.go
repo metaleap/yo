@@ -9,6 +9,7 @@ import (
 	q "yo/db/query"
 	yojson "yo/json"
 	. "yo/util"
+	"yo/util/sl"
 )
 
 type JobTask struct {
@@ -103,7 +104,7 @@ type TaskAttempt struct {
 }
 
 func (me *TaskAttempt) UnmarshalJSON(json_src []byte) error {
-	obj := map[string]any{}
+	obj := sl.Dict{}
 	yojson.Load(json_src, &obj)
 	str_err, _ := obj["e"].(string)
 	str_dt, _ := obj["t"].(string)
@@ -116,7 +117,7 @@ func (me *TaskAttempt) UnmarshalJSON(json_src []byte) error {
 }
 
 func (me *TaskAttempt) MarshalJSON() ([]byte, error) {
-	obj := map[string]any{"t": me.T}
+	obj := sl.Dict{"t": me.T}
 	if me.Err != nil {
 		obj["e"] = me.Err.Error()
 	}

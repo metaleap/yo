@@ -96,12 +96,12 @@ func init() {
 		}
 
 		for _, rt := range apiReflAllDbStructs {
-			if pkg_path := rt.PkgPath(); str.Begins(pkg_path, "yo/") {
+			if pkg_path := rt.PkgPath(); (pkg_path == "yo") || str.Begins(pkg_path, "yo/") {
 				apiReflYoDbStructs = append(apiReflYoDbStructs, rt)
 			} else if str.Begins(pkg_path, curMainName+"/") {
 				apiReflAppDbStructs = append(apiReflAppDbStructs, rt)
 			} else {
-				panic(rt.String())
+				panic("[" + pkg_path + "]" + rt.String())
 			}
 		}
 
@@ -210,10 +210,10 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 	apiRefl.codeGen.typesUsed, apiRefl.codeGen.typesEmitted = map[string]bool{}, map[string]bool{}
 
 	buf.Write([]byte(codegenEmitTopCommentLine))
-	for ts_const_name, cfg_setting_value := range map[string]any{
+	for ts_const_name, cfg_setting_value := range (sl.Dict{
 		"Cfg_YO_API_IMPL_TIMEOUT_MS": Cfg.YO_API_IMPL_TIMEOUT.Milliseconds(),
 		"Cfg_YO_AUTH_PWD_MIN_LEN":    Cfg.YO_AUTH_PWD_MIN_LEN,
-	} {
+	}) {
 		buf.WriteString("export const " + ts_const_name + " = " + str.GoLike(cfg_setting_value) + "\n")
 	}
 	buf.WriteString("\n// " + yoSdkTsPreludeFileName + " below, more generated code afterwards\n")

@@ -22,8 +22,9 @@ const (
 )
 
 var (
-	DB     *sql.DB
-	OnDone []func(ctx *Ctx, fail any)
+	DB              *sql.DB
+	OnDone          []func(ctx *Ctx, fail any)
+	NotifyErrCaught = func(nowInvalidCtx *Ctx, ctxVals sl.Dict, fail any, errDbRollback error) {}
 )
 
 type apiMethod interface {
@@ -34,7 +35,7 @@ type apiMethod interface {
 type Ctx struct {
 	context.Context
 	ctxDone func()
-	ctxVals map[string]any
+	ctxVals sl.Dict
 	caches  struct {
 		maps map[string]map[any]any
 		muts map[string]*sync.RWMutex
@@ -49,6 +50,7 @@ type Ctx struct {
 	Timings                 Timings
 	TimingsNoPrintInDevMode bool // never printed in non-dev-mode anyway
 	DevModeNoCatch          bool
+	ErrNoNotify             bool
 }
 
 type ctxHttp struct {
@@ -71,7 +73,7 @@ func newCtx(timeout time.Duration, cancelable bool, timingsName string) *Ctx {
 	if IsDevMode && (timeout <= 0) && !cancelable {
 		panic("unsupported Ctx")
 	}
-	me := Ctx{Context: context.Background(), ctxVals: map[string]any{},
+	me := Ctx{Context: context.Background(), ctxVals: sl.Dict{},
 		Timings: NewTimings(timingsName, "init ctx"), TimingsNoPrintInDevMode: (timingsName == "")}
 	me.caches.mut, me.caches.maps, me.caches.muts = new(sync.Mutex), map[string]map[any]any{}, map[string]*sync.RWMutex{}
 	if timeout > 0 {
@@ -122,6 +124,7 @@ func (me *Ctx) OnDone(alsoDo func()) {
 		return
 	}
 	var fail any
+	var err_rollback error
 	if (!IsDevMode) || CatchPanics { // comptime branch
 		if (!IsDevMode) || !me.DevModeNoCatch { // runtime branch, keep sep from above comptime one
 			if fail = recover(); IsDevMode && (fail != nil) {
@@ -142,7 +145,7 @@ func (me *Ctx) OnDone(alsoDo func()) {
 			}
 		}
 		if fail != nil {
-			if err_rollback := me.Db.Tx.Rollback(); IsDevMode && (err_rollback != nil) {
+			if err_rollback = me.Db.Tx.Rollback(); IsDevMode && (err_rollback != nil) {
 				println(str.Fmt(">>TXR>>%v<<TXR<<", err_rollback))
 			}
 		}
@@ -168,6 +171,9 @@ func (me *Ctx) OnDone(alsoDo func()) {
 	}
 	if me.ctxDone != nil {
 		me.ctxDone()
+	}
+	if (!me.ErrNoNotify) && ((fail != nil) || (err_rollback != nil)) {
+		go NotifyErrCaught(me, me.ctxVals, fail, err_rollback)
 	}
 	if IsDevMode && !me.TimingsNoPrintInDevMode {
 		total_duration, steps := me.Timings.AllDone()

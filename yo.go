@@ -30,6 +30,7 @@ func Init(staticFileDirYo fs.FS, staticFileDirApp fs.FS) (listenAndServe func())
 		staticFileDirApp, staticFileDirYo
 
 	yolog.PrintLnLn("DB init...")
+	yodb.Ensure[ErrEntry, ErrEntryField]("", nil, false)
 	db_structs := yodb.InitAndConnectAndMigrateAndMaybeCodegen()
 
 	yolog.PrintLnLn("API init...")
