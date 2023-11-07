@@ -199,7 +199,7 @@ func (me *engine) ensureJobRunSchedules() {
 	})
 
 	cancel_jobs := map[CancellationReason][]*JobRun{}
-	job_defs := yodb.FindMany[JobDef](ctx, q.Not(q.ArrIsEmpty(JobDefSchedules)), 0, nil)
+	job_defs := yodb.FindMany[JobDef](ctx, q.Not(q.ArrIsEmpty(JobDefSchedules)), 0, nil /* keep it all-fields due to JobDef.OnAfterLoaded */)
 	for _, job_def := range job_defs {
 		latest := yodb.FindOne[JobRun](ctx, JobRunJobDef.Equal(job_def.Id).And(JobRunAutoScheduled.Equal(true)), JobRunDueTime.Desc())
 		if (latest != nil) && ((latest.State() == Running) || (latest.State() == JobRunCancelling)) {
@@ -252,7 +252,7 @@ func (me *engine) deleteStorageExpiredJobRuns() {
 		DoAfter(me.options.IntervalDeleteStorageExpiredJobs, me.deleteStorageExpiredJobRuns)
 	})
 
-	job_defs := yodb.FindMany[JobDef](ctx, JobDefDeleteAfterDays.GreaterThan(0), 0, nil)
+	job_defs := yodb.FindMany[JobDef](ctx, JobDefDeleteAfterDays.GreaterThan(0), 0, nil /* keep it all-fields due to JobDef.OnAfterLoaded */)
 	for _, job_def := range job_defs {
 		yodb.Delete[JobRun](ctx, JobRunJobDef.Equal(job_def.Id).
 			And(jobRunState.In(Done, Cancelled)).

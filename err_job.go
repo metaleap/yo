@@ -13,13 +13,11 @@ import (
 	"yo/util/str"
 )
 
-const mailTmplIdErrReports = "mailTmplErrReports"
+const mailTmplIdErrReports = "yo.errReport"
 
-var errJobTypeId string
+var errJobTypeId = yojobs.Register[errJob, Void, errJobResults, Void, Void](func(string) errJob { return errJob{} })
 
 func init() {
-	errJobTypeId = yojobs.Register[errJob, Void, errJobResults, Void, Void](func(string) errJob { return errJob{} })
-
 	var dummy ErrEntry
 	var mail_tmpl_body string
 	ReflWalk(reflect.ValueOf(dummy), nil, true, true, func(path []any, curVal reflect.Value) {
@@ -41,6 +39,7 @@ var errJobDef = yojobs.JobDef{
 	TimeoutSecsJobRunPrepAndFinalize: 44,
 	DeleteAfterDays:                  2,
 	RunTasklessJobs:                  true,
+	Schedules:                        yojobs.ScheduleOncePerMinute, //  yojobs.ScheduleOncePerHour,
 }
 
 func (me errJob) JobDetails(_ *Ctx) yojobs.JobDetails                         { return nil }

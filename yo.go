@@ -50,7 +50,7 @@ func Init(staticFileDirYo fs.FS, staticFileDirApp fs.FS) (listenAndServe func())
 
 		// clean up renamed/removed-from-codebase job types
 		var job_def_ids_to_delete sl.Of[yodb.I64]
-		for _, job_def := range yodb.FindMany[yojobs.JobDef](ctx, nil, 0, yojobs.JobDefFields(yojobs.JobDefId, yojobs.JobDefJobTypeId)) {
+		for _, job_def := range yodb.FindMany[yojobs.JobDef](ctx, nil, 0, nil /* keep it all-fields due to JobDef.OnAfterLoaded */) {
 			if !yojobs.JobTypeExists(job_def.JobTypeId.String()) {
 				job_def_ids_to_delete = append(job_def_ids_to_delete, job_def.Id)
 			}

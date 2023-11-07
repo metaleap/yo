@@ -11,6 +11,8 @@ import (
 )
 
 var ScheduleOncePerMinute = yodb.Arr[yodb.Text]{"* * * * *"}
+var ScheduleOncePerHour = yodb.Arr[yodb.Text]{"22 * * * *"}
+var ScheduleOncePerDay = yodb.Arr[yodb.Text]{"44 2 * * *"}
 
 type JobDef struct {
 	Id     yodb.I64
@@ -80,7 +82,7 @@ var _ yodb.Obj = (*JobDef)(nil)
 func (me *JobDef) OnBeforeStoring(bool) (q.Query, []q.F) { return nil, nil }
 func (me *JobDef) OnAfterLoaded() {
 	if (me.TimeoutSecsTaskRun == 0) && !me.RunTasklessJobs {
-		panic("job def '" + string(me.Name) + "' invalid task-run timeout of " + str.FromInt(int(me.TimeoutSecsTaskRun)))
+		panic("job def '" + string(me.Name) + "' (" + me.JobTypeId.String() + ") invalid task-run timeout of " + str.FromInt(int(me.TimeoutSecsTaskRun)))
 	}
 	if job_type_reg := jobType(string(me.JobTypeId)); (!me.Disabled) && (job_type_reg != nil) {
 		me.jobType = job_type_reg.ById(string(me.JobTypeId))
