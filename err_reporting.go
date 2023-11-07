@@ -83,7 +83,7 @@ func init() {
 			similar_enough.StackTrace = If(err_entry.StackTrace == "", similar_enough.StackTrace, err_entry.StackTrace)
 			similar_enough.Err = If(err_entry.Err == "", similar_enough.Err, err_entry.Err)
 			yodb.Update[ErrEntry](ctx, similar_enough, nil, false)
-		} // else: no-op we can really stop logging any more of this...
+		} // else: no-op. we can really stop logging any more of this...
 	}
 }
 
