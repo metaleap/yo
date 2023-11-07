@@ -9,13 +9,13 @@ import (
 	"yo/util/str"
 )
 
-var JobTypeId = yojobs.Register[mailReqJob, Void, Void, mailReqTaskDetails, mailReqTaskResults](func(string) mailReqJob {
+var jobTypeId = yojobs.Register[mailReqJob, Void, Void, mailReqTaskDetails, mailReqTaskResults](func(string) mailReqJob {
 	return mailReqJob{}
 })
 
 var MailReqJobDef = yojobs.JobDef{
-	Name:                             yodb.Text(ReflType[mailReqJob]().String()),
-	JobTypeId:                        yodb.Text(JobTypeId),
+	Name:                             yodb.Text(jobTypeId),
+	JobTypeId:                        yodb.Text(jobTypeId),
 	Schedules:                        yojobs.ScheduleOncePerMinute,
 	TimeoutSecsTaskRun:               22,
 	TimeoutSecsJobRunPrepAndFinalize: 11,

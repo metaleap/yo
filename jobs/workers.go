@@ -295,7 +295,7 @@ func (me *engine) expireOrRetryDeadJobTasksForJobDef(ctx *Ctx, jobDef *JobDef, r
 		query_tasks = query_tasks.And(jobTaskState.In(Running, Pending))
 	} else { // the usual case.
 		query_tasks = query_tasks.And(jobTaskState.Equal(Running)).And(
-			JobTaskStartTime.LessThan(time.Now().Add(-(time.Minute + (time.Second * time.Duration(jobDef.TimeoutSecsTaskRun))))))
+			JobTaskStartTime.LessThan(time.Now().Add(-(time.Minute + (time.Second * time.Duration(If(jobDef.TimeoutSecsTaskRun == 0, yodb.U32(Timeout1Min.Seconds()), jobDef.TimeoutSecsTaskRun)))))))
 	}
 
 	task_updates := map[*JobTask][]q.F{}
@@ -339,7 +339,7 @@ func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 	job_run := task.JobRun.Get(ctxForCacheReuse)
 	job_def := job_run.jobDef(ctxForCacheReuse)
 	timeout := Timeout1Min
-	if job_def != nil {
+	if (job_def != nil) && (job_def.TimeoutSecsTaskRun != 0) {
 		timeout = time.Second * time.Duration(job_def.TimeoutSecsTaskRun)
 	}
 	ctx := ctxForCacheReuse.CopyButWith(timeout, true)

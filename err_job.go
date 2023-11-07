@@ -15,8 +15,10 @@ import (
 
 const mailTmplIdErrReports = "mailTmplErrReports"
 
+var errJobTypeId string
+
 func init() {
-	yojobs.Register[errJob, Void, errJobResults, Void, Void](func(string) errJob { return errJob{} })
+	errJobTypeId = yojobs.Register[errJob, Void, errJobResults, Void, Void](func(string) errJob { return errJob{} })
 
 	var dummy ErrEntry
 	var mail_tmpl_body string
@@ -33,18 +35,19 @@ func init() {
 type errJob Void
 type errJobResults struct{ MailReqIds []yodb.I64 }
 
-func (me errJob) JobDetails(ctx *Ctx) yojobs.JobDetails {
-	return nil
+var errJobDef = yojobs.JobDef{
+	Name:                             yodb.Text(errJobTypeId),
+	JobTypeId:                        yodb.Text(errJobTypeId),
+	TimeoutSecsJobRunPrepAndFinalize: 44,
+	DeleteAfterDays:                  2,
+	RunTasklessJobs:                  true,
 }
 
-func (errJob) TaskDetails(ctx *Ctx, stream func([]yojobs.TaskDetails)) {
-}
+func (me errJob) JobDetails(_ *Ctx) yojobs.JobDetails                         { return nil }
+func (errJob) TaskDetails(_ *Ctx, _ func([]yojobs.TaskDetails))               {}
+func (me errJob) TaskResults(_ *Ctx, _ yojobs.TaskDetails) yojobs.TaskResults { return nil }
 
-func (me errJob) TaskResults(ctx *Ctx, task yojobs.TaskDetails) yojobs.TaskResults {
-	return nil
-}
-
-func (errJob) JobResults(ctx *Ctx) (stream func(func() *Ctx, *yojobs.JobTask, *bool), results func() yojobs.JobResults) {
+func (errJob) JobResults(ctx *Ctx) (func(func() *Ctx, *yojobs.JobTask, *bool), func() yojobs.JobResults) {
 	return nil, func() yojobs.JobResults {
 		var results errJobResults
 		errs_to_report := yodb.FindMany[ErrEntry](ctx, nil, 11, nil, ErrEntryDtMod.Desc())

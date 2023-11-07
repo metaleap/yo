@@ -79,7 +79,7 @@ var _ yodb.Obj = (*JobDef)(nil)
 
 func (me *JobDef) OnBeforeStoring(bool) (q.Query, []q.F) { return nil, nil }
 func (me *JobDef) OnAfterLoaded() {
-	if me.TimeoutSecsTaskRun <= 0 {
+	if (me.TimeoutSecsTaskRun == 0) && !me.RunTasklessJobs {
 		panic("job def '" + string(me.Name) + "' invalid task-run timeout of " + str.FromInt(int(me.TimeoutSecsTaskRun)))
 	}
 	if job_type_reg := jobType(string(me.JobTypeId)); (!me.Disabled) && (job_type_reg != nil) {

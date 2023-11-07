@@ -134,6 +134,11 @@ func jobType(id string) (ret *jobTypeReg) {
 	return
 }
 
+func JobTypeExists(id string) (ret bool) {
+	_, ret = registeredJobTypes[id]
+	return
+}
+
 func jobTypeCheckType[TImpl jobTypeDefined](objToCheck jobTypeDefined) {
 	if IsDevMode {
 		if _, ok := objToCheck.(*TImpl); (!ok) && (objToCheck != nil) {

@@ -25,13 +25,13 @@ const ( // change those only together with the tmpls in `init`
 
 var AppSideTmplPopulate func(ctx *Ctx, reqTime *yodb.DateTime, emailAddr yodb.Text, existingMaybe *UserAuth, tmplArgsToPopulate yodb.JsonMap[string])
 
-var JobTypeId = yojobs.Register[userPwdReqJobType, Void, Void, userPwdReqTaskDetails, userPwdReqTaskResults](func(string) userPwdReqJobType {
-	return userPwdReqJobType{}
+var jobTypeId = yojobs.Register[userPwdReqJob, Void, Void, userPwdReqTaskDetails, userPwdReqTaskResults](func(string) userPwdReqJob {
+	return userPwdReqJob{}
 })
 
 var UserPwdReqJobDef = yojobs.JobDef{
-	Name:                             yodb.Text(ReflType[userPwdReqJobType]().String()),
-	JobTypeId:                        yodb.Text(JobTypeId),
+	Name:                             yodb.Text(jobTypeId),
+	JobTypeId:                        yodb.Text(jobTypeId),
 	Schedules:                        yojobs.ScheduleOncePerMinute,
 	TimeoutSecsTaskRun:               11,
 	TimeoutSecsJobRunPrepAndFinalize: 11,
@@ -42,23 +42,23 @@ var UserPwdReqJobDef = yojobs.JobDef{
 
 type userPwdReqTaskDetails struct{ ReqId yodb.I64 }
 type userPwdReqTaskResults struct{ MailReqId yodb.I64 }
-type userPwdReqJobType Void
+type userPwdReqJob Void
 
-func (me userPwdReqJobType) JobDetails(ctx *Ctx) yojobs.JobDetails {
+func (me userPwdReqJob) JobDetails(ctx *Ctx) yojobs.JobDetails {
 	return nil
 }
 
-func (userPwdReqJobType) JobResults(_ *Ctx) (func(func() *Ctx, *yojobs.JobTask, *bool), func() yojobs.JobResults) {
+func (userPwdReqJob) JobResults(_ *Ctx) (func(func() *Ctx, *yojobs.JobTask, *bool), func() yojobs.JobResults) {
 	return nil, nil
 }
 
-func (userPwdReqJobType) TaskDetails(ctx *Ctx, stream func([]yojobs.TaskDetails)) {
+func (userPwdReqJob) TaskDetails(ctx *Ctx, stream func([]yojobs.TaskDetails)) {
 	reqs := yodb.FindMany[UserPwdReq](ctx, UserPwdReqDoneMailReqId.Equal(nil), 0, nil)
 	stream(sl.To(reqs,
 		func(it *UserPwdReq) yojobs.TaskDetails { return &userPwdReqTaskDetails{ReqId: it.Id} }))
 }
 
-func (me userPwdReqJobType) TaskResults(ctx *Ctx, task yojobs.TaskDetails) yojobs.TaskResults {
+func (me userPwdReqJob) TaskResults(ctx *Ctx, task yojobs.TaskDetails) yojobs.TaskResults {
 	task_details, ret := task.(*userPwdReqTaskDetails), &userPwdReqTaskResults{}
 
 	if req := yodb.FindOne[UserPwdReq](ctx, UserPwdReqId.Equal(task_details.ReqId)); req != nil {
