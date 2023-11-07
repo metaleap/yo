@@ -261,6 +261,13 @@ func Repeat[TItem any](howMany int, item TItem) []TItem {
 	return ret
 }
 
+func TrimLen[TSlice ~[]TItem, TItem any](slice TSlice, maxLen int) TSlice {
+	if len(slice) > maxLen {
+		return slice[:maxLen]
+	}
+	return slice
+}
+
 func ToPtrs[TSlice ~[]TItem, TItem any](slice TSlice) (ret []*TItem) {
 	ret = make([]*TItem, len(slice))
 	for i := range slice {

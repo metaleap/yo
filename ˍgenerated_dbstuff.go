@@ -15,6 +15,7 @@ const (
 	ErrEntryDtMod         ErrEntryField = "DtMod"
 	ErrEntryErr           ErrEntryField = "Err"
 	ErrEntryErrDbRollback ErrEntryField = "ErrDbRollback"
+	ErrEntryStackTrace    ErrEntryField = "StackTrace"
 	ErrEntryCtxVals       ErrEntryField = "CtxVals"
 	ErrEntryHttpUrlPath   ErrEntryField = "HttpUrlPath"
 	ErrEntryHttpFullUri   ErrEntryField = "HttpFullUri"

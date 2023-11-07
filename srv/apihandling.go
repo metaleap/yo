@@ -279,6 +279,7 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 			return
 		}
 	}
+	ctx.Set("diagHttpReqBody", string(sl.TrimLen(payload_data, 1024*1024)))
 
 	ctx.Timings.Step("parse req")
 	payload, err := api_method.loadPayload(payload_data)
