@@ -386,7 +386,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
 
         let time_started: number
         const on_done = () => {
-            const duration_ms = new Date().getTime() - time_started
+            const duration_ms = Date.now() - time_started
             document.title = `${duration_ms}ms`
             state_email_addr.val = getCurUser() || state_email_addr_default
         }
@@ -396,7 +396,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
             refreshAutoCompletes()
         }
         try {
-            time_started = new Date().getTime()
+            time_started = Date.now()
             const result = await yoReq(method_path, payload, undef, query_string)
             on_done()
             if (!is_validate_failed)
@@ -417,7 +417,7 @@ export function onInit(parent: HTMLElement, apiRefl: YoReflApis, yoReq: (methodP
         dialog.showModal()
     }
 
-    const now = new Date().getTime().toString()
+    const now = Date.now().toString()
     van.add(parent,
         html.div({},
             select_method = html.select({ 'autofocus': true, 'onchange': (evt: UIEvent) => buildApiMethodGui() },
@@ -605,7 +605,7 @@ function historyCleanUp(apiRefl: YoReflApis, newDueToStoreMethodPath?: string, n
 
 function historyStore(apiRefl: YoReflApis, methodPath: string, payload: object, queryString?: object) {
     const entry: HistoryEntry = {
-        dateTime: new Date().getTime(),
+        dateTime: Date.now(),
         payload: payload,
         queryString: queryString
     }

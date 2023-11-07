@@ -1,7 +1,5 @@
 const none = void 0
 
-export function dtNow() { return new Date().getTime() }
-
 export function fEq(a: number, b: number): boolean {
     return (isNaN(a) || isNaN(b))
         ? (isNaN(a) && isNaN(b))
