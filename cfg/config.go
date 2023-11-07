@@ -24,12 +24,13 @@ var Cfg struct {
 	YO_AUTH_PWD_MIN_LEN     int
 	YO_AUTH_PWD_MAX_LEN     int
 
-	YO_MAIL_SMTP_HOST     string
-	YO_MAIL_SMTP_PORT     int
-	YO_MAIL_SMTP_USERNAME string
-	YO_MAIL_SMTP_PASSWORD string
-	YO_MAIL_SMTP_SENDER   string
-	YO_MAIL_SMTP_TIMEOUT  time.Duration
+	YO_MAIL_SMTP_HOST      string
+	YO_MAIL_SMTP_PORT      int
+	YO_MAIL_SMTP_USERNAME  string
+	YO_MAIL_SMTP_PASSWORD  string
+	YO_MAIL_SMTP_SENDER    string
+	YO_MAIL_SMTP_TIMEOUT   time.Duration
+	YO_MAIL_ERR_LOG_FWD_TO string
 
 	DB_REQ_TIMEOUT time.Duration
 	DATABASE_URL   string
