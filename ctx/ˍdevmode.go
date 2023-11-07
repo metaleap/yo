@@ -2,4 +2,4 @@
 
 package yoctx
 
-const CatchPanics = true
+const CatchPanics = false

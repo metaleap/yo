@@ -293,7 +293,7 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 		if it.Kind() == reflect.String {
 			ReflSet(it, str.Trim(ReflGet[string](it)))
 		}
-	})
+	}, nil)
 
 	ctx.Timings.Step("validate req")
 	failed_condition, err_validation := api_method.validatePayload(payload)

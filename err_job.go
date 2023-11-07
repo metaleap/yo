@@ -2,6 +2,7 @@ package yo
 
 import (
 	"reflect"
+	"time"
 
 	. "yo/cfg"
 	. "yo/ctx"
@@ -23,7 +24,7 @@ func init() {
 	ReflWalk(reflect.ValueOf(dummy), nil, true, true, func(path []any, curVal reflect.Value) {
 		field_name := str.Fmt("%s", path[0])
 		mail_tmpl_body += field_name + ": {" + field_name + "}\n\n"
-	})
+	}, errJobReflWalkDontTraverseBut)
 	yomail.Templates[mailTmplIdErrReports] = &yomail.Templ{
 		Subject: "bug report: {Err} / {ErrDbRollback}",
 		Body:    str.Trim(mail_tmpl_body),
@@ -50,13 +51,13 @@ func (errJob) JobResults(ctx *Ctx) (func(func() *Ctx, *yojobs.JobTask, *bool), f
 	return nil, func() yojobs.JobResults {
 		var results errJobResults
 		errs_to_report := yodb.FindMany[ErrEntry](ctx, nil, 11, nil, ErrEntryDtMod.Desc())
-		var err_ids_to_delete []yodb.I64
+		var err_ids_to_delete sl.Of[yodb.I64]
 		for _, err_entry := range errs_to_report {
 			tmpl_args := yodb.JsonMap[string]{}
 			ReflWalk(reflect.ValueOf(*err_entry), nil, true, true, func(path []any, curVal reflect.Value) {
 				field_name := str.Fmt("%s", path[0])
 				tmpl_args[field_name] = str.FmtV(curVal.Interface())
-			})
+			}, errJobReflWalkDontTraverseBut)
 			if mail_req_id := yomail.CreateMailReq(ctx, &yomail.MailReq{
 				TmplId:   mailTmplIdErrReports,
 				TmplArgs: tmpl_args,
@@ -67,8 +68,26 @@ func (errJob) JobResults(ctx *Ctx) (func(func() *Ctx, *yojobs.JobTask, *bool), f
 			}
 		}
 		if len(err_ids_to_delete) > 0 {
-			yodb.Delete[ErrEntry](ctx, ErrEntryId.In(err_ids_to_delete))
+			yodb.Delete[ErrEntry](ctx, ErrEntryId.In(err_ids_to_delete.ToAnys()...))
 		}
 		return &results
 	}
+}
+
+func errJobReflWalkDontTraverseBut(fieldName string, inStruct reflect.Value) any {
+	var dt **yodb.DateTime
+	switch {
+	case fieldName == string(ErrEntryDtMade):
+		dt = ToPtr(inStruct.Interface().(ErrEntry).DtMade)
+	case fieldName == string(ErrEntryDtMod):
+		dt = ToPtr(inStruct.Interface().(ErrEntry).DtMod)
+	}
+	if dt != nil {
+		if (*dt) == nil {
+			return "<nil>"
+		} else {
+			return (*dt).Time().Format(time.RFC3339)
+		}
+	}
+	return nil
 }
