@@ -17,7 +17,6 @@ var Templates = map[string]*Templ{}
 type Templ struct {
 	Subject string
 	Body    string
-	Vars    []string
 }
 
 func init() {

@@ -289,7 +289,7 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	}
 
 	ctx.Timings.Step("sani payload")
-	ReflWalk(reflect.ValueOf(payload), nil, true, func(path []any, it reflect.Value) {
+	ReflWalk(reflect.ValueOf(payload), nil, true, true, func(path []any, it reflect.Value) {
 		if it.Kind() == reflect.String {
 			ReflSet(it, str.Trim(ReflGet[string](it)))
 		}

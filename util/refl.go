@@ -73,7 +73,7 @@ func ReflSet[T any](dst reflect.Value, to T) {
 	setPtr(dst.UnsafeAddr(), to)
 }
 
-func ReflWalk(rv reflect.Value, path []any, skipMaps bool, onValue func(path []any, curVal reflect.Value)) {
+func ReflWalk(rv reflect.Value, path []any, skipArrTraversals bool, skipMapTraversals bool, onValue func(path []any, curVal reflect.Value)) {
 	rv_kind := rv.Kind()
 	if (rv_kind == reflect.Invalid) || !rv.IsValid() {
 		return
@@ -85,20 +85,26 @@ func ReflWalk(rv reflect.Value, path []any, skipMaps bool, onValue func(path []a
 		reflect.Int, reflect.Uint, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		onValue(path, rv)
 	case reflect.Pointer, reflect.Interface:
-		ReflWalk(rv.Elem(), append(path, "*"), skipMaps, onValue)
+		ReflWalk(rv.Elem(), append(path, "*"), skipArrTraversals, skipMapTraversals, onValue)
 	case reflect.Slice, reflect.Array:
-		for l, i := rv.Len(), 0; i < l; i++ {
-			ReflWalk(rv.Index(i), append(path, i), skipMaps, onValue)
+		if skipArrTraversals {
+			onValue(path, rv)
+		} else {
+			for l, i := rv.Len(), 0; i < l; i++ {
+				ReflWalk(rv.Index(i), append(path, i), skipArrTraversals, skipMapTraversals, onValue)
+			}
 		}
 	case reflect.Map:
-		if !skipMaps {
+		if skipMapTraversals {
+			onValue(path, rv)
+		} else {
 			for map_range := rv.MapRange(); map_range.Next(); {
-				ReflWalk(map_range.Value(), append(path, map_range.Key().Interface()), skipMaps, onValue)
+				ReflWalk(map_range.Value(), append(path, map_range.Key().Interface()), skipArrTraversals, skipMapTraversals, onValue)
 			}
 		}
 	case reflect.Struct:
 		for l, i := rv.NumField(), 0; i < l; i++ {
-			ReflWalk(rv.Field(i), append(path, rv.Type().Field(i).Name), skipMaps, onValue)
+			ReflWalk(rv.Field(i), append(path, rv.Type().Field(i).Name), skipArrTraversals, skipMapTraversals, onValue)
 		}
 	default:
 		panic("unhandled reflect.Kind at " + str.GoLike(path) + ": " + rv_kind.String())

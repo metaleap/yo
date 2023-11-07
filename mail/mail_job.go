@@ -19,7 +19,7 @@ var MailReqJobDef = yojobs.JobDef{
 	Schedules:                        yojobs.ScheduleOncePerMinute,
 	TimeoutSecsTaskRun:               22,
 	TimeoutSecsJobRunPrepAndFinalize: 11,
-	Disabled:                         false,
+	Disabled:                         IsDevMode,
 	DeleteAfterDays:                  11,
 	MaxTaskRetries:                   123,
 }
