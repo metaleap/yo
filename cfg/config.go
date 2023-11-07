@@ -50,10 +50,12 @@ func init() {
 	// Setenv from .env file if any
 	if env_file_data := bytes.TrimSpace(ReadFile(".env")); len(env_file_data) > 0 {
 		for i, lines := 0, str.Split(string(env_file_data), "\n"); i < len(lines); i++ {
-			if name, val, ok := str.Cut(lines[i], "="); !ok {
-				panic(lines[i])
-			} else if os.Getenv(name) == "" {
-				envFile[name] = val
+			if line := str.Trim(lines[i]); line != "" {
+				if name, val, ok := str.Cut(line, "="); !ok {
+					panic(line)
+				} else if os.Getenv(name) == "" {
+					envFile[name] = val
+				}
 			}
 		}
 	}

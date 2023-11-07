@@ -107,9 +107,6 @@ func (me *Ctx) WithJob(jobRunId int64, jobRunDetails any, jobTaskId int64) *Ctx 
 func (me *Ctx) CopyButWith(timeout time.Duration, cancelable bool) *Ctx {
 	ret := *me
 	ret.Db.Tx, ret.Context, ret.ctxDone = nil, context.Background(), nil
-	if IsDevMode && (timeout <= 0) && !cancelable {
-		panic("unsupported Ctx")
-	}
 	if timeout > 0 {
 		ret.Context, ret.ctxDone = context.WithTimeout(ret.Context, timeout)
 	} else if dt_deadline, has := me.Context.Deadline(); has && (timeout < 0) {
@@ -117,6 +114,8 @@ func (me *Ctx) CopyButWith(timeout time.Duration, cancelable bool) *Ctx {
 	}
 	if cancelable {
 		ret.Context, ret.ctxDone = context.WithCancel(ret.Context)
+	} else if _, has_deadline := ret.Context.Deadline(); !has_deadline {
+		panic("unsupported Ctx")
 	}
 	return &ret
 }

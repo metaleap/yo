@@ -19,6 +19,8 @@ const (
 	ErrEntryHttpUrlPath   ErrEntryField = "HttpUrlPath"
 	ErrEntryHttpFullUri   ErrEntryField = "HttpFullUri"
 	ErrEntryNumCaught     ErrEntryField = "NumCaught"
+	ErrEntryJobRunId      ErrEntryField = "JobRunId"
+	ErrEntryJobTaskId     ErrEntryField = "JobTaskId"
 )
 
 func (me ErrEntryField) ArrLen(a1 ...interface{}) q.Operand { return ((q.F)(me)).ArrLen(a1...) }

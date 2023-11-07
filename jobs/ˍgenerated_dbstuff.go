@@ -22,7 +22,7 @@ const (
 	JobDefTimeoutSecsJobRunPrepAndFinalize JobDefField = "TimeoutSecsJobRunPrepAndFinalize"
 	JobDefMaxTaskRetries                   JobDefField = "MaxTaskRetries"
 	JobDefDeleteAfterDays                  JobDefField = "DeleteAfterDays"
-	JobDefStoreAndRunTasklessJobs          JobDefField = "StoreAndRunTasklessJobs"
+	JobDefRunTasklessJobs                  JobDefField = "RunTasklessJobs"
 )
 
 func (me JobDefField) ArrLen(a1 ...interface{}) q.Operand { return ((q.F)(me)).ArrLen(a1...) }
@@ -79,7 +79,7 @@ const (
 	JobRunJobDef_TimeoutSecsJobRunPrepAndFinalize JobRunField = "JobDef.TimeoutSecsJobRunPrepAndFinalize"
 	JobRunJobDef_MaxTaskRetries                   JobRunField = "JobDef.MaxTaskRetries"
 	JobRunJobDef_DeleteAfterDays                  JobRunField = "JobDef.DeleteAfterDays"
-	JobRunJobDef_StoreAndRunTasklessJobs          JobRunField = "JobDef.StoreAndRunTasklessJobs"
+	JobRunJobDef_RunTasklessJobs                  JobRunField = "JobDef.RunTasklessJobs"
 	JobRunScheduledNextAfter_Id                   JobRunField = "ScheduledNextAfter.Id"
 	JobRunScheduledNextAfter_DtMade               JobRunField = "ScheduledNextAfter.DtMade"
 	JobRunScheduledNextAfter_DtMod                JobRunField = "ScheduledNextAfter.DtMod"
