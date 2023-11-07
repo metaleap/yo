@@ -39,7 +39,7 @@ type JobType interface {
 	// In the manual case, they may or may not be equal, depending on the `CreateJobRun` call.
 	// In either case only the *returned* `JobDetails` are stored (and later passed to the below methods).
 	// Both `ctx.JobDetails` and the return value are of type *TJobDetails (that this `JobType` was `Register`ed with).
-	JobDetails(ctx *Context) JobDetails
+	JobDetails(ctx *Ctx) JobDetails
 
 	// TaskDetails is called when setting a `JobRun` from `PENDING` to `RUNNING`.
 	// This method prepares all the tasks for this job as `TaskDetails` and sends them over `stream`.
@@ -49,14 +49,14 @@ type JobType interface {
 	// Each batch/slice sent equates to a DB save-multiple call (but all of them in 1 transaction).
 	// The `TaskDetails` you are sending are of type *TTaskDetails (that this `JobType` was `Register`ed with).
 	// The `ctx.JobDetails` are of type *TJobDetails (that this `JobType` was `Register`ed with).
-	TaskDetails(ctx *Context, stream func([]TaskDetails))
+	TaskDetails(ctx *Ctx, stream func([]TaskDetails))
 
 	// TaskResults is called after a `JobTask` has been successfully set from `PENDING` to `RUNNING`.
 	// It implements the actual execution of a Task previously prepared in this `JobType`'s `TaskDetails` method.
 	// The `taskDetails` are of type *TTaskDetails (that this `JobType` was `Register`ed with).
 	// The `ctx.JobDetails` are of type *TJobDetails (that this `JobType` was `Register`ed with).
 	// The `TaskResults` returned are of type *TTaskResults (that this `JobType` was `Register`ed with).
-	TaskResults(ctx *Context, taskDetails TaskDetails) TaskResults
+	TaskResults(ctx *Ctx, taskDetails TaskDetails) TaskResults
 
 	// JobResults is called when setting a job from `RUNNING` to `DONE`.
 	// All `JobTask`s of the job are coming in over `stream()`, which can be `nil` if none are needed.
@@ -67,15 +67,7 @@ type JobType interface {
 	// The `results()` returned are of type *TJobResults (that this `JobType` was `Register`ed with).
 	// All `stream().Details` are of type *TTaskDetails (that this `JobType` was `Register`ed with).
 	// All `stream().Results` are of type *TTaskResults (that this `JobType` was `Register`ed with).
-	JobResults(ctx *Context) (stream func(*JobTask, *bool), results func() JobResults)
-}
-
-type Context struct {
-	*Ctx
-	JobRunId   yodb.I64
-	JobDetails JobDetails
-	JobDef     JobDef
-	JobTaskId  yodb.I64
+	JobResults(ctx *Ctx) (stream func(*JobTask, *bool), results func() JobResults)
 }
 
 type jobTypeReg struct {

@@ -1,6 +1,7 @@
 package yomail
 
 import (
+	. "yo/ctx"
 	yodb "yo/db"
 	yojobs "yo/jobs"
 	. "yo/util"
@@ -28,24 +29,24 @@ type mailReqTaskResults Void
 
 type mailReqJob Void
 
-func (me mailReqJob) JobDetails(ctx *yojobs.Context) yojobs.JobDetails {
+func (me mailReqJob) JobDetails(ctx *Ctx) yojobs.JobDetails {
 	return nil
 }
 
-func (mailReqJob) JobResults(_ *yojobs.Context) (func(*yojobs.JobTask, *bool), func() yojobs.JobResults) {
+func (mailReqJob) JobResults(_ *Ctx) (func(*yojobs.JobTask, *bool), func() yojobs.JobResults) {
 	return nil, nil
 }
 
-func (mailReqJob) TaskDetails(ctx *yojobs.Context, stream func([]yojobs.TaskDetails)) {
-	reqs := yodb.FindMany[MailReq](ctx.Ctx, mailReqDtDone.Equal(nil), 0, nil)
+func (mailReqJob) TaskDetails(ctx *Ctx, stream func([]yojobs.TaskDetails)) {
+	reqs := yodb.FindMany[MailReq](ctx, mailReqDtDone.Equal(nil), 0, nil)
 	stream(sl.To(reqs,
 		func(it *MailReq) yojobs.TaskDetails { return &mailReqTaskDetails{ReqId: it.Id} }))
 }
 
-func (me mailReqJob) TaskResults(ctx *yojobs.Context, task yojobs.TaskDetails) yojobs.TaskResults {
+func (me mailReqJob) TaskResults(ctx *Ctx, task yojobs.TaskDetails) yojobs.TaskResults {
 	task_details := task.(*mailReqTaskDetails)
 
-	if req := yodb.FindOne[MailReq](ctx.Ctx, MailReqId.Equal(task_details.ReqId)); req != nil {
+	if req := yodb.FindOne[MailReq](ctx, MailReqId.Equal(task_details.ReqId)); req != nil {
 		templ := Templates[string(req.TmplId)]
 		if templ == nil {
 			panic("no such template: '" + req.TmplId + "'")
@@ -54,7 +55,7 @@ func (me mailReqJob) TaskResults(ctx *yojobs.Context, task yojobs.TaskDetails) y
 		err := sendMailViaSmtp(req.MailTo, yodb.Text(templ.Subject), msg)
 		if err == nil {
 			req.dtDone = yodb.DtNow()
-			yodb.Update[MailReq](ctx.Ctx, req, nil, false, MailReqFields(mailReqDtDone)...)
+			yodb.Update[MailReq](ctx, req, nil, false, MailReqFields(mailReqDtDone)...)
 		} else {
 			panic(err)
 		}

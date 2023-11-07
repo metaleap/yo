@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"time"
 
+	. "yo/ctx"
 	yodb "yo/db"
 	. "yo/util"
 	"yo/util/str"
@@ -53,11 +54,11 @@ func (ExampleJobType) dice() byte {
 	return b[0]
 }
 
-func (me ExampleJobType) JobDetails(ctx *Context) JobDetails {
+func (me ExampleJobType) JobDetails(ctx *Ctx) JobDetails {
 	return &exampleJobDetails{MsgFmt: If(((me.dice() % 2) == 0), "<<<<<IT WAS %s JUST %s AGO", ">>>>>IT WAS %s JUST %s AGO")}
 }
 
-func (ExampleJobType) TaskDetails(_ *Context, stream func([]TaskDetails)) {
+func (ExampleJobType) TaskDetails(_ *Ctx, stream func([]TaskDetails)) {
 	stream([]TaskDetails{&exampleTaskDetails{Time: time.Now()}})
 	stream([]TaskDetails{
 		&exampleTaskDetails{Time: time.Now().Add(-365 * 24 * time.Hour)},
@@ -65,8 +66,8 @@ func (ExampleJobType) TaskDetails(_ *Context, stream func([]TaskDetails)) {
 	})
 }
 
-func (me ExampleJobType) TaskResults(ctx *Context, task TaskDetails) TaskResults {
-	msg := ctx.JobDetails.(*exampleJobDetails).MsgFmt
+func (me ExampleJobType) TaskResults(ctx *Ctx, task TaskDetails) TaskResults {
+	msg := ctx.Job.Details.(*exampleJobDetails).MsgFmt
 	t := task.(*exampleTaskDetails).Time
 	if d := me.dice(); (d % 11) == 0 {
 		panic(str.Fmt("artificially provoked random error due to dice throw %d", d))
@@ -75,7 +76,7 @@ func (me ExampleJobType) TaskResults(ctx *Context, task TaskDetails) TaskResults
 	return &exampleTaskResults{NumLoggingsDone: 1}
 }
 
-func (ExampleJobType) JobResults(_ *Context) (stream func(*JobTask, *bool), results func() JobResults) {
+func (ExampleJobType) JobResults(_ *Ctx) (stream func(*JobTask, *bool), results func() JobResults) {
 	var num int
 	stream = func(task *JobTask, abort *bool) {
 		num += task.Results.(*exampleTaskResults).NumLoggingsDone

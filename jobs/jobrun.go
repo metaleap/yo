@@ -62,8 +62,8 @@ func (me *JobRun) CancellationReason() CancellationReason {
 	return CancellationReason(me.cancellationReason)
 }
 
-func (me *JobRun) ctx(ctx *Ctx, taskId yodb.I64) *Context {
-	return &Context{Ctx: ctx, JobRunId: me.Id, JobDetails: me.Details, JobDef: *me.JobDef.Get(ctx), JobTaskId: taskId}
+func (me *JobRun) ctx(ctx *Ctx, taskId yodb.I64) *Ctx {
+	return ctx.WithJob(int64(me.Id), me.Details, int64(taskId))
 }
 
 type JobRunStats struct {

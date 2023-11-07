@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/rand"
 
+	. "yo/ctx"
 	yodb "yo/db"
 	yojobs "yo/jobs"
 	yomail "yo/mail"
@@ -22,7 +23,7 @@ const ( // change those only together with the tmpls in `init`
 	MailTmplVarTmpPwd    = "pwd_tmp"
 )
 
-var AppSideTmplPopulate func(ctx *yojobs.Context, reqTime *yodb.DateTime, emailAddr yodb.Text, existingMaybe *UserAuth, tmplArgsToPopulate yodb.JsonMap[string])
+var AppSideTmplPopulate func(ctx *Ctx, reqTime *yodb.DateTime, emailAddr yodb.Text, existingMaybe *UserAuth, tmplArgsToPopulate yodb.JsonMap[string])
 
 var JobTypeId = yojobs.Register[userPwdReqJobType, Void, Void, userPwdReqTaskDetails, userPwdReqTaskResults](func(string) userPwdReqJobType {
 	return userPwdReqJobType{}
@@ -43,25 +44,25 @@ type userPwdReqTaskDetails struct{ ReqId yodb.I64 }
 type userPwdReqTaskResults struct{ MailReqId yodb.I64 }
 type userPwdReqJobType Void
 
-func (me userPwdReqJobType) JobDetails(ctx *yojobs.Context) yojobs.JobDetails {
+func (me userPwdReqJobType) JobDetails(ctx *Ctx) yojobs.JobDetails {
 	return nil
 }
 
-func (userPwdReqJobType) JobResults(_ *yojobs.Context) (func(*yojobs.JobTask, *bool), func() yojobs.JobResults) {
+func (userPwdReqJobType) JobResults(_ *Ctx) (func(*yojobs.JobTask, *bool), func() yojobs.JobResults) {
 	return nil, nil
 }
 
-func (userPwdReqJobType) TaskDetails(ctx *yojobs.Context, stream func([]yojobs.TaskDetails)) {
-	reqs := yodb.FindMany[UserPwdReq](ctx.Ctx, UserPwdReqDoneMailReqId.Equal(nil), 0, nil)
+func (userPwdReqJobType) TaskDetails(ctx *Ctx, stream func([]yojobs.TaskDetails)) {
+	reqs := yodb.FindMany[UserPwdReq](ctx, UserPwdReqDoneMailReqId.Equal(nil), 0, nil)
 	stream(sl.To(reqs,
 		func(it *UserPwdReq) yojobs.TaskDetails { return &userPwdReqTaskDetails{ReqId: it.Id} }))
 }
 
-func (me userPwdReqJobType) TaskResults(ctx *yojobs.Context, task yojobs.TaskDetails) yojobs.TaskResults {
+func (me userPwdReqJobType) TaskResults(ctx *Ctx, task yojobs.TaskDetails) yojobs.TaskResults {
 	task_details, ret := task.(*userPwdReqTaskDetails), &userPwdReqTaskResults{}
 
-	if req := yodb.FindOne[UserPwdReq](ctx.Ctx, UserPwdReqId.Equal(task_details.ReqId)); req != nil {
-		user := yodb.FindOne[UserAuth](ctx.Ctx, UserAuthEmailAddr.Equal(req.EmailAddr))
+	if req := yodb.FindOne[UserPwdReq](ctx, UserPwdReqId.Equal(task_details.ReqId)); req != nil {
+		user := yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(req.EmailAddr))
 		tmpl_id := If(user == nil, MailTmplIdSignUp, MailTmplIdPwdForgot)
 		if yomail.Templates[tmpl_id] == nil {
 			panic("no such mail template: '" + tmpl_id + "'")
@@ -80,7 +81,7 @@ func (me userPwdReqJobType) TaskResults(ctx *yojobs.Context, task yojobs.TaskDet
 		AppSideTmplPopulate(ctx, req.DtMod, req.EmailAddr, user, tmpl_args)
 		tmpl_args[MailTmplVarTmpPwd] = tmp_one_time_pwd_plain
 
-		ret.MailReqId = yomail.CreateMailReq(ctx.Ctx, &yomail.MailReq{
+		ret.MailReqId = yomail.CreateMailReq(ctx, &yomail.MailReq{
 			TmplId:   yodb.Text(tmpl_id),
 			TmplArgs: tmpl_args,
 			MailTo:   req.EmailAddr,
@@ -88,7 +89,7 @@ func (me userPwdReqJobType) TaskResults(ctx *yojobs.Context, task yojobs.TaskDet
 
 		req.DoneMailReqId.SetId(ret.MailReqId)
 		req.tmpPwdHashed = tmp_one_time_pwd_hashed
-		yodb.Update[UserPwdReq](ctx.Ctx, req, nil, false, UserPwdReqFields(UserPwdReqDoneMailReqId, userPwdReqTmpPwdHashed)...)
+		yodb.Update[UserPwdReq](ctx, req, nil, false, UserPwdReqFields(UserPwdReqDoneMailReqId, userPwdReqTmpPwdHashed)...)
 	}
 	return ret
 }

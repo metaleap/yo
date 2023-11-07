@@ -40,22 +40,31 @@ type Ctx struct {
 		muts map[string]*sync.RWMutex
 		mut  *sync.Mutex
 	}
-	Http struct {
-		Req         *http.Request
-		Resp        http.ResponseWriter
-		UrlPath     string
-		ApiMethod   apiMethod
-		reqCookies  str.Dict
-		respCookies map[string]*http.Cookie
-		respWriting bool
-	}
-	Db struct {
+	Http *ctxHttp
+	Job  *ctxJob
+	Db   struct {
 		PrintRawSqlInDevMode bool // never printed in non-dev-mode anyway
 		Tx                   *sql.Tx
 	}
 	Timings                 Timings
 	TimingsNoPrintInDevMode bool // never printed in non-dev-mode anyway
 	DevModeNoCatch          bool
+}
+
+type ctxHttp struct {
+	Req         *http.Request
+	Resp        http.ResponseWriter
+	UrlPath     string
+	ApiMethod   apiMethod
+	reqCookies  str.Dict
+	respCookies map[string]*http.Cookie
+	respWriting bool
+}
+
+type ctxJob struct {
+	RunId   int64
+	Details any
+	TaskId  int64
 }
 
 func newCtx(timeout time.Duration, cancelable bool, timingsName string) *Ctx {
@@ -76,8 +85,7 @@ func newCtx(timeout time.Duration, cancelable bool, timingsName string) *Ctx {
 
 func NewCtxForHttp(req *http.Request, resp http.ResponseWriter, timeout time.Duration, cancelable bool) *Ctx {
 	ctx := newCtx(timeout, cancelable, req.RequestURI)
-	ctx.Http.Req, ctx.Http.Resp, ctx.Http.UrlPath, ctx.Http.respCookies, ctx.Http.reqCookies =
-		req, resp, str.TrimR(str.TrimL(req.URL.Path, "/"), "/"), map[string]*http.Cookie{}, str.Dict{}
+	ctx.Http = &ctxHttp{Req: req, Resp: resp, UrlPath: str.TrimR(str.TrimL(req.URL.Path, "/"), "/"), respCookies: map[string]*http.Cookie{}, reqCookies: str.Dict{}}
 	return ctx
 }
 
@@ -87,6 +95,11 @@ func (me *Ctx) Cancel() {
 	if me.ctxDone != nil {
 		me.ctxDone()
 	}
+}
+
+func (me *Ctx) WithJob(jobRunId int64, jobRunDetails any, jobTaskId int64) *Ctx {
+	me.Job = &ctxJob{RunId: jobRunId, Details: jobRunDetails, TaskId: jobTaskId}
+	return me
 }
 
 func (me *Ctx) CopyButWith(timeout time.Duration, cancelable bool) *Ctx {
@@ -134,7 +147,7 @@ func (me *Ctx) OnDone(alsoDo func()) {
 			}
 		}
 	}
-	if me.Http.Req != nil && me.Http.Resp != nil {
+	if me.Http != nil {
 		me.httpEnsureCookiesSent()
 		if code := 500; fail != nil {
 			if err, is_app_err := fail.(Err); is_app_err {
@@ -177,7 +190,7 @@ func (me *Ctx) Get(name string, defaultValue any) any {
 	if value, got := me.ctxVals[name]; got {
 		return value
 	}
-	if me.Http.Req != nil {
+	if me.Http != nil {
 		if s := me.Http.Req.URL.Query().Get(name); s != "" {
 			return s
 		}
