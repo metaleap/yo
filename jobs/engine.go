@@ -123,7 +123,7 @@ func (me *engine) cancelJobRuns(ctx *Ctx, jobRunsToCancel map[CancellationReason
 		return
 	}
 	for reason, job_runs := range jobRunsToCancel {
-		dbBatchUpdate(me, ctx, job_runs, &JobRun{state: yodb.Text(JobRunCancelling), cancellationReason: yodb.Text(reason)}, JobRunFields(jobRunState, jobRunCancellationReason)...)
+		dbBatchUpdate(me, ctx, job_runs, &JobRun{state: yodb.Text(JobRunCancelling), CancelReason: yodb.Text(reason)}, JobRunFields(jobRunState, JobRunCancelReason)...)
 	}
 }
 
@@ -182,4 +182,22 @@ func dbBatchUpdate[TObj any](me *engine, ctx *Ctx, objs []*TObj, upd *TObj, only
 		any(upd).(jobRunOrTask).version(job_or_task.version(0))
 		yodb.Update[TObj](ctx, upd, yodb.ColID.Equal(job_or_task.id()), false, onlyFields...)
 	}, me.options.MaxConcurrentOps)
+}
+
+func Init(ctx *Ctx) {
+	job_ids_to_delete := yodb.Ids[JobRun](ctx, JobRunCancelReason.Equal(CancellationReasonJobDefInvalidOrGone))
+	if len(job_ids_to_delete) > 0 {
+		yodb.Delete[JobRun](ctx, JobRunId.In(job_ids_to_delete.ToAnys()...))
+	}
+
+	// clean up renamed/removed-from-codebase job types
+	var job_def_ids_to_delete sl.Of[yodb.I64]
+	for _, job_def := range yodb.FindMany[JobDef](ctx, nil, 0, nil /* keep it all-fields due to JobDef.OnAfterLoaded */) {
+		if !JobTypeExists(job_def.JobTypeId.String()) {
+			job_def_ids_to_delete = append(job_def_ids_to_delete, job_def.Id)
+		}
+	}
+	if len(job_def_ids_to_delete) > 0 {
+		yodb.Delete[JobDef](ctx, JobDefId.In(job_def_ids_to_delete.ToAnys()...))
+	}
 }

@@ -15,7 +15,6 @@ import (
 	yomail "yo/mail"
 	yosrv "yo/srv"
 	. "yo/util"
-	"yo/util/sl"
 	"yo/util/str"
 )
 
@@ -42,22 +41,12 @@ func Init(staticFileDirYo fs.FS, staticFileDirApp fs.FS) (listenAndServe func())
 
 	yolog.PrintLnLn("Jobs init...")
 	{
-		ctx := yoctx.NewCtxNonHttp(time.Minute, false, "")
+		ctx := yoctx.NewCtxNonHttp(yojobs.Timeout1Min, false, "")
 		defer ctx.OnDone(nil)
 		yodb.Upsert[yojobs.JobDef](ctx, &yoauth.UserPwdReqJobDef)
 		yodb.Upsert[yojobs.JobDef](ctx, &yomail.MailReqJobDef)
 		yodb.Upsert[yojobs.JobDef](ctx, &errJobDef)
-
-		// clean up renamed/removed-from-codebase job types
-		var job_def_ids_to_delete sl.Of[yodb.I64]
-		for _, job_def := range yodb.FindMany[yojobs.JobDef](ctx, nil, 0, nil /* keep it all-fields due to JobDef.OnAfterLoaded */) {
-			if !yojobs.JobTypeExists(job_def.JobTypeId.String()) {
-				job_def_ids_to_delete = append(job_def_ids_to_delete, job_def.Id)
-			}
-		}
-		if len(job_def_ids_to_delete) > 0 {
-			yodb.Delete[yojobs.JobDef](ctx, yojobs.JobDefId.In(job_def_ids_to_delete.ToAnys()...))
-		}
+		yojobs.Init(ctx)
 	}
 
 	yolog.PrintLnLn("yo.Init done")
