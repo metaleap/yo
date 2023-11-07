@@ -17,17 +17,17 @@ func init() {
 				return
 			}
 			switch {
-			case str.Ends(fsPath, ".ts") && !str.Ends(fsPath, ".d.ts"):
-				js_file_path := FilePathSwapExt(fsPath, ".ts", ".js")
-				if IsNewer(fsPath, js_file_path) {
-					println("ts2js " + fsPath)
-					TsFile2JsFileViaEsbuild(fsPath)
-				}
 			case str.Ends(fsPath, ".js"):
 				ts_file_path := FilePathSwapExt(fsPath, ".js", ".ts")
 				if !IsFile(ts_file_path) {
 					println("rm " + fsPath)
 					DelFile(fsPath)
+				}
+			case str.Ends(fsPath, ".ts") && !str.Ends(fsPath, ".d.ts"):
+				js_file_path := FilePathSwapExt(fsPath, ".ts", ".js")
+				if IsNewer(fsPath, js_file_path) {
+					println("ts2js " + fsPath)
+					TsFile2JsFileViaEsbuild(fsPath)
 				}
 			}
 		})
