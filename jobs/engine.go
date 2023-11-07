@@ -42,11 +42,6 @@ type Engine interface {
 	DeleteJobRuns(ctx *Ctx, jobRunIds ...yodb.I64) int64
 	// Stats gathers progress stats of a `JobRun` and its `JobTask`s.
 	Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats
-
-	// OnJobTaskExecuted takes an event handler (only one is kept) to be invoked when a task run has finished (successfully or not) and that run fully stored
-	OnJobTaskExecuted(func(*JobTask, time.Duration))
-	// OnJobRunFinalized takes an event handler (only one is kept) that should take care to `nil`-check its `JobRunStats` arg
-	OnJobRunFinalized(func(*JobRun, *JobRunStats))
 }
 
 type Options struct {
@@ -70,12 +65,8 @@ type Options struct {
 }
 
 type engine struct {
-	running       bool
-	options       Options
-	eventHandlers struct {
-		onJobTaskExecuted func(*JobTask, time.Duration)
-		onJobRunFinalized func(*JobRun, *JobRunStats)
-	}
+	running bool
+	options Options
 }
 
 func NewEngine(options Options) Engine {
@@ -109,13 +100,6 @@ func (me *engine) Resume() {
 	DoAfter(3*time.Second, me.ensureJobRunSchedules)
 	DoAfter(4*time.Second, me.expireOrRetryDeadJobTasks)
 	DoAfter(5*time.Second, me.deleteStorageExpiredJobRuns)
-}
-
-func (me *engine) OnJobTaskExecuted(eventHandler func(*JobTask, time.Duration)) {
-	me.eventHandlers.onJobTaskExecuted = eventHandler
-}
-func (me *engine) OnJobRunFinalized(eventHandler func(*JobRun, *JobRunStats)) {
-	me.eventHandlers.onJobRunFinalized = eventHandler
 }
 
 func (me *engine) cancelJobRuns(ctx *Ctx, jobRunsToCancel map[CancellationReason][]*JobRun) {

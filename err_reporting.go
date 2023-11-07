@@ -32,6 +32,7 @@ type ErrEntry struct {
 	NumCaught   yodb.U8
 	JobRunId    yodb.I64
 	JobTaskId   yodb.I64
+	DbTx        yodb.Bool
 }
 
 func init() {
@@ -51,6 +52,7 @@ func init() {
 			Err:        yodb.Text(str.FmtV(err)),
 			StackTrace: yodb.Text(stackTrace),
 			NumCaught:  1,
+			DbTx:       (nowInvalidCtx.Db.Tx != nil),
 			CtxVals:    yodb.Text(json_ctx_vals),
 		}
 		if nowInvalidCtx.Job != nil {
@@ -63,7 +65,10 @@ func init() {
 			}
 		}
 
-		similar_enough := yodb.FindOne[ErrEntry](ctx, ErrEntryErr.Equal(err_entry.Err))
+		similar_enough := yodb.FindOne[ErrEntry](ctx, ErrEntryErr.Equal(err_entry.Err).
+			And(ErrEntryHttpUrlPath.Equal(err_entry.HttpUrlPath)).
+			And(ErrEntryJobRunId.Equal(err_entry.JobRunId)).
+			And(ErrEntryDbTx.Equal(err_entry.DbTx)))
 		if similar_enough == nil {
 			yodb.CreateOne[ErrEntry](ctx, &err_entry)
 		} else if similar_enough.NumCaught < 255 {
@@ -78,7 +83,7 @@ func init() {
 			similar_enough.StackTrace = If(err_entry.StackTrace == "", similar_enough.StackTrace, err_entry.StackTrace)
 			similar_enough.Err = If(err_entry.Err == "", similar_enough.Err, err_entry.Err)
 			yodb.Update[ErrEntry](ctx, similar_enough, nil, false)
-		}
+		} // else: no-op we can really stop logging any more of this...
 	}
 }
 

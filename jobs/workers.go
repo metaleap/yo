@@ -91,9 +91,6 @@ func (me *engine) finalizeDoneJobRun(ctxForCacheReuse *Ctx, jobRun *JobRun) {
 	jobRun.state, jobRun.FinishTime, jobRun.DurationFinalizeSecs =
 		yodb.Text(Done), yodb.DtNow(), yodb.F32(time.Since(time_started).Seconds())
 	yodb.Update[JobRun](ctx, jobRun, nil, false, JobRunFields(jobRunState, jobRunResults, JobRunFinishTime, JobRunDurationFinalizeSecs)...)
-	if me.eventHandlers.onJobRunFinalized != nil {
-		me.eventHandlers.onJobRunFinalized(jobRun, jobRun.Stats(ctx))
-	}
 	me.scheduleJobRun(ctx, job_def, jobRun)
 }
 
@@ -335,7 +332,6 @@ func (me *engine) runJobTasks() {
 }
 
 func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
-	time_started := time.Now()
 	job_run := task.JobRun.Get(ctxForCacheReuse)
 	job_def := job_run.jobDef(ctxForCacheReuse)
 	timeout := Timeout1Min
@@ -344,7 +340,6 @@ func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 	}
 	ctx := ctxForCacheReuse.CopyButWith(timeout, true)
 	defer ctx.OnDone(nil)
-	ctx.DbTx()
 
 	// first, attempt to reserve task for running vs. other pods
 	already_canceled := (job_run == nil) || (job_run.State() == Cancelled) || (job_run.State() == JobRunCancelling) ||
@@ -358,8 +353,10 @@ func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 		task.StartTime, task_upd_fields = (*yodb.DateTime)(task.Attempts[0].t), sl.With(task_upd_fields, JobTaskStartTime.F())
 	}
 	if yodb.Update[JobTask](ctx, task, nil, false, task_upd_fields...) <= 0 {
-		return // concurrently changed by other instance, possibly in the same run attempt: bug out
+		return // concurrently changed by sibling instance (note JobTask.OnBeforeStoring), likely in the same run attempt: bug out
 	}
+
+	ctx.DbTx()
 
 	switch {
 	case job_run == nil:
@@ -402,8 +399,5 @@ func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 
 	// ready to save
 	task_upd_fields = sl.Without(task_upd_fields, JobTaskStartTime.F())
-	did_store := (0 < yodb.Update[JobTask](ctx, task, nil, false, task_upd_fields...))
-	if did_store && (me.eventHandlers.onJobTaskExecuted != nil) {
-		me.eventHandlers.onJobTaskExecuted(task, time.Now().Sub(time_started))
-	}
+	yodb.Update[JobTask](ctx, task, nil, false, task_upd_fields...)
 }

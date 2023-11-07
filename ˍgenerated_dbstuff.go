@@ -10,18 +10,18 @@ func ErrEntryFields(fields ...ErrEntryField) []q.F { return sl.To(fields, ErrEnt
 type ErrEntryField q.F
 
 const (
-	ErrEntryId            ErrEntryField = "Id"
-	ErrEntryDtMade        ErrEntryField = "DtMade"
-	ErrEntryDtMod         ErrEntryField = "DtMod"
-	ErrEntryErr           ErrEntryField = "Err"
-	ErrEntryErrDbRollback ErrEntryField = "ErrDbRollback"
-	ErrEntryStackTrace    ErrEntryField = "StackTrace"
-	ErrEntryCtxVals       ErrEntryField = "CtxVals"
-	ErrEntryHttpUrlPath   ErrEntryField = "HttpUrlPath"
-	ErrEntryHttpFullUri   ErrEntryField = "HttpFullUri"
-	ErrEntryNumCaught     ErrEntryField = "NumCaught"
-	ErrEntryJobRunId      ErrEntryField = "JobRunId"
-	ErrEntryJobTaskId     ErrEntryField = "JobTaskId"
+	ErrEntryId          ErrEntryField = "Id"
+	ErrEntryDtMade      ErrEntryField = "DtMade"
+	ErrEntryDtMod       ErrEntryField = "DtMod"
+	ErrEntryErr         ErrEntryField = "Err"
+	ErrEntryStackTrace  ErrEntryField = "StackTrace"
+	ErrEntryCtxVals     ErrEntryField = "CtxVals"
+	ErrEntryHttpUrlPath ErrEntryField = "HttpUrlPath"
+	ErrEntryHttpFullUri ErrEntryField = "HttpFullUri"
+	ErrEntryNumCaught   ErrEntryField = "NumCaught"
+	ErrEntryJobRunId    ErrEntryField = "JobRunId"
+	ErrEntryJobTaskId   ErrEntryField = "JobTaskId"
+	ErrEntryDbTx        ErrEntryField = "DbTx"
 )
 
 func (me ErrEntryField) ArrLen(a1 ...interface{}) q.Operand { return ((q.F)(me)).ArrLen(a1...) }
