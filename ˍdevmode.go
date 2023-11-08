@@ -67,7 +67,7 @@ watchPatterns = ["*"]
 [deploy]
 startCommand = "./`+app_name+`.exec"
 restartPolicyType = "ALWAYS"
-restartPolicyMaxRetries = 11
+restartPolicyMaxRetries = 2
 healthcheckPath = "/"
 healthcheckTimeout = 543
 	`)))
