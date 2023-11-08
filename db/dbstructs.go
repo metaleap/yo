@@ -504,7 +504,6 @@ func doEnsureDbStructTables() {
 		ctx.Timings.Step("get cur table")
 		cur_table := GetTable(ctx, If(is_table_rename, desc.mig.oldTableName, desc.tableName))
 		if cur_table == nil {
-			ctx.Db.PrintRawSqlInDevMode, ctx.TimingsNoPrintInDevMode = IsDevMode, false
 			if is_table_rename {
 				panic("outdated table rename: '" + desc.mig.oldTableName + "'")
 			}
@@ -514,14 +513,14 @@ func doEnsureDbStructTables() {
 			}
 
 		} else if stmts := schemaAlterTable(desc, cur_table); len(stmts) > 0 {
-			ctx.Db.PrintRawSqlInDevMode, ctx.TimingsNoPrintInDevMode, did_alterations = IsDevMode, false, true
+			did_alterations = true
 			for i, stmt := range stmts {
 				ctx.Timings.Step("alterTable " + str.FromInt(i+1) + "/" + str.FromInt(len(stmts)))
 				_ = doExec(ctx, stmt, nil)
 			}
 		}
 	}
-	if did_alterations {
+	if did_alterations && IsDevMode {
 		panic("performed DB alterations, redeploy & restart after cleaning up the provoking `Ensure` calls")
 	}
 }
