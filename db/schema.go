@@ -23,7 +23,7 @@ func GetTable(ctx *Ctx, tableName string) []*TableColumn {
 	desc := desc[TableColumn]()
 	desc.tableName = "information_schema.columns"
 	for i, col_name := range desc.cols {
-		desc.cols[i] = q.C(str.TrimR(string(col_name), "_"))
+		desc.cols[i] = q.C(str.TrimSuff(string(col_name), "_"))
 	}
 
 	args := dbArgs{}

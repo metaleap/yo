@@ -168,7 +168,7 @@ func handleHttpStaticFileRequestMaybe(ctx *yoctx.Ctx) bool {
 		if ctx.Http.Req.URL.RawQuery != "" {
 			for query_arg_name, static_file_filter := range StaticFileFilters {
 				if ctx.GetStr(query_arg_name) != "" {
-					file, err := fs_static.Open(str.TrimL(ctx.Http.UrlPath, fs_strip_name+"/"))
+					file, err := fs_static.Open(str.TrimPref(ctx.Http.UrlPath, fs_strip_name+"/"))
 					if file != nil {
 						defer file.Close()
 					}

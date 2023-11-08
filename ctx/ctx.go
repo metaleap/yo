@@ -91,7 +91,7 @@ func newCtx(timeout time.Duration, cancelable bool, timingsName string) *Ctx {
 
 func NewCtxForHttp(req *http.Request, resp http.ResponseWriter, timeout time.Duration, cancelable bool) *Ctx {
 	ctx := newCtx(timeout, cancelable, req.RequestURI)
-	ctx.Http = &ctxHttp{Req: req, Resp: resp, UrlPath: str.TrimR(str.TrimL(req.URL.Path, "/"), "/"), respCookies: map[string]*http.Cookie{}, reqCookies: str.Dict{}}
+	ctx.Http = &ctxHttp{Req: req, Resp: resp, UrlPath: str.TrimSuff(str.TrimPref(req.URL.Path, "/"), "/"), respCookies: map[string]*http.Cookie{}, reqCookies: str.Dict{}}
 	return ctx
 }
 

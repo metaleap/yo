@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"io/fs"
 	"path/filepath"
+	"runtime"
 
 	yosrv "yo/srv"
 	. "yo/util"
@@ -45,16 +46,41 @@ func doBuildAppDeployably() {
 	DelDir(dst_dir_path)
 	EnsureDir(dst_dir_path)
 
-	// copy static files other than .ts / .js or sub dirs (all non-script files sit in top level, never in sub dirs)
+	// 1. touch go.work
+	WriteFile(filepath.Join(dst_dir_path, "go.work"), []byte(str.Trim(`
+go `+str.TrimPref(runtime.Version(), "go")+`
+use ./yo
+use ./`+app_name+`
+	`)))
+
+	// 2. copy .go files
+	for src_dir_path, is_app := range map[string]bool{
+		".":     true,
+		"../yo": false,
+	} {
+		strip := If(is_app, "", "../yo/")
+		WalkDir(src_dir_path, func(fsPath string, fsEntry fs.DirEntry) {
+			if str.Ends(fsPath, ".go") || str.Ends(fsPath, "go.mod") {
+				path_equiv := fsPath[len(strip):]
+				dst_file_path := filepath.Join(dst_dir_path, If(is_app, app_name, "yo"), path_equiv)
+				EnsureDir(filepath.Dir(dst_file_path))
+				CopyFile(fsPath, dst_file_path)
+			}
+		})
+	}
+
+	// 3. ensure static files
 	for src_dir_path, is_app := range map[string]bool{
 		"../yo/__yostatic": false,
 		"__static":         true,
 	} {
 		strip := If(is_app, "", "../yo/")
+
+		// copy static files other than .ts / .js or sub dirs (all non-script files sit in top level, never in sub dirs)
 		WalkDir(src_dir_path, func(fsPath string, fsEntry fs.DirEntry) {
 			path_equiv := fsPath[len(strip):]
 			if (!fsEntry.IsDir()) && (!str.Ends(fsPath, ".js")) && !str.Ends(fsPath, ".ts") {
-				dst_file_path := filepath.Join(dst_dir_path, path_equiv)
+				dst_file_path := filepath.Join(dst_dir_path, app_name, path_equiv)
 				EnsureDir(filepath.Dir(dst_file_path))
 				if !str.Ends(fsPath, ".css") {
 					CopyFile(fsPath, dst_file_path)
@@ -63,6 +89,8 @@ func doBuildAppDeployably() {
 				}
 			}
 		})
+
+		// bundle+minify .js files
 		esbuild_options := esbuild.BuildOptions{
 			Color:         esbuild.ColorNever,
 			Sourcemap:     esbuild.SourceMapNone,
@@ -80,7 +108,7 @@ func doBuildAppDeployably() {
 			MinifyIdentifiers: true,
 			MinifySyntax:      true,
 			TreeShaking:       esbuild.TreeShakingTrue,
-			Outdir:            filepath.Join(dst_dir_path, If(is_app, "__static", "__yostatic")),
+			Outdir:            filepath.Join(dst_dir_path, app_name, If(is_app, "__static", "__yostatic")),
 			Write:             true,
 		}
 		result := esbuild.Build(esbuild_options)
@@ -91,6 +119,10 @@ func doBuildAppDeployably() {
 			panic("esbuild ERRs: " + msg.Text + " @ " + str.GoLike(msg.Location))
 		}
 	}
+
+	// 4. go build
+	// cmd_go := exec.Command("go", "build", "-C", dst_dir_path, "-buildvcs", "false")
+	// cmd_go.CombinedOutput()
 }
 
 func cssDownsize(srcCss []byte) []byte {

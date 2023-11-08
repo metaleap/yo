@@ -221,7 +221,7 @@ func upsert[T any](ctx *Ctx, upsert bool, recs ...*T) {
 }
 
 func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {
-	sql_raw := str.TrimR(stmt.String(), ",")
+	sql_raw := str.TrimSuff(stmt.String(), ",")
 	do_exec := DB.ExecContext
 	if ctx.Db.Tx != nil {
 		do_exec = ctx.Db.Tx.ExecContext

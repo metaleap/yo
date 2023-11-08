@@ -47,7 +47,7 @@ func init() {
 		{ // initial dir-walk & enums-detection
 			enum_pkgs := str.Dict{}
 			WalkCodeFiles(true, true, func(fsPath string, dirEntry fs.DirEntry) {
-				if is_yo_side := str.Begins(FsPathAbs(fsPath), str.TrimR(FsPathAbs(yoStaticDirPath), "/")+"/"); is_yo_side &&
+				if is_yo_side := str.Begins(FsPathAbs(fsPath), str.TrimSuff(FsPathAbs(yoStaticDirPath), "/")+"/"); is_yo_side &&
 					(!foundModifiedTsFilesYoSide) && (!dirEntry.IsDir()) &&
 					str.Ends(fsPath, ".ts") && (!str.Ends(fsPath, ".d.ts")) {
 
@@ -71,7 +71,7 @@ func init() {
 							if name_and_type, value, ok := str.Cut(line[1:len(line)-1], " = \""); ok && (value != "") && (str.Idx(value, '.') < 0) {
 								if name, type_name, ok := str.Cut(name_and_type, " "); ok {
 									if name, type_name = str.Trim(name), str.Trim(type_name); type_name != "" && type_name != "string" && name != type_name {
-										if type_name_stripped := str.TrimR(type_name, "Field"); str.Begins(name, type_name) || str.Begins(name, type_name_stripped) {
+										if type_name_stripped := str.TrimSuff(type_name, "Field"); str.Begins(name, type_name) || str.Begins(name, type_name_stripped) {
 											enumerant_name := name[len(type_name_stripped):]
 											if str.IsLo(enumerant_name[:1]) {
 												continue
@@ -192,7 +192,7 @@ func codegenGo(apiRefl *apiReflect) {
 
 		if src_old := ReadFile(out_file_path); !bytes.Equal(src_old, src_raw) {
 			WriteFile(out_file_path, src_raw)
-			did_write_files = append(did_write_files, str.TrimL(filepath.Dir(out_file_path), os.Getenv("GOPATH")+"/"))
+			did_write_files = append(did_write_files, str.TrimPref(filepath.Dir(out_file_path), os.Getenv("GOPATH")+"/"))
 		}
 	}
 	if len(did_write_files) > 0 {

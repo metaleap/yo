@@ -17,8 +17,8 @@ var (
 	Begins   = strings.HasPrefix
 	Ends     = strings.HasSuffix
 	Trim     = strings.TrimSpace
-	TrimL    = strings.TrimPrefix
-	TrimR    = strings.TrimSuffix
+	TrimPref = strings.TrimPrefix
+	TrimSuff = strings.TrimSuffix
 	Idx      = strings.IndexByte
 	IdxSub   = strings.Index
 	IdxLast  = strings.LastIndexByte
@@ -58,11 +58,11 @@ func Replace(s string, repl Dict) string {
 }
 
 func RePrefix(s string, oldPrefix string, newPrefix string) string {
-	return newPrefix + TrimL(s, oldPrefix)
+	return newPrefix + TrimPref(s, oldPrefix)
 }
 
 func ReSuffix(s string, oldSuffix string, newSuffix string) string {
-	return TrimR(s, oldSuffix) + newSuffix
+	return TrimSuff(s, oldSuffix) + newSuffix
 }
 
 func DurationMs(nanos int64) string {
