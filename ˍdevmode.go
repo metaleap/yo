@@ -3,6 +3,7 @@
 package yo
 
 import (
+	"bytes"
 	"io/fs"
 	"path/filepath"
 
@@ -55,7 +56,11 @@ func doBuildAppDeployably() {
 			if (!fsEntry.IsDir()) && (!str.Ends(fsPath, ".js")) && !str.Ends(fsPath, ".ts") {
 				dst_file_path := filepath.Join(dst_dir_path, path_equiv)
 				EnsureDir(filepath.Dir(dst_file_path))
-				CopyFile(fsPath, dst_file_path)
+				if !str.Ends(fsPath, ".css") {
+					CopyFile(fsPath, dst_file_path)
+				} else {
+					WriteFile(dst_file_path, cssDownsize(ReadFile(fsPath)))
+				}
 			}
 		})
 		esbuild_options := esbuild.BuildOptions{
@@ -86,4 +91,28 @@ func doBuildAppDeployably() {
 			panic("esbuild ERRs: " + msg.Text + " @ " + str.GoLike(msg.Location))
 		}
 	}
+}
+
+func cssDownsize(srcCss []byte) []byte {
+	is_ascii_nonspace_whitespace, is_sep, is_brace_or_paren := func(c byte) bool { return (c == '\n') || (c == '\t') }, func(c byte) bool { return (c == ':') || (c == ';') || (c == ',') }, func(c byte) bool {
+		return (c == '{') || (c == '}') || (c == '[') || (c == ']') || (c == '(') || (c == ')')
+	}
+	for again, start, end := true, []byte("/*"), []byte("*/"); again; {
+		again = false
+		if idx2 := bytes.Index(srcCss, end); idx2 > 0 {
+			if idx1 := bytes.Index(srcCss, start); (idx1 >= 0) && (idx1 < idx2) {
+				again = true
+				srcCss = append(srcCss[:idx1], srcCss[idx2+2:]...)
+			}
+		}
+	}
+	for i := 0; i < len(srcCss); i++ {
+		if c := srcCss[i]; is_ascii_nonspace_whitespace(c) || ((c == ' ') &&
+			(((i > 0) && (srcCss[i-1] == ' ') || is_brace_or_paren(srcCss[i-1]) || is_sep(srcCss[i-1])) ||
+				((i < (len(srcCss)-1)) && (srcCss[i+1] == ' ') || is_brace_or_paren(srcCss[i+1]) || is_sep(srcCss[i+1])))) {
+			srcCss = append(srcCss[:i], srcCss[i+1:]...)
+			i--
+		}
+	}
+	return srcCss
 }
