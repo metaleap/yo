@@ -51,7 +51,7 @@ func codegenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 		is_yo_own := (str.Begins(desc.ty.PkgPath(), "yo/") || (desc.ty.PkgPath() == "yo"))
 		WalkCodeFiles(is_yo_own, !is_yo_own, func(path string, dirEntry fs.DirEntry) {
 			if str.Ends(path, ".go") {
-				data := ReadFile(path)
+				data := FileRead(path)
 				if dir_path, idx := filepath.Dir(path), bytes.Index(data, needle); idx > 0 {
 					if idx = bytes.IndexByte(data, '\n'); (idx < len("package ")) || !bytes.Equal(data[0:len("package ")], []byte("package ")) {
 						panic("no package name for " + pkgPath)
@@ -101,8 +101,8 @@ func codegenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 		panic(err)
 	}
 
-	if !bytes.Equal(ReadFile(out_file_path), raw_src) {
-		WriteFile(out_file_path, raw_src)
+	if !bytes.Equal(FileRead(out_file_path), raw_src) {
+		FileWrite(out_file_path, raw_src)
 		return true
 	}
 	return false
@@ -111,7 +111,7 @@ func codegenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 func codegenDbPkgOwn() (didEmit bool) {
 	{
 		out_file_path := "../yo/db/query/ˍgenerated_dbstuff.go"
-		src_raw := ReadFile("../yo/db/query/q.go")
+		src_raw := FileRead("../yo/db/query/q.go")
 		var buf bytes.Buffer
 		buf.WriteString("package q\n")
 		for _, line := range str.Split(str.Trim(string(src_raw)), "\n") {
@@ -127,9 +127,9 @@ func codegenDbPkgOwn() (didEmit bool) {
 				}
 			}
 		}
-		src_old, src_new := ReadFile(out_file_path), buf.Bytes()
+		src_old, src_new := FileRead(out_file_path), buf.Bytes()
 		if src_fmt, err := format.Source(src_new); (err != nil) || !bytes.Equal(src_old, src_fmt) {
-			WriteFile(out_file_path, If(len(src_fmt) == 0, src_new, src_fmt))
+			FileWrite(out_file_path, If(len(src_fmt) == 0, src_new, src_fmt))
 			didEmit = true
 		}
 	}
@@ -142,9 +142,9 @@ func codegenDbPkgOwn() (didEmit bool) {
 			codegenCloneMethods(&buf, arr_type_name, "sl", reflect.TypeOf(sl.Of[map[Void]Void]{}), true)
 		}
 
-		src_old, src_new := ReadFile(out_file_path), []byte(str.Replace(buf.String(), str.Dict{"map[util.Void]util.Void": "T", "map[yo/util.Void]yo/util.Void": "T"}))
+		src_old, src_new := FileRead(out_file_path), []byte(str.Replace(buf.String(), str.Dict{"map[util.Void]util.Void": "T", "map[yo/util.Void]yo/util.Void": "T"}))
 		if src_fmt, err := format.Source(src_new); (err != nil) || !bytes.Equal(src_old, src_fmt) {
-			WriteFile(out_file_path, If(len(src_fmt) == 0, src_new, src_fmt))
+			FileWrite(out_file_path, If(len(src_fmt) == 0, src_new, src_fmt))
 			didEmit = true
 		}
 	}

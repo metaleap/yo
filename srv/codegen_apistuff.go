@@ -56,7 +56,7 @@ func init() {
 				}
 
 				if str.Ends(fsPath, ".go") { // looking for enums' enumerants
-					data := ReadFile(fsPath)
+					data := FileRead(fsPath)
 					pkg_name := ""
 					for _, line := range str.Split(str.Trim(string(data)), "\n") {
 						if str.Begins(line, "package ") {
@@ -190,8 +190,8 @@ func codegenGo(apiRefl *apiReflect) {
 			panic(err)
 		}
 
-		if src_old := ReadFile(out_file_path); !bytes.Equal(src_old, src_raw) {
-			WriteFile(out_file_path, src_raw)
+		if src_old := FileRead(out_file_path); !bytes.Equal(src_old, src_raw) {
+			FileWrite(out_file_path, src_raw)
 			did_write_files = append(did_write_files, str.TrimPref(filepath.Dir(out_file_path), os.Getenv("GOPATH")+"/"))
 		}
 	}
@@ -218,7 +218,7 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 		buf.WriteString("export const " + ts_const_name + " = " + str.GoLike(cfg_setting_value) + "\n")
 	}
 	buf.WriteString("\n// " + yoSdkTsPreludeFileName + " below, more generated code afterwards\n")
-	buf.Write(ReadFile(filepath.Join(yoStaticDirPath, yoSdkTsPreludeFileName))) // emit yo-side code prelude
+	buf.Write(FileRead(filepath.Join(yoStaticDirPath, yoSdkTsPreludeFileName))) // emit yo-side code prelude
 	buf.WriteString("\n// " + yoSdkTsPreludeFileName + " ends, the rest below is fully generated code only:\n")
 
 	buf.WriteString("\nreqTimeoutMsForJsonApis = Cfg_YO_API_IMPL_TIMEOUT_MS\n")
@@ -251,13 +251,13 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 
 	src_to_write := []byte(buf.String())
 
-	src_prev := ReadFile(out_file_path_1)
+	src_prev := FileRead(out_file_path_1)
 	src_is_changed := codegenForceFull || (len(src_prev) == 0) || (!bytes.Equal(src_prev, src_to_write))
 	if src_is_changed {
 		foundModifiedTsFilesYoSide = true
-		WriteFile("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`))
-		WriteFile(out_file_path_1, src_to_write)
-		WriteFile(out_file_path_2, src_to_write)
+		FileWrite("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`))
+		FileWrite(out_file_path_1, src_to_write)
+		FileWrite(out_file_path_2, src_to_write)
 	}
 
 	if foundModifiedTsFilesYoSide {

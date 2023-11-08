@@ -49,7 +49,7 @@ func init() {
 
 	// Setenv from .env file if any
 	for _, file_name := range []string{".env", ".env.prod"} {
-		if env_file_data := bytes.TrimSpace(ReadFile(file_name)); len(env_file_data) > 0 {
+		if env_file_data := bytes.TrimSpace(FileRead(file_name)); len(env_file_data) > 0 {
 			for i, lines := 0, str.Split(string(env_file_data), "\n"); i < len(lines); i++ {
 				if line := str.Trim(lines[i]); line != "" {
 					name, val, ok := str.Cut(line, "=")

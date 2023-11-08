@@ -62,7 +62,7 @@ func IsDir(dirPath string) bool   { return fsIs(dirPath, fs.FileInfo.IsDir, true
 func IsFile(filePath string) bool { return fsIs(filePath, fs.FileInfo.IsDir, false) }
 
 func CopyFile(srcFilePath string, dstFilePath string) {
-	WriteFile(dstFilePath, ReadFile(srcFilePath))
+	FileWrite(dstFilePath, FileRead(srcFilePath))
 }
 
 func IsNewer(file1Path string, file2Path string) bool {
@@ -97,21 +97,6 @@ func EnsureLink(linkLocationPath string, pointsToPath string, pointsToIsDir bool
 	return
 }
 
-func ReadFile(filePath string) []byte {
-	data, err := os.ReadFile(filePath)
-	if err != nil && !os.IsNotExist(err) {
-		panic(err)
-	}
-	return data
-}
-
-func WriteFile(filePath string, data []byte) {
-	err := os.WriteFile(filePath, data, os.ModePerm)
-	if err != nil {
-		panic(err)
-	}
-}
-
 func WalkDir(dirPath string, onDirEntry func(fsPath string, fsEntry fs.DirEntry)) {
 	if err := fs.WalkDir(os.DirFS(dirPath), ".", func(path string, dirEntry fs.DirEntry, err error) error {
 		if err != nil {
@@ -137,7 +122,7 @@ func WalkCodeFiles(yoDir bool, mainDir bool, onDirEntry func(string, fs.DirEntry
 
 func TsFile2JsFileViaEsbuild(tsFilePath string) {
 	out_file_path := FilePathSwapExt(tsFilePath, ".ts", ".js")
-	ts_src_raw := ReadFile(tsFilePath)
+	ts_src_raw := FileRead(tsFilePath)
 	result := esbuild.Transform(string(ts_src_raw), esbuild.TransformOptions{
 		Color:         esbuild.ColorNever,
 		Sourcemap:     esbuild.SourceMapNone,
@@ -148,7 +133,7 @@ func TsFile2JsFileViaEsbuild(tsFilePath string) {
 		Format:        esbuild.FormatESModule,
 
 		TreeShaking: esbuild.TreeShakingFalse,
-		TsconfigRaw: string(ReadFile("tsconfig.json")),
+		TsconfigRaw: string(FileRead("tsconfig.json")),
 		Banner:      "// this js-from-ts by esbuild, not tsc\n",
 		Sourcefile:  tsFilePath,
 		Loader:      esbuild.LoaderTS,
@@ -159,5 +144,5 @@ func TsFile2JsFileViaEsbuild(tsFilePath string) {
 	for _, msg := range result.Errors {
 		panic("esbuild ERRs: " + msg.Text + " @ " + str.GoLike(msg.Location))
 	}
-	WriteFile(out_file_path, result.Code)
+	FileWrite(out_file_path, result.Code)
 }

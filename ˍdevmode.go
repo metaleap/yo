@@ -5,6 +5,8 @@ package yo
 import (
 	"bytes"
 	"io/fs"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 
@@ -47,7 +49,7 @@ func doBuildAppDeployably() {
 	EnsureDir(dst_dir_path)
 
 	// 1. touch go.work
-	WriteFile(filepath.Join(dst_dir_path, "go.work"), []byte(str.Trim(`
+	FileWrite(filepath.Join(dst_dir_path, "go.work"), []byte(str.Trim(`
 go `+str.TrimPref(runtime.Version(), "go")+`
 use ./yo
 use ./`+app_name+`
@@ -85,7 +87,7 @@ use ./`+app_name+`
 				if !str.Ends(fsPath, ".css") {
 					CopyFile(fsPath, dst_file_path)
 				} else {
-					WriteFile(dst_file_path, cssDownsize(ReadFile(fsPath)))
+					FileWrite(dst_file_path, cssDownsize(FileRead(fsPath)))
 				}
 			}
 		})
@@ -121,8 +123,12 @@ use ./`+app_name+`
 	}
 
 	// 4. go build
-	// cmd_go := exec.Command("go", "build", "-C", dst_dir_path, "-buildvcs", "false")
-	// cmd_go.CombinedOutput()
+	os.Setenv("CGO_ENABLED", "0")
+	cmd_go := exec.Command("go", "build", "-C", dst_dir_path, "-o", filepath.Join(dst_dir_path, app_name+".exec"), "-buildvcs=false", "./"+app_name)
+	cmd_out, err := cmd_go.CombinedOutput()
+	if err != nil {
+		panic(str.Fmt("%s>>>>%s", err, cmd_out))
+	}
 }
 
 func cssDownsize(srcCss []byte) []byte {
