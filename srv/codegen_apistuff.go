@@ -34,7 +34,7 @@ var (
 	foundModifiedTsFilesYoSide = codegenForceFull
 	pkgsFound                  = str.Dict{}
 	pkgsImportingSrv           = map[string]bool{}
-	curMainDir                 = CurDirPath()
+	curMainDir                 = DirPathCur()
 	curMainName                = filepath.Base(curMainDir)
 	curMainStaticDirPathYo     = filepath.Join(curMainDir, StaticFilesDirNameYo)
 	curMainStaticDirPathApp    = filepath.Join(curMainDir, StaticFilesDirNameApp)

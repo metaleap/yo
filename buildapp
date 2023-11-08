@@ -1,0 +1,12 @@
+#!/bin/bash
+# run from app dir, not from here
+# dstDirPath=$HOME/rwa/src/$appName
+# echo $dstDirPath
+# rm -rf $dstDirPath/__static
+# rm -rf $dstDirPath/__yostatic
+# cp -rf __static $dstDirPath
+# cp -rf __yostatic $dstDirPath
+# rm -f $dstDirPath/*/**/*.ts
+# rm -f $dstDirPath/*/**/*.js
+# cp -rf __yostatic/vanjs $dstDirPath/__yostatic
+YO_BUILD=1 go run -tags debug .

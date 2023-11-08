@@ -4,6 +4,7 @@ package yo
 
 import (
 	"io/fs"
+	"path/filepath"
 
 	yosrv "yo/srv"
 	. "yo/util"
@@ -11,6 +12,7 @@ import (
 )
 
 func init() {
+	buildFun = doBuildAppDeployably
 	ts2jsAppSideStaticDir = func() {
 		WalkDir(yosrv.StaticFilesDirNameApp, func(fsPath string, fsEntry fs.DirEntry) {
 			if fsEntry.IsDir() {
@@ -32,4 +34,10 @@ func init() {
 			}
 		})
 	}
+}
+
+func doBuildAppDeployably() {
+	app_name := filepath.Base(DirPathCur())
+	dst_dir_path := filepath.Join(DirPathHome(), "rwa", "src", app_name)
+	panic(dst_dir_path)
 }

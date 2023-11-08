@@ -2,6 +2,7 @@ package yo
 
 import (
 	"io/fs"
+	"os"
 	"os/exec"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 
 var ts2jsAppSideStaticDir func()
 var AppPkgPath = "yo/"
+var buildFun = func() {}
 
 func init() {
 	time.Local = time.UTC
@@ -39,6 +41,11 @@ func Init(staticFileDirYo fs.FS, staticFileDirApp fs.FS) (listenAndServe func())
 	listenAndServe = yosrv.InitAndMaybeCodegen(db_structs)
 	if ts2jsAppSideStaticDir != nil { // set only in dev-mode
 		ts2jsAppSideStaticDir()
+	}
+
+	if os.Getenv("YO_BUILD") != "" {
+		buildFun()
+		os.Exit(0)
 	}
 
 	yolog.PrintLnLn("Jobs init...")

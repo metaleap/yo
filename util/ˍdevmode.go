@@ -13,7 +13,15 @@ import (
 
 const IsDevMode = true
 
-func CurDirPath() string {
+func DirPathHome() string {
+	ret, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+	return ret
+}
+
+func DirPathCur() string {
 	ret, err := os.Getwd()
 	if err != nil {
 		panic(err)
@@ -113,7 +121,7 @@ func WalkDir(dirPath string, onDirEntry func(string, fs.DirEntry)) {
 }
 
 func WalkCodeFiles(yoDir bool, mainDir bool, onDirEntry func(string, fs.DirEntry)) {
-	cur_dir_path := CurDirPath()
+	cur_dir_path := DirPathCur()
 	dir_paths := If(!yoDir, []string{}, []string{filepath.Join(filepath.Dir(cur_dir_path), "yo")})
 	if mainDir {
 		dir_paths = append(dir_paths, cur_dir_path)
