@@ -61,6 +61,10 @@ func FilePathSwapExt(filePath string, oldExtInclDot string, newExtInclDot string
 func IsDir(dirPath string) bool   { return fsIs(dirPath, fs.FileInfo.IsDir, true) }
 func IsFile(filePath string) bool { return fsIs(filePath, fs.FileInfo.IsDir, false) }
 
+func CopyFile(srcFilePath string, dstFilePath string) {
+	WriteFile(dstFilePath, ReadFile(srcFilePath))
+}
+
 func IsNewer(file1Path string, file2Path string) bool {
 	fs_info_1, fs_info_2 := fsStat(file1Path), fsStat(file2Path)
 	return (fs_info_1 == nil) || (fs_info_1.IsDir()) || (fs_info_2 == nil) || (fs_info_2.IsDir()) ||
@@ -108,7 +112,7 @@ func WriteFile(filePath string, data []byte) {
 	}
 }
 
-func WalkDir(dirPath string, onDirEntry func(string, fs.DirEntry)) {
+func WalkDir(dirPath string, onDirEntry func(fsPath string, fsEntry fs.DirEntry)) {
 	if err := fs.WalkDir(os.DirFS(dirPath), ".", func(path string, dirEntry fs.DirEntry, err error) error {
 		if err != nil {
 			panic(err)
@@ -139,15 +143,16 @@ func TsFile2JsFileViaEsbuild(tsFilePath string) {
 		Sourcemap:         esbuild.SourceMapNone,
 		Target:            esbuild.ESNext,
 		Platform:          esbuild.PlatformBrowser,
-		Format:            esbuild.FormatESModule,
 		Charset:           esbuild.CharsetUTF8,
-		TreeShaking:       esbuild.TreeShakingFalse,
 		IgnoreAnnotations: true,
 		LegalComments:     esbuild.LegalCommentsNone,
-		TsconfigRaw:       string(ReadFile("tsconfig.json")),
-		Banner:            "// this js-from-ts by esbuild, not tsc\n",
-		Sourcefile:        tsFilePath,
-		Loader:            esbuild.LoaderTS,
+
+		Format:      esbuild.FormatESModule,
+		TreeShaking: esbuild.TreeShakingFalse,
+		TsconfigRaw: string(ReadFile("tsconfig.json")),
+		Banner:      "// this js-from-ts by esbuild, not tsc\n",
+		Sourcefile:  tsFilePath,
+		Loader:      esbuild.LoaderTS,
 	})
 	for _, msg := range result.Warnings {
 		panic("esbuild WARNs: " + str.GoLike(msg))

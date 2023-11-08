@@ -1,7 +1,5 @@
 #!/bin/bash
 # run from app dir, not from here
-# dstDirPath=$HOME/rwa/src/$appName
-# echo $dstDirPath
 # rm -rf $dstDirPath/__static
 # rm -rf $dstDirPath/__yostatic
 # cp -rf __static $dstDirPath
