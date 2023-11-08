@@ -139,15 +139,14 @@ func TsFile2JsFileViaEsbuild(tsFilePath string) {
 	out_file_path := FilePathSwapExt(tsFilePath, ".ts", ".js")
 	ts_src_raw := ReadFile(tsFilePath)
 	result := esbuild.Transform(string(ts_src_raw), esbuild.TransformOptions{
-		Color:             esbuild.ColorNever,
-		Sourcemap:         esbuild.SourceMapNone,
-		Target:            esbuild.ESNext,
-		Platform:          esbuild.PlatformBrowser,
-		Charset:           esbuild.CharsetUTF8,
-		IgnoreAnnotations: true,
-		LegalComments:     esbuild.LegalCommentsNone,
+		Color:         esbuild.ColorNever,
+		Sourcemap:     esbuild.SourceMapNone,
+		Target:        esbuild.ESNext,
+		Platform:      esbuild.PlatformBrowser,
+		Charset:       esbuild.CharsetUTF8,
+		LegalComments: esbuild.LegalCommentsNone,
+		Format:        esbuild.FormatESModule,
 
-		Format:      esbuild.FormatESModule,
 		TreeShaking: esbuild.TreeShakingFalse,
 		TsconfigRaw: string(ReadFile("tsconfig.json")),
 		Banner:      "// this js-from-ts by esbuild, not tsc\n",

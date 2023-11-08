@@ -59,13 +59,13 @@ func doBuildAppDeployably() {
 			}
 		})
 		esbuild_options := esbuild.BuildOptions{
-			Color:             esbuild.ColorNever,
-			Sourcemap:         esbuild.SourceMapNone,
-			Target:            esbuild.ESNext,
-			Platform:          esbuild.PlatformBrowser,
-			Charset:           esbuild.CharsetUTF8,
-			IgnoreAnnotations: true,
-			LegalComments:     esbuild.LegalCommentsNone,
+			Color:         esbuild.ColorNever,
+			Sourcemap:     esbuild.SourceMapNone,
+			Target:        esbuild.ESNext,
+			Platform:      esbuild.PlatformBrowser,
+			Charset:       esbuild.CharsetUTF8,
+			LegalComments: esbuild.LegalCommentsNone,
+			Format:        esbuild.FormatESModule,
 
 			EntryPoints: If(is_app,
 				[]string{"__static/" + app_name + ".js"},
@@ -77,10 +77,6 @@ func doBuildAppDeployably() {
 			TreeShaking:       esbuild.TreeShakingTrue,
 			Outdir:            filepath.Join(dst_dir_path, If(is_app, "__static", "__yostatic")),
 			Write:             true,
-		}
-		println(is_app, str.FmtV(esbuild_options))
-		if true {
-			continue
 		}
 		result := esbuild.Build(esbuild_options)
 		for _, msg := range result.Warnings {
