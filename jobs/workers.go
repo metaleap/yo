@@ -9,6 +9,7 @@ import (
 	yodb "yo/db"
 	q "yo/db/query"
 	. "yo/util"
+	"yo/util/dict"
 	"yo/util/sl"
 	"yo/util/str"
 
@@ -271,7 +272,7 @@ func (me *engine) expireOrRetryDeadJobTasks() {
 		func(it *JobRun) yodb.I64 { return it.JobDef.Id() },
 	)
 
-	GoItems(sl.Keys(jobs), func(jobDefId yodb.I64) {
+	GoItems(dict.Keys(jobs), func(jobDefId yodb.I64) {
 		ctx := ctx.CopyButWith(-1, false)
 		defer ctx.OnDone(nil)
 		if job_runs := jobs[jobDefId]; len(job_runs) > 0 {

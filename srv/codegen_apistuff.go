@@ -13,6 +13,7 @@ import (
 	. "yo/cfg"
 	yolog "yo/log"
 	. "yo/util"
+	"yo/util/dict"
 	"yo/util/sl"
 	"yo/util/str"
 )
@@ -148,8 +149,8 @@ func codegenGo(apiRefl *apiReflect) {
 		for _, err := range errsNoCodegen {
 			err_emitted[err] = true
 		}
-		for _, method_path := range sl.Sorted(sl.Keys(pkg_methods)) {
-			for _, err := range sl.Sorted(sl.Keys(apiRefl.KnownErrs[method_path])) {
+		for _, method_path := range sl.Sorted(dict.Keys(pkg_methods)) {
+			for _, err := range sl.Sorted(dict.Keys(apiRefl.KnownErrs[method_path])) {
 				if !err_emitted[err] {
 					err_emitted[err] = true
 					buf.WriteString("const Err" + string(err) + " util.Err = \"" + string(err) + "\"\n")
@@ -159,7 +160,7 @@ func codegenGo(apiRefl *apiReflect) {
 
 		var do_fields func(str.Dict, string, string)
 		do_fields = func(typeRefl str.Dict, namePrefix string, fieldStrPrefix string) {
-			for _, field_name := range sl.Sorted(sl.Keys(typeRefl)) {
+			for _, field_name := range sl.Sorted(dict.Keys(typeRefl)) {
 				ident := namePrefix + ToIdent(field_name)
 				buf.WriteString("const " + ident + " = q.F(\"" + fieldStrPrefix + field_name + "\")\n")
 				// this below would generate dotted literal constants for sub-field paths, but without the q side able to handle this, we for now dont emit those
@@ -168,7 +169,7 @@ func codegenGo(apiRefl *apiReflect) {
 		}
 
 		// emit api method input fields for FailIf conditions
-		for _, method_path := range sl.Sorted(sl.Keys(pkg_methods)) {
+		for _, method_path := range sl.Sorted(dict.Keys(pkg_methods)) {
 			method := apiRefl.method(method_path)
 			is_app_dep, name_prefix, input_type := false, method.identUp0(), apiRefl.Types[method.In]
 			if pkg_name == "yodb" && str.Begins(method_path, yoAdminApisUrlPrefix+"db/") {
@@ -210,7 +211,7 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 	apiRefl.codeGen.typesUsed, apiRefl.codeGen.typesEmitted = map[string]bool{}, map[string]bool{}
 
 	buf.Write([]byte(codegenEmitTopCommentLine))
-	for ts_const_name, cfg_setting_value := range (sl.Dict{
+	for ts_const_name, cfg_setting_value := range (dict.Any{
 		"Cfg_YO_API_IMPL_TIMEOUT_MS": Cfg.YO_API_IMPL_TIMEOUT.Milliseconds(),
 		"Cfg_YO_AUTH_PWD_MIN_LEN":    Cfg.YO_AUTH_PWD_MIN_LEN,
 	}) {
@@ -233,7 +234,7 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 	// emit types (enums + structs)
 	for again := true; again; {
 		again = false
-		for _, enum_name := range sl.Sorted(sl.Keys(apiRefl.Enums)) {
+		for _, enum_name := range sl.Sorted(dict.Keys(apiRefl.Enums)) {
 			if (!apiRefl.codeGen.typesUsed[enum_name]) && str.Ends(enum_name, "Field") {
 				apiRefl.codeGen.typesUsed[enum_name] = true
 			}
@@ -241,7 +242,7 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 				again = true
 			}
 		}
-		for _, struct_name := range sl.Sorted(sl.Keys(apiRefl.Types)) {
+		for _, struct_name := range sl.Sorted(dict.Keys(apiRefl.Types)) {
 			if codegenTsSdkType(&buf, apiRefl, struct_name, apiRefl.Types[struct_name], nil) {
 				again = true
 			}
@@ -309,7 +310,7 @@ func codegenTsSdkMethod(buf *str.Buf, apiRefl *apiReflect, method *apiReflMethod
 		return
 	}
 
-	method_name, method_errs := method.identUp0(), sl.Sorted(sl.Keys(apiRefl.KnownErrs[method.Path]))
+	method_name, method_errs := method.identUp0(), sl.Sorted(dict.Keys(apiRefl.KnownErrs[method.Path]))
 	ts_enum_type_name := method_name + "Err"
 	repl := str.Dict{
 		"method_name":        method_name,
@@ -349,7 +350,7 @@ func codegenTsSdkType(buf *str.Buf, apiRefl *apiReflect, typeName string, struct
 			str.Dict{"lhs": codegenTsSdkTypeName(apiRefl, typeName), "rhs": codegenTsSdkTypeName(apiRefl, ".string")}))
 	} else if structFields != nil {
 		buf.WriteString(str.Repl("\nexport type {lhs} = {", str.Dict{"lhs": codegenTsSdkTypeName(apiRefl, typeName)}))
-		struct_fields := sl.Sorted(sl.Keys(structFields))
+		struct_fields := sl.Sorted(dict.Keys(structFields))
 		for _, field_name := range struct_fields {
 			field_type := structFields[field_name]
 			is_optional := apiRefl.allInputTypes[typeName] // str.Begins(field_type, "?") || (is_api_input && (str.Begins(field_type, ".") || str.Begins(field_type, "{")))

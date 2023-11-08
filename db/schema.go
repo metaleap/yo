@@ -5,6 +5,7 @@ import (
 	. "yo/ctx"
 	q "yo/db/query"
 	. "yo/util"
+	"yo/util/dict"
 	"yo/util/sl"
 	"yo/util/str"
 )
@@ -58,7 +59,7 @@ func schemaReCreateIndices(desc *structDesc, renamesOldColToNewField map[q.C]q.F
 		stmt_drop_indices := new(sqlStmt)
 		w := (*str.Buf)(stmt_drop_indices).WriteString
 		w("DROP INDEX IF EXISTS ")
-		for i, col_name := range append(sl.Keys(indexed_cols_and_order), sl.Keys(renamesOldColToNewField)...) {
+		for i, col_name := range append(dict.Keys(indexed_cols_and_order), dict.Keys(renamesOldColToNewField)...) {
 			index_name := "idx_t_" + desc.tableName + "_c_" + string(col_name)
 			index_names[col_name] = index_name
 			if i > 0 {

@@ -32,8 +32,8 @@ var Cfg struct {
 	YO_MAIL_SMTP_TIMEOUT   time.Duration
 	YO_MAIL_ERR_LOG_FWD_TO string
 
-	DB_REQ_TIMEOUT time.Duration
-	DATABASE_URL   string
+	YO_DB_CONN_TIMEOUT time.Duration
+	YO_DB_CONN_URL     string
 
 	STATIC_FILE_STORAGE_DIRS map[string]string
 }
@@ -43,21 +43,29 @@ var envFile = str.Dict{}
 func init() {
 	if IsDevMode && !yoctx.CatchPanics {
 		defer func() { // for prolonged debugging/breakpoint staring sessions:
-			Cfg.DB_REQ_TIMEOUT = time.Minute
-			Cfg.YO_API_IMPL_TIMEOUT = 22 * time.Minute
+			Cfg.YO_API_IMPL_TIMEOUT = 11 * time.Minute
 		}()
 	}
 
 	// Setenv from .env file if any
-	if env_file_data := bytes.TrimSpace(ReadFile(".env")); len(env_file_data) > 0 {
-		for i, lines := 0, str.Split(string(env_file_data), "\n"); i < len(lines); i++ {
-			if line := str.Trim(lines[i]); line != "" {
-				if name, val, ok := str.Cut(line, "="); !ok {
-					panic(line)
-				} else if os.Getenv(name) == "" {
-					envFile[name] = val
+	for _, file_name := range []string{".env", ".env.prod"} {
+		if env_file_data := bytes.TrimSpace(ReadFile(file_name)); len(env_file_data) > 0 {
+			for i, lines := 0, str.Split(string(env_file_data), "\n"); i < len(lines); i++ {
+				if line := str.Trim(lines[i]); line != "" {
+					name, val, ok := str.Cut(line, "=")
+					if !ok {
+						panic(line)
+					} else if os.Getenv(name) == "" {
+						envFile[name] = val
+					}
+					for str.Begins(val, "$") {
+						val = os.Getenv(val[:1])
+					}
 				}
 			}
+		}
+		if IsDevMode {
+			break
 		}
 	}
 

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	. "yo/util"
+	"yo/util/dict"
 	"yo/util/sl"
 	"yo/util/str"
 )
@@ -26,7 +27,7 @@ const (
 var (
 	DB              *sql.DB
 	OnDone          []func(ctx *Ctx, fail any)
-	NotifyErrCaught = func(nowInvalidCtx *Ctx, ctxVals sl.Dict, fail any, stackTrace string) {}
+	NotifyErrCaught = func(nowInvalidCtx *Ctx, ctxVals dict.Any, fail any, stackTrace string) {}
 )
 
 type apiMethod interface {
@@ -37,7 +38,7 @@ type apiMethod interface {
 type Ctx struct {
 	context.Context
 	ctxDone func()
-	ctxVals sl.Dict
+	ctxVals dict.Any
 	caches  struct {
 		maps map[string]map[any]any
 		muts map[string]*sync.RWMutex
@@ -76,7 +77,7 @@ func newCtx(timeout time.Duration, cancelable bool, timingsName string) *Ctx {
 	if IsDevMode && (timeout <= 0) && !cancelable {
 		panic("unsupported Ctx")
 	}
-	me := Ctx{Context: context.Background(), ctxVals: sl.Dict{},
+	me := Ctx{Context: context.Background(), ctxVals: dict.Any{},
 		Timings: NewTimings(timingsName, "init ctx"), TimingsNoPrintInDevMode: (timingsName == "")}
 	me.caches.mut, me.caches.maps, me.caches.muts = new(sync.Mutex), map[string]map[any]any{}, map[string]*sync.RWMutex{}
 	if timeout > 0 {

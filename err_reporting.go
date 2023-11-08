@@ -11,6 +11,7 @@ import (
 	yojson "yo/json"
 	yomail "yo/mail"
 	. "yo/util"
+	"yo/util/dict"
 	"yo/util/sl"
 	"yo/util/str"
 )
@@ -36,7 +37,7 @@ type ErrEntry struct {
 }
 
 func init() {
-	NotifyErrCaught = func(nowInvalidCtx *Ctx, ctxVals sl.Dict, err any, stackTrace string) {
+	NotifyErrCaught = func(nowInvalidCtx *Ctx, ctxVals dict.Any, err any, stackTrace string) {
 		ctx := NewCtxNonHttp(timeoutLogErr, false, "")
 		ctx.ErrNoNotify = true
 		ctx.DbNoLoggingInDevMode()

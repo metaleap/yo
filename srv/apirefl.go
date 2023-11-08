@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	. "yo/util"
+	"yo/util/dict"
 	"yo/util/sl"
 	"yo/util/str"
 )
@@ -51,7 +52,7 @@ func (me *apiReflMethod) identUp0() string { return str.Up0(me.ident()) }
 func apiHandleReflReq(this *ApiCtx[Void, apiReflect]) {
 	is_devmode_at_codegen_time := IsDevMode && (this.Ctx == nil) && (this.Args == nil)
 	this.Ret.Types, this.Ret.Enums, this.Ret.KnownErrs, this.Ret.allInputTypes = map[string]str.Dict{}, map[string][]string{}, map[string]map[Err]int{}, map[string]bool{}
-	for _, method_path := range sl.Sorted(sl.Keys(api)) {
+	for _, method_path := range sl.Sorted(dict.Keys(api)) {
 		if !str.IsPrtAscii(method_path) {
 			panic("not printable ASCII: '" + method_path + "'")
 		}

@@ -14,6 +14,7 @@ import (
 	yojson "yo/json"
 	yolog "yo/log"
 	. "yo/util"
+	"yo/util/dict"
 	"yo/util/sl"
 	"yo/util/str"
 )
@@ -43,7 +44,7 @@ var (
 	}
 
 	// PreServes funcs are run at the start of the request handling, prior to any other request processing
-	PreServes = []Middleware{{"authAdmin", If(IsDevMode, nil, authAdmin)}}
+	PreServes = []Middleware{}
 
 	// PreHandling funcs are run just prior to loading api request payload, handling that request, and serving the handler's response
 	PreApiHandling = []Middleware{}
@@ -74,6 +75,9 @@ func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
 }
 
 func listenAndServe() {
+	if !IsDevMode {
+		PreServes = append(PreServes, Middleware{"authAdmin", If(IsDevMode, nil, authAdmin)})
+	}
 	yolog.Println("live @ port %d", Cfg.YO_API_HTTP_PORT)
 	panic(http.ListenAndServe(":"+str.FromInt(Cfg.YO_API_HTTP_PORT), http.HandlerFunc(handleHttpRequest)))
 }
@@ -133,7 +137,7 @@ func handleHttpRequest(rw http.ResponseWriter, req *http.Request) {
 
 func handleHttpStaticFileRequestMaybe(ctx *yoctx.Ctx) bool {
 	if (AppSideStaticRePathFor != nil) && (!str.Begins(ctx.Http.UrlPath, "__")) && (!str.Begins(ctx.Http.UrlPath, AppApiUrlPrefix)) &&
-		!sl.Any(sl.Keys(StaticFileDirs), func(it string) bool { return str.Begins(ctx.Http.UrlPath, it) }) {
+		!sl.Any(dict.Keys(StaticFileDirs), func(it string) bool { return str.Begins(ctx.Http.UrlPath, it) }) {
 		if re_path := AppSideStaticRePathFor(ctx.Http.UrlPath); (re_path != "") && (re_path != ctx.Http.UrlPath) {
 			ctx.Http.UrlPath = re_path
 			ctx.Http.Req.RequestURI = "/" + re_path // loses query-args, which aren't expected for purely static content anyway

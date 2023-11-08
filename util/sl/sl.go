@@ -6,16 +6,6 @@ import (
 	"slices"
 )
 
-type Dict = map[string]any
-
-func Keys[K comparable, V any](m map[K]V) (ret []K) {
-	ret = make([]K, 0, len(m))
-	for k := range m {
-		ret = append(ret, k)
-	}
-	return
-}
-
 func WithoutIdx[TSlice ~[]TItem, TItem any](slice TSlice, sansIdx int, noMake bool) (ret TSlice) {
 	if (sansIdx < 0) || (sansIdx >= len(slice)) {
 		return slice

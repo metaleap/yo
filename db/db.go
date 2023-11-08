@@ -10,7 +10,7 @@ import (
 	. "yo/ctx"
 	yolog "yo/log"
 	. "yo/util"
-	"yo/util/sl"
+	"yo/util/dict"
 	"yo/util/str"
 
 	"github.com/jackc/pgx/v5"
@@ -31,11 +31,11 @@ func InitAndConnectAndMigrateAndMaybeCodegen() (dbStructs []reflect.Type) {
 		codegenDBStuff()
 	}
 
-	conn_cfg, err := pgx.ParseConfig(Cfg.DATABASE_URL)
+	conn_cfg, err := pgx.ParseConfig(Cfg.YO_DB_CONN_URL)
 	if err != nil {
 		panic(err)
 	}
-	conn_cfg.ConnectTimeout = Cfg.DB_REQ_TIMEOUT
+	conn_cfg.ConnectTimeout = Cfg.YO_DB_CONN_TIMEOUT
 	conn_cfg.Tracer = &tracelog.TraceLog{
 		LogLevel: tracelog.LogLevelError,
 		Logger:   dbLogger{},
@@ -54,7 +54,7 @@ func InitAndConnectAndMigrateAndMaybeCodegen() (dbStructs []reflect.Type) {
 
 type dbLogger struct{}
 
-func (dbLogger) Log(ctx context.Context, level tracelog.LogLevel, msg string, data sl.Dict) {
+func (dbLogger) Log(ctx context.Context, level tracelog.LogLevel, msg string, data dict.Any) {
 	if IsDevMode && (ctx.Value(CtxKeyDbNoLogging) == nil) {
 		yolog.Println("dbPgx %s %v", msg, data)
 	}

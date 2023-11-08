@@ -62,9 +62,7 @@ func codegenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 					}
 				}
 			}
-		},
-		)
-		//no source dir found for kaffe/app.User
+		})
 		if len(found) == 0 {
 			panic("no source dir found for " + desc.ty.PkgPath() + "." + desc.ty.Name())
 		} else if len(found) > 1 {
