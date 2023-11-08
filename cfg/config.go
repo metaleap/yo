@@ -9,10 +9,11 @@ import (
 	yoctx "yo/ctx"
 	yojson "yo/json"
 	. "yo/util"
+	"yo/util/sl"
 	"yo/util/str"
 )
 
-var Cfg struct {
+var Cfg struct { // all renames MUST be global find+replace!
 	YO_API_HTTP_PORT                int
 	YO_API_IMPL_TIMEOUT             time.Duration
 	YO_API_MAX_REQ_CONTENTLENGTH_MB int
@@ -48,18 +49,24 @@ func init() {
 	}
 
 	// Setenv from .env file if any
-	for _, file_name := range []string{".env", ".env.prod"} {
+	is_local_prod, is_env_prod := (os.Getenv("YO_LOCAL") != ""), false
+	local_skip_env_names := []string{"YO_API_HTTP_PORT", "YO_DB_CONN_URL", "STATIC_FILE_STORAGE_DIRS"}
+	for _, file_name := range []string{".env", ".env.prod"} /* note, keep this slice order */ {
 		if env_file_data := bytes.TrimSpace(FileRead(file_name)); len(env_file_data) > 0 {
 			for i, lines := 0, str.Split(string(env_file_data), "\n"); i < len(lines); i++ {
 				if line := str.Trim(lines[i]); line != "" {
 					name, val, ok := str.Cut(line, "=")
 					if !ok {
 						panic(line)
-					} else if os.Getenv(name) == "" {
-						envFile[name] = val
+					}
+					if is_env_prod && is_local_prod && sl.Has(local_skip_env_names, name) {
+						continue
 					}
 					for str.Begins(val, "$") {
-						val = os.Getenv(val[:1])
+						val = os.Getenv(val[1:])
+					}
+					if os.Getenv(name) == "" {
+						envFile[name] = val
 					}
 				}
 			}
@@ -67,6 +74,7 @@ func init() {
 		if IsDevMode {
 			break
 		}
+		is_env_prod = true
 	}
 
 	// fill fields in cfg

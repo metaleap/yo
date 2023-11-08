@@ -44,7 +44,8 @@ func init() {
 
 func doBuildAppDeployably() {
 	app_name := filepath.Base(DirPathCur())
-	dst_dir_path := filepath.Join(DirPathHome(), "rwa", "src", app_name)
+	dst_dir_path := filepath.Join(DirPathHome(), "rwa", "src-"+app_name)
+	deploy_dir_path := filepath.Join(DirPathHome(), "rwa", "deploy-"+app_name)
 	DelDir(dst_dir_path)
 	EnsureDir(dst_dir_path)
 
@@ -55,7 +56,7 @@ use ./yo
 use ./`+app_name+`
 	`)))
 
-	// 2. copy .go files
+	// 2. copy .go and .env files
 	for src_dir_path, is_app := range map[string]bool{
 		".":     true,
 		"../yo": false,
@@ -67,6 +68,8 @@ use ./`+app_name+`
 				dst_file_path := filepath.Join(dst_dir_path, If(is_app, app_name, "yo"), path_equiv)
 				EnsureDir(filepath.Dir(dst_file_path))
 				CopyFile(fsPath, dst_file_path)
+			} else if str.Ends(fsPath, ".env") || str.Ends(fsPath, ".env.prod") {
+				CopyFile(fsPath, filepath.Join(deploy_dir_path, fsEntry.Name()))
 			}
 		})
 	}
@@ -124,7 +127,11 @@ use ./`+app_name+`
 
 	// 4. go build
 	os.Setenv("CGO_ENABLED", "0")
-	cmd_go := exec.Command("go", "build", "-C", dst_dir_path, "-o", filepath.Join(dst_dir_path, app_name+".exec"), "-buildvcs=false", "./"+app_name)
+	cmd_go := exec.Command("go", "build",
+		"-C", dst_dir_path,
+		"-o", filepath.Join(deploy_dir_path, app_name+".exec"),
+		"-buildvcs=false",
+		"./"+app_name)
 	cmd_out, err := cmd_go.CombinedOutput()
 	if err != nil {
 		panic(str.Fmt("%s>>>>%s", err, cmd_out))
