@@ -68,8 +68,8 @@ watchPatterns = ["*"]
 startCommand = "./`+app_name+`.exec"
 restartPolicyType = "ALWAYS"
 restartPolicyMaxRetries = 2
-healthcheckPath = "/"
-healthcheckTimeout = 543
+# healthcheckPath = "/"
+# healthcheckTimeout = 543
 	`)))
 
 	// 2. copy .go and .env files
