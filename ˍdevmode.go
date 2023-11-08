@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	yosrv "yo/srv"
 	. "yo/util"
@@ -49,11 +50,24 @@ func doBuildAppDeployably() {
 	DelDir(dst_dir_path)
 	EnsureDir(dst_dir_path)
 
-	// 1. touch go.work
+	// 1.1 touch go.work
 	FileWrite(filepath.Join(dst_dir_path, "go.work"), []byte(str.Trim(`
 go `+str.TrimPref(runtime.Version(), "go")+`
 use ./yo
 use ./`+app_name+`
+	`)))
+
+	// 1.2 touch railway.toml
+	FileWrite(filepath.Join(deploy_dir_path, "railway.toml"), []byte(str.Trim(`
+[build]
+builder = "nixpacks"
+buildCommand = "chmod +x ./`+app_name+`.exec"
+watchPatterns = ["*"]
+
+[deploy]
+startCommand = "./`+app_name+`.exec"
+restartPolicyType = "ALWAYS"
+restartPolicyMaxRetries = 123
 	`)))
 
 	// 2. copy .go and .env files
@@ -135,6 +149,17 @@ use ./`+app_name+`
 	cmd_out, err := cmd_go.CombinedOutput()
 	if err != nil {
 		panic(str.Fmt("%s>>>>%s", err, cmd_out))
+	}
+
+	// 5. git push
+	msg_commit := time.Now().Format(time.DateTime)
+	cmd_git1, cmd_git2, cmd_git3 := exec.Command("git", "add", "-A"), exec.Command("git", "commit", "-m", msg_commit), exec.Command("git", "push", "--force")
+	cmd_git1.Dir, cmd_git2.Dir, cmd_git3.Dir = deploy_dir_path, deploy_dir_path, deploy_dir_path
+	for _, cmd_git := range []*exec.Cmd{cmd_git1, cmd_git2, cmd_git3} {
+		cmd_out, err := cmd_git.CombinedOutput()
+		if err != nil {
+			panic(str.Fmt("%s>>>>%s", err, cmd_out))
+		}
 	}
 }
 
