@@ -99,8 +99,8 @@ func cssDownsize(srcCss []byte) []byte {
 	}
 	for again, start, end := true, []byte("/*"), []byte("*/"); again; {
 		again = false
-		if idx2 := bytes.Index(srcCss, end); idx2 > 0 {
-			if idx1 := bytes.Index(srcCss, start); (idx1 >= 0) && (idx1 < idx2) {
+		if idx2 := bytes.Index(srcCss, end); idx2 > 1 {
+			if idx1 := bytes.Index(srcCss[:idx2], start); idx1 >= 0 {
 				again = true
 				srcCss = append(srcCss[:idx1], srcCss[idx2+2:]...)
 			}
