@@ -123,7 +123,7 @@ var errJobDef = yojobs.JobDef{
 	TimeoutSecsJobRunPrepAndFinalize: 44,
 	DeleteAfterDays:                  2,
 	RunTasklessJobs:                  true,
-	Schedules:                        yojobs.ScheduleOncePerMinute, //  yojobs.ScheduleOncePerHour,
+	Schedules:                        yojobs.ScheduleOncePerHour,
 }
 
 func (me errJob) JobDetails(_ *Ctx) yojobs.JobDetails                         { return nil }

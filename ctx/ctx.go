@@ -125,11 +125,10 @@ func (me *Ctx) CopyButWith(timeout time.Duration, cancelable bool) *Ctx {
 	return &ret
 }
 
-func (me *Ctx) OnDone(alsoDo func()) {
+func (me *Ctx) OnDone(alsoDo func()) (fail any) {
 	if me == nil {
 		return
 	}
-	var fail any
 	if (!IsDevMode) || CatchPanics { // comptime branch
 		if (!IsDevMode) || !me.DevModeNoCatch { // runtime branch, keep sep from above comptime one
 			if fail = recover(); (IsDevMode || !IsUp) && (fail != nil) {
@@ -200,6 +199,7 @@ func (me *Ctx) OnDone(alsoDo func()) {
 			println(step.Step + ":\t" + str.DurationMs(step.Time))
 		}
 	}
+	return
 }
 
 // context.Context impl/override
