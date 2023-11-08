@@ -25,6 +25,7 @@ const (
 )
 
 var (
+	IsUp            bool
 	DB              *sql.DB
 	OnDone          []func(ctx *Ctx, fail any)
 	NotifyErrCaught = func(nowInvalidCtx *Ctx, ctxVals dict.Any, fail any, stackTrace string) {}
@@ -131,7 +132,7 @@ func (me *Ctx) OnDone(alsoDo func()) {
 	var fail any
 	if (!IsDevMode) || CatchPanics { // comptime branch
 		if (!IsDevMode) || !me.DevModeNoCatch { // runtime branch, keep sep from above comptime one
-			if fail = recover(); IsDevMode && (fail != nil) {
+			if fail = recover(); (IsDevMode || !IsUp) && (fail != nil) {
 				println(str.Fmt(">>>>>>>>>%v<<<<<<<<<", fail))
 			}
 		}
@@ -144,7 +145,7 @@ func (me *Ctx) OnDone(alsoDo func()) {
 	}
 	if me.Db.Tx != nil {
 		if fail == nil {
-			if fail = me.Db.Tx.Commit(); IsDevMode && (fail != nil) {
+			if fail = me.Db.Tx.Commit(); (IsDevMode || !IsUp) && (fail != nil) {
 				println(str.Fmt(">>TXC>>%v<<TXC<<", fail))
 			}
 		}
@@ -192,7 +193,7 @@ func (me *Ctx) OnDone(alsoDo func()) {
 			go NotifyErrCaught(me, me.ctxVals, fail, stack_trace)
 		}
 	}
-	if IsDevMode && !me.TimingsNoPrintInDevMode {
+	if (IsDevMode || !IsUp) && !me.TimingsNoPrintInDevMode {
 		total_duration, steps := me.Timings.AllDone()
 		println("\n" + me.Timings.String() + "\n  . . . " + str.DurationMs(total_duration) + ", like so:")
 		for _, step := range steps {

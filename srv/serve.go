@@ -79,6 +79,7 @@ func listenAndServe() {
 		PreServes = append(PreServes, Middleware{"authAdmin", If(IsDevMode, nil, authAdmin)})
 	}
 	yolog.Println("live @ port %d", Cfg.YO_API_HTTP_PORT)
+	yoctx.IsUp = true
 	panic(http.ListenAndServe(":"+str.FromInt(Cfg.YO_API_HTTP_PORT), http.HandlerFunc(handleHttpRequest)))
 }
 

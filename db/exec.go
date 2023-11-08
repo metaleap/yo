@@ -367,7 +367,7 @@ func dbArgsFill[T any](desc *structDesc, args dbArgs, rec *T, argNameSuffix stri
 }
 
 func printIfDbgMode(ctx *Ctx, sqlRaw string, args dbArgs) {
-	if IsDevMode && ctx.Db.PrintRawSqlInDevMode {
+	if (IsDevMode || !IsUp) && ctx.Db.PrintRawSqlInDevMode {
 		println("\n" + sqlRaw + "\n\t" + str.GoLike(args))
 	}
 }

@@ -9,6 +9,7 @@ import (
 	yodb "yo/db"
 	yojobs "yo/jobs"
 	yojson "yo/json"
+	yolog "yo/log"
 	yomail "yo/mail"
 	. "yo/util"
 	"yo/util/dict"
@@ -64,6 +65,12 @@ func init() {
 			if nowInvalidCtx.Http.Req != nil {
 				err_entry.HttpFullUri = yodb.Text(nowInvalidCtx.Http.Req.RequestURI)
 			}
+		}
+
+		if !IsUp {
+			yolog.Println(err_entry.Err.String())
+			yolog.Println(err_entry.StackTrace.String())
+			return
 		}
 
 		similar_enough := yodb.FindOne[ErrEntry](ctx, ErrEntryErr.Equal(err_entry.Err).

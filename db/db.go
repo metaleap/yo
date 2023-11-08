@@ -55,8 +55,8 @@ func InitAndConnectAndMigrateAndMaybeCodegen() (dbStructs []reflect.Type) {
 type dbLogger struct{}
 
 func (dbLogger) Log(ctx context.Context, level tracelog.LogLevel, msg string, data dict.Any) {
-	if IsDevMode && (ctx.Value(CtxKeyDbNoLogging) == nil) {
-		yolog.Println("dbPgx %s %v", msg, data)
+	if (IsDevMode || !IsUp) && (ctx.Value(CtxKeyDbNoLogging) == nil) {
+		yolog.Println("<db_%s> %s %v", level, msg, data)
 	}
 }
 
