@@ -145,6 +145,7 @@ restartPolicyMaxRetries = 123
 		"-C", dst_dir_path,
 		"-o", filepath.Join(deploy_dir_path, app_name+".exec"),
 		"-buildvcs=false",
+		"-a",
 		"./"+app_name)
 	cmd_out, err := cmd_go.CombinedOutput()
 	if err != nil {

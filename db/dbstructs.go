@@ -9,6 +9,7 @@ import (
 	yoctx "yo/ctx"
 	q "yo/db/query"
 	yojson "yo/json"
+	yolog "yo/log"
 	. "yo/util"
 	"yo/util/sl"
 	"yo/util/str"
@@ -432,6 +433,9 @@ func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField
 		panic("db.Ensure called after db.Init")
 	}
 	desc := desc[TObj]()
+	if !IsDevMode {
+		yolog.Println("ensure dbstruct: %s as %s", desc.ty, desc.tableName)
+	}
 	for _, constraints := range constraints {
 		switch constraints := constraints.(type) {
 		case Index[TFld]:
@@ -493,10 +497,12 @@ func Q[T any](it *T) q.Query {
 func doEnsureDbStructTables() {
 	var did_write_upd_trigger_func_yet, did_alterations bool
 	for _, desc := range ensureDescs {
+		if !IsDevMode {
+			yolog.Println("ensure db table: %s as %s", desc.ty, desc.tableName)
+		}
 		ctx := yoctx.NewCtxNonHttp(Cfg.YO_DB_CONN_TIMEOUT, false, "db.Mig: "+desc.tableName) // yoctx.NewNonHttp(Cfg.DB_REQ_TIMEOUT)
 		defer ctx.OnDone(nil)
-		ctx.DevModeNoCatch = IsDevMode
-		ctx.TimingsNoPrintInDevMode = true
+		ctx.DevModeNoCatch, ctx.TimingsNoPrintInDevMode, ctx.Db.PrintRawSqlInDevMode = IsDevMode, IsDevMode, !IsDevMode
 		ctx.Timings.Step("open TX")
 		ctx.DbTx()
 
