@@ -38,9 +38,9 @@ func CreateMailReq(ctx *Ctx, mailReq *MailReq) yodb.I64 {
 	return yodb.CreateOne[MailReq](ctx, mailReq)
 }
 
-func sendMailViaSmtp(to yodb.Text, subject string, msg string) error {
+func sendMailViaSmtp(to yodb.Text, msgSubject string, msgBody string) error {
 	host_addr := Cfg.YO_MAIL_SMTP_HOST + ":" + str.FromInt(Cfg.YO_MAIL_SMTP_PORT)
-	mail_body := composeMimeMail(subject, str.Trim(msg))
+	mail_body := composeMimeMail(msgSubject, str.Trim(msgBody))
 	smtp_auth := smtp.PlainAuth("", Cfg.YO_MAIL_SMTP_USERNAME, Cfg.YO_MAIL_SMTP_PASSWORD, Cfg.YO_MAIL_SMTP_HOST)
 
 	if Cfg.YO_MAIL_SMTP_TIMEOUT == 0 { // for reference/fallback really, not for actual practice
@@ -91,6 +91,6 @@ func composeMimeMail(subject string, body string) []byte {
 	}) {
 		raw_msg += k + ": " + v + "\r\n"
 	}
-	raw_msg += "\r\n" + base64.StdEncoding.EncodeToString([]byte(body))
+	raw_msg += "\r\n" + base64.StdEncoding.EncodeToString([]byte(str.Replace(str.Replace(body, str.Dict{"\r\n": "\n"}), str.Dict{"\n": "\r\n"})))
 	return []byte(raw_msg)
 }
