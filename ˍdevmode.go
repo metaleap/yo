@@ -60,12 +60,10 @@ use ./`+app_name+`
 	// 1.2 touch railway.toml
 	FileWrite(filepath.Join(deploy_dir_path, "railway.toml"), []byte(str.Trim(`
 # note, unused if Dockerfile present too
-
 [build]
 builder = "nixpacks"
 buildCommand = "chmod +x ./`+app_name+`.exec"
 watchPatterns = ["*"]
-
 [deploy]
 startCommand = "./`+app_name+`.exec"
 restartPolicyType = "ALWAYS"
