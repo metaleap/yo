@@ -222,10 +222,10 @@ func ArrIsEmpty(arr any) Query {
 	return operandFrom(arr).Equal(nil).Or(Fn(FnArrLen, arr).Equal(0))
 }
 func ArrAreAnyIn(arr any, operator Operator, arg any) Query {
-	return &query{op: operator + opArrAny, operands: operandsFrom(arr, arg)}
+	return &query{op: operator + opArrAny, operands: operandsFrom(arg, arr)}
 }
 func ArrAreAllIn(arr any, operator Operator, arg any) Query {
-	return &query{op: operator + opArrAll, operands: operandsFrom(arr, arg)}
+	return &query{op: operator + opArrAll, operands: operandsFrom(arg, arr)}
 }
 func AllTrue(conds ...Query) Query {
 	if conds = sl.Without(conds, nil); len(conds) == 0 {
@@ -500,9 +500,9 @@ func (me *query) Eval(obj any, c2f func(C) F) (falseDueTo Query) {
 	default:
 		is_arr_all, is_arr_any := str.Ends(string(me.op), string(opArrAll)), str.Ends(string(me.op), string(opArrAny))
 		if is_arr_all || is_arr_any {
-			arr := me.operands[0].Eval(obj, c2f)
+			arr := me.operands[1].Eval(obj, c2f)
 			refl_arr := reflect.ValueOf(arr)
-			arg := me.operands[1].Eval(obj, c2f)
+			arg := me.operands[0].Eval(obj, c2f)
 			operator := me.op[:len(me.op)-len(opArrAny)] // assumes same strlen for both opArrAny & opArrAll
 			for i, arr_len := 0, refl_arr.Len(); i < arr_len; i++ {
 				lhs, rhs := refl_arr.Index(i).Interface(), arg
