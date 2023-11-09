@@ -1,7 +1,6 @@
 package yodb
 
 import (
-	"os"
 	"reflect"
 	"time"
 	"unsafe"
@@ -434,9 +433,6 @@ func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField
 		panic("db.Ensure called after db.Init")
 	}
 	desc := desc[TObj]()
-	if !IsDevMode {
-		yolog.Println("ensure dbstruct: %s as %s", desc.ty, desc.tableName)
-	}
 	for _, constraints := range constraints {
 		switch constraints := constraints.(type) {
 		case Index[TFld]:
@@ -499,18 +495,11 @@ func doEnsureDbStructTables() {
 	var did_write_upd_trigger_func_yet, did_alterations bool
 	for _, desc := range ensureDescs {
 		if !IsDevMode {
-			yolog.Println("ensure db table: %s as %s", desc.ty, desc.tableName)
+			yolog.Println("db: ensure %s as %s", desc.ty, desc.tableName)
 		}
-		did_alterations_desc := false
 		ctx := yoctx.NewCtxNonHttp(Cfg.YO_DB_CONN_TIMEOUT, false, "db.Mig: "+desc.tableName)
-		defer func() {
-			if ctx.OnDone(nil) != nil {
-				os.Exit(1)
-			} else if (!IsDevMode) && did_alterations_desc {
-				time.Sleep(time.Second)
-			}
-		}()
-		ctx.DevModeNoCatch, ctx.TimingsNoPrintInDevMode, ctx.Db.PrintRawSqlInDevMode = IsDevMode, IsDevMode, !IsDevMode
+		defer ctx.OnDone(nil)
+		ctx.TimingsNoPrintInDevMode, ctx.Db.PrintRawSqlInDevMode = IsDevMode, !IsDevMode
 		ctx.Timings.Step("open TX")
 		ctx.DbTx()
 
@@ -522,13 +511,12 @@ func doEnsureDbStructTables() {
 				panic("outdated table rename: '" + desc.mig.oldTableName + "'")
 			}
 			ctx.Timings.Step("createTable")
-			did_alterations_desc = true
 			for _, stmt := range schemaCreateTable(desc, &did_write_upd_trigger_func_yet) {
 				_ = doExec(ctx, stmt, nil)
 			}
 
 		} else if stmts := schemaAlterTable(desc, cur_table); len(stmts) > 0 {
-			did_alterations, did_alterations_desc = true, true
+			did_alterations = true
 			for i, stmt := range stmts {
 				ctx.Timings.Step("alterTable " + str.FromInt(i+1) + "/" + str.FromInt(len(stmts)))
 				_ = doExec(ctx, stmt, nil)

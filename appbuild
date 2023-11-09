@@ -1,2 +1,5 @@
 #!/bin/bash
+
+# run in app dir, not in here
+
 YO_BUILD=1 go run -tags debug .
