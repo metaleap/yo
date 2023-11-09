@@ -13,10 +13,13 @@ import (
 
 	yosrv "yo/srv"
 	. "yo/util"
+	"yo/util/sl"
 	"yo/util/str"
 
 	esbuild "github.com/evanw/esbuild/pkg/api"
 )
+
+var AppSideBuildTimeContainerFileNames []string
 
 func init() {
 	buildFun = doBuildAppDeployablyAndPush
@@ -70,6 +73,7 @@ FROM scratch
 COPY .env /.env
 COPY .env.prod /.env.prod
 COPY `+app_name+`.exec /`+app_name+`.exec
+`+str.Join(sl.To(AppSideBuildTimeContainerFileNames, func(s string) string { return "COPY " + s + " /" + s }), "\n")+`
 COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT ["/`+app_name+`.exec"]
 	`)))
@@ -107,9 +111,9 @@ use ./`+app_name+`
 				path_equiv := fsPath[len(strip):]
 				dst_file_path := filepath.Join(dst_dir_path, If(is_app, app_name, "yo"), path_equiv)
 				EnsureDir(filepath.Dir(dst_file_path))
-				CopyFile(fsPath, dst_file_path)
+				FileCopy(fsPath, dst_file_path)
 			} else if str.Ends(fsPath, ".env") || str.Ends(fsPath, ".env.prod") {
-				CopyFile(fsPath, filepath.Join(deploy_dir_path, fsEntry.Name()))
+				FileCopy(fsPath, filepath.Join(deploy_dir_path, fsEntry.Name()))
 			}
 		})
 	}
@@ -127,7 +131,7 @@ use ./`+app_name+`
 				dst_file_path := filepath.Join(dst_dir_path, app_name, path_equiv)
 				EnsureDir(filepath.Dir(dst_file_path))
 				if !str.Ends(fsPath, ".css") {
-					CopyFile(fsPath, dst_file_path)
+					FileCopy(fsPath, dst_file_path)
 				} else {
 					FileWrite(dst_file_path, cssDownsize(FileRead(fsPath)))
 				}

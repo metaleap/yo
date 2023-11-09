@@ -44,10 +44,6 @@ func FilePathSwapExt(filePath string, oldExtInclDot string, newExtInclDot string
 	return filePath
 }
 
-func CopyFile(srcFilePath string, dstFilePath string) {
-	FileWrite(dstFilePath, FileRead(srcFilePath))
-}
-
 func IsNewer(file1Path string, file2Path string) bool {
 	fs_info_1, fs_info_2 := fsStat(file1Path), fsStat(file2Path)
 	return (fs_info_1 == nil) || (fs_info_1.IsDir()) || (fs_info_2 == nil) || (fs_info_2.IsDir()) ||

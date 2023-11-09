@@ -89,7 +89,7 @@ func (me *Ref[_, _]) UnmarshalJSON(json []byte) error {
 	return err
 }
 
-func DbRef[T any](id I64) dbRef { return Ref[T, refOnDelNone]{id: id} }
+var _ dbRef = Ref[any, refOnDelNone]{}
 
 type dbRef interface {
 	Id() I64

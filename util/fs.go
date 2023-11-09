@@ -5,6 +5,10 @@ import (
 	"os"
 )
 
+func FileCopy(srcFilePath string, dstFilePath string) {
+	FileWrite(dstFilePath, FileRead(srcFilePath))
+}
+
 func FileRead(filePath string) []byte {
 	data, err := os.ReadFile(filePath)
 	if err != nil && !os.IsNotExist(err) {

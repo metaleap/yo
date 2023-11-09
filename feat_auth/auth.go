@@ -164,5 +164,9 @@ func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, pas
 }
 
 func ById(ctx *Ctx, id yodb.I64) *UserAuth {
-	return yodb.FindOne[UserAuth](ctx, UserAuthId.Equal(id))
+	return yodb.ById[UserAuth](ctx, id)
+}
+
+func ByEmailAddr(ctx *Ctx, emailAddr string) *UserAuth {
+	return yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr))
 }
