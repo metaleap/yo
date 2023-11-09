@@ -1,11 +1,10 @@
 #!/bin/bash
 
 # run in app dir, not in here
-
 appName=$(basename $PWD)
 
+podman rm -f yodb_$appName
 # sudo rm -rf $HOME/.cache/.yodb_$appName # to fully wipe
 mkdir -p $HOME/.cache/.yodb_$appName
-podman rm -f yodb_$appName
 podman run -p 5432:5432 -v $HOME/.cache/.yodb_$appName:/var/lib/postgresql/data --name yodb_$appName -e POSTGRES_USER=yodb_$appName -e POSTGRES_PASSWORD=yodb_$appName -e POSTGRES_DB=yodb_$appName docker.io/library/postgres:latest
 podman rm -f yodb_$appName

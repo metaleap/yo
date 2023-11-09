@@ -175,7 +175,7 @@ func (me *Ctx) OnDone(alsoDo func()) (fail any) {
 		me.ctxDone()
 	}
 
-	if err_no_notify := me.ErrNoNotify; (!err_no_notify) && (fail != nil) {
+	if err_no_notify := me.ErrNoNotify; (!err_no_notify) && (fail != nil) && IsUp {
 		if err, _ := fail.(Err); (err != "") && (len(me.ErrNoNotifyOf) > 0) {
 			err_no_notify = sl.Has(me.ErrNoNotifyOf, err)
 		}

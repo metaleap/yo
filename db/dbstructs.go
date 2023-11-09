@@ -498,7 +498,6 @@ func doEnsureDbStructTables() {
 			yolog.Println("db: ensure %s as %s", desc.ty, desc.tableName)
 		}
 		ctx := yoctx.NewCtxNonHttp(Cfg.YO_DB_CONN_TIMEOUT, false, "db.Mig: "+desc.tableName)
-		defer ctx.OnDone(nil)
 		ctx.TimingsNoPrintInDevMode, ctx.Db.PrintRawSqlInDevMode = IsDevMode, !IsDevMode
 		ctx.Timings.Step("open TX")
 		ctx.DbTx()
@@ -522,6 +521,7 @@ func doEnsureDbStructTables() {
 				_ = doExec(ctx, stmt, nil)
 			}
 		}
+		ctx.OnDone(nil)
 	}
 	if did_alterations && IsDevMode {
 		panic("performed DB alterations, redeploy & restart after cleaning up the provoking `Ensure` calls")

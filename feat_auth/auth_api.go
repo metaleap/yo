@@ -130,8 +130,14 @@ func httpUserFromJwtRaw(jwtRaw string) (userEmailAddr string, userAuthId yodb.I6
 
 func httpSetUser(ctx *Ctx, jwtRaw string) {
 	user_email_addr, user_auth_id := httpUserFromJwtRaw(jwtRaw)
-	ctx.Set(CtxKeyEmailAddr, user_email_addr)
+	if IsDevMode {
+		if (user_auth_id > 0) && !yodb.Exists[UserAuth](ctx, UserAuthId.Equal(user_auth_id)) {
+			user_auth_id, user_email_addr = 0, ""
+			jwtRaw = ""
+		}
+	}
 	ctx.Set(CtxKeyAuthId, user_auth_id)
+	ctx.Set(CtxKeyEmailAddr, user_email_addr)
 	ctx.Http.Resp.Header().Set(HttpUserHeader, user_email_addr)
 	ctx.HttpSetCookie(HttpJwtCookieName, jwtRaw, Cfg.YO_AUTH_JWT_EXPIRY_DAYS)
 }
