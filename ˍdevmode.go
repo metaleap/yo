@@ -61,9 +61,7 @@ func doBuildAppDeployablyAndPush() {
 		}
 	})
 
-	const use_dockerfile = true
-	if use_dockerfile {
-		// 2. touch Dockerfile
+	if true { // 2. touch own Dockerfile, preferred choice
 		FileWrite(filepath.Join(deploy_dir_path, "Dockerfile"), []byte(str.Trim(`
 FROM scratch
 COPY .env /.env
@@ -72,8 +70,7 @@ COPY `+app_name+`.exec /`+app_name+`.exec
 COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT ["/`+app_name+`.exec"]
 	`)))
-	} else {
-		// 2. touch railway.toml
+	} else { // 2. touch railway.toml, the alternative way (implies Railway.app default Dockerfile)
 		FileWrite(filepath.Join(deploy_dir_path, "railway.toml"), []byte(str.Trim(`
 # note, unused if Dockerfile present too
 [build]
