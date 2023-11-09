@@ -54,9 +54,12 @@ func doBuildAppDeployablyAndPush() {
 	// 1. clear deploy_dir_path except for .git
 	dotgit_dir_path := filepath.Join(deploy_dir_path, ".git")
 	WalkDir(deploy_dir_path, func(fsPath string, fsEntry fs.DirEntry) {
+		if str.Begins(fsPath, dotgit_dir_path) {
+			return
+		}
 		if !IsDir(fsPath) {
 			DelFile(fsPath)
-		} else if !str.Begins(fsPath, dotgit_dir_path) {
+		} else {
 			panic("TODO since apparently this unexpected-by-design need for dirs here arose: replace this panic with just `DelDir(fsPath)`")
 		}
 	})
