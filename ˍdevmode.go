@@ -49,17 +49,21 @@ func doBuildAppDeployablyAndPush() {
 	deploy_dir_path := filepath.Join(DirPathHome(), "rwa", "deploy-"+app_name)
 	DelDir(dst_dir_path)
 	EnsureDir(dst_dir_path)
+	EnsureDir(deploy_dir_path)
 
-	// 1.1 touch go.work
-	FileWrite(filepath.Join(dst_dir_path, "go.work"), []byte(str.Trim(`
-go `+str.TrimPref(runtime.Version(), "go")+`
-use ./yo
-use ./`+app_name+`
-	`)))
+	// 1. clear deploy_dir_path except for .git
+	dotgit_dir_path := filepath.Join(deploy_dir_path, ".git")
+	WalkDir(deploy_dir_path, func(fsPath string, fsEntry fs.DirEntry) {
+		if !IsDir(fsPath) {
+			DelFile(fsPath)
+		} else if !str.Begins(fsPath, dotgit_dir_path) {
+			panic("TODO since apparently this unexpected-by-design need for dirs here arose: replace this panic with just `DelDir(fsPath)`")
+		}
+	})
 
 	const use_dockerfile = true
 	if use_dockerfile {
-		// 1.2 touch Dockerfile
+		// 2. touch Dockerfile
 		FileWrite(filepath.Join(deploy_dir_path, "Dockerfile"), []byte(str.Trim(`
 FROM scratch
 COPY .env /.env
@@ -69,7 +73,7 @@ COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT ["/`+app_name+`.exec"]
 	`)))
 	} else {
-		// 1.2 touch railway.toml
+		// 2. touch railway.toml
 		FileWrite(filepath.Join(deploy_dir_path, "railway.toml"), []byte(str.Trim(`
 # note, unused if Dockerfile present too
 [build]
@@ -85,7 +89,14 @@ restartPolicyMaxRetries = 2
 	`)))
 	}
 
-	// 2. copy .go and .env files
+	// 3. touch go.work
+	FileWrite(filepath.Join(dst_dir_path, "go.work"), []byte(str.Trim(`
+go `+str.TrimPref(runtime.Version(), "go")+`
+use ./yo
+use ./`+app_name+`
+	`)))
+
+	// 4. copy .go and .env files
 	for src_dir_path, is_app := range map[string]bool{
 		".":     true,
 		"../yo": false,
@@ -103,13 +114,12 @@ restartPolicyMaxRetries = 2
 		})
 	}
 
-	// 3. ensure static files
+	// 5. ensure static files
 	for src_dir_path, is_app := range map[string]bool{
 		"../yo/__yostatic": false,
 		"__static":         true,
 	} {
 		strip := If(is_app, "", "../yo/")
-
 		// copy static files other than .ts / .js or sub dirs (all non-script files sit in top level, never in sub dirs)
 		WalkDir(src_dir_path, func(fsPath string, fsEntry fs.DirEntry) {
 			path_equiv := fsPath[len(strip):]
@@ -123,7 +133,6 @@ restartPolicyMaxRetries = 2
 				}
 			}
 		})
-
 		// bundle+minify .js files
 		esbuild_options := esbuild.BuildOptions{
 			Color:         esbuild.ColorNever,
@@ -154,7 +163,7 @@ restartPolicyMaxRetries = 2
 		}
 	}
 
-	// 4. go build
+	// 6. go build
 	println("BUILD...")
 	cmd_go := exec.Command("go", "build",
 		"-C", dst_dir_path,
@@ -171,7 +180,7 @@ restartPolicyMaxRetries = 2
 		panic(str.Fmt("%s>>>>%s", err, cmd_out))
 	}
 
-	// 5. git push
+	// 7. git push
 	println("PUSH...")
 	msg_commit := time.Now().Format(time.DateTime)
 	cmd_git1, cmd_git2, cmd_git3 := exec.Command("git", "add", "-A"), exec.Command("git", "commit", "-m", msg_commit), exec.Command("git", "push", "--force")

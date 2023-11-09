@@ -85,7 +85,10 @@ func WalkDir(dirPath string, onDirEntry func(fsPath string, fsEntry fs.DirEntry)
 		if err != nil {
 			panic(err)
 		}
-		onDirEntry(filepath.Join(dirPath, path), dirEntry)
+		fs_path := filepath.Join(dirPath, path)
+		if fs_path != dirPath { // dont want that DirEntry with Name()=="." in *our* walks
+			onDirEntry(fs_path, dirEntry)
+		}
 		return nil
 	}); err != nil {
 		panic(err)
