@@ -498,7 +498,7 @@ func doEnsureDbStructTables() {
 			yolog.Println("db: ensure %s as %s", desc.ty, desc.tableName)
 		}
 		ctx := yoctx.NewCtxNonHttp(Cfg.YO_DB_CONN_TIMEOUT, false, "db.Mig: "+desc.tableName)
-		ctx.TimingsNoPrintInDevMode, ctx.Db.PrintRawSqlInDevMode = IsDevMode, !IsDevMode
+		ctx.TimingsNoPrintInDevMode, ctx.Db.PrintRawSqlInDevMode = true, false
 		ctx.Timings.Step("open TX")
 		ctx.DbTx()
 

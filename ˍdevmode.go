@@ -59,6 +59,8 @@ use ./`+app_name+`
 
 	// 1.2 touch railway.toml
 	FileWrite(filepath.Join(deploy_dir_path, "railway.toml"), []byte(str.Trim(`
+# note, unused if Dockerfile present too
+
 [build]
 builder = "nixpacks"
 buildCommand = "chmod +x ./`+app_name+`.exec"
@@ -70,6 +72,16 @@ restartPolicyType = "ALWAYS"
 restartPolicyMaxRetries = 2
 # healthcheckPath = "/"
 # healthcheckTimeout = 543
+	`)))
+
+	// 1.3 touch Dockerfile which makes railway.toml unused (keeping the code for it in anyway)
+	FileWrite(filepath.Join(deploy_dir_path, "Dockerfile"), []byte(str.Trim(`
+FROM scratch
+COPY .env /.env
+COPY .env.prod /.env.prod
+COPY `+app_name+`.exec /`+app_name+`.exec
+COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+ENTRYPOINT ["/`+app_name+`.exec"]
 	`)))
 
 	// 2. copy .go and .env files
@@ -143,13 +155,15 @@ restartPolicyMaxRetries = 2
 
 	// 4. go build
 	println("BUILD...")
-	os.Setenv("CGO_ENABLED", "0")
 	cmd_go := exec.Command("go", "build",
 		"-C", dst_dir_path,
 		"-o", filepath.Join(deploy_dir_path, app_name+".exec"),
 		"-buildvcs=false",
 		"-a",
+		"-ldflags", "-w -s -extldflags \"-static\"",
+		"-tags", "timetzdata",
 		"./"+app_name)
+	cmd_go.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=linux", "GOARCH=amd64")
 	cmd_out, err := cmd_go.CombinedOutput()
 	if err != nil {
 		panic(str.Fmt("%s>>>>%s", err, cmd_out))
@@ -170,7 +184,7 @@ restartPolicyMaxRetries = 2
 
 func cssDownsize(srcCss []byte) []byte {
 	is_ascii_nonspace_whitespace, is_sep, is_brace_or_paren := func(c byte) bool { return (c == '\n') || (c == '\t') }, func(c byte) bool { return (c == ':') || (c == ';') || (c == ',') }, func(c byte) bool {
-		return (c == '{') || (c == '}') || (c == '[') || (c == ']') || (c == '(') || (c == ')')
+		return (c == '{') || (c == '}') || (c == '[') || (c == ']') || (c == '(') // || (c == ')') // keep the closing-paren out, generates bugged css with in situations like `var(--foo) calc(...)`
 	}
 	for again, start, end := true, []byte("/*"), []byte("*/"); again; {
 		again = false

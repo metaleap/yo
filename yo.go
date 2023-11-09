@@ -28,16 +28,15 @@ func init() {
 }
 
 func Init(staticFileDirYo fs.FS, staticFileDirApp fs.FS) (listenAndServe func()) {
-	if !IsDevMode {
-		println("init sleep...")
-		time.Sleep(4 * time.Second)
-	}
-	AppPkgPath = AppPkgPath[:str.Idx(AppPkgPath, '/')]
 	time.Local = time.UTC // repeat of init() above because who knows what happened in between (well, so far, we do. but still =)
+	AppPkgPath = AppPkgPath[:str.Idx(AppPkgPath, '/')]
 	yosrv.StaticFileDirApp, yosrv.StaticFileDirYo =
 		staticFileDirApp, staticFileDirYo
 
 	yolog.PrintLnLn("DB init...")
+	if !IsDevMode {
+		time.Sleep(4 * time.Second)
+	}
 	yodb.Ensure[ErrEntry, ErrEntryField]("", nil, false)
 	db_structs := yodb.InitAndConnectAndMigrateAndMaybeCodegen()
 
