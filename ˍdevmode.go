@@ -19,7 +19,7 @@ import (
 )
 
 func init() {
-	buildFun = doBuildAppDeployably
+	buildFun = doBuildAppDeployablyAndPush
 	ts2jsAppSideStaticDir = func() {
 		WalkDir(yosrv.StaticFilesDirNameApp, func(fsPath string, fsEntry fs.DirEntry) {
 			if fsEntry.IsDir() {
@@ -43,7 +43,7 @@ func init() {
 	}
 }
 
-func doBuildAppDeployably() {
+func doBuildAppDeployablyAndPush() {
 	app_name := filepath.Base(DirPathCur())
 	dst_dir_path := filepath.Join(DirPathHome(), "rwa", "src-"+app_name)
 	deploy_dir_path := filepath.Join(DirPathHome(), "rwa", "deploy-"+app_name)
@@ -142,6 +142,7 @@ restartPolicyMaxRetries = 2
 	}
 
 	// 4. go build
+	println("BUILD...")
 	os.Setenv("CGO_ENABLED", "0")
 	cmd_go := exec.Command("go", "build",
 		"-C", dst_dir_path,
@@ -155,6 +156,7 @@ restartPolicyMaxRetries = 2
 	}
 
 	// 5. git push
+	println("PUSH...")
 	msg_commit := time.Now().Format(time.DateTime)
 	cmd_git1, cmd_git2, cmd_git3 := exec.Command("git", "add", "-A"), exec.Command("git", "commit", "-m", msg_commit), exec.Command("git", "push", "--force")
 	cmd_git1.Dir, cmd_git2.Dir, cmd_git3.Dir = deploy_dir_path, deploy_dir_path, deploy_dir_path
