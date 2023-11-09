@@ -160,6 +160,7 @@ ENTRYPOINT ["/`+app_name+`.exec"]
 		"-o", filepath.Join(deploy_dir_path, app_name+".exec"),
 		"-buildvcs=false",
 		"-a",
+		"-installsuffix", "deploy_"+app_name,
 		"-ldflags", "-w -s -extldflags \"-static\"",
 		"-tags", "timetzdata",
 		"./"+app_name)
