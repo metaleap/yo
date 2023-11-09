@@ -112,9 +112,17 @@ use ./`+app_name+`
 				dst_file_path := filepath.Join(dst_dir_path, If(is_app, app_name, "yo"), path_equiv)
 				EnsureDir(filepath.Dir(dst_file_path))
 				FileCopy(fsPath, dst_file_path)
-			} else if str.Ends(fsPath, ".env") || str.Ends(fsPath, ".env.prod") {
+			} else if is_app && (str.Ends(fsPath, ".env") || str.Ends(fsPath, ".env.prod")) {
 				FileCopy(fsPath, filepath.Join(deploy_dir_path, fsEntry.Name()))
+			} else if is_app {
+				for _, file_name := range AppSideBuildTimeContainerFileNames {
+					if str.Ends(fsPath, filepath.Join(src_dir_path, file_name)) {
+						FileCopy(fsPath, filepath.Join(deploy_dir_path, fsEntry.Name()))
+					}
+				}
 			}
+			//`+str.Join(sl.To(AppSideBuildTimeContainerFileNames, func(s string) string { return "COPY " + s + " /" + s }), "\n")+`
+
 		})
 	}
 
