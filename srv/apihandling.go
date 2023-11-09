@@ -256,7 +256,7 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 		return
 	}
 
-	max_payload_size := (1024 * 1024 * int64(Cfg.YO_API_MAX_REQ_CONTENTLENGTH_MB))
+	max_payload_size := (1024 * 1024 * int64(If(!api_method.isMultipartForm(), Cfg.YO_API_MAX_REQ_CONTENTLENGTH_MB, Cfg.YO_API_MAX_REQ_MULTIPART_LENGTH_MB)))
 	if (ctx.Http.Req.ContentLength < 0) || (ctx.Http.Req.ContentLength > max_payload_size) {
 		ctx.HttpErr(406, string(ErrMissingOrExcessiveContentLength))
 		return

@@ -226,6 +226,9 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 	if Cfg.YO_API_MAX_REQ_CONTENTLENGTH_MB > 0 {
 		buf.WriteString("\nreqMaxReqPayloadSizeMb = " + str.FromInt(Cfg.YO_API_MAX_REQ_CONTENTLENGTH_MB) + "\n")
 	}
+	if Cfg.YO_API_MAX_REQ_MULTIPART_LENGTH_MB > 0 {
+		buf.WriteString("\nreqMaxReqMultipartSizeMb = " + str.FromInt(Cfg.YO_API_MAX_REQ_MULTIPART_LENGTH_MB) + "\n")
+	}
 
 	// emit methods
 	for _, method := range apiRefl.Methods {

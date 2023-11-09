@@ -14,6 +14,7 @@ export let userEmailAddr = ''
 export let reqTimeoutMsForJsonApis = 4321
 export let reqTimeoutMsForMultipartForms = 123456
 export let reqMaxReqPayloadSizeMb = 0           // declaration only, generated code sets the value
+export let reqMaxReqMultipartSizeMb = 0           // declaration only, generated code sets the value
 export let errMaxReqPayloadSizeExceeded = ""    // declaration only, generated code sets the value
 
 export async function req<TIn, TOut, TErr extends string>(methodPath: string, payload?: TIn | {}, formData?: FormData, urlQueryArgs?: { [_: string]: string }): Promise<TOut> {
@@ -25,25 +26,22 @@ export async function req<TIn, TOut, TErr extends string>(methodPath: string, pa
         payload = {}
     const payload_json = JSON.stringify(payload)
 
-    if ((reqMaxReqPayloadSizeMb > 0) && errMaxReqPayloadSizeExceeded && (payload_json.length > (1024 * 1024 * reqMaxReqPayloadSizeMb)))
-        throw new Err<TErr>(errMaxReqPayloadSizeExceeded as TErr)
-
     if (formData) {
         formData.set("_", payload_json)
-        if ((reqMaxReqPayloadSizeMb > 0) && errMaxReqPayloadSizeExceeded) {
-            let req_payload_size = 0
-            formData.forEach(_ => {
-                const value = _.valueOf()
-                const file = value as File
-                if (typeof value === 'string')
-                    req_payload_size += value.length
-                else if (file && file.name && file.size && (typeof file.size === 'number') && (file.size > 0))
-                    req_payload_size += file.size
-            })
-            if (req_payload_size > (1024 * 1024 * reqMaxReqPayloadSizeMb))
-                throw new Err<TErr>(errMaxReqPayloadSizeExceeded as TErr)
-        }
-    }
+
+        let req_payload_size = 0
+        formData.forEach(_ => {
+            const value = _.valueOf()
+            const file = value as File
+            if (typeof value === 'string')
+                req_payload_size += value.length
+            else if (file && file.name && file.size && (typeof file.size === 'number') && (file.size > 0))
+                req_payload_size += file.size
+        })
+        if (req_payload_size > (1024 * 1024 * reqMaxReqMultipartSizeMb))
+            throw new Err<TErr>(errMaxReqPayloadSizeExceeded as TErr)
+    } else if (payload_json.length > (1024 * 1024 * reqMaxReqPayloadSizeMb))
+        throw new Err<TErr>(errMaxReqPayloadSizeExceeded as TErr)
 
     const resp = await fetch(rel_url, {
         method: 'POST', headers: (formData ? undefined : ({ 'Content-Type': 'application/json' })), body: (formData ? formData : payload_json),

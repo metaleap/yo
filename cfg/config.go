@@ -16,11 +16,12 @@ import (
 var Cfg struct { // all renames MUST be global find+replace!
 	YO_APP_DOMAIN string
 
-	YO_API_HTTP_PORT                int
-	YO_API_IMPL_TIMEOUT             time.Duration
-	YO_API_MAX_REQ_CONTENTLENGTH_MB int
-	YO_API_ADMIN_USER               string
-	YO_API_ADMIN_PWD                string
+	YO_API_HTTP_PORT                   int
+	YO_API_IMPL_TIMEOUT                time.Duration
+	YO_API_MAX_REQ_CONTENTLENGTH_MB    int
+	YO_API_MAX_REQ_MULTIPART_LENGTH_MB int
+	YO_API_ADMIN_USER                  string
+	YO_API_ADMIN_PWD                   string
 
 	YO_AUTH_JWT_EXPIRY_DAYS int
 	YO_AUTH_JWT_SIGN_KEY    string
