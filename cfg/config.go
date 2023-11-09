@@ -14,6 +14,8 @@ import (
 )
 
 var Cfg struct { // all renames MUST be global find+replace!
+	YO_APP_DOMAIN string
+
 	YO_API_HTTP_PORT                int
 	YO_API_IMPL_TIMEOUT             time.Duration
 	YO_API_MAX_REQ_CONTENTLENGTH_MB int
