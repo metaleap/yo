@@ -57,8 +57,20 @@ use ./yo
 use ./`+app_name+`
 	`)))
 
-	// 1.2 touch railway.toml
-	FileWrite(filepath.Join(deploy_dir_path, "railway.toml"), []byte(str.Trim(`
+	const use_dockerfile = true
+	if use_dockerfile {
+		// 1.2 touch Dockerfile
+		FileWrite(filepath.Join(deploy_dir_path, "Dockerfile"), []byte(str.Trim(`
+FROM scratch
+COPY .env /.env
+COPY .env.prod /.env.prod
+COPY `+app_name+`.exec /`+app_name+`.exec
+COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+ENTRYPOINT ["/`+app_name+`.exec"]
+	`)))
+	} else {
+		// 1.2 touch railway.toml
+		FileWrite(filepath.Join(deploy_dir_path, "railway.toml"), []byte(str.Trim(`
 # note, unused if Dockerfile present too
 [build]
 builder = "nixpacks"
@@ -71,16 +83,7 @@ restartPolicyMaxRetries = 2
 # healthcheckPath = "/"
 # healthcheckTimeout = 543
 	`)))
-
-	// 1.3 touch Dockerfile which makes railway.toml unused (keeping the code for it in anyway)
-	FileWrite(filepath.Join(deploy_dir_path, "Dockerfile"), []byte(str.Trim(`
-FROM scratch
-COPY .env /.env
-COPY .env.prod /.env.prod
-COPY `+app_name+`.exec /`+app_name+`.exec
-COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-ENTRYPOINT ["/`+app_name+`.exec"]
-	`)))
+	}
 
 	// 2. copy .go and .env files
 	for src_dir_path, is_app := range map[string]bool{
