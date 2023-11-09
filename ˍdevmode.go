@@ -121,8 +121,6 @@ use ./`+app_name+`
 					}
 				}
 			}
-			//`+str.Join(sl.To(AppSideBuildTimeContainerFileNames, func(s string) string { return "COPY " + s + " /" + s }), "\n")+`
-
 		})
 	}
 
