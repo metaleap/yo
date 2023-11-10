@@ -37,7 +37,7 @@ var UserPwdReqJobDef = yojobs.JobDef{
 	TimeoutSecsJobRunPrepAndFinalize: 11,
 	Disabled:                         false,
 	MaxTaskRetries:                   1, // keep low, those uncompleted `UserPwdReq`s in the DB (producing our job-tasks here) wont go away anyway
-	DeleteAfterDays:                  11,
+	DeleteAfterDays:                  1,
 }
 
 type userPwdReqTaskDetails struct{ ReqId yodb.I64 }

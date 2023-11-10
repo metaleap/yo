@@ -19,7 +19,7 @@ import (
 	"yo/util/str"
 )
 
-// part 1/2: log caught panics to DB
+// part 1/2: log panics-caught to DB
 
 const timeoutLogErr = 11 * time.Second
 
@@ -101,7 +101,7 @@ func init() {
 	}
 }
 
-// job
+// part 2/2: job to create mail-reqs from accumulated panics-caught-and-logged
 
 const mailTmplIdErrReports = "yo.errReport"
 
@@ -127,9 +127,9 @@ var errJobDef = yojobs.JobDef{
 	Name:                             yodb.Text(errJobTypeId),
 	JobTypeId:                        yodb.Text(errJobTypeId),
 	TimeoutSecsJobRunPrepAndFinalize: 44,
-	DeleteAfterDays:                  2,
+	DeleteAfterDays:                  1,
 	RunTasklessJobs:                  true,
-	Schedules:                        yojobs.ScheduleOncePerHour,
+	Schedules:                        If(IsDevMode, yojobs.ScheduleOncePerMinute, yojobs.ScheduleOncePerHour),
 }
 
 func (me errJob) JobDetails(_ *Ctx) yojobs.JobDetails                         { return nil }

@@ -188,8 +188,8 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 		}
 		if where == nil {
 			panic(ErrDbUpdate_ExpectedQueryForUpdate)
-		} else if dt_maybe != nil {
-			where = where.And(ColModifiedAt.Equal(dt_maybe.Time()))
+			// } else if dt_maybe != nil {
+			// 	where = where.And(ColModifiedAt.Equal(dt_maybe.Time()))
 		}
 	}
 
