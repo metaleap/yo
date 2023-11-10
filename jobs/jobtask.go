@@ -9,7 +9,7 @@ import (
 	q "yo/db/query"
 	yojson "yo/json"
 	. "yo/util"
-	"yo/util/dict"
+	"yo/util/kv"
 )
 
 type JobTask struct {
@@ -104,7 +104,7 @@ type TaskAttempt struct {
 }
 
 func (me *TaskAttempt) UnmarshalJSON(json_src []byte) error {
-	obj := dict.Any{}
+	obj := kv.Any{}
 	yojson.Load(json_src, &obj)
 	str_err, _ := obj["e"].(string)
 	str_dt, _ := obj["t"].(string)
@@ -117,7 +117,7 @@ func (me *TaskAttempt) UnmarshalJSON(json_src []byte) error {
 }
 
 func (me *TaskAttempt) MarshalJSON() ([]byte, error) {
-	obj := dict.Any{}
+	obj := kv.Any{}
 	if me.Err != nil { // want this first in the DB (only if err tho), handy for occasional manual sorting in local dev among many 1000s of tasks
 		obj["e"] = me.Err.Error()
 	}

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	. "yo/util"
-	"yo/util/dict"
+	"yo/util/kv"
 )
 
 type Num = json.Number
@@ -40,14 +40,14 @@ func From(it any, indent bool) (ret []byte) {
 }
 
 // if this is ever needed in hot/congested code paths, ditch json emit/parse roundtripping and reflect manually
-func DictFrom[T any](fromStruct T) (ret dict.Any) {
+func DictFrom[T any](fromStruct T) (ret kv.Any) {
 	json_src := From(fromStruct, false)
 	Load(json_src, &ret)
 	return
 }
 
 // if this is ever needed in hot/congested code paths, ditch json emit/parse roundtripping and reflect manually
-func FromDict[T any](fromDict dict.Any) (ret T) {
+func FromDict[T any](fromDict kv.Any) (ret T) {
 	json_src := From(fromDict, false)
 	Load(json_src, &ret)
 	return

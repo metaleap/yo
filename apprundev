@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# run in app dir, not in here
+appName=$(basename $PWD)
+
+# the build tag enables "dev mode", with extra prints, checks etc.
+go run -tags debug .

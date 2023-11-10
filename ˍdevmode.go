@@ -22,7 +22,7 @@ import (
 var AppSideBuildTimeContainerFileNames []string
 
 func init() {
-	buildFun = doBuildAppDeployablyAndPush
+	buildDeployablyNow = doBuildAppDeployablyAndMaybePush
 	ts2jsAppSideStaticDir = func() {
 		FsDirWalk(yosrv.StaticFilesDirNameApp, func(fsPath string, fsEntry fs.DirEntry) {
 			if fsEntry.IsDir() {
@@ -46,7 +46,7 @@ func init() {
 	}
 }
 
-func doBuildAppDeployablyAndPush() {
+func doBuildAppDeployablyAndMaybePush() {
 	app_name := filepath.Base(FsDirPathCur())
 	dst_dir_path := filepath.Join(FsDirPathHome(), "rwa", "src-"+app_name)
 	deploy_dir_path := filepath.Join(FsDirPathHome(), "rwa", "deploy-"+app_name)
@@ -190,15 +190,17 @@ use ./`+app_name+`
 		panic(str.Fmt("%s>>>>%s", err, cmd_out))
 	}
 
-	// 7. git push
-	println("PUSH...")
-	msg_commit := time.Now().Format(time.DateTime)
-	cmd_git1, cmd_git2, cmd_git3 := exec.Command("git", "add", "-A"), exec.Command("git", "commit", "-m", msg_commit), exec.Command("git", "push", "--force")
-	cmd_git1.Dir, cmd_git2.Dir, cmd_git3.Dir = deploy_dir_path, deploy_dir_path, deploy_dir_path
-	for _, cmd_git := range []*exec.Cmd{cmd_git1, cmd_git2, cmd_git3} {
-		cmd_out, err := cmd_git.CombinedOutput()
-		if err != nil {
-			panic(str.Fmt("%s>>>>%s", err, cmd_out))
+	if os.Getenv("YO_PUSH") != "" {
+		// 7. git push
+		println("PUSH...")
+		msg_commit := time.Now().Format(time.DateTime)
+		cmd_git1, cmd_git2, cmd_git3 := exec.Command("git", "add", "-A"), exec.Command("git", "commit", "-m", msg_commit), exec.Command("git", "push", "--force")
+		cmd_git1.Dir, cmd_git2.Dir, cmd_git3.Dir = deploy_dir_path, deploy_dir_path, deploy_dir_path
+		for _, cmd_git := range []*exec.Cmd{cmd_git1, cmd_git2, cmd_git3} {
+			cmd_out, err := cmd_git.CombinedOutput()
+			if err != nil {
+				panic(str.Fmt("%s>>>>%s", err, cmd_out))
+			}
 		}
 	}
 }

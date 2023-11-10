@@ -1,4 +1,4 @@
-package dict
+package kv
 
 type Any = map[string]any
 type Of[T any] map[string]T

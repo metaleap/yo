@@ -3,4 +3,4 @@
 # run in app dir, not in here
 appName=$(basename $PWD)
 
-YO_BUILD=1 YO_PUSH=1 go run -tags debug .
+YO_BUILD=1 go run -tags debug .

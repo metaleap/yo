@@ -14,7 +14,7 @@ import (
 	yojson "yo/json"
 	yolog "yo/log"
 	. "yo/util"
-	"yo/util/dict"
+	"yo/util/kv"
 	"yo/util/sl"
 	"yo/util/str"
 )
@@ -138,7 +138,7 @@ func handleHttpRequest(rw http.ResponseWriter, req *http.Request) {
 
 func handleHttpStaticFileRequestMaybe(ctx *yoctx.Ctx) bool {
 	if (AppSideStaticRePathFor != nil) && (!str.Begins(ctx.Http.UrlPath, "__")) && (!str.Begins(ctx.Http.UrlPath, AppApiUrlPrefix)) &&
-		!sl.Any(dict.Keys(StaticFileDirs), func(it string) bool { return str.Begins(ctx.Http.UrlPath, it) }) {
+		!sl.Any(kv.Keys(StaticFileDirs), func(it string) bool { return str.Begins(ctx.Http.UrlPath, it) }) {
 		if re_path := AppSideStaticRePathFor(ctx.Http.UrlPath); (re_path != "") && (re_path != ctx.Http.UrlPath) {
 			ctx.Http.UrlPath = re_path
 			ctx.Http.Req.RequestURI = "/" + re_path // loses query-args, which aren't expected for purely static content anyway

@@ -21,7 +21,7 @@ import (
 
 var ts2jsAppSideStaticDir func()
 var AppPkgPath = "yo/"
-var buildFun = func() {}
+var buildDeployablyNow = func() {}
 
 func init() {
 	time.Local = time.UTC
@@ -47,7 +47,7 @@ func Init(staticFileDirYo fs.FS, staticFileDirApp fs.FS) (listenAndServe func())
 	}
 
 	if os.Getenv("YO_BUILD") != "" {
-		buildFun()
+		buildDeployablyNow()
 		os.Exit(0)
 	}
 

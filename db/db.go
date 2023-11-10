@@ -10,7 +10,7 @@ import (
 	. "yo/ctx"
 	yolog "yo/log"
 	. "yo/util"
-	"yo/util/dict"
+	"yo/util/kv"
 	"yo/util/str"
 
 	"github.com/jackc/pgx/v5"
@@ -54,7 +54,7 @@ func InitAndConnectAndMigrateAndMaybeCodegen() (dbStructs []reflect.Type) {
 
 type dbLogger struct{}
 
-func (dbLogger) Log(ctx context.Context, level tracelog.LogLevel, msg string, data dict.Any) {
+func (dbLogger) Log(ctx context.Context, level tracelog.LogLevel, msg string, data kv.Any) {
 	if (IsDevMode || !IsUp) && (ctx.Value(CtxKeyDbNoLogging) == nil) {
 		yolog.Println("<db_%s> %s %v", level, msg, data)
 	}

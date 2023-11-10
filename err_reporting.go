@@ -14,7 +14,7 @@ import (
 	yomail "yo/mail"
 	yosrv "yo/srv"
 	. "yo/util"
-	"yo/util/dict"
+	"yo/util/kv"
 	"yo/util/sl"
 	"yo/util/str"
 )
@@ -40,7 +40,7 @@ type ErrEntry struct {
 }
 
 func init() {
-	NotifyErrCaught = func(nowInvalidCtx *Ctx, ctxVals dict.Any, err any, stackTrace string) {
+	NotifyErrCaught = func(nowInvalidCtx *Ctx, ctxVals kv.Any, err any, stackTrace string) {
 		if err, _ := err.(Err); (err == yosrv.ErrUnauthorized) || (err == yoctx.ErrMustBeAdmin) {
 			return
 		}
