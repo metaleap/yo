@@ -53,8 +53,11 @@ func (me *sqlStmt) insertViaUnnest(desc *structDesc, needRetIdsForInserts bool, 
 		if i > 0 {
 			w(", ")
 		}
-		w("@C")
+		w("(@C")
 		w(string(col_name))
+		w(")::")
+		w(sqlColTypeFrom(desc.fieldTypeOfCol(col_name)))
+		w("[]")
 	}
 	w("))")
 
@@ -84,7 +87,7 @@ func (me *sqlStmt) insert(desc *structDesc, numRows int, upsert bool, needRetIds
 			w(", ")
 		}
 		w(string(col_name))
-		if upsert && !sl.Has(desc.constraints.uniques, desc.fields[sl.IdxOf(desc.cols, col_name)]) {
+		if upsert && !sl.Has(desc.constraints.uniques, desc.fieldNameOfCol(col_name)) {
 			non_unique_cols = append(non_unique_cols, string(col_name))
 		}
 	}
@@ -95,7 +98,7 @@ func (me *sqlStmt) insert(desc *structDesc, numRows int, upsert bool, needRetIds
 		}
 		w("(")
 		for i, col_name := range cols {
-			field_name := desc.fields[sl.IdxOf(desc.cols, q.C(col_name))]
+			field_name := desc.fieldNameOfCol(col_name)
 			field, _ := desc.ty.FieldByName(string(field_name))
 			is_json_field := isDbJsonType(field.Type)
 
@@ -129,7 +132,7 @@ func (me *sqlStmt) insertUpsertAppendum(desc *structDesc, nonUniqueCols []string
 		if i > 0 {
 			w(", ")
 		}
-		w(string(desc.cols[sl.IdxOf(desc.fields, unique_field_name)]))
+		w(string(desc.colNameOfField(unique_field_name)))
 	}
 	w(") DO ")
 	if len(nonUniqueCols) == 0 {
@@ -161,7 +164,7 @@ func (me *sqlStmt) update(desc *structDesc, colNames ...q.C) *sqlStmt {
 	w(" SET ")
 	var num_cols int
 	for _, col_name := range colNames {
-		field_name := desc.fields[sl.IdxOf(desc.cols, col_name)]
+		field_name := desc.fieldNameOfCol(col_name)
 		if sl.Has(desc.constraints.readOnly, field_name) {
 			continue
 		}
@@ -199,9 +202,8 @@ func (me *sqlStmt) selCols(desc *structDesc, colsPtr *[]q.C, ignoreAlwaysFetchFi
 	if len(cols) == 0 {
 		cols = desc.cols
 	} else if !ignoreAlwaysFetchFields {
-		for _, field_name := range desc.constraints.alwaysFetch {
-			cols = sl.With(cols, desc.cols[sl.IdxOf(desc.fields, field_name)])
-		}
+		cols = sl.With(cols, sl.To(desc.constraints.alwaysFetch,
+			func(it q.F) q.C { return desc.colNameOfField(it) })...)
 	}
 	for i, col := range cols {
 		if i > 0 {
@@ -260,7 +262,7 @@ func (me *sqlStmt) where(desc *structDesc, isMut bool, where q.Query, args pgx.N
 			join := joins[q.F(lhs)]
 			return q.C(join.Key) + "." + f2c(join.It, q.F(rhs), true)
 		}
-		return If(noTableName, "", q.C(desc.tableName)+".") + d.cols[sl.IdxOf(d.fields, fieldName)]
+		return If(noTableName, "", q.C(desc.tableName)+".") + d.colNameOfField(fieldName)
 	}
 
 	w := (*str.Buf)(me).WriteString

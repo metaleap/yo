@@ -201,6 +201,22 @@ type structDesc struct {
 	}
 }
 
+func (me *structDesc) fieldNameOfCol(colName q.C) q.F {
+	return me.fields[sl.IdxOf(me.cols, colName)]
+}
+
+func (me *structDesc) colNameOfField(fieldName q.F) q.C {
+	return me.cols[sl.IdxOf(me.fields, fieldName)]
+}
+
+func (me *structDesc) fieldTypeOfCol(colName q.C) reflect.Type {
+	return me.fieldTypeOfField(me.fieldNameOfCol(colName))
+}
+func (me *structDesc) fieldTypeOfField(fieldName q.F) reflect.Type {
+	field, _ := me.ty.FieldByName(string(fieldName))
+	return field.Type
+}
+
 func isColField(fieldType reflect.Type) bool {
 	return sl.Has(okTypes, fieldType) || isDbJsonType(fieldType) || isDbRefType(fieldType) || isDbArrType(fieldType)
 }

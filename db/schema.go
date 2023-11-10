@@ -50,7 +50,7 @@ func schemaReCreateIndices(desc *structDesc, renamesOldColToNewField map[q.C]q.F
 		}
 		field, _ := desc.ty.FieldByName(string(field_name))
 		order_by := If(field.Type == tyDateTime, "DESC", "")
-		col_name := desc.cols[sl.IdxOf(desc.fields, field_name)]
+		col_name := desc.colNameOfField(field_name)
 		indexed_cols_and_order[col_name] = order_by
 	}
 
@@ -141,7 +141,7 @@ func schemaCreateTable(desc *structDesc, didWriteUpdTriggerFuncYet *bool) (ret [
 			`CREATE OR REPLACE TRIGGER {table_name}onUpdate BEFORE UPDATE {of_cols} ON {table_name} FOR EACH ROW EXECUTE FUNCTION on_yo_db_obj_upd();`),
 			str.Dict{"col_name": string(ColModifiedAt), "table_name": desc.tableName,
 				"of_cols": If(len(upd_trigger_on_flds) == 0, "",
-					"OF "+str.Join(sl.To(upd_trigger_on_flds, func(it q.F) string { return string(desc.cols[sl.IdxOf(desc.fields, it)]) }), ", "),
+					"OF "+str.Join(sl.To(upd_trigger_on_flds, func(it q.F) string { return string(desc.colNameOfField(it)) }), ", "),
 				)}))
 		*didWriteUpdTriggerFuncYet = true
 		ret = append(ret, (*sqlStmt)(&stmt_make_trigger))
@@ -221,7 +221,7 @@ func schemaAlterTable(desc *structDesc, curTable []*TableColumn) (ret []*sqlStmt
 		w("ALTER TABLE ")
 		w(desc.tableName)
 		for _, field_name := range fields_new {
-			col_name := desc.cols[sl.IdxOf(desc.fields, field_name)]
+			col_name := desc.colNameOfField(field_name)
 			w(" \n\tADD COLUMN IF NOT EXISTS ")
 			w(string(col_name))
 			w(" ")

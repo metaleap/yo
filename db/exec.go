@@ -61,7 +61,7 @@ func FindMany[T any](ctx *Ctx, query q.Query, maxResults int, onlyFields []q.F, 
 	desc, args := desc[T](), dbArgs{}
 	cols := make([]q.C, len(onlyFields))
 	for i, field_name := range onlyFields {
-		cols[i] = desc.cols[sl.IdxOf(desc.fields, field_name)]
+		cols[i] = desc.colNameOfField(field_name)
 	}
 	return doSelect[T](ctx,
 		new(sqlStmt).selCols(desc, &cols, false).where(desc, false, query, args, orderBy...).limit(maxResults), args, maxResults, cols...)
@@ -71,7 +71,7 @@ func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.OrderBy, o
 	desc, args := desc[T](), dbArgs{}
 	cols := make([]q.C, len(onlyFields))
 	for i, field_name := range onlyFields {
-		cols[i] = desc.cols[sl.IdxOf(desc.fields, field_name)]
+		cols[i] = desc.colNameOfField(field_name)
 	}
 	doStream[T](ctx, new(sqlStmt).selCols(desc, &cols, false).where(desc, false, query, args, orderBy...).limit(maxResults), onRecord, args, cols...)
 }
@@ -198,10 +198,10 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 	if len(recs) == 0 {
 		return
 	}
-	if len(recs) == 1 {
-		_ = CreateOne[T](ctx, recs[0])
-		return
-	}
+	// if len(recs) == 1 {
+	// 	_ = CreateOne[T](ctx, recs[0])
+	// 	return
+	// }
 	upOrInsert[T](ctx, false, recs...)
 }
 
@@ -297,10 +297,10 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 			break
 		}
 		rv, col_scanners := reflect.ValueOf(&rec).Elem(), make([]any, len(cols))
-		for i, col := range cols {
-			field_name := string(struct_desc.fields[sl.IdxOf(struct_desc.cols, col)])
-			field := rv.FieldByName(field_name)
-			field_t, _ := struct_desc.ty.FieldByName(field_name)
+		for i, col_name := range cols {
+			field_name := struct_desc.fieldNameOfCol(col_name)
+			field := rv.FieldByName(string(field_name))
+			field_t, _ := struct_desc.ty.FieldByName(string(field_name))
 			var json_db_val dbJsonValue
 			unsafe_addr := field.UnsafeAddr()
 			if isDbRefType(field.Type()) {
@@ -339,33 +339,42 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 }
 
 func dbArgsCleanUpForPgx(args dbArgs) dbArgs {
-	for k, v := range args {
+	var do_cleanup func(any) any
+	do_cleanup = func(v any) any {
 		if v == nil {
-			continue
+			return nil
 		}
-		if b, is := v.(Bytes); is {
-			args[k] = ([]byte)(b)
+		if arr_anys, is := v.([]any); is {
+			for i, it := range arr_anys {
+				arr_anys[i] = do_cleanup(it)
+			}
+		} else if b, is := v.(Bytes); is {
+			return ([]byte)(b)
 		} else if _, is := v.(DateTime); is {
 			panic("buggy code: non-pointer DateTime met in dbArgsCleanUpForPgx")
 		} else if dt, is := v.(*DateTime); is {
 			if dt == nil {
-				args[k] = nil
+				return nil
 			} else {
-				args[k] = time.Time(*dt)
+				return time.Time(*dt)
 			}
 		} else if db_ref, _ := v.(dbRef); db_ref != nil {
 			id := db_ref.Id()
-			args[k] = If[any](id == 0, nil, id)
+			return If[any](id == 0, nil, id)
 		} else if rv := reflect.ValueOf(v); !rv.IsValid() {
 			panic(v)
 		} else if rvt := rv.Type(); isDbJsonType(rvt) {
 			jsonb := yojson.From(v, false)
 			if bytes.Equal(jsonb, yojson.JsonTokEmptyArr) || bytes.Equal(jsonb, yojson.JsonTokEmptyObj) || bytes.Equal(jsonb, yojson.JsonTokNull) {
-				args[k] = nil
+				return nil
 			} else {
-				args[k] = jsonb
+				return jsonb
 			}
 		}
+		return v
+	}
+	for k, v := range args {
+		args[k] = do_cleanup(v)
 	}
 	return args
 }
