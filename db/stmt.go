@@ -33,14 +33,11 @@ func (me *sqlStmt) delete(from string) *sqlStmt {
 	return me
 }
 
-func (me *sqlStmt) insertViaUnnest(desc *structDesc, numRows int, upsert bool, needRetIdsForInserts bool) *sqlStmt {
+func (me *sqlStmt) insertViaUnnest(desc *structDesc, needRetIdsForInserts bool, cols ...q.C) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
-	if (numRows < 1) || (upsert && (numRows > 1)) {
-		panic(numRows)
+	if len(cols) == 0 {
+		cols = desc.cols[numStdCols:]
 	}
-	var non_unique_cols []string
-	var non_unique_vals []string
-	cols := desc.cols[numStdCols:]
 
 	w("INSERT INTO ")
 	w(desc.tableName)
@@ -50,23 +47,18 @@ func (me *sqlStmt) insertViaUnnest(desc *structDesc, numRows int, upsert bool, n
 			w(", ")
 		}
 		w(string(col_name))
-		if upsert && !sl.Has(desc.constraints.uniques, desc.fields[sl.IdxOf(desc.cols, col_name)]) {
-			non_unique_cols = append(non_unique_cols, string(col_name))
-		}
 	}
 	w(")(SELECT * FROM unnest(")
-	for i := range cols {
+	for i, col_name := range cols {
 		if i > 0 {
 			w(", ")
 		}
-		w("@F")
-		w(string(desc.fields[i]))
+		w("@C")
+		w(string(col_name))
 	}
 	w("))")
 
-	if upsert && (len(desc.constraints.uniques) > 0) {
-		me.insertUpsertAppendum(desc, non_unique_cols, non_unique_vals)
-	} else if needRetIdsForInserts {
+	if needRetIdsForInserts {
 		w(" RETURNING ")
 		w(string(ColID))
 	}

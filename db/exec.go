@@ -183,13 +183,13 @@ func CreateOne[T any](ctx *Ctx, rec *T) (ret I64) {
 		_, _ = self_versioning.OnBeforeStoring(true)
 	}
 	desc := desc[T]()
-	args := dbArgsFill[T](desc, make(dbArgs, len(desc.fields)), rec, "0")
+	args := dbArgsFillForInsertClassic[T](desc, make(dbArgs, len(desc.fields)), []*T{rec})
 	result := doSelect[int64](ctx, new(sqlStmt).insert(desc, 1, false, true), args, 1)
 	if (len(result) > 0) && (result[0] != nil) {
 		ret = I64(*result[0])
 	}
 	if ret <= 0 {
-		panic("new bug: INSERT INTO did not fail yet returned record id of 0")
+		panic("unreachable")
 	}
 	return
 }
@@ -214,17 +214,23 @@ func upOrInsert[T any](ctx *Ctx, upsert bool, recs ...*T) {
 		return
 	}
 	if upsert && (len(recs) > 1) {
-		panic(len(recs))
+		panic("TODO not yet supported until needed: multiple-upserts-in-one-stmt")
 	}
 	desc := desc[T]()
-	args := make(dbArgs, len(desc.fields)*len(recs))
-	for i := range recs {
-		if self_versioning, _ := ((any)(recs[i])).(SelfVersioningObj); self_versioning != nil {
+	args := make(dbArgs, len(desc.fields))
+	if _, is_self_versioning := any(recs[0]).(SelfVersioningObj); is_self_versioning {
+		for i := range recs {
+			self_versioning := any(recs[i]).(SelfVersioningObj)
 			_, _ = self_versioning.OnBeforeStoring(!upsert)
 		}
-		args = dbArgsFill(desc, args, recs[i], str.FromInt(i))
 	}
-	_ = doExec(ctx, new(sqlStmt).insert(desc, len(recs), upsert, false), args)
+	if upsert {
+		args = dbArgsFillForInsertClassic(desc, args, recs)
+		_ = doExec(ctx, new(sqlStmt).insert(desc, len(recs), true, false), args)
+	} else {
+		args = dbArgsFillForInsertViaUnnest(desc, args, recs)
+		_ = doExec(ctx, new(sqlStmt).insertViaUnnest(desc, false), args)
+	}
 }
 
 func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {
@@ -364,12 +370,33 @@ func dbArgsCleanUpForPgx(args dbArgs) dbArgs {
 	return args
 }
 
-func dbArgsFill[T any](desc *structDesc, args dbArgs, rec *T, argNameSuffix string) dbArgs {
-	ForEachColField[T](rec, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
-		if (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) {
-			args["A"+string(colName)+argNameSuffix] = fieldValue
-		}
-	})
+func dbArgsFillForInsertViaUnnest[T any](desc *structDesc, args dbArgs, recs []*T, cols ...q.C) dbArgs {
+	if len(cols) == 0 {
+		cols = desc.cols[numStdCols:]
+	}
+	for _, col_name := range cols {
+		arg_name := "C" + string(col_name)
+		args[arg_name] = []any{}
+	}
+	for _, rec := range recs {
+		ForEachColField[T](rec, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
+			if (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) {
+				arg_name := "C" + string(colName)
+				args[arg_name] = append(args[arg_name].([]any), fieldValue)
+			}
+		})
+	}
+	return args
+}
+
+func dbArgsFillForInsertClassic[T any](desc *structDesc, args dbArgs, recs []*T) dbArgs {
+	for i, rec := range recs {
+		ForEachColField[T](rec, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
+			if (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) {
+				args["A"+string(colName)+str.FromInt(i)] = fieldValue
+			}
+		})
+	}
 	return args
 }
 
