@@ -178,10 +178,7 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 			return task
 		})
 		num_tasks += len(tasks)
-		println("MKTASKS:"+jobDef.Name+"...", len(tasks))
-		ctx.Db.PrintRawSqlInDevMode = true
 		yodb.CreateMany[JobTask](ctx, tasks...)
-		ctx.Db.PrintRawSqlInDevMode = false
 	})
 	done = true
 
