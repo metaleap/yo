@@ -168,6 +168,10 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 		if lower := q.F(str.Lo(string(FieldID))); (id_maybe <= 0) && sl.Has(desc.fields, lower) {
 			id_maybe = reflFieldValueOf(upd, lower).(I64)
 		}
+		dt_maybe, _ := reflFieldValueOf(upd, FieldModifiedAt).(*DateTime)
+		if lower := q.F(str.Lo(string(FieldModifiedAt))); (dt_maybe == nil) && sl.Has(desc.fields, lower) {
+			dt_maybe = reflFieldValueOf(upd, lower).(*DateTime)
+		}
 		if id_maybe > 0 {
 			where = q.C(ColID).Equal(id_maybe)
 		} else if len(onlyFields) > 0 { // ...or else another unique field (that isnt in onlyFields and so is an exists-in-db queryable)
@@ -184,6 +188,8 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 		}
 		if where == nil {
 			panic(ErrDbUpdate_ExpectedQueryForUpdate)
+		} else if dt_maybe != nil {
+			where = where.And(ColModifiedAt.Equal(dt_maybe.Time()))
 		}
 	}
 
