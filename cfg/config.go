@@ -55,7 +55,7 @@ func init() {
 	is_local_prod, is_env_prod := (os.Getenv("YO_LOCAL") != ""), false
 	local_skip_env_names := []string{"YO_API_HTTP_PORT", "YO_DB_CONN_URL", "STATIC_FILE_STORAGE_DIRS"}
 	for _, file_name := range []string{".env", ".env.prod"} /* note, keep this slice order */ {
-		if env_file_data := bytes.TrimSpace(FileRead(file_name)); len(env_file_data) > 0 {
+		if env_file_data := bytes.TrimSpace(FsRead(file_name)); len(env_file_data) > 0 {
 			for i, lines := 0, str.Split(string(env_file_data), "\n"); i < len(lines); i++ {
 				if line := str.Trim(lines[i]); (line != "") && (line[0] != '#') {
 					name, val, ok := str.Cut(line, "=")

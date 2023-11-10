@@ -5,11 +5,14 @@ import (
 	"os"
 )
 
-func FileCopy(srcFilePath string, dstFilePath string) {
-	FileWrite(dstFilePath, FileRead(srcFilePath))
+func FsDelFile(filePath string) { _ = os.Remove(filePath) }
+func FsDelDir(dirPath string)   { _ = os.RemoveAll(dirPath) }
+
+func FsCopy(srcFilePath string, dstFilePath string) {
+	FsWrite(dstFilePath, FsRead(srcFilePath))
 }
 
-func FileRead(filePath string) []byte {
+func FsRead(filePath string) []byte {
 	data, err := os.ReadFile(filePath)
 	if err != nil && !os.IsNotExist(err) {
 		panic(err)
@@ -17,11 +20,19 @@ func FileRead(filePath string) []byte {
 	return data
 }
 
-func FileWrite(filePath string, data []byte) {
+func FsWrite(filePath string, data []byte) {
 	err := os.WriteFile(filePath, data, os.ModePerm)
 	if err != nil {
 		panic(err)
 	}
+}
+
+func FsIsDir(dirPath string) bool   { return fsIs(dirPath, fs.FileInfo.IsDir, true) }
+func FsIsFile(filePath string) bool { return fsIs(filePath, fs.FileInfo.IsDir, false) }
+
+func fsIs(path string, check func(fs.FileInfo) bool, expect bool) bool {
+	fs_info := fsStat(path)
+	return (fs_info != nil) && (expect == check(fs_info))
 }
 
 func fsStat(path string) fs.FileInfo {
@@ -32,11 +43,3 @@ func fsStat(path string) fs.FileInfo {
 	}
 	return If(is_not_exist, nil, fs_info)
 }
-
-func fsIs(path string, check func(fs.FileInfo) bool, expect bool) bool {
-	fs_info := fsStat(path)
-	return (fs_info != nil) && (expect == check(fs_info))
-}
-
-func IsDir(dirPath string) bool   { return fsIs(dirPath, fs.FileInfo.IsDir, true) }
-func IsFile(filePath string) bool { return fsIs(filePath, fs.FileInfo.IsDir, false) }

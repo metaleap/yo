@@ -34,7 +34,7 @@ var (
 	foundModifiedTsFilesYoSide = codegenForceFull
 	pkgsFound                  = str.Dict{}
 	pkgsImportingSrv           = map[string]bool{}
-	curMainDir                 = DirPathCur()
+	curMainDir                 = FsDirPathCur()
 	curMainName                = filepath.Base(curMainDir)
 	curMainStaticDirPathYo     = filepath.Join(curMainDir, StaticFilesDirNameYo)
 	curMainStaticDirPathApp    = filepath.Join(curMainDir, StaticFilesDirNameApp)
@@ -46,17 +46,17 @@ func init() {
 
 		{ // initial dir-walk & enums-detection
 			enum_pkgs := str.Dict{}
-			WalkCodeFiles(true, true, func(fsPath string, dirEntry fs.DirEntry) {
+			FsWalkCodeDirs(true, true, func(fsPath string, dirEntry fs.DirEntry) {
 				if is_yo_side := str.Begins(FsPathAbs(fsPath), str.TrimSuff(FsPathAbs(yoStaticDirPath), "/")+"/"); is_yo_side &&
 					(!foundModifiedTsFilesYoSide) && (!dirEntry.IsDir()) &&
 					str.Ends(fsPath, ".ts") && (!str.Ends(fsPath, ".d.ts")) {
 
-					is_modified := IsNewer(fsPath, FilePathSwapExt(fsPath, ".ts", ".js"))
+					is_modified := FsIsNewerThan(fsPath, FsPathSwapExt(fsPath, ".ts", ".js"))
 					foundModifiedTsFilesYoSide = foundModifiedTsFilesYoSide || is_modified
 				}
 
 				if str.Ends(fsPath, ".go") { // looking for enums' enumerants
-					data := FileRead(fsPath)
+					data := FsRead(fsPath)
 					pkg_name := ""
 					for _, line := range str.Split(str.Trim(string(data)), "\n") {
 						if str.Begins(line, "package ") {
@@ -126,7 +126,7 @@ func codegenGo(apiRefl *apiReflect) {
 		}
 
 		if !pkgsImportingSrv[pkg_name] {
-			DelFile(out_file_path)
+			FsDelFile(out_file_path)
 			continue
 		}
 
@@ -190,8 +190,8 @@ func codegenGo(apiRefl *apiReflect) {
 			panic(err)
 		}
 
-		if src_old := FileRead(out_file_path); !bytes.Equal(src_old, src_raw) {
-			FileWrite(out_file_path, src_raw)
+		if src_old := FsRead(out_file_path); !bytes.Equal(src_old, src_raw) {
+			FsWrite(out_file_path, src_raw)
 			did_write_files = append(did_write_files, str.TrimPref(filepath.Dir(out_file_path), os.Getenv("GOPATH")+"/"))
 		}
 	}
@@ -201,7 +201,7 @@ func codegenGo(apiRefl *apiReflect) {
 }
 
 func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
-	if EnsureDir(StaticFilesDirNameYo) {
+	if FsDirEnsure(StaticFilesDirNameYo) {
 		didFsWrites = append(didFsWrites, "MK:"+StaticFilesDirNameYo)
 	}
 
@@ -218,7 +218,7 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 		buf.WriteString("export const " + ts_const_name + " = " + str.GoLike(cfg_setting_value) + "\n")
 	}
 	buf.WriteString("\n// " + yoSdkTsPreludeFileName + " below, more generated code afterwards\n")
-	buf.Write(FileRead(filepath.Join(yoStaticDirPath, yoSdkTsPreludeFileName))) // emit yo-side code prelude
+	buf.Write(FsRead(filepath.Join(yoStaticDirPath, yoSdkTsPreludeFileName))) // emit yo-side code prelude
 	buf.WriteString("\n// " + yoSdkTsPreludeFileName + " ends, the rest below is fully generated code only:\n")
 
 	buf.WriteString("\nreqTimeoutMsForJsonApis = Cfg_YO_API_IMPL_TIMEOUT_MS\n")
@@ -254,13 +254,13 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 
 	src_to_write := []byte(buf.String())
 
-	src_prev := FileRead(out_file_path_1)
+	src_prev := FsRead(out_file_path_1)
 	src_is_changed := codegenForceFull || (len(src_prev) == 0) || (!bytes.Equal(src_prev, src_to_write))
 	if src_is_changed {
 		foundModifiedTsFilesYoSide = true
-		FileWrite("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`))
-		FileWrite(out_file_path_1, src_to_write)
-		FileWrite(out_file_path_2, src_to_write)
+		FsWrite("tsconfig.json", []byte(`{"extends": "../yo/tsconfig.json"}`))
+		FsWrite(out_file_path_1, src_to_write)
+		FsWrite(out_file_path_2, src_to_write)
 	}
 
 	if foundModifiedTsFilesYoSide {
@@ -269,16 +269,16 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 	}
 
 	// post-generate: clean up app-side, by removing files no longer in yo side
-	WalkDir(StaticFilesDirNameYo, func(path string, dirEntry fs.DirEntry) {
+	FsDirWalk(StaticFilesDirNameYo, func(path string, dirEntry fs.DirEntry) {
 		if filepath.Base(path) == yoSdkJsFileName {
 			return
 		}
 		yo_side_equiv_path := yoDirPath + path
-		if (path != out_file_path_1) && !(IsFile(yo_side_equiv_path) || IsDir(yo_side_equiv_path)) {
+		if (path != out_file_path_1) && !(FsIsFile(yo_side_equiv_path) || FsIsDir(yo_side_equiv_path)) {
 			if dirEntry.IsDir() {
-				DelDir(path)
+				FsDelDir(path)
 			} else {
-				DelFile(path)
+				FsDelFile(path)
 			}
 			didFsWrites = append(didFsWrites, "RM:"+path)
 		}
@@ -286,7 +286,7 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 
 	// post-generate: ensure files are linked app-side (and folders mirrored).
 	// about symlinks: ALL app-side equivs to yo-side __yostatic/* are symlinks EXCEPT for yo-sdk.*s that were just emitted app-side with its app-specific types/methods/enums
-	WalkDir(yoStaticDirPath, func(path string, dirEntry fs.DirEntry) {
+	FsDirWalk(yoStaticDirPath, func(path string, dirEntry fs.DirEntry) {
 		if (path == (filepath.Join(yoStaticDirPath, yoSdkTsFileName))) ||
 			(path == (filepath.Join(yoStaticDirPath, yoSdkTsPreludeFileName))) ||
 			(path == (filepath.Join(yoStaticDirPath, yoSdkJsPreludeFileName))) ||
@@ -295,7 +295,7 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 		}
 
 		is_dir, app_side_link_path := dirEntry.IsDir(), path[len(yoDirPath):]
-		if EnsureLink(app_side_link_path, path, is_dir) {
+		if FsLinkEnsure(app_side_link_path, path, is_dir) {
 			didFsWrites = append(didFsWrites, "LN:"+app_side_link_path)
 		}
 	})
@@ -422,7 +422,7 @@ func codegenTsToJs(inDirPath string, isAppSide bool, reasons ...string) {
 	}
 
 	// the much-faster "esbuild Transform API" way
-	WalkDir(inDirPath, func(path string, fsEntry fs.DirEntry) {
+	FsDirWalk(inDirPath, func(path string, fsEntry fs.DirEntry) {
 		if (fsEntry.IsDir()) || str.Ends(path, ".d.ts") || (!str.Ends(path, ".ts")) ||
 			(isAppSide && !str.Ends(path, "/"+filepath.Join(StaticFilesDirNameYo, yoSdkTsFileName))) {
 			return // nothing to do for this `path`

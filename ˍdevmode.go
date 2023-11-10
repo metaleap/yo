@@ -24,20 +24,20 @@ var AppSideBuildTimeContainerFileNames []string
 func init() {
 	buildFun = doBuildAppDeployablyAndPush
 	ts2jsAppSideStaticDir = func() {
-		WalkDir(yosrv.StaticFilesDirNameApp, func(fsPath string, fsEntry fs.DirEntry) {
+		FsDirWalk(yosrv.StaticFilesDirNameApp, func(fsPath string, fsEntry fs.DirEntry) {
 			if fsEntry.IsDir() {
 				return
 			}
 			switch {
 			case str.Ends(fsPath, ".js"):
-				ts_file_path := FilePathSwapExt(fsPath, ".js", ".ts")
-				if !IsFile(ts_file_path) {
+				ts_file_path := FsPathSwapExt(fsPath, ".js", ".ts")
+				if !FsIsFile(ts_file_path) {
 					println("rm " + fsPath)
-					DelFile(fsPath)
+					FsDelFile(fsPath)
 				}
 			case str.Ends(fsPath, ".ts") && !str.Ends(fsPath, ".d.ts"):
-				js_file_path := FilePathSwapExt(fsPath, ".ts", ".js")
-				if IsNewer(fsPath, js_file_path) {
+				js_file_path := FsPathSwapExt(fsPath, ".ts", ".js")
+				if FsIsNewerThan(fsPath, js_file_path) {
 					println("ts2js " + fsPath)
 					TsFile2JsFileViaEsbuild(fsPath)
 				}
@@ -47,28 +47,28 @@ func init() {
 }
 
 func doBuildAppDeployablyAndPush() {
-	app_name := filepath.Base(DirPathCur())
-	dst_dir_path := filepath.Join(DirPathHome(), "rwa", "src-"+app_name)
-	deploy_dir_path := filepath.Join(DirPathHome(), "rwa", "deploy-"+app_name)
-	DelDir(dst_dir_path)
-	EnsureDir(dst_dir_path)
-	EnsureDir(deploy_dir_path)
+	app_name := filepath.Base(FsDirPathCur())
+	dst_dir_path := filepath.Join(FsDirPathHome(), "rwa", "src-"+app_name)
+	deploy_dir_path := filepath.Join(FsDirPathHome(), "rwa", "deploy-"+app_name)
+	FsDelDir(dst_dir_path)
+	FsDirEnsure(dst_dir_path)
+	FsDirEnsure(deploy_dir_path)
 
 	// 1. clear deploy_dir_path except for .git
 	dotgit_dir_path := filepath.Join(deploy_dir_path, ".git")
-	WalkDir(deploy_dir_path, func(fsPath string, fsEntry fs.DirEntry) {
+	FsDirWalk(deploy_dir_path, func(fsPath string, fsEntry fs.DirEntry) {
 		if str.Begins(fsPath, dotgit_dir_path) {
 			return
 		}
-		if !IsDir(fsPath) {
-			DelFile(fsPath)
+		if !FsIsDir(fsPath) {
+			FsDelFile(fsPath)
 		} else {
 			panic("TODO since apparently this unexpected-by-design need for dirs here arose: replace this panic with just `DelDir(fsPath)`")
 		}
 	})
 
 	if true { // 2. touch own Dockerfile, preferred choice
-		FileWrite(filepath.Join(deploy_dir_path, "Dockerfile"), []byte(str.Trim(`
+		FsWrite(filepath.Join(deploy_dir_path, "Dockerfile"), []byte(str.Trim(`
 FROM scratch
 COPY .env /.env
 COPY .env.prod /.env.prod
@@ -78,7 +78,7 @@ COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT ["/`+app_name+`.exec"]
 	`)))
 	} else { // 2. touch railway.toml, the alternative way (implies Railway.app default Dockerfile)
-		FileWrite(filepath.Join(deploy_dir_path, "railway.toml"), []byte(str.Trim(`
+		FsWrite(filepath.Join(deploy_dir_path, "railway.toml"), []byte(str.Trim(`
 # note, unused if Dockerfile present too
 [build]
 builder = "nixpacks"
@@ -94,7 +94,7 @@ restartPolicyMaxRetries = 2
 	}
 
 	// 3. touch go.work
-	FileWrite(filepath.Join(dst_dir_path, "go.work"), []byte(str.Trim(`
+	FsWrite(filepath.Join(dst_dir_path, "go.work"), []byte(str.Trim(`
 go `+str.TrimPref(runtime.Version(), "go")+`
 use ./yo
 use ./`+app_name+`
@@ -106,18 +106,18 @@ use ./`+app_name+`
 		"../yo": false,
 	} {
 		strip := If(is_app, "", "../yo/")
-		WalkDir(src_dir_path, func(fsPath string, fsEntry fs.DirEntry) {
+		FsDirWalk(src_dir_path, func(fsPath string, fsEntry fs.DirEntry) {
 			if str.Ends(fsPath, ".go") || str.Ends(fsPath, "go.mod") {
 				path_equiv := fsPath[len(strip):]
 				dst_file_path := filepath.Join(dst_dir_path, If(is_app, app_name, "yo"), path_equiv)
-				EnsureDir(filepath.Dir(dst_file_path))
-				FileCopy(fsPath, dst_file_path)
+				FsDirEnsure(filepath.Dir(dst_file_path))
+				FsCopy(fsPath, dst_file_path)
 			} else if is_app && (str.Ends(fsPath, ".env") || str.Ends(fsPath, ".env.prod")) {
-				FileCopy(fsPath, filepath.Join(deploy_dir_path, fsEntry.Name()))
+				FsCopy(fsPath, filepath.Join(deploy_dir_path, fsEntry.Name()))
 			} else if is_app {
 				for _, file_name := range AppSideBuildTimeContainerFileNames {
 					if str.Ends(fsPath, filepath.Join(src_dir_path, file_name)) {
-						FileCopy(fsPath, filepath.Join(deploy_dir_path, fsEntry.Name()))
+						FsCopy(fsPath, filepath.Join(deploy_dir_path, fsEntry.Name()))
 					}
 				}
 			}
@@ -131,15 +131,15 @@ use ./`+app_name+`
 	} {
 		strip := If(is_app, "", "../yo/")
 		// copy static files other than .ts / .js or sub dirs (all non-script files sit in top level, never in sub dirs)
-		WalkDir(src_dir_path, func(fsPath string, fsEntry fs.DirEntry) {
+		FsDirWalk(src_dir_path, func(fsPath string, fsEntry fs.DirEntry) {
 			path_equiv := fsPath[len(strip):]
 			if (!fsEntry.IsDir()) && (!str.Ends(fsPath, ".js")) && !str.Ends(fsPath, ".ts") {
 				dst_file_path := filepath.Join(dst_dir_path, app_name, path_equiv)
-				EnsureDir(filepath.Dir(dst_file_path))
+				FsDirEnsure(filepath.Dir(dst_file_path))
 				if !str.Ends(fsPath, ".css") {
-					FileCopy(fsPath, dst_file_path)
+					FsCopy(fsPath, dst_file_path)
 				} else {
-					FileWrite(dst_file_path, cssDownsize(FileRead(fsPath)))
+					FsWrite(dst_file_path, cssDownsize(FsRead(fsPath)))
 				}
 			}
 		})

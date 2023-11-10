@@ -15,7 +15,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const ( // change those only together with the tmpls in `init`
+const (
 	MailTmplIdSignUp     = "yoauth.signUp"
 	MailTmplIdPwdForgot  = "yoauth.pwdForgot"
 	MailTmplVarEmailAddr = "email_addr"
