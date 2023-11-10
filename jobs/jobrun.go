@@ -99,7 +99,6 @@ func (me *JobRun) TimeoutPrepAndFinalize(ctx *Ctx) time.Duration {
 }
 
 func (me *JobRun) Stats(ctx *Ctx) *JobRunStats {
-	ctx.DbTx()
 	stats := JobRunStats{TasksByState: make(map[RunState]int64, 4)}
 
 	for _, state := range []RunState{Pending, Running, Done, Cancelled} {

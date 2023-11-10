@@ -234,7 +234,7 @@ func (me *Ctx) Set(name string, value any) {
 	me.ctxVals[name] = value
 }
 
-func (me *Ctx) DbTx() {
+func (me *Ctx) DbTx(serious bool) {
 	if me.Db.Tx != nil {
 		return
 	}

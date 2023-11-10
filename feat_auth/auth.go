@@ -51,7 +51,7 @@ func UserPregisterOrForgotPassword(ctx *Ctx, emailAddr string) {
 }
 
 func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
-	ctx.DbTx()
+	ctx.DbTx(true)
 
 	if yodb.Exists[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr)) {
 		panic(Err___yo_authRegister_EmailAddrAlreadyExists)
@@ -94,7 +94,7 @@ func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordP
 		return UserLogin(ctx, emailAddr, passwordPlain)
 	}
 
-	ctx.DbTx()
+	ctx.DbTx(true)
 	pwd_reset_req := yodb.FindOne[UserPwdReq](ctx,
 		UserPwdReqEmailAddr.Equal(emailAddr). // request for this email addr
 							And(UserPwdReqDoneMailReqId.NotEqual(nil)).        // where the corresponding mail-req was already created
@@ -149,7 +149,7 @@ func UserVerify(jwtRaw string) *JwtPayload {
 }
 
 func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, passwordNewPlain string) {
-	ctx.DbTx()
+	ctx.DbTx(true)
 	user_account, _ := UserLogin(ctx, emailAddr, passwordOldPlain)
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwordNewPlain), bcrypt.DefaultCost)
 	if (err != nil) || (len(hash) == 0) {

@@ -124,7 +124,7 @@ func CreateMany[T any](ctx *Ctx, recs ...*T) {
 		_ = CreateOne[T](ctx, recs[0])
 		return
 	}
-	upsert[T](ctx, false, recs...)
+	upOrInsert[T](ctx, false, recs...)
 }
 
 func Delete[T any](ctx *Ctx, where q.Query) int64 {
@@ -199,10 +199,10 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 }
 
 func Upsert[TObj any](ctx *Ctx, obj *TObj) {
-	upsert[TObj](ctx, true, obj)
+	upOrInsert[TObj](ctx, true, obj)
 }
 
-func upsert[T any](ctx *Ctx, upsert bool, recs ...*T) {
+func upOrInsert[T any](ctx *Ctx, upsert bool, recs ...*T) {
 	if len(recs) == 0 {
 		return
 	}

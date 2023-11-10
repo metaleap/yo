@@ -122,7 +122,7 @@ func (*engine) createJobRun(ctx *Ctx, jobDef *JobDef, dueTime *yodb.DateTime, au
 	if jobDef.Disabled || ((!jobDef.AllowManualJobRuns) && !isAutoScheduled) {
 		return nil
 	}
-	ctx.DbTx()
+	ctx.DbTx(true)
 	job_run := &JobRun{
 		state:         yodb.Text(Pending),
 		JobTypeId:     jobDef.JobTypeId,
@@ -145,12 +145,7 @@ func (*engine) DeleteJobRuns(ctx *Ctx, jobRunIds ...yodb.I64) int64 {
 		jobRunState.Equal(string(Done)).Or(jobRunState.Equal(string(Cancelled)))))
 }
 
-func (me *JobTask) Retry(ctx *Ctx) {
-	ctx.DbTx()
-}
-
 func (*engine) Stats(ctx *Ctx, jobRunId yodb.I64) *JobRunStats {
-	ctx.DbTx()
 	job_run := yodb.ById[JobRun](ctx, jobRunId)
 	return job_run.Stats(ctx)
 }

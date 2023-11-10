@@ -500,7 +500,7 @@ func doEnsureDbStructTables() {
 		ctx := yoctx.NewCtxNonHttp(Cfg.YO_DB_CONN_TIMEOUT, false, "db.Mig: "+desc.tableName)
 		ctx.TimingsNoPrintInDevMode, ctx.Db.PrintRawSqlInDevMode = true, false
 		ctx.Timings.Step("open TX")
-		ctx.DbTx()
+		ctx.DbTx(true)
 
 		is_table_rename := (desc.mig.oldTableName != "")
 		ctx.Timings.Step("get cur table")
