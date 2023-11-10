@@ -100,33 +100,6 @@ func Count[T any](ctx *Ctx, query q.Query, nonNullColumn q.C, distinct *q.C) int
 	return *results[0]
 }
 
-func CreateOne[T any](ctx *Ctx, rec *T) (ret I64) {
-	if self_versioning, _ := ((any)(rec)).(SelfVersioningObj); self_versioning != nil {
-		_, _ = self_versioning.OnBeforeStoring(true)
-	}
-	desc := desc[T]()
-	args := dbArgsFill[T](desc, make(dbArgs, len(desc.fields)), rec, "0")
-	result := doSelect[int64](ctx, new(sqlStmt).insert(desc, 1, false, desc.cols[numStdCols:]...), args, 1)
-	if (len(result) > 0) && (result[0] != nil) {
-		ret = I64(*result[0])
-	}
-	if ret <= 0 {
-		panic("new bug: INSERT INTO did not fail yet returned record id of 0")
-	}
-	return
-}
-
-func CreateMany[T any](ctx *Ctx, recs ...*T) {
-	if len(recs) == 0 {
-		return
-	}
-	if len(recs) == 1 {
-		_ = CreateOne[T](ctx, recs[0])
-		return
-	}
-	upOrInsert[T](ctx, false, recs...)
-}
-
 func Delete[T any](ctx *Ctx, where q.Query) int64 {
 	if where == nil {
 		panic(ErrDbDelete_ExpectedQueryForDelete)
@@ -205,6 +178,33 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 	return num_rows_affected
 }
 
+func CreateOne[T any](ctx *Ctx, rec *T) (ret I64) {
+	if self_versioning, _ := ((any)(rec)).(SelfVersioningObj); self_versioning != nil {
+		_, _ = self_versioning.OnBeforeStoring(true)
+	}
+	desc := desc[T]()
+	args := dbArgsFill[T](desc, make(dbArgs, len(desc.fields)), rec, "0")
+	result := doSelect[int64](ctx, new(sqlStmt).insert(desc, 1, false, true), args, 1)
+	if (len(result) > 0) && (result[0] != nil) {
+		ret = I64(*result[0])
+	}
+	if ret <= 0 {
+		panic("new bug: INSERT INTO did not fail yet returned record id of 0")
+	}
+	return
+}
+
+func CreateMany[T any](ctx *Ctx, recs ...*T) {
+	if len(recs) == 0 {
+		return
+	}
+	if len(recs) == 1 {
+		_ = CreateOne[T](ctx, recs[0])
+		return
+	}
+	upOrInsert[T](ctx, false, recs...)
+}
+
 func Upsert[TObj any](ctx *Ctx, obj *TObj) {
 	upOrInsert[TObj](ctx, true, obj)
 }
@@ -224,7 +224,7 @@ func upOrInsert[T any](ctx *Ctx, upsert bool, recs ...*T) {
 		}
 		args = dbArgsFill(desc, args, recs[i], str.FromInt(i))
 	}
-	_ = doExec(ctx, new(sqlStmt).insert(desc, len(recs), upsert, desc.cols[numStdCols:]...), args)
+	_ = doExec(ctx, new(sqlStmt).insert(desc, len(recs), upsert, false), args)
 }
 
 func doExec(ctx *Ctx, stmt *sqlStmt, args dbArgs) sql.Result {

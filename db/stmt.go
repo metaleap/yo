@@ -33,7 +33,47 @@ func (me *sqlStmt) delete(from string) *sqlStmt {
 	return me
 }
 
-func (me *sqlStmt) insert(desc *structDesc, numRows int, upsert bool, cols ...q.C) *sqlStmt {
+func (me *sqlStmt) insertViaUnnest(desc *structDesc, numRows int, upsert bool, needRetIdsForInserts bool) *sqlStmt {
+	w := (*str.Buf)(me).WriteString
+	if (numRows < 1) || (upsert && (numRows > 1)) {
+		panic(numRows)
+	}
+	var non_unique_cols []string
+	var non_unique_vals []string
+	cols := desc.cols[numStdCols:]
+
+	w("INSERT INTO ")
+	w(desc.tableName)
+	w(" (")
+	for i, col_name := range cols {
+		if i > 0 {
+			w(", ")
+		}
+		w(string(col_name))
+		if upsert && !sl.Has(desc.constraints.uniques, desc.fields[sl.IdxOf(desc.cols, col_name)]) {
+			non_unique_cols = append(non_unique_cols, string(col_name))
+		}
+	}
+	w(")(SELECT * FROM unnest(")
+	for i := range cols {
+		if i > 0 {
+			w(", ")
+		}
+		w("@F")
+		w(string(desc.fields[i]))
+	}
+	w("))")
+
+	if upsert && (len(desc.constraints.uniques) > 0) {
+		me.insertUpsertAppendum(desc, non_unique_cols, non_unique_vals)
+	} else if needRetIdsForInserts {
+		w(" RETURNING ")
+		w(string(ColID))
+	}
+	return me
+}
+
+func (me *sqlStmt) insert(desc *structDesc, numRows int, upsert bool, needRetIdsForInserts bool, cols ...q.C) *sqlStmt {
 	w := (*str.Buf)(me).WriteString
 	w("INSERT INTO ")
 	w(desc.tableName)
@@ -43,83 +83,83 @@ func (me *sqlStmt) insert(desc *structDesc, numRows int, upsert bool, cols ...q.
 	var non_unique_cols []string
 	var non_unique_vals []string
 	if len(cols) == 0 {
-		if numRows != 1 {
-			panic("not-yet-supported INSERT: multiple rows but no cols specified")
-		} else if upsert {
-			panic("not-yet-supported INSERT: upsert but no cols specified")
+		cols = desc.cols[numStdCols:]
+	}
+
+	w(" (")
+	for i, col_name := range cols {
+		if i > 0 {
+			w(", ")
 		}
-		w(" DEFAULT VALUES")
-	} else {
-		w(" (")
+		w(string(col_name))
+		if upsert && !sl.Has(desc.constraints.uniques, desc.fields[sl.IdxOf(desc.cols, col_name)]) {
+			non_unique_cols = append(non_unique_cols, string(col_name))
+		}
+	}
+	w(") VALUES ")
+	for j := 0; j < numRows; j++ {
+		if j > 0 {
+			w(", ")
+		}
+		w("(")
 		for i, col_name := range cols {
+			field_name := desc.fields[sl.IdxOf(desc.cols, q.C(col_name))]
+			field, _ := desc.ty.FieldByName(string(field_name))
+			is_json_field := isDbJsonType(field.Type)
+
 			if i > 0 {
 				w(", ")
 			}
-			w(string(col_name))
-			if upsert && !sl.Has(desc.constraints.uniques, desc.fields[sl.IdxOf(desc.cols, col_name)]) {
-				non_unique_cols = append(non_unique_cols, string(col_name))
+			col_val := If(!is_json_field, "", "jsonb_strip_nulls(") +
+				"@A" + string(col_name) + str.FromInt(j) +
+				If(is_json_field, ")", "")
+			w(col_val)
+			if upsert && !sl.Has(desc.constraints.uniques, field_name) {
+				non_unique_vals = append(non_unique_vals, col_val)
 			}
 		}
 		w(")")
-		w(" VALUES ")
-		for j := 0; j < numRows; j++ {
-			if j > 0 {
-				w(", ")
-			}
-			w("(")
-			for i, col_name := range cols {
-				field_name := desc.fields[sl.IdxOf(desc.cols, q.C(col_name))]
-				field, _ := desc.ty.FieldByName(string(field_name))
-				is_json_field := isDbJsonType(field.Type)
-
-				if i > 0 {
-					w(", ")
-				}
-				col_val := If(is_json_field, "jsonb_strip_nulls(", "") +
-					"@A" + string(col_name) + str.FromInt(j) +
-					If(is_json_field, ")", "")
-				w(col_val)
-				if upsert && !sl.Has(desc.constraints.uniques, field_name) {
-					non_unique_vals = append(non_unique_vals, col_val)
-				}
-			}
-			w(")")
-		}
 	}
+
 	if upsert && (len(desc.constraints.uniques) > 0) {
-		w(" ON CONFLICT (")
-		for i, unique_field_name := range desc.constraints.uniques {
-			if i > 0 {
-				w(", ")
-			}
-			w(string(desc.cols[sl.IdxOf(desc.fields, unique_field_name)]))
-		}
-		w(") DO ")
-		if len(non_unique_cols) == 0 {
-			w(" NOTHING")
-		} else {
-			w("UPDATE SET ")
-			if len(non_unique_cols) > 1 {
-				w("(")
-			}
-			w(str.Join(non_unique_cols, ", "))
-			if len(non_unique_cols) > 1 {
-				w(")")
-			}
-			w(" = ")
-			if len(non_unique_vals) > 1 {
-				w("(")
-			}
-			w(str.Join(non_unique_vals, ", "))
-			if len(non_unique_vals) > 1 {
-				w(")")
-			}
-		}
-	} else if numRows == 1 {
+		me.insertUpsertAppendum(desc, non_unique_cols, non_unique_vals)
+	} else if needRetIdsForInserts {
 		w(" RETURNING ")
 		w(string(ColID))
 	}
 	return me
+}
+
+func (me *sqlStmt) insertUpsertAppendum(desc *structDesc, nonUniqueCols []string, nonUniqueColVals []string) {
+	w := (*str.Buf)(me).WriteString
+	w(" ON CONFLICT (")
+	for i, unique_field_name := range desc.constraints.uniques {
+		if i > 0 {
+			w(", ")
+		}
+		w(string(desc.cols[sl.IdxOf(desc.fields, unique_field_name)]))
+	}
+	w(") DO ")
+	if len(nonUniqueCols) == 0 {
+		w(" NOTHING")
+	} else {
+		w("UPDATE SET ")
+		if len(nonUniqueCols) > 1 {
+			w("(")
+		}
+		w(str.Join(nonUniqueCols, ", "))
+		if len(nonUniqueCols) > 1 {
+			w(")")
+		}
+		w(" = ")
+		if len(nonUniqueColVals) > 1 {
+			w("(")
+		}
+		w(str.Join(nonUniqueColVals, ", "))
+		if len(nonUniqueColVals) > 1 {
+			w(")")
+		}
+	}
 }
 
 func (me *sqlStmt) update(desc *structDesc, colNames ...q.C) *sqlStmt {
