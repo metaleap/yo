@@ -19,7 +19,7 @@ import (
 
 type dbArgs = pgx.NamedArgs
 
-type Obj interface {
+type SelfVersioningObj interface {
 	OnAfterLoaded()
 	OnBeforeStoring(isCreate bool) (q.Query, []q.F)
 }
@@ -101,8 +101,8 @@ func Count[T any](ctx *Ctx, query q.Query, nonNullColumn q.C, distinct *q.C) int
 }
 
 func CreateOne[T any](ctx *Ctx, rec *T) (ret I64) {
-	if obj, _ := ((any)(rec)).(Obj); obj != nil {
-		_, _ = obj.OnBeforeStoring(true)
+	if self_versioning, _ := ((any)(rec)).(SelfVersioningObj); self_versioning != nil {
+		_, _ = self_versioning.OnBeforeStoring(true)
 	}
 	desc := desc[T]()
 	args := dbArgsFill[T](desc, make(dbArgs, len(desc.fields)), rec, "0")
@@ -145,9 +145,10 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 	col_names, col_vals := make([]q.C, 0, len(onlyFields)), make([]any, 0, len(onlyFields))
 	var query_and q.Query
 
-	if obj, _ := ((any)(upd)).(Obj); obj != nil {
+	self_versioning, is_self_versioning := ((any)(upd)).(SelfVersioningObj)
+	if self_versioning != nil {
 		var only_fields_add []q.F
-		if query_and, only_fields_add = obj.OnBeforeStoring(false); len(onlyFields) > 0 {
+		if query_and, only_fields_add = self_versioning.OnBeforeStoring(false); len(onlyFields) > 0 {
 			onlyFields = sl.With(onlyFields, only_fields_add...)
 		}
 	}
@@ -188,8 +189,8 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 		}
 		if where == nil {
 			panic(ErrDbUpdate_ExpectedQueryForUpdate)
-			// } else if dt_maybe != nil {
-			// 	where = where.And(ColModifiedAt.Equal(dt_maybe.Time()))
+		} else if (dt_maybe != nil) && !is_self_versioning {
+			where = where.And(ColModifiedAt.Equal(dt_maybe.Time()))
 		}
 	}
 
@@ -218,8 +219,8 @@ func upOrInsert[T any](ctx *Ctx, upsert bool, recs ...*T) {
 	desc := desc[T]()
 	args := make(dbArgs, len(desc.fields)*len(recs))
 	for i := range recs {
-		if obj, _ := ((any)(recs[i])).(Obj); obj != nil {
-			_, _ = obj.OnBeforeStoring(!upsert)
+		if self_versioning, _ := ((any)(recs[i])).(SelfVersioningObj); self_versioning != nil {
+			_, _ = self_versioning.OnBeforeStoring(!upsert)
 		}
 		args = dbArgsFill(desc, args, recs[i], str.FromInt(i))
 	}
@@ -318,8 +319,8 @@ func doStream[T any](ctx *Ctx, stmt *sqlStmt, onRecord func(*T, *bool), args dbA
 		if err = rows.Scan(col_scanners...); err != nil {
 			panic(err)
 		}
-		if obj, _ := ((any)(&rec)).(Obj); obj != nil {
-			obj.OnAfterLoaded()
+		if self_versioning, _ := ((any)(&rec)).(SelfVersioningObj); self_versioning != nil {
+			self_versioning.OnAfterLoaded()
 		}
 		onRecord(&rec, &abort)
 		if abort {

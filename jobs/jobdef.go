@@ -77,7 +77,7 @@ func (me *JobDef) ok(t time.Time) bool {
 	return false
 }
 
-var _ yodb.Obj = (*JobDef)(nil)
+var _ yodb.SelfVersioningObj = (*JobDef)(nil)
 
 func (me *JobDef) OnBeforeStoring(bool) (q.Query, []q.F) { return nil, nil }
 func (me *JobDef) OnAfterLoaded() {

@@ -69,8 +69,8 @@ func (me *JobTask) jobType(ctx *Ctx) JobType {
 	return nil
 }
 
-var _ yodb.Obj = (*JobTask)(nil)     // compile-time interface compat check
-var _ jobRunOrTask = (*JobTask)(nil) // dito
+var _ yodb.SelfVersioningObj = (*JobTask)(nil) // compile-time interface compat check
+var _ jobRunOrTask = (*JobTask)(nil)           // dito
 
 func (me *JobTask) id() yodb.I64 { return me.Id }
 func (me *JobTask) version(newVersion yodb.U32) yodb.U32 {

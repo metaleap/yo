@@ -122,7 +122,7 @@ func (*engine) createJobRun(ctx *Ctx, jobDef *JobDef, dueTime *yodb.DateTime, au
 	if jobDef.Disabled || ((!jobDef.AllowManualJobRuns) && !isAutoScheduled) {
 		return nil
 	}
-	ctx.DbTx(true)
+	ctx.DbTx(false)
 	job_run := &JobRun{
 		state:         yodb.Text(Pending),
 		JobTypeId:     jobDef.JobTypeId,

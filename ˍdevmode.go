@@ -199,7 +199,7 @@ use ./`+app_name+`
 		for _, cmd_git := range []*exec.Cmd{cmd_git1, cmd_git2, cmd_git3} {
 			cmd_out, err := cmd_git.CombinedOutput()
 			if err != nil {
-				panic(str.Fmt("%s>>>>%s", err, cmd_out))
+				println(str.Fmt("%s>>>>%s", err, cmd_out))
 			}
 		}
 	}

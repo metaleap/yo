@@ -87,7 +87,7 @@ func (me *engine) finalizeDoneJobRun(ctxForCacheReuse *Ctx, jobRun *JobRun) {
 		jobRun.Results = final_results()
 	}
 
-	ctx.DbTx(true)
+	ctx.DbTx(false)
 	jobType(string(job_def.JobTypeId)).checkTypeJobResults(jobRun.Results)
 	jobRun.state, jobRun.FinishTime, jobRun.DurationFinalizeSecs =
 		yodb.Text(Done), yodb.DtNow(), yodb.F32(time.Since(time_started).Seconds())
@@ -155,7 +155,7 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 
 	ctx := ctxForCacheReuse.CopyButWith(jobRun.TimeoutPrepAndFinalize(ctxForCacheReuse), false)
 	defer ctx.OnDone(nil)
-	ctx.DbTx(true)
+	ctx.DbTx(false)
 
 	// 1. JobType.JobDetails
 	jobRun.Details = jobDef.jobType.JobDetails(jobRun.ctx(ctx, 0))
@@ -355,7 +355,7 @@ func (me *engine) runTask(ctxForCacheReuse *Ctx, task *JobTask) {
 		return // concurrently changed by sibling instance (note JobTask.OnBeforeStoring), likely in the same run attempt: bug out
 	}
 
-	ctx.DbTx(true)
+	ctx.DbTx(false)
 
 	switch {
 	case job_run == nil:
