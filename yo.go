@@ -73,7 +73,7 @@ func Init(staticFileDirYo fs.FS, staticFileDirApp fs.FS) (listenAndServe func())
 }
 
 func runBrowser() {
-	if IsDevMode {
+	if IsDevMode && (os.Getenv("NO_WB") == "") {
 		port := str.FromInt(Cfg.YO_API_HTTP_PORT)
 		cmd := exec.Command("wbd",
 			// "about:"+port,

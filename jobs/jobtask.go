@@ -41,7 +41,7 @@ func (me *JobTask) Succeeded() bool {
 	return (me.State() == Done) && (len(me.Attempts) > 0) && (me.Attempts[0].Err == nil)
 }
 
-func (me *JobTask) markForRetryOrAsFailed(ctx *Ctx) (retry bool) {
+func (me *JobTask) markForRetryOrAsFailed(ctx *Ctx) (didMarkForRetry bool) {
 	job_def := me.jobDef(ctx)
 	if (job_def != nil) && (len(me.Attempts) <= int(job_def.MaxTaskRetries)) { // `<=` because first attempt was not a RE-try
 		me.state, me.StartTime, me.FinishTime = yodb.Text(Pending), nil, nil

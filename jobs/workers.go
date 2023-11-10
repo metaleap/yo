@@ -306,8 +306,6 @@ func (me *engine) expireOrRetryDeadJobTasksForJobDef(ctx *Ctx, jobDef *JobDef, r
 			}
 		} else if (!task.markForRetryOrAsFailed(ctx)) && (len(task.Attempts) > 0) && (task.Attempts[0].Err == nil) {
 			task.Attempts[0].Err = ErrTimedOut
-		} else {
-			task_upd_fields = nil
 		}
 		if len(task_upd_fields) > 0 {
 			task_updates[task] = task_upd_fields
