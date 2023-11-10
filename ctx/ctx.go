@@ -239,7 +239,7 @@ func (me *Ctx) DbTx() {
 		return
 	}
 	var err error
-	if me.Db.Tx, err = DB.BeginTx(me, nil); err != nil {
+	if me.Db.Tx, err = DB.BeginTx(me, &sql.TxOptions{Isolation: sql.LevelRepeatableRead}); err != nil {
 		panic(err)
 	}
 }
