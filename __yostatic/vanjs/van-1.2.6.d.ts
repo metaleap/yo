@@ -11,7 +11,11 @@ export type Primitive = string | number | boolean | bigint
 
 export type PropValue = Primitive | ((e: any) => void) | null
 
-export type Props = Record<string, PropValue | StateView<PropValue> | (() => PropValue)>
+export type PropValueOrDerived = PropValue | StateView<PropValue> | (() => PropValue)
+
+export type Props = Record<string, PropValueOrDerived> & { class?: PropValueOrDerived }
+
+type PropsWithKnownKeys<ElementType> = Partial<{[K in keyof ElementType]: PropValueOrDerived}>
 
 export type ValidChildDomValue = Primitive | Node | null | undefined
 
@@ -19,7 +23,7 @@ export type BindingFunc = ((dom?: Node) => ValidChildDomValue) | ((dom?: Element
 
 export type ChildDom = ValidChildDomValue | StateView<Primitive | null | undefined> | BindingFunc | readonly ChildDom[]
 
-export type TagFunc<Result> = (first?: Props | ChildDom, ...rest: readonly ChildDom[]) => Result
+export type TagFunc<Result> = (first?: Props & PropsWithKnownKeys<Result> | ChildDom, ...rest: readonly ChildDom[]) => Result
 
 type Tags = Readonly<Record<string, TagFunc<Element>>> & {
   [K in keyof HTMLElementTagNameMap]: TagFunc<HTMLElementTagNameMap[K]>
