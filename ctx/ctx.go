@@ -259,6 +259,7 @@ func (me *Ctx) HttpOnPreWriteResponse() {
 	if me.Http.respWriting {
 		panic("new bug: more than one call to HttpOnPreWriteResponse")
 	}
+	me.Http.Resp.Header().Add("Access-Control-Allow-Origin", "*")
 	me.Http.respWriting = true
 	me.httpEnsureCookiesSent()
 }
