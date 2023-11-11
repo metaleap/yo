@@ -50,7 +50,7 @@ func (me *apiReflMethod) ident() string    { return ToIdent(me.Path) }
 func (me *apiReflMethod) identUp0() string { return str.Up0(me.ident()) }
 
 func apiHandleReflReq(this *ApiCtx[Void, apiReflect]) {
-	is_devmode_at_codegen_time := IsDevMode && (this.Ctx == nil) && (this.Args == nil)
+	// is_at_codegen_time := IsDevMode && (this.Ctx == nil) && (this.Args == nil)
 	this.Ret.Types, this.Ret.Enums, this.Ret.KnownErrs, this.Ret.allInputTypes = map[string]str.Dict{}, map[string][]string{}, map[string]map[Err]int{}, map[string]bool{}
 	for _, method_path := range sl.Sorted(kv.Keys(api)) {
 		if !str.IsPrtAscii(method_path) {
@@ -82,21 +82,6 @@ func apiHandleReflReq(this *ApiCtx[Void, apiReflect]) {
 	}
 	for _, method := range this.Ret.Methods {
 		mark_as_input(method.In)
-	}
-
-	// (pre)fix up method paths for http callers
-	if (!is_devmode_at_codegen_time) && (AppApiUrlPrefix != "") {
-		for i := range this.Ret.Methods {
-			if method_path := this.Ret.Methods[i].Path; !str.Begins(method_path, yoAdminApisUrlPrefix) {
-				this.Ret.Methods[i].Path = AppApiUrlPrefix + method_path
-			}
-		}
-		for method_path, known_errs := range this.Ret.KnownErrs {
-			if !str.Begins(method_path, yoAdminApisUrlPrefix) {
-				delete(this.Ret.KnownErrs, method_path)
-				this.Ret.KnownErrs[AppApiUrlPrefix+method_path] = known_errs
-			}
-		}
 	}
 }
 

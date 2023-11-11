@@ -61,7 +61,7 @@ func viaHttp[TIn any, TOut any](methodPath string, ctx *Ctx, args *TIn, client *
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST",
-		"http://localhost:"+str.FromInt(Cfg.YO_API_HTTP_PORT)+"/"+str.TrimPref(AppApiUrlPrefix+methodPath, "/")+
+		"http://localhost:"+str.FromInt(Cfg.YO_API_HTTP_PORT)+"/"+str.TrimPref(methodPath, "/")+
 			"?"+QueryArgNoCtxPrt+"=1",
 		bytes.NewReader(payload_bytes))
 	if err != nil {

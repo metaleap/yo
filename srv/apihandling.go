@@ -24,9 +24,8 @@ const (
 )
 
 var (
-	api             = ApiMethods{}
-	AppApiUrlPrefix = ""
-	KnownErrSets    = map[string][]Err{
+	api          = ApiMethods{}
+	KnownErrSets = map[string][]Err{
 		"": {ErrTimedOut, ErrMissingOrExcessiveContentLength},
 	}
 	ErrsNoPrefix  = errsNoCodegen
@@ -244,13 +243,7 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	}
 
 	ctx.Timings.Step("handler lookup")
-	var api_method ApiMethod
-	method_path := ctx.Http.UrlPath
-	if (AppApiUrlPrefix == "") || str.Begins(method_path, yoAdminApisUrlPrefix) {
-		api_method = api[ctx.Http.UrlPath]
-	} else if str.Begins(method_path, AppApiUrlPrefix) {
-		api_method = api[ctx.Http.UrlPath[len(AppApiUrlPrefix):]]
-	}
+	api_method := api[ctx.Http.UrlPath]
 	if api_method == nil {
 		ctx.HttpErr(404, "Not Found")
 		return
