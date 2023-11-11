@@ -26,6 +26,16 @@ export function arrayMoveItem<T>(arr: T[], idxOld: number, idxNew: number): T[] 
     return arr
 }
 
+export function errStr(err: any) {
+    if ((err === undefined) || (err === null))
+        return ""
+    const err_json = JSON.stringify(err), err_str_1 = err.toString(), err_str_2 = `${err}`
+    return err.knownErr || err.message ||
+        ((err_str_1 && (err_str_1 !== '[object Object]')) ? err_str_1 :
+            ((err_str_2 && (err_str_2 !== '[object Object]')) ? err_str_2
+                : err_json))
+}
+
 export function fEq(a: number, b: number): boolean {
     return (isNaN(a) || isNaN(b))
         ? (isNaN(a) && isNaN(b))
