@@ -1,6 +1,31 @@
 import van, { State } from './vanjs/van-1.2.6.js'
 const none = void 0
 
+export type Direction = 0 | 1 | -1 | typeof NaN
+export const DirPrev: Direction = -1
+export const DirNext: Direction = 1
+export const DirStart: Direction = 0
+export const DirEnd: Direction = NaN
+
+export function arrayCanMove<T>(arr: T[], idxOld: number, direction: Direction): number | undefined {
+    if (arr.length < 2)
+        return undefined
+    const idx_new =
+        (direction == DirPrev) ? (idxOld - 1)
+            : ((direction == DirNext) ? (idxOld + 1)
+                : ((direction == DirStart) ? 0
+                    : (arr.length - 1)))
+    const can_move = (idx_new != idxOld) && (idx_new >= 0) && (idx_new < arr.length)
+    return can_move ? idx_new : undefined
+}
+
+export function arrayMoveItem<T>(arr: T[], idxOld: number, idxNew: number): T[] {
+    const item = arr[idxOld]
+    arr.splice(idxOld, 1)
+    arr.splice(idxNew, 0, item)
+    return arr
+}
+
 export function fEq(a: number, b: number): boolean {
     return (isNaN(a) || isNaN(b))
         ? (isNaN(a) && isNaN(b))
