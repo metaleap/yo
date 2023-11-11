@@ -1,4 +1,4 @@
-import van, { State } from '../__yostatic/vanjs/van-1.2.6.js'
+import van, { State } from './vanjs/van-1.2.6.js'
 const none = void 0
 
 export function fEq(a: number, b: number): boolean {
