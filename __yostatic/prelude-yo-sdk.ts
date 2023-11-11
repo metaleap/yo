@@ -14,7 +14,7 @@ export let userEmailAddr = ''
 export let reqTimeoutMsForJsonApis = 4321
 export let reqTimeoutMsForMultipartForms = 123456
 export let reqMaxReqPayloadSizeMb = 0           // declaration only, generated code sets the value
-export let reqMaxReqMultipartSizeMb = 0           // declaration only, generated code sets the value
+export let reqMaxReqMultipartSizeMb = 0         // declaration only, generated code sets the value
 export let errMaxReqPayloadSizeExceeded = ""    // declaration only, generated code sets the value
 
 export async function req<TIn, TOut, TErr extends string>(methodPath: string, payload?: TIn | {}, formData?: FormData, urlQueryArgs?: { [_: string]: string }): Promise<TOut> {
