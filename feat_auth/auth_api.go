@@ -140,6 +140,9 @@ func httpSetUser(ctx *Ctx, jwtRaw string) {
 	ctx.Set(CtxKeyEmailAddr, user_email_addr)
 	ctx.Http.Resp.Header().Set(HttpUserHeader, user_email_addr)
 	ctx.HttpSetCookie(HttpJwtCookieName, jwtRaw, Cfg.YO_AUTH_JWT_EXPIRY_DAYS)
+	if IsDevMode && (Cfg.YO_AUTH_JWT_EXPIRY_DAYS > 400) {
+		panic("illegal YO_AUTH_JWT_EXPIRY_DAYS for modern-browser cookie laws")
+	}
 }
 
 func CurrentlyLoggedInUser(ctx *Ctx) (emailAddr string, authID yodb.I64) {
