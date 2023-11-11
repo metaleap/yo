@@ -183,39 +183,32 @@ func CreateOne[T any](ctx *Ctx, rec *T) (ret I64) {
 		_, _ = self_versioning.OnBeforeStoring(true)
 	}
 	desc := desc[T]()
-	args := dbArgsFillForInsertClassic[T](desc, make(dbArgs, len(desc.fields)), []*T{rec})
+	args := dbArgsFillForInsertNormal[T](desc, make(dbArgs, len(desc.fields)), []*T{rec})
 	result := doSelect[int64](ctx, new(sqlStmt).insert(desc, 1, false, true), args, 1)
 	if (len(result) > 0) && (result[0] != nil) {
 		ret = I64(*result[0])
 	}
-	if ret <= 0 {
-		panic("unreachable")
-	}
+	Assert(ret > 0)
 	return
 }
 
 func CreateMany[T any](ctx *Ctx, recs ...*T) {
-	if len(recs) == 0 {
+	if len(recs) == 1 {
+		_ = CreateOne[T](ctx, recs[0])
 		return
 	}
-	// if len(recs) == 1 {
-	// 	_ = CreateOne[T](ctx, recs[0])
-	// 	return
-	// }
 	upOrInsert[T](ctx, false, recs...)
 }
 
-func Upsert[TObj any](ctx *Ctx, obj *TObj) {
-	upOrInsert[TObj](ctx, true, obj)
+func Upsert[T any](ctx *Ctx, rec *T) {
+	upOrInsert[T](ctx, true, rec)
 }
 
 func upOrInsert[T any](ctx *Ctx, upsert bool, recs ...*T) {
 	if len(recs) == 0 {
 		return
 	}
-	if upsert && (len(recs) > 1) {
-		panic("TODO not yet supported until needed: multiple-upserts-in-one-stmt")
-	}
+	Assert((!upsert) || (1 == len(recs)))
 	desc := desc[T]()
 	args := make(dbArgs, len(desc.fields))
 	if _, is_self_versioning := any(recs[0]).(SelfVersioningObj); is_self_versioning {
@@ -225,7 +218,7 @@ func upOrInsert[T any](ctx *Ctx, upsert bool, recs ...*T) {
 		}
 	}
 	if upsert {
-		args = dbArgsFillForInsertClassic(desc, args, recs)
+		args = dbArgsFillForInsertNormal(desc, args, recs)
 		_ = doExec(ctx, new(sqlStmt).insert(desc, len(recs), true, false), args)
 	} else {
 		args = dbArgsFillForInsertViaUnnest(desc, args, recs)
@@ -398,7 +391,7 @@ func dbArgsFillForInsertViaUnnest[T any](desc *structDesc, args dbArgs, recs []*
 	return args
 }
 
-func dbArgsFillForInsertClassic[T any](desc *structDesc, args dbArgs, recs []*T) dbArgs {
+func dbArgsFillForInsertNormal[T any](desc *structDesc, args dbArgs, recs []*T) dbArgs {
 	for i, rec := range recs {
 		ForEachColField[T](rec, func(fieldName q.F, colName q.C, fieldValue any, isZero bool) {
 			if (colName != ColID) && (colName != ColCreatedAt) && (colName != ColModifiedAt) {

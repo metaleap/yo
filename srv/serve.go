@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"os"
 	"reflect"
 	"time"
 
@@ -63,6 +64,9 @@ var (
 
 func InitAndMaybeCodegen(dbStructs []reflect.Type) func() {
 	apiReflAllDbStructs = dbStructs
+	for dir_name, dir_path := range Cfg.STATIC_FILE_STORAGE_DIRS {
+		StaticFileDirs[dir_name] = os.DirFS(dir_path)
+	}
 	for method_path := range api {
 		if (str.Trim(method_path) != method_path) || (method_path == "") || !str.IsPrtAscii(method_path) {
 			panic("not a valid method path: '" + method_path + "'")

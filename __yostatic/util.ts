@@ -137,7 +137,7 @@ export function domLive<T extends { [_: string]: any }>(domNode: Element, initia
             if (dom_muts = (del_nodes.length > 0))
                 for (const del_node of del_nodes)
                     del_node.replaceWith()
-            // ignoring changes in sort order for now here, actual node-(re)create ops per item
+            // ignoring changes in sort order for now here, actual node-(re)create ops per item (if changed)
             const new_nodes = [] as Element[]
             for (let i = 0, l = items.length; i < l; i++) {
                 const item = items[i]

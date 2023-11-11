@@ -5,16 +5,26 @@ import (
 	"strings"
 )
 
-type Void struct{}
-type Arg[T any] struct{ Value T }
-type Return[T any] struct{ Result T }
-type Named[V any] struct {
-	Name  string
-	Value V
+type (
+	Void                     struct{}
+	Return[T any]            struct{ Result T }
+	Pair[TLhs any, TRhs any] struct {
+		Key TLhs
+		It  TRhs
+	}
+)
+
+func Assert(alwaysTrue bool) {
+	if IsDevMode {
+		if !alwaysTrue {
+			panic("unreachable")
+		}
+	}
 }
-type Pair[TLhs any, TRhs any] struct {
-	Key TLhs
-	It  TRhs
+
+func Never[T any](alwaysFalse bool) (ret T) {
+	Assert(!alwaysFalse)
+	return
 }
 
 func If[T any](b bool, t T, f T) T {
