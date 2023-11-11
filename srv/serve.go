@@ -200,7 +200,7 @@ func handleHttpStaticFileRequestMaybe(ctx *yoctx.Ctx) bool {
 }
 
 func authAdmin(ctx *yoctx.Ctx) {
-	if !(str.Begins(ctx.Http.UrlPath, yoAdminApisUrlPrefix) || str.Begins(ctx.Http.UrlPath, StaticFilesDirNameYo+"/yo.")) {
+	if (!(str.Begins(ctx.Http.UrlPath, yoAdminApisUrlPrefix) || str.Begins(ctx.Http.UrlPath, StaticFilesDirNameYo+"/yo."))) || (ctx.Http.UrlPath == (yoAdminApisUrlPrefix + "refl")) {
 		return
 	}
 	user, pwd, ok := ctx.Http.Req.BasicAuth()
