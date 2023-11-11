@@ -217,7 +217,7 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 	}) {
 		buf.WriteString("export const " + ts_const_name + " = " + str.GoLike(cfg_setting_value) + "\n")
 	}
-	buf.WriteString("\n// " + yoSdkTsPreludeFileName + " below, more generated code afterwards\n")
+	buf.WriteString("\n// " + yoSdkTsPreludeFileName + " (non-generated) below, more generated code afterwards\n")
 	buf.Write(FsRead(filepath.Join(yoStaticDirPath, yoSdkTsPreludeFileName))) // emit yo-side code prelude
 	buf.WriteString("\n// " + yoSdkTsPreludeFileName + " ends, the rest below is fully generated code only:\n")
 
