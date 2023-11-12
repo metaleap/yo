@@ -140,6 +140,14 @@ func (me *Ctx) OnDone(alsoDo func()) (fail any) {
 	if err, _ := fail.(error); err == context.DeadlineExceeded {
 		fail = ErrTimedOut
 	}
+	if err, is := fail.(Err); is {
+		for err_replace_with, errs_to_replace := range ErrReplacements {
+			if sl.Has(errs_to_replace, err) {
+				fail = err_replace_with
+				break
+			}
+		}
+	}
 	if alsoDo != nil {
 		alsoDo()
 	}
@@ -150,7 +158,7 @@ func (me *Ctx) OnDone(alsoDo func()) (fail any) {
 			}
 		}
 		if fail != nil {
-			_ = me.Db.Tx.Rollback()
+			_ = me.Db.Tx.Rollback() // this potential-err really can be ignored, never-committed txs are goners afaik. plus consider the case of commit-successful-at-db but conn-reset/timeout in between that and our Commit() call finally returning. we'll be in this branch, Rollback errs just with "already commit/rollback-ed". no action item other than what we anyway do below here.
 		}
 	}
 	if me.Http != nil {
