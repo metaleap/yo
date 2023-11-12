@@ -211,12 +211,8 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 	apiRefl.codeGen.typesUsed, apiRefl.codeGen.typesEmitted = map[string]bool{}, map[string]bool{}
 
 	buf.Write([]byte(codegenEmitTopCommentLine))
-	for ts_const_name, cfg_setting_value := range (kv.Any{
-		"Cfg_YO_API_IMPL_TIMEOUT_MS": Cfg.YO_API_IMPL_TIMEOUT.Milliseconds(),
-		"Cfg_YO_AUTH_PWD_MIN_LEN":    Cfg.YO_AUTH_PWD_MIN_LEN,
-	}) {
-		buf.WriteString("export const " + ts_const_name + " = " + str.GoLike(cfg_setting_value) + "\n")
-	}
+	buf.WriteString("export const Cfg_YO_API_IMPL_TIMEOUT_MS = " + str.GoLike(Cfg.YO_API_IMPL_TIMEOUT.Milliseconds()) + "\n")
+	buf.WriteString("export const Cfg_YO_AUTH_PWD_MIN_LEN = " + str.GoLike(Cfg.YO_AUTH_PWD_MIN_LEN) + "\n")
 	buf.WriteString("\n// " + yoSdkTsPreludeFileName + " (non-generated) below, more generated code afterwards\n")
 	buf.Write(FsRead(filepath.Join(yoStaticDirPath, yoSdkTsPreludeFileName))) // emit yo-side code prelude
 	buf.WriteString("\n// " + yoSdkTsPreludeFileName + " ends, the rest below is fully generated code only:\n")
