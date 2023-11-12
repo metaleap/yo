@@ -41,7 +41,6 @@ type UserPwdReq struct {
 
 	EmailAddr     yodb.Text
 	DoneMailReqId yodb.Ref[yomail.MailReq, yodb.RefOnDelCascade]
-	DtFinalized   *yodb.DateTime
 	tmpPwdHashed  yodb.Bytes
 }
 
@@ -57,8 +56,8 @@ func init() {
 func Init() {
 	if (!IsDevMode) && EnforceGenericErrors {
 		ErrReplacements[errGeneric] = []Err{
-			Err___yo_authLoginOrFinalizePwdReset_AccountDoesNotExist, Err___yo_authLoginOrFinalizePwdReset_NewPasswordExpectedToDiffer, Err___yo_authLoginOrFinalizePwdReset_OkButFailedToCreateSignedToken, Err___yo_authLoginOrFinalizePwdReset_WrongPassword,
 			Err___yo_authRegister_EmailAddrAlreadyExists,
+			Err___yo_authLoginOrFinalizePwdReset_PwdReqExpired, Err___yo_authLoginOrFinalizePwdReset_AccountDoesNotExist, Err___yo_authLoginOrFinalizePwdReset_NewPasswordExpectedToDiffer, Err___yo_authLoginOrFinalizePwdReset_OkButFailedToCreateSignedToken, Err___yo_authLoginOrFinalizePwdReset_WrongPassword,
 		}
 	}
 }
@@ -125,19 +124,13 @@ func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordP
 	}
 
 	pwd_reset_req := yodb.FindOne[UserPwdReq](ctx,
-		UserPwdReqEmailAddr.Equal(emailAddr). // request for this email addr
-							And(UserPwdReqDoneMailReqId.NotEqual(nil)).        // where the corresponding mail-req was already created
-							And(userPwdReqDoneMailReqId_dtDone.NotEqual(nil)). // and its mail also sent out successfully
-							And(userPwdReqTmpPwdHashed.NotEqual(nil)).         // hence the temp one-time pwd is still there
-							And(UserPwdReqDtFinalized.Equal(nil)))             // because that pwd-req (sign-up or pwd-reset) wasn't finalized yet (which happens in here, below)
+		UserPwdReqEmailAddr.Equal(emailAddr). // request for this email addr..
+							And(UserPwdReqDoneMailReqId.NotEqual(nil)).        // ..where the corresponding mail-req was already created
+							And(userPwdReqDoneMailReqId_dtDone.NotEqual(nil)). // ..and its mail also sent out successfully
+							And(userPwdReqTmpPwdHashed.NotEqual(nil)))         // ..hence the temp one-time pwd is still there
 
-	if pwd_reset_req == nil {
-		UserChangePassword(ctx, emailAddr, passwordPlain, password2Plain)
-		return UserLogin(ctx, emailAddr, password2Plain)
-	}
-
-	if (Cfg.YO_AUTH_PWD_REQ_VALIDITY_MINS > 0) && ((int(time.Now().Sub(*pwd_reset_req.DtMade.Time()).Minutes())) > (Cfg.YO_AUTH_PWD_REQ_VALIDITY_MINS + /* some leeway for mail-req job-task & mail delivery */ 2)) {
-		yodb.Delete[UserPwdReq](ctx, yodb.ColID.Equal(pwd_reset_req.Id))
+	if (pwd_reset_req == nil) || ((Cfg.YO_AUTH_PWD_REQ_VALIDITY_MINS > 0) &&
+		((int(time.Now().Sub(*pwd_reset_req.DtMade.Time()).Minutes())) > (Cfg.YO_AUTH_PWD_REQ_VALIDITY_MINS + /* some leeway for mail-req job-task & mail delivery */ 2))) {
 		panic(Err___yo_authLoginOrFinalizePwdReset_PwdReqExpired)
 	}
 	// check temp one-time pwd
@@ -162,8 +155,8 @@ func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordP
 		user_auth = &UserAuth{pwdHashed: pwd_hash, EmailAddr: yodb.Text(emailAddr)}
 		_ = yodb.CreateOne[UserAuth](ctx, user_auth)
 	}
-	pwd_reset_req.tmpPwdHashed, pwd_reset_req.DtFinalized = nil, yodb.DtNow()
-	if yodb.Update(ctx, pwd_reset_req, nil, false, UserPwdReqFields(userPwdReqTmpPwdHashed, UserPwdReqDtFinalized)...) < 0 {
+	pwd_reset_req.tmpPwdHashed = nil
+	if yodb.Update(ctx, pwd_reset_req, nil, false, UserPwdReqFields(userPwdReqTmpPwdHashed)...) < 0 {
 		panic(ErrDbUpdate_ExpectedChangesForUpdate)
 	}
 	if AutoLoginAfterSuccessfullyFinalizedSignUpOrPwdResetReq {
