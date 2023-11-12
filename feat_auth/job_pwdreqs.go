@@ -25,7 +25,7 @@ const (
 
 var AppSideTmplPopulate func(ctx *Ctx, reqTime *yodb.DateTime, emailAddr yodb.Text, existingMaybe *UserAuth, tmplArgsToPopulate yodb.JsonMap[string])
 
-var jobTypeId = yojobs.Register[userPwdReqJob, Void, Void, userPwdReqTaskDetails, userPwdReqTaskResults](func(string) userPwdReqJob {
+var jobTypeId = yojobs.Register[userPwdReqJob, None, None, userPwdReqTaskDetails, userPwdReqTaskResults](func(string) userPwdReqJob {
 	return userPwdReqJob{}
 })
 
@@ -42,7 +42,7 @@ var UserPwdReqJobDef = yojobs.JobDef{
 
 type userPwdReqTaskDetails struct{ ReqId yodb.I64 }
 type userPwdReqTaskResults struct{ MailReqId yodb.I64 }
-type userPwdReqJob Void
+type userPwdReqJob None
 
 func (me userPwdReqJob) JobDetails(ctx *Ctx) yojobs.JobDetails {
 	return nil

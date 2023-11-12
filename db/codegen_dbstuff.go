@@ -139,10 +139,10 @@ func codegenDbPkgOwn() (didEmit bool) {
 		buf.WriteString("package " + yodbPkg.PkgName() + "\n")
 		buf.WriteString("import sl \"yo/util/sl\"\n")
 		for _, arr_type_name := range []string{"JsonArr[T]", "Arr[T]"} {
-			codegenCloneMethods(&buf, arr_type_name, "sl", reflect.TypeOf(sl.Of[map[Void]Void]{}), true)
+			codegenCloneMethods(&buf, arr_type_name, "sl", reflect.TypeOf(sl.Of[map[None]None]{}), true)
 		}
 
-		src_old, src_new := FsRead(out_file_path), []byte(str.Replace(buf.String(), str.Dict{"map[util.Void]util.Void": "T", "map[yo/util.Void]yo/util.Void": "T"}))
+		src_old, src_new := FsRead(out_file_path), []byte(str.Replace(buf.String(), str.Dict{"map[util.None]util.None": "T", "map[yo/util.None]yo/util.None": "T"}))
 		if src_fmt, err := format.Source(src_new); (err != nil) || !bytes.Equal(src_old, src_fmt) {
 			FsWrite(out_file_path, If(len(src_fmt) == 0, src_new, src_fmt))
 			didEmit = true

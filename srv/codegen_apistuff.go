@@ -107,7 +107,7 @@ func init() {
 		}
 
 		api_refl := apiReflect{}
-		apiHandleReflReq(&ApiCtx[Void, apiReflect]{Ret: &api_refl})
+		apiHandleReflReq(&ApiCtx[None, apiReflect]{Ret: &api_refl})
 		codegenGo(&api_refl)
 		codegenTsSdk(&api_refl)
 	}
@@ -138,7 +138,7 @@ func codegenGo(apiRefl *apiReflect) {
 		buf.WriteString("import util \"yo/util\"\n")
 		buf.WriteString("import q \"yo/db/query\"\n")
 		buf.WriteString("type _ = q.F // just in case of no other generated import users\n")
-		buf.WriteString("type apiPkgInfo util.Void\n")
+		buf.WriteString("type apiPkgInfo util.None\n")
 		buf.WriteString("func (apiPkgInfo) PkgName() string { return \"" + pkg_name + "\" }\n")
 		buf.WriteString("func (me apiPkgInfo) PkgPath() string { return reflect.TypeOf(me).PkgPath() }\n")
 		buf.WriteString("var " + pkg_name + "Pkg = apiPkgInfo{}\n")

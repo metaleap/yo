@@ -105,7 +105,7 @@ func init() {
 
 const mailTmplIdErrReports = "yo.errReport"
 
-var errJobTypeId = yojobs.Register[errJob, Void, errJobResults, Void, Void](func(string) errJob { return errJob{} })
+var errJobTypeId = yojobs.Register[errJob, None, errJobResults, None, None](func(string) errJob { return errJob{} })
 
 func init() {
 	var dummy ErrEntry
@@ -120,7 +120,7 @@ func init() {
 	}
 }
 
-type errJob Void
+type errJob None
 type errJobResults struct{ MailReqIds []yodb.I64 }
 
 var errJobDef = yojobs.JobDef{

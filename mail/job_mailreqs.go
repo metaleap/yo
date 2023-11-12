@@ -9,7 +9,7 @@ import (
 	"yo/util/str"
 )
 
-var jobTypeId = yojobs.Register[mailReqJob, Void, Void, mailReqTaskDetails, mailReqTaskResults](func(string) mailReqJob {
+var jobTypeId = yojobs.Register[mailReqJob, None, None, mailReqTaskDetails, mailReqTaskResults](func(string) mailReqJob {
 	return mailReqJob{}
 })
 
@@ -25,9 +25,9 @@ var MailReqJobDef = yojobs.JobDef{
 }
 
 type mailReqTaskDetails struct{ ReqId yodb.I64 }
-type mailReqTaskResults Void
+type mailReqTaskResults None
 
-type mailReqJob Void
+type mailReqJob None
 
 func (me mailReqJob) JobDetails(ctx *Ctx) yojobs.JobDetails {
 	return nil

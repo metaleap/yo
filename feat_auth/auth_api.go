@@ -106,11 +106,11 @@ func ApiUserLoginOrFinalizePwdReset(this *ApiCtx[ApiAccountPayload, UserAuth]) {
 	httpSetUser(this.Ctx, jwt_signed)
 }
 
-func ApiUserLogout(ctx *ApiCtx[Void, Void]) {
+func ApiUserLogout(ctx *ApiCtx[None, None]) {
 	httpSetUser(ctx.Ctx, "")
 }
 
-func apiChangePassword(this *ApiCtx[ApiAccountPayload, Void]) {
+func apiChangePassword(this *ApiCtx[ApiAccountPayload, None]) {
 	user_email_addr, _ := CurrentlyLoggedInUser(this.Ctx)
 	if user_email_addr != this.Args.EmailAddr {
 		panic(ErrUnauthorized)

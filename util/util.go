@@ -6,7 +6,7 @@ import (
 )
 
 type (
-	Void                     struct{}
+	None                     struct{}
 	Return[T any]            struct{ Result T }
 	Pair[TLhs any, TRhs any] struct {
 		Key TLhs

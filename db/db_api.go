@@ -125,7 +125,7 @@ func apiCreateOne[TObj any, TFld q.Field](this *ApiCtx[TObj, ObjRef[TObj]]) {
 
 func apiCreateMany[TObj any, TFld q.Field](this *ApiCtx[struct {
 	Items []TObj
-}, Void]) {
+}, None]) {
 	CreateMany[TObj](this.Ctx, sl.ToPtrs(this.Args.Items)...)
 }
 

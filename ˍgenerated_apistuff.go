@@ -7,7 +7,7 @@ import util "yo/util"
 import q "yo/db/query"
 
 type _ = q.F // just in case of no other generated import users
-type apiPkgInfo util.Void
+type apiPkgInfo util.None
 
 func (apiPkgInfo) PkgName() string    { return "yo" }
 func (me apiPkgInfo) PkgPath() string { return reflect.TypeOf(me).PkgPath() }
