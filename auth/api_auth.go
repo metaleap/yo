@@ -26,38 +26,40 @@ var (
 )
 
 func init() {
-	Apis(ApiMethods{
-		MethodPathLogout: api(ApiUserLogout),
+	if IsDevMode {
+		Apis(ApiMethods{
+			MethodPathLogout: api(ApiUserLogout),
 
-		MethodPathRegister: api(ApiUserRegister,
-			Fails{Err: "EmailRequiredButMissing", If: ___yo_authRegisterEmailAddr.Equal("")},
-			Fails{Err: "EmailInvalid", If: IsEmailishEnough(___yo_authRegisterEmailAddr).Not()},
-			Fails{Err: "PasswordTooShort", If: ___yo_authRegisterPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
-			Fails{Err: "PasswordTooLong", If: ___yo_authRegisterPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
-		).
-			CouldFailWith("EmailAddrAlreadyExists", "PasswordInvalid"),
+			MethodPathRegister: api(ApiUserRegister,
+				Fails{Err: "EmailRequiredButMissing", If: ___yo_authRegisterEmailAddr.Equal("")},
+				Fails{Err: "EmailInvalid", If: IsEmailishEnough(___yo_authRegisterEmailAddr).Not()},
+				Fails{Err: "PasswordTooShort", If: ___yo_authRegisterPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
+				Fails{Err: "PasswordTooLong", If: ___yo_authRegisterPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
+			).
+				CouldFailWith("EmailAddrAlreadyExists", "PasswordInvalid"),
 
-		MethodPathLoginOrFinalizePwdReset: api(ApiUserLoginOrFinalizePwdReset,
-			Fails{Err: "EmailRequiredButMissing", If: ___yo_authLoginOrFinalizePwdResetEmailAddr.Equal("")},
-			Fails{Err: "EmailInvalid", If: IsEmailishEnough(___yo_authLoginOrFinalizePwdResetEmailAddr).Not()},
-			Fails{Err: "WrongPassword",
-				If: ___yo_authLoginOrFinalizePwdResetPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN).Or(
-					___yo_authLoginOrFinalizePwdResetPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)).Or(
-					___yo_authLoginOrFinalizePwdResetPasswordPlain.StrLen().GreaterThan(0).And(
-						___yo_authLoginOrFinalizePwdResetPassword2Plain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN).Or(
-							___yo_authLoginOrFinalizePwdResetPassword2Plain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN))))},
-			Fails{Err: "NewPasswordTooShort", If: ___yo_authLoginOrFinalizePwdResetPassword2Plain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
-			Fails{Err: "NewPasswordTooLong", If: ___yo_authLoginOrFinalizePwdResetPassword2Plain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
-			Fails{Err: "NewPasswordExpectedToDiffer", If: ___yo_authLoginOrFinalizePwdResetPassword2Plain.Equal(___yo_authLoginOrFinalizePwdResetPasswordPlain)},
-		).
-			CouldFailWith(":"+yodb.ErrSetDbUpdate, "PwdReqExpired", "OkButFailedToCreateSignedToken", "AccountDoesNotExist", "NewPasswordInvalid", ErrUnauthorized),
+			MethodPathLoginOrFinalizePwdReset: api(ApiUserLoginOrFinalizePwdReset,
+				Fails{Err: "EmailRequiredButMissing", If: ___yo_authLoginOrFinalizePwdResetEmailAddr.Equal("")},
+				Fails{Err: "EmailInvalid", If: IsEmailishEnough(___yo_authLoginOrFinalizePwdResetEmailAddr).Not()},
+				Fails{Err: "WrongPassword",
+					If: ___yo_authLoginOrFinalizePwdResetPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN).Or(
+						___yo_authLoginOrFinalizePwdResetPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)).Or(
+						___yo_authLoginOrFinalizePwdResetPasswordPlain.StrLen().GreaterThan(0).And(
+							___yo_authLoginOrFinalizePwdResetPassword2Plain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN).Or(
+								___yo_authLoginOrFinalizePwdResetPassword2Plain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN))))},
+				Fails{Err: "NewPasswordTooShort", If: ___yo_authLoginOrFinalizePwdResetPassword2Plain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
+				Fails{Err: "NewPasswordTooLong", If: ___yo_authLoginOrFinalizePwdResetPassword2Plain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
+				Fails{Err: "NewPasswordExpectedToDiffer", If: ___yo_authLoginOrFinalizePwdResetPassword2Plain.Equal(___yo_authLoginOrFinalizePwdResetPasswordPlain)},
+			).
+				CouldFailWith(":"+yodb.ErrSetDbUpdate, "PwdReqExpired", "OkButFailedToCreateSignedToken", "AccountDoesNotExist", "NewPasswordInvalid", ErrUnauthorized),
 
-		MethodPathChangePassword: api(apiChangePassword,
-			Fails{Err: "NewPasswordExpectedToDiffer", If: ___yo_authChangePasswordPassword2Plain.Equal(___yo_authChangePasswordPasswordPlain)},
-			Fails{Err: "NewPasswordTooShort", If: ___yo_authChangePasswordPassword2Plain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
-		).
-			CouldFailWith(":" + MethodPathLoginOrFinalizePwdReset),
-	})
+			MethodPathChangePassword: api(apiChangePassword,
+				Fails{Err: "NewPasswordExpectedToDiffer", If: ___yo_authChangePasswordPassword2Plain.Equal(___yo_authChangePasswordPasswordPlain)},
+				Fails{Err: "NewPasswordTooShort", If: ___yo_authChangePasswordPassword2Plain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
+			).
+				CouldFailWith(":" + MethodPathLoginOrFinalizePwdReset),
+		})
+	}
 
 	PreServes = append(PreServes, Middleware{Name: "authCheck", Do: func(ctx *Ctx) {
 		jwt_raw, forced_test_user := ctx.HttpGetCookie(Cfg.YO_AUTH_JWT_COOKIE_NAME), ctx.GetStr(CtxKeyForcedTestUser)

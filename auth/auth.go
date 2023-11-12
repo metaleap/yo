@@ -57,9 +57,8 @@ func init() {
 func Init() {
 	if (!IsDevMode) && EnforceGenericErrors {
 		ErrReplacements[errGeneric] = []Err{
-			Err___yo_authChangePassword_NewPasswordExpectedToDiffer, Err___yo_authChangePassword_NewPasswordTooShort,
-			Err___yo_authLoginOrFinalizePwdReset_AccountDoesNotExist, Err___yo_authLoginOrFinalizePwdReset_EmailInvalid, Err___yo_authLoginOrFinalizePwdReset_NewPasswordExpectedToDiffer, Err___yo_authLoginOrFinalizePwdReset_NewPasswordInvalid, Err___yo_authLoginOrFinalizePwdReset_NewPasswordTooLong, Err___yo_authLoginOrFinalizePwdReset_NewPasswordTooShort, Err___yo_authLoginOrFinalizePwdReset_OkButFailedToCreateSignedToken, Err___yo_authLoginOrFinalizePwdReset_WrongPassword,
-			Err___yo_authRegister_EmailAddrAlreadyExists, Err___yo_authRegister_PasswordTooLong, Err___yo_authRegister_PasswordTooShort,
+			Err___yo_authLoginOrFinalizePwdReset_AccountDoesNotExist, Err___yo_authLoginOrFinalizePwdReset_NewPasswordExpectedToDiffer, Err___yo_authLoginOrFinalizePwdReset_OkButFailedToCreateSignedToken, Err___yo_authLoginOrFinalizePwdReset_WrongPassword,
+			Err___yo_authRegister_EmailAddrAlreadyExists,
 		}
 	}
 }
@@ -68,10 +67,12 @@ func UserPregisterOrForgotPassword(ctx *Ctx, emailAddr string) {
 	yodb.Upsert[UserPwdReq](ctx, &UserPwdReq{EmailAddr: yodb.Text(emailAddr)})
 }
 
-func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
+func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I64) {
 	ctx.DbTx(true)
 
-	if yodb.Exists[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr)) {
+	if IsDevMode && yodb.Exists[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr)) {
+		// this branch never taken in prod to help prevent time-based-attacks.
+		// the DB-side unique constraint will still fail the insert attempt (and genericized in prod, see below).
 		panic(Err___yo_authRegister_EmailAddrAlreadyExists)
 	}
 	pwd_hashed, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
@@ -82,10 +83,15 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 			panic(Err___yo_authRegister_PasswordInvalid)
 		}
 	}
-	return yodb.I64(yodb.CreateOne[UserAuth](ctx, &UserAuth{
-		EmailAddr: yodb.Text(emailAddr),
-		pwdHashed: pwd_hashed,
-	}))
+	Try(func() {
+		ret = yodb.I64(yodb.CreateOne[UserAuth](ctx, &UserAuth{
+			EmailAddr: yodb.Text(emailAddr),
+			pwdHashed: pwd_hashed,
+		}))
+	}, func(err any) {
+		panic(If[any](IsDevMode, err, errGeneric))
+	})
+	return
 }
 
 func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (okUserAuth *UserAuth, okJwt *jwt.Token) {
@@ -172,8 +178,8 @@ func UserVerify(jwtRaw string) *JwtPayload {
 	token, _ := jwt.ParseWithClaims(jwtRaw, &JwtPayload{}, func(token *jwt.Token) (any, error) {
 		return []byte(Cfg.YO_AUTH_JWT_SIGN_KEY), nil
 	})
-	if (token != nil) && (token.Claims != nil) {
-		if payload, is := token.Claims.(*JwtPayload); is && (payload.Subject != "") {
+	if (token != nil) && token.Valid && (token.Claims != nil) {
+		if payload, _ := token.Claims.(*JwtPayload); (payload != nil) && (payload.Subject != "") {
 			return payload
 		}
 	}
