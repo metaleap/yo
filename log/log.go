@@ -24,8 +24,8 @@ func Println(msg string, args ...any) {
 	}
 	buf.WriteString("\n")
 	mut.Lock()
-	defer mut.Unlock()
 	_, _ = os.Stderr.WriteString(buf.String())
+	mut.Unlock()
 }
 
 func PrintLnLn(msg string, args ...any) {

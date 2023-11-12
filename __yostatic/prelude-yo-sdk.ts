@@ -18,6 +18,10 @@ export let reqMaxReqPayloadSizeMb = 0           // declaration only, generated c
 export let reqMaxReqMultipartSizeMb = 0         // declaration only, generated code sets the value
 export let errMaxReqPayloadSizeExceeded = ""    // declaration only, generated code sets the value
 
+let doFetch = fetch
+export function setCustomFetch(customFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
+    doFetch = (customFetch ?? fetch)
+}
 export function setApiBaseUrl(newApiBaseUrl: string) { apiBaseUrl = newApiBaseUrl }
 
 export async function req<TIn, TOut, TErr extends string>(methodPath: string, payload?: TIn | {}, formData?: FormData, urlQueryArgs?: { [_: string]: string }): Promise<TOut> {
@@ -46,7 +50,7 @@ export async function req<TIn, TOut, TErr extends string>(methodPath: string, pa
     } else if (payload_json.length > (1024 * 1024 * reqMaxReqPayloadSizeMb))
         throw new Err<TErr>(errMaxReqPayloadSizeExceeded as TErr)
 
-    const resp = await fetch(apiBaseUrl + rel_url, {
+    const resp = await doFetch(apiBaseUrl + rel_url, {
         method: 'POST', headers: (formData ? undefined : ({ 'Content-Type': 'application/json' })), body: (formData ? formData : payload_json),
         cache: 'no-store', mode: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(formData ? reqTimeoutMsForMultipartForms : reqTimeoutMsForJsonApis),
     })
