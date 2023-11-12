@@ -29,6 +29,7 @@ var (
 	DB              *sql.DB
 	OnDone          []func(ctx *Ctx, fail any)
 	NotifyErrCaught = func(nowInvalidCtx *Ctx, ctxVals kv.Any, fail any, stackTrace string) {}
+	ErrReplacements = map[Err][]Err{}
 )
 
 type apiMethod interface {

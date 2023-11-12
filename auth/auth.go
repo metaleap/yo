@@ -7,12 +7,18 @@ import (
 	. "yo/ctx"
 	yodb "yo/db"
 	yomail "yo/mail"
+	. "yo/util"
 
 	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var AutoLoginAfterSuccessfullyFinalizedSignUpOrPwdResetReq = false
+var (
+	AutoLoginAfterSuccessfullyFinalizedSignUpOrPwdResetReq = false
+	EnforceGenericErrors                                   = true
+)
+
+const errGeneric = Err("InvalidCredentials")
 
 type JwtPayload struct {
 	jwt.StandardClaims
@@ -46,6 +52,16 @@ func init() {
 	yodb.Ensure[UserPwdReq, UserPwdReqField]("", nil, false,
 		yodb.Index[UserPwdReqField]{UserPwdReqEmailAddr},
 		yodb.Unique[UserPwdReqField]{UserPwdReqEmailAddr})
+}
+
+func Init() {
+	if EnforceGenericErrors {
+		ErrReplacements[errGeneric] = []Err{
+			Err___yo_authChangePassword_NewPasswordExpectedToDiffer, Err___yo_authChangePassword_NewPasswordTooShort,
+			Err___yo_authLoginOrFinalizePwdReset_AccountDoesNotExist, Err___yo_authLoginOrFinalizePwdReset_EmailInvalid, Err___yo_authLoginOrFinalizePwdReset_NewPasswordExpectedToDiffer, Err___yo_authLoginOrFinalizePwdReset_NewPasswordInvalid, Err___yo_authLoginOrFinalizePwdReset_NewPasswordTooLong, Err___yo_authLoginOrFinalizePwdReset_NewPasswordTooShort, Err___yo_authLoginOrFinalizePwdReset_OkButFailedToCreateSignedToken, Err___yo_authLoginOrFinalizePwdReset_WrongPassword,
+			Err___yo_authRegister_EmailAddrAlreadyExists, Err___yo_authRegister_PasswordTooLong, Err___yo_authRegister_PasswordTooShort,
+		}
+	}
 }
 
 func UserPregisterOrForgotPassword(ctx *Ctx, emailAddr string) {

@@ -40,6 +40,7 @@ func Init(staticFileDirYo fs.FS, staticFileDirApp fs.FS) (listenAndServe func())
 	yodb.Ensure[ErrEntry, ErrEntryField]("", nil, false)
 	db_structs := yodb.InitAndConnectAndMigrateAndMaybeCodegen()
 
+	yoauth.Init()
 	yolog.PrintLnLn("API init...")
 	listenAndServe = yosrv.InitAndMaybeCodegen(db_structs)
 	if ts2jsAppSideStaticDir != nil { // set only in dev-mode
