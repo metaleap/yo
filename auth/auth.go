@@ -55,7 +55,7 @@ func init() {
 }
 
 func Init() {
-	if EnforceGenericErrors {
+	if (!IsDevMode) && EnforceGenericErrors {
 		ErrReplacements[errGeneric] = []Err{
 			Err___yo_authChangePassword_NewPasswordExpectedToDiffer, Err___yo_authChangePassword_NewPasswordTooShort,
 			Err___yo_authLoginOrFinalizePwdReset_AccountDoesNotExist, Err___yo_authLoginOrFinalizePwdReset_EmailInvalid, Err___yo_authLoginOrFinalizePwdReset_NewPasswordExpectedToDiffer, Err___yo_authLoginOrFinalizePwdReset_NewPasswordInvalid, Err___yo_authLoginOrFinalizePwdReset_NewPasswordTooLong, Err___yo_authLoginOrFinalizePwdReset_NewPasswordTooShort, Err___yo_authLoginOrFinalizePwdReset_OkButFailedToCreateSignedToken, Err___yo_authLoginOrFinalizePwdReset_WrongPassword,
@@ -88,22 +88,29 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) yodb.I64 {
 	}))
 }
 
-func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jwt.Token) {
+func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (okUserAuth *UserAuth, okJwt *jwt.Token) {
 	user_auth := yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr))
-	if user_auth == nil {
+	if IsDevMode && user_auth == nil { // not in prod, to guard against time-based-attacks. so do the pwd-hash-check even with no-such-user
 		panic(Err___yo_authLoginOrFinalizePwdReset_AccountDoesNotExist)
 	}
 
-	err := bcrypt.CompareHashAndPassword(user_auth.pwdHashed, []byte(passwordPlain))
-	if err != nil {
-		panic(Err___yo_authLoginOrFinalizePwdReset_WrongPassword)
+	user_email_addr, user_auth_id, user_pwd_hashed := "nosuchuser@never.com", yodb.I64(0), []byte(newRandomAsciiOneTimePwd(60)) // for the same reason, we do this in-any-case, even though:
+	if user_auth != nil {
+		user_email_addr, user_auth_id, user_pwd_hashed = user_auth.EmailAddr.String(), user_auth.Id, user_auth.pwdHashed
 	}
-	return user_auth, jwt.NewWithClaims(jwt.SigningMethodHS256, &JwtPayload{
-		UserAuthId: user_auth.Id,
+
+	err := bcrypt.CompareHashAndPassword(user_pwd_hashed, []byte(passwordPlain))
+	okUserAuth, okJwt = user_auth, jwt.NewWithClaims(jwt.SigningMethodHS256, &JwtPayload{
+		UserAuthId: user_auth_id,
 		StandardClaims: jwt.StandardClaims{
-			Subject: string(user_auth.EmailAddr),
+			Subject: string(user_email_addr),
 		},
 	})
+	if err != nil {
+		okUserAuth, okJwt = nil, nil // looks pointless here, but... maybe it ain't  =)
+		panic(Err___yo_authLoginOrFinalizePwdReset_WrongPassword)
+	}
+	return
 }
 
 func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordPlain string, password2Plain string) (*UserAuth, *jwt.Token) {
