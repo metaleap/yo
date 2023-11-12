@@ -1,8 +1,6 @@
 package yoauth
 
 import (
-	"time"
-
 	. "yo/cfg"
 	. "yo/ctx"
 	yodb "yo/db"
@@ -83,8 +81,7 @@ func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jw
 	return user_auth, jwt.NewWithClaims(jwt.SigningMethodHS256, &JwtPayload{
 		UserAuthId: user_auth.Id,
 		StandardClaims: jwt.StandardClaims{
-			Subject:   string(user_auth.EmailAddr),
-			ExpiresAt: time.Now().UTC().AddDate(0, 0, Cfg.YO_AUTH_JWT_EXPIRY_DAYS).Unix(),
+			Subject: string(user_auth.EmailAddr),
 		},
 	})
 }
@@ -102,7 +99,6 @@ func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordP
 							And(userPwdReqTmpPwdHashed.NotEqual(nil)).         // hence the temp one-time pwd is still there
 							And(UserPwdReqDtFinalized.Equal(nil)))             // because that pwd-req (sign-up or pwd-reset) wasn't finalized yet (which happens in here, below)
 
-	println(password2Plain, ">>>>", pwd_reset_req == nil)
 	if pwd_reset_req == nil {
 		UserChangePassword(ctx, emailAddr, passwordPlain, password2Plain)
 		return UserLogin(ctx, emailAddr, password2Plain)

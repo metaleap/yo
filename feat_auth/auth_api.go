@@ -121,7 +121,8 @@ func apiChangePassword(this *ApiCtx[ApiAccountPayload, None]) {
 
 func httpUserFromJwtRaw(jwtRaw string) (userEmailAddr string, userAuthId yodb.I64) {
 	if jwtRaw != "" {
-		if jwt_payload := UserVerify(jwtRaw); jwt_payload != nil {
+		jwt_payload := UserVerify(jwtRaw)
+		if jwt_payload != nil {
 			userEmailAddr, userAuthId = jwt_payload.StandardClaims.Subject, jwt_payload.UserAuthId
 		}
 	}
@@ -130,7 +131,7 @@ func httpUserFromJwtRaw(jwtRaw string) (userEmailAddr string, userAuthId yodb.I6
 
 func httpSetUser(ctx *Ctx, jwtRaw string) {
 	user_email_addr, user_auth_id := httpUserFromJwtRaw(jwtRaw)
-	if IsDevMode {
+	if IsDevMode { // no need for that db hit in prod (so far)
 		if (user_auth_id > 0) && !yodb.Exists[UserAuth](ctx, UserAuthId.Equal(user_auth_id)) {
 			user_auth_id, user_email_addr = 0, ""
 			jwtRaw = ""
@@ -139,9 +140,9 @@ func httpSetUser(ctx *Ctx, jwtRaw string) {
 	ctx.Set(CtxKeyAuthId, user_auth_id)
 	ctx.Set(CtxKeyEmailAddr, user_email_addr)
 	ctx.Http.Resp.Header().Set(HttpUserHeader, user_email_addr)
-	ctx.HttpSetCookie(HttpJwtCookieName, jwtRaw, Cfg.YO_AUTH_JWT_EXPIRY_DAYS)
-	if IsDevMode && (Cfg.YO_AUTH_JWT_EXPIRY_DAYS > 400) {
-		panic("illegal YO_AUTH_JWT_EXPIRY_DAYS for modern-browser cookie laws")
+	ctx.HttpSetCookie(HttpJwtCookieName, jwtRaw, Cfg.YO_AUTH_JWT_COOKIE_EXPIRY_DAYS)
+	if IsDevMode && (Cfg.YO_AUTH_JWT_COOKIE_EXPIRY_DAYS > 400) {
+		panic("illegal YO_AUTH_JWT_COOKIE_EXPIRY_DAYS for modern-browser cookie laws")
 	}
 }
 
