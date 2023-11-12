@@ -6,10 +6,10 @@ import (
 	"os/exec"
 	"time"
 
+	yoauth "yo/auth"
 	. "yo/cfg"
 	yoctx "yo/ctx"
 	yodb "yo/db"
-	yoauth "yo/feat_auth"
 	_ "yo/jobs"
 	yojobs "yo/jobs"
 	yolog "yo/log"
