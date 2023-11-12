@@ -19,8 +19,8 @@ export let reqMaxReqMultipartSizeMb = 0         // declaration only, generated c
 export let errMaxReqPayloadSizeExceeded = ""    // declaration only, generated code sets the value
 
 let doFetch = fetch
-export function setCustomFetch(customFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
-    doFetch = (customFetch ?? fetch)
+export function setCustomFetch(customFetch: (reqUrl: string, reqInit?: object) => Promise<Response>) {
+    doFetch = (customFetch ?? fetch) as any
 }
 export function setApiBaseUrl(newApiBaseUrl: string) { apiBaseUrl = newApiBaseUrl }
 
