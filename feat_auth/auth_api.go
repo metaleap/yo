@@ -11,10 +11,9 @@ import (
 )
 
 const (
-	CtxKeyEmailAddr   = "yoUserEmailAddr"
-	CtxKeyAuthId      = "yoUserAuthId"
-	HttpUserHeader    = "X-Yo-User"
-	HttpJwtCookieName = "t"
+	CtxKeyEmailAddr = "yoUserEmailAddr"
+	CtxKeyAuthId    = "yoUserAuthId"
+	HttpUserHeader  = "X-Yo-User"
 
 	MethodPathLoginOrFinalizePwdReset = "__/yo/authLoginOrFinalizePwdReset"
 	MethodPathLogout                  = "__/yo/authLogout"
@@ -51,17 +50,17 @@ func init() {
 			Fails{Err: "NewPasswordTooLong", If: ___yo_authLoginOrFinalizePwdResetPassword2Plain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
 			Fails{Err: "NewPasswordExpectedToDiffer", If: ___yo_authLoginOrFinalizePwdResetPassword2Plain.Equal(___yo_authLoginOrFinalizePwdResetPasswordPlain)},
 		).
-			CouldFailWith("OkButFailedToCreateSignedToken", "AccountDoesNotExist", "NewPasswordInvalid", ErrUnauthorized),
+			CouldFailWith(":"+yodb.ErrSetDbUpdate, "PwdReqExpired", "OkButFailedToCreateSignedToken", "AccountDoesNotExist", "NewPasswordInvalid", ErrUnauthorized),
 
 		MethodPathChangePassword: api(apiChangePassword,
 			Fails{Err: "NewPasswordExpectedToDiffer", If: ___yo_authChangePasswordPassword2Plain.Equal(___yo_authChangePasswordPasswordPlain)},
 			Fails{Err: "NewPasswordTooShort", If: ___yo_authChangePasswordPassword2Plain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 		).
-			CouldFailWith(":"+yodb.ErrSetDbUpdate, ":"+MethodPathLoginOrFinalizePwdReset),
+			CouldFailWith(":" + MethodPathLoginOrFinalizePwdReset),
 	})
 
 	PreServes = append(PreServes, Middleware{Name: "authCheck", Do: func(ctx *Ctx) {
-		jwt_raw, forced_test_user := ctx.HttpGetCookie(HttpJwtCookieName), ctx.GetStr(CtxKeyForcedTestUser)
+		jwt_raw, forced_test_user := ctx.HttpGetCookie(Cfg.YO_AUTH_JWT_COOKIE_NAME), ctx.GetStr(CtxKeyForcedTestUser)
 		if IsDevMode && (forced_test_user != "") {
 			if cur_user_email_addr, cur_user_auth_id := httpUserFromJwtRaw(jwt_raw); (cur_user_auth_id == 0) ||
 				(cur_user_email_addr != forced_test_user) {
@@ -140,7 +139,7 @@ func httpSetUser(ctx *Ctx, jwtRaw string) {
 	ctx.Set(CtxKeyAuthId, user_auth_id)
 	ctx.Set(CtxKeyEmailAddr, user_email_addr)
 	ctx.Http.Resp.Header().Set(HttpUserHeader, user_email_addr)
-	ctx.HttpSetCookie(HttpJwtCookieName, jwtRaw, Cfg.YO_AUTH_JWT_COOKIE_EXPIRY_DAYS)
+	ctx.HttpSetCookie(Cfg.YO_AUTH_JWT_COOKIE_NAME, jwtRaw, Cfg.YO_AUTH_JWT_COOKIE_EXPIRY_DAYS)
 	if IsDevMode && (Cfg.YO_AUTH_JWT_COOKIE_EXPIRY_DAYS > 400) {
 		panic("illegal YO_AUTH_JWT_COOKIE_EXPIRY_DAYS for modern-browser cookie laws")
 	}

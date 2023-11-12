@@ -1,6 +1,7 @@
 package yoauth
 
 import (
+	"time"
 	. "yo/cfg"
 	. "yo/ctx"
 	yodb "yo/db"
@@ -9,6 +10,8 @@ import (
 	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
 )
+
+var AutoLoginAfterSuccessfullyFinalizedSignUpOrPwdResetReq = false
 
 type JwtPayload struct {
 	jwt.StandardClaims
@@ -91,7 +94,6 @@ func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordP
 		return UserLogin(ctx, emailAddr, passwordPlain)
 	}
 
-	ctx.DbTx(true)
 	pwd_reset_req := yodb.FindOne[UserPwdReq](ctx,
 		UserPwdReqEmailAddr.Equal(emailAddr). // request for this email addr
 							And(UserPwdReqDoneMailReqId.NotEqual(nil)).        // where the corresponding mail-req was already created
@@ -102,34 +104,44 @@ func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordP
 	if pwd_reset_req == nil {
 		UserChangePassword(ctx, emailAddr, passwordPlain, password2Plain)
 		return UserLogin(ctx, emailAddr, password2Plain)
-	} else {
-		// check temp one-time pwd
-		err := bcrypt.CompareHashAndPassword(pwd_reset_req.tmpPwdHashed, []byte(passwordPlain))
-		if err != nil {
-			panic(Err___yo_authLoginOrFinalizePwdReset_WrongPassword)
+	}
+
+	if (Cfg.YO_AUTH_PWD_REQ_VALIDITY_MINS > 0) && ((int(time.Now().Sub(*pwd_reset_req.DtMade.Time()).Minutes())) > (Cfg.YO_AUTH_PWD_REQ_VALIDITY_MINS + /* some leeway for mail-req job-task & mail delivery */ 2)) {
+		yodb.Delete[UserPwdReq](ctx, yodb.ColID.Equal(pwd_reset_req.Id))
+		panic(Err___yo_authLoginOrFinalizePwdReset_PwdReqExpired)
+	}
+	// check temp one-time pwd
+	err := bcrypt.CompareHashAndPassword(pwd_reset_req.tmpPwdHashed, []byte(passwordPlain))
+	if err != nil {
+		panic(Err___yo_authLoginOrFinalizePwdReset_WrongPassword)
+	}
+	pwd_hash, err := bcrypt.GenerateFromPassword([]byte(password2Plain), bcrypt.DefaultCost)
+	if (err != nil) || (len(pwd_hash) == 0) {
+		if err == bcrypt.ErrPasswordTooLong {
+			panic(Err___yo_authLoginOrFinalizePwdReset_NewPasswordTooLong)
+		} else {
+			panic(Err___yo_authLoginOrFinalizePwdReset_NewPasswordInvalid)
 		}
-		pwd_hash, err := bcrypt.GenerateFromPassword([]byte(password2Plain), bcrypt.DefaultCost)
-		if (err != nil) || (len(pwd_hash) == 0) {
-			if err == bcrypt.ErrPasswordTooLong {
-				panic(Err___yo_authLoginOrFinalizePwdReset_NewPasswordTooLong)
-			} else {
-				panic(Err___yo_authLoginOrFinalizePwdReset_NewPasswordInvalid)
-			}
-		}
-		user_auth := yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr))
-		if user_auth != nil { // existing user: pwd-reset
-			user_auth.pwdHashed = pwd_hash
-			_ = yodb.Update[UserAuth](ctx, user_auth, nil, true, userAuthPwdHashed.F())
-		} else { // new user: register
-			user_auth = &UserAuth{pwdHashed: pwd_hash, EmailAddr: yodb.Text(emailAddr)}
-			_ = yodb.CreateOne[UserAuth](ctx, user_auth)
-		}
+	}
+	ctx.DbTx(true)
+	user_auth := yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr))
+	if user_auth != nil { // existing user: pwd-reset
+		user_auth.pwdHashed = pwd_hash
+		_ = yodb.Update[UserAuth](ctx, user_auth, nil, true, userAuthPwdHashed.F())
+	} else { // new user: register
+		user_auth = &UserAuth{pwdHashed: pwd_hash, EmailAddr: yodb.Text(emailAddr)}
+		_ = yodb.CreateOne[UserAuth](ctx, user_auth)
+	}
+	pwd_reset_req.tmpPwdHashed, pwd_reset_req.DtFinalized = nil, yodb.DtNow()
+	if yodb.Update(ctx, pwd_reset_req, nil, false, UserPwdReqFields(userPwdReqTmpPwdHashed, UserPwdReqDtFinalized)...) < 0 {
+		panic(ErrDbUpdate_ExpectedChangesForUpdate)
+	}
+	if AutoLoginAfterSuccessfullyFinalizedSignUpOrPwdResetReq {
 		login_user_auth, login_jwt_token := UserLogin(ctx, emailAddr, password2Plain)
-		pwd_reset_req.tmpPwdHashed, pwd_reset_req.DtFinalized = nil, yodb.DtNow()
-		yodb.Update(ctx, pwd_reset_req, nil, false, UserPwdReqFields(userPwdReqTmpPwdHashed, UserPwdReqDtFinalized)...)
 		return login_user_auth, login_jwt_token
 	}
 
+	return nil, nil
 }
 
 func UserVerify(jwtRaw string) *JwtPayload {

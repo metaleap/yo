@@ -23,10 +23,12 @@ var Cfg struct { // all renames MUST be global find+replace!
 	YO_API_ADMIN_USER                  string
 	YO_API_ADMIN_PWD                   string
 
+	YO_AUTH_JWT_COOKIE_NAME        string
 	YO_AUTH_JWT_COOKIE_EXPIRY_DAYS int
 	YO_AUTH_JWT_SIGN_KEY           string
 	YO_AUTH_PWD_MIN_LEN            int
 	YO_AUTH_PWD_MAX_LEN            int
+	YO_AUTH_PWD_REQ_VALIDITY_MINS  int
 
 	YO_MAIL_SMTP_HOST      string
 	YO_MAIL_SMTP_PORT      int

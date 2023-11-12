@@ -288,6 +288,9 @@ func (me *Ctx) HttpGetCookie(cookieName string) (ret string) {
 }
 
 func (me *Ctx) HttpSetCookie(cookieName string, cookieValue string, numDays int) {
+	if cookieName = str.Trim(cookieName); cookieName == "" {
+		panic("buggy caller")
+	}
 	me.Http.respCookies[cookieName] = &http.Cookie{
 		Name:     cookieName,
 		Value:    url.QueryEscape(cookieValue),

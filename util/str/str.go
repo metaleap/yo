@@ -139,8 +139,9 @@ func Sub(s string, runeIdx int, runesLen int) string {
 
 // whether `str` matches at least _@_._
 func IsEmailishEnough(str string) bool {
-	iat, idot := Idx(str, '@'), IdxLast(str, '.')
-	return (len(str) >= 5) && (iat > 0) && (iat < len(str)-1) && (iat == IdxLast(str, '@') && (idot > iat) && (idot < len(str)-1))
+	l, idx_at, idx_last_dot := len(str), Idx(str, '@'), IdxLast(str, '.')
+	return (l >= 5) && (l < 255) && (idx_at > 0) && (idx_at < l-1) && (idx_at <= 64) && (idx_at == IdxLast(str, '@') &&
+		(idx_last_dot > idx_at) && (idx_last_dot < l-1))
 }
 
 func In(str string, set ...string) bool {
