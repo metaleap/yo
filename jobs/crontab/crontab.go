@@ -53,11 +53,11 @@ func (it *FieldItem) String() (s string) {
 }
 
 func (it Field) String() string {
-	return str.Join(sl.To(it, func(f FieldItem) string { return f.String() }), ",")
+	return str.Join(sl.As(it, func(f FieldItem) string { return f.String() }), ",")
 }
 
 func (it *expr) String() string {
-	return str.Join(sl.To([]Field{
+	return str.Join(sl.As([]Field{
 		it.Minutes,
 		it.Hours,
 		it.DaysOfMonth,

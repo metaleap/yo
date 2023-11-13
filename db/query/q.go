@@ -143,7 +143,7 @@ func (me *fun) InArr(arr any) Query            { return InArr(me, arr) }
 func (me *fun) NotInArr(arr any) Query         { return NotInArr(me, arr) }
 func (me *fun) Eval(obj any, c2f func(C) F) any {
 	if me.Alt != nil {
-		return me.Alt(sl.To(me.Args, func(it Operand) any { return it.Eval(obj, c2f) })...)
+		return me.Alt(sl.As(me.Args, func(it Operand) any { return it.Eval(obj, c2f) })...)
 	}
 	switch me.Fn {
 	case FnArrLen:
@@ -264,7 +264,7 @@ func Not(cond Query) Query {
 }
 
 func operandsFrom(it ...any) []Operand {
-	return sl.To(it, operandFrom)
+	return sl.As(it, operandFrom)
 }
 
 func operandFrom(it any) Operand {
@@ -478,11 +478,11 @@ func (me *query) Eval(obj any, c2f func(C) F) (falseDueTo Query) {
 	case OpNot:
 		return If[Query]((me.conds[0].Eval(obj, c2f) == nil), me, nil)
 	case OpIn:
-		in_set := sl.Has(sl.To(me.operands, func(it Operand) any { return it.Eval(obj, c2f) }),
+		in_set := sl.Has(sl.As(me.operands, func(it Operand) any { return it.Eval(obj, c2f) }),
 			me.operands[0].Eval(obj, c2f))
 		return If[Query](in_set, nil, me)
 	case OpNotIn:
-		in_set := sl.Has(sl.To(me.operands, func(it Operand) any { return it.Eval(obj, c2f) }),
+		in_set := sl.Has(sl.As(me.operands, func(it Operand) any { return it.Eval(obj, c2f) }),
 			me.operands[0].Eval(obj, c2f))
 		return If[Query](in_set, me, nil)
 	case OpEq:

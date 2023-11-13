@@ -102,7 +102,7 @@ func (me *engine) finalizeCancellingJobRuns() {
 	// no db-tx(s) wanted here by design, as many task cancellations as we can get are fine for us, running on an interval anyway
 	jobs := yodb.FindMany[JobRun](ctx, jobRunState.Equal(JobRunCancelling), 0, JobRunFields(JobRunId, JobRunVersion))
 	if len(jobs) > 0 {
-		tasks := yodb.FindMany[JobTask](ctx, jobTaskState.In(Pending, Running).And(JobTaskJobRun.In(sl.To(jobs, (*JobRun).id).ToAnys()...)), 0, JobTaskFields(JobTaskId, JobTaskVersion))
+		tasks := yodb.FindMany[JobTask](ctx, jobTaskState.In(Pending, Running).And(JobTaskJobRun.In(sl.As(jobs, (*JobRun).id).ToAnys()...)), 0, JobTaskFields(JobTaskId, JobTaskVersion))
 		dbBatchUpdate[JobTask](me, ctx, tasks, &JobTask{state: yodb.Text(Cancelled)}, JobTaskFields(jobTaskState)...)
 		dbBatchUpdate[JobRun](me, ctx, jobs, &JobRun{state: yodb.Text(Cancelled)}, JobRunFields(jobRunState)...)
 	}
@@ -167,7 +167,7 @@ func (me *engine) startDueJob(ctxForCacheReuse *Ctx, jobRun *JobRun, jobDef *Job
 		if done {
 			panic(jobDef.Name + ".TaskDetails: illegal call to feed func after return")
 		}
-		tasks := sl.To(multipleTaskDetails, func(taskDetails TaskDetails) *JobTask {
+		tasks := sl.As(multipleTaskDetails, func(taskDetails TaskDetails) *JobTask {
 			jobType(string(jobRun.JobTypeId)).checkTypeTaskDetails(taskDetails)
 			task := &JobTask{
 				JobTypeId: jobRun.JobTypeId,
@@ -277,7 +277,7 @@ func (me *engine) expireOrRetryDeadJobTasks() {
 		defer ctx.OnDone(nil)
 		if job_runs := jobs[jobDefId]; len(job_runs) > 0 {
 			job_def := job_runs[0].jobDef(ctx)
-			me.expireOrRetryDeadJobTasksForJobDef(ctx, job_def, sl.To(job_runs, (*JobRun).id))
+			me.expireOrRetryDeadJobTasksForJobDef(ctx, job_def, sl.As(job_runs, (*JobRun).id))
 
 			if is_jobdef_dead := (job_def == nil) || (job_def.jobType == nil) || (job_def.Disabled); is_jobdef_dead {
 				dbBatchUpdate(me, ctx, job_runs, &JobRun{state: yodb.Text(JobRunCancelling)}, JobRunFields(jobRunState)...)

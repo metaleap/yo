@@ -63,12 +63,12 @@ func (userPwdReqJob) TaskDetails(ctx *Ctx, stream func([]yojobs.TaskDetails)) {
 	if Cfg.YO_AUTH_PWD_REQ_VALIDITY_MINS > 0 {
 		dt_cutoff := time.Now().Add(-time.Minute * time.Duration(Cfg.YO_AUTH_PWD_REQ_VALIDITY_MINS+2))
 		reqs = yodb.FindMany[UserPwdReq](ctx, UserPwdReqDtMade.LessThan(dt_cutoff), 0, UserPwdReqFields(UserPwdReqId))
-		stream(sl.To(reqs,
+		stream(sl.As(reqs,
 			func(it *UserPwdReq) yojobs.TaskDetails { return &userPwdReqTaskDetails{ReqIdForDeletion: it.Id} }))
 	}
 
 	reqs = yodb.FindMany[UserPwdReq](ctx, UserPwdReqDoneMailReqId.Equal(nil), 0, nil) // pwd-reqs that have no corresponding mail-req yet
-	stream(sl.To(reqs,
+	stream(sl.As(reqs,
 		func(it *UserPwdReq) yojobs.TaskDetails { return &userPwdReqTaskDetails{ReqIdForNewMailReq: it.Id} }))
 }
 

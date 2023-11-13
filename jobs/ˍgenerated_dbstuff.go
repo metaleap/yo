@@ -5,7 +5,7 @@ import q "yo/db/query"
 
 import sl "yo/util/sl"
 
-func JobDefFields(fields ...JobDefField) []q.F { return sl.To(fields, JobDefField.F) }
+func JobDefFields(fields ...JobDefField) []q.F { return sl.As(fields, JobDefField.F) }
 
 type JobDefField q.F
 
@@ -45,7 +45,7 @@ func (me JobDefField) NotIn(a1 ...interface{}) q.Query       { return ((q.F)(me)
 func (me JobDefField) NotInArr(a1 interface{}) q.Query       { return ((q.F)(me)).NotInArr(a1) }
 func (me JobDefField) StrLen(a1 ...interface{}) q.Operand    { return ((q.F)(me)).StrLen(a1...) }
 
-func JobRunFields(fields ...JobRunField) []q.F { return sl.To(fields, JobRunField.F) }
+func JobRunFields(fields ...JobRunField) []q.F { return sl.As(fields, JobRunField.F) }
 
 type JobRunField q.F
 
@@ -119,7 +119,7 @@ func (me JobRunField) NotIn(a1 ...interface{}) q.Query       { return ((q.F)(me)
 func (me JobRunField) NotInArr(a1 interface{}) q.Query       { return ((q.F)(me)).NotInArr(a1) }
 func (me JobRunField) StrLen(a1 ...interface{}) q.Operand    { return ((q.F)(me)).StrLen(a1...) }
 
-func JobTaskFields(fields ...JobTaskField) []q.F { return sl.To(fields, JobTaskField.F) }
+func JobTaskFields(fields ...JobTaskField) []q.F { return sl.As(fields, JobTaskField.F) }
 
 type JobTaskField q.F
 

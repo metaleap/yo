@@ -5,7 +5,7 @@ import q "yo/db/query"
 
 import sl "yo/util/sl"
 
-func MailReqFields(fields ...MailReqField) []q.F { return sl.To(fields, MailReqField.F) }
+func MailReqFields(fields ...MailReqField) []q.F { return sl.As(fields, MailReqField.F) }
 
 type MailReqField q.F
 

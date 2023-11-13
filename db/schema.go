@@ -141,7 +141,7 @@ func schemaCreateTable(desc *structDesc, didWriteUpdTriggerFuncYet *bool) (ret [
 			`CREATE OR REPLACE TRIGGER {table_name}onUpdate BEFORE UPDATE {of_cols} ON {table_name} FOR EACH ROW EXECUTE FUNCTION on_yo_db_obj_upd();`),
 			str.Dict{"col_name": string(ColModifiedAt), "table_name": desc.tableName,
 				"of_cols": If(len(upd_trigger_on_flds) == 0, "",
-					"OF "+str.Join(sl.To(upd_trigger_on_flds, func(it q.F) string { return string(desc.colNameOfField(it)) }), ", "),
+					"OF "+str.Join(sl.As(upd_trigger_on_flds, func(it q.F) string { return string(desc.colNameOfField(it)) }), ", "),
 				)}))
 		*didWriteUpdTriggerFuncYet = true
 		ret = append(ret, (*sqlStmt)(&stmt_make_trigger))

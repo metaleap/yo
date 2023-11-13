@@ -5,7 +5,7 @@ import q "yo/db/query"
 
 import sl "yo/util/sl"
 
-func ErrEntryFields(fields ...ErrEntryField) []q.F { return sl.To(fields, ErrEntryField.F) }
+func ErrEntryFields(fields ...ErrEntryField) []q.F { return sl.As(fields, ErrEntryField.F) }
 
 type ErrEntryField q.F
 

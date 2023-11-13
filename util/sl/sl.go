@@ -139,7 +139,7 @@ func HasAllOf[TSlice ~[]TItem, TItem comparable](slice TSlice, of ...TItem) bool
 	return true
 }
 
-func To[TSlice ~[]TItem, TItem any, TOut any](slice TSlice, f func(TItem) TOut) (ret Of[TOut]) {
+func As[TSlice ~[]TItem, TItem any, TOut any](slice TSlice, f func(TItem) TOut) (ret Of[TOut]) {
 	ret = make(Of[TOut], len(slice))
 	for i := range slice {
 		ret[i] = f(slice[i])
@@ -148,7 +148,7 @@ func To[TSlice ~[]TItem, TItem any, TOut any](slice TSlice, f func(TItem) TOut) 
 }
 
 func ToAnys[TSlice ~[]TItem, TItem any](slice TSlice) []any {
-	return To(slice, func(it TItem) any { return it })
+	return As(slice, func(it TItem) any { return it })
 }
 
 func All[TSlice ~[]TItem, TItem any](slice TSlice, pred func(TItem) bool) bool {
@@ -272,6 +272,7 @@ func New[T any](items ...T) Of[T] { return items }
 
 func (me Of[T]) Any(pred func(T) bool) bool     { return Any(me, pred) }
 func (me Of[T]) All(pred func(T) bool) bool     { return All(me, pred) }
+func (me Of[T]) Len() int                       { return len(me) }
 func (me Of[T]) IdxWhere(pred func(T) bool) int { return IdxWhere(me, pred) }
 func (me Of[T]) Where(pred func(T) bool) Of[T]  { return Where(me, pred) }
 func (me Of[T]) Without(pred func(T) bool) Of[T] {

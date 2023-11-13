@@ -39,7 +39,7 @@ func (mailReqJob) JobResults(_ *Ctx) (func(func() *Ctx, *yojobs.JobTask, *bool),
 
 func (mailReqJob) TaskDetails(ctx *Ctx, stream func([]yojobs.TaskDetails)) {
 	reqs := yodb.FindMany[MailReq](ctx, mailReqDtDone.Equal(nil), 0, nil)
-	stream(sl.To(reqs,
+	stream(sl.As(reqs,
 		func(it *MailReq) yojobs.TaskDetails { return &mailReqTaskDetails{ReqId: it.Id} }))
 }
 

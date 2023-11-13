@@ -112,15 +112,17 @@ type apiMethod[TIn any, TOut any] struct {
 func (me *apiMethod[TIn, TOut]) pkgInfo() ApiPkgInfo    { return me.PkgInfo }
 func (me *apiMethod[TIn, TOut]) failsIf() []Fails       { return me.failIfs }
 func (me *apiMethod[TIn, TOut]) handler() apiHandleFunc { return me.handleFunc }
-func (me *apiMethod[TIn, TOut]) From(pkgInfo ApiPkgInfo) ApiMethod {
-	me.PkgInfo = pkgInfo
-	return me
-}
-func (me *apiMethod[TIn, TOut]) isMultipartForm() bool { return me.multipartForm }
+func (me *apiMethod[TIn, TOut]) isMultipartForm() bool  { return me.multipartForm }
 func (me *apiMethod[TIn, TOut]) IsMultipartForm() ApiMethod {
 	me.multipartForm = true
 	return me
 }
+
+func (me *apiMethod[TIn, TOut]) From(pkgInfo ApiPkgInfo) ApiMethod {
+	me.PkgInfo = pkgInfo
+	return me
+}
+
 func (me *apiMethod[TIn, TOut]) Checks(failIfs ...Fails) ApiMethod {
 	for _, fail := range failIfs {
 		me.errsOwn = sl.With(me.errsOwn, fail.Err)
@@ -131,17 +133,20 @@ func (me *apiMethod[TIn, TOut]) Checks(failIfs ...Fails) ApiMethod {
 	}
 	return me
 }
+
 func (me *apiMethod[TIn, TOut]) FailIf(inCaseOf func(*Ctx) bool, withErr Err) ApiMethod {
 	me.CouldFailWith(withErr)
 	me.preChecks = append(me.preChecks, Pair[Err, func(*Ctx) bool]{withErr, inCaseOf})
 	return me
 }
+
 func (me *apiMethod[TIn, TOut]) PkgName() string {
 	if me.PkgInfo != nil {
 		return me.PkgInfo.PkgName()
 	}
 	return ""
 }
+
 func (me *apiMethod[TIn, TOut]) methodPath(failIfNone bool) (ret string) {
 	for path, method := range api {
 		if method == me {
@@ -153,24 +158,35 @@ func (me *apiMethod[TIn, TOut]) methodPath(failIfNone bool) (ret string) {
 	}
 	return
 }
+
 func (me *apiMethod[TIn, TOut]) methodNameUp0() string {
 	return str.Up0(ToIdent(me.methodPath(true)))
 }
-func (me *apiMethod[TIn, TOut]) KnownErrs() (ret []Err) {
+
+func (me *apiMethod[TIn, TOut]) KnownErrs() []Err {
 	method_name := me.methodNameUp0()
 	err_name_prefix := Err(str.Up0(method_name)) + "_"
-
-	ret = append(sl.To(me.errsOwn, func(it Err) Err { return If(sl.Has(ErrsNoPrefix, it), it, err_name_prefix+it) }),
+	ret := append(sl.As(me.errsOwn, func(it Err) Err { return If(sl.Has(ErrsNoPrefix, it), it, err_name_prefix+it) }),
 		KnownErrSets[""]...)
 	for _, err_dep := range me.errsDeps {
 		if method := api[err_dep]; method != nil {
 			ret = append(ret, api[err_dep].KnownErrs()...)
 		} else {
-			ret = append(ret, sl.To(KnownErrSets[err_dep], func(it Err) Err { return Err(err_dep+"_") + it })...)
+			ret = append(ret, sl.As(KnownErrSets[err_dep], func(it Err) Err { return Err(err_dep+"_") + it })...)
 		}
 	}
-	return
+	if len(ErrReplacements) > 0 {
+		for replace_with, replace_those := range ErrReplacements {
+			for i := 0; i < len(ret); i++ {
+				if sl.Has(replace_those, ret[i]) {
+					ret[i] = replace_with
+				}
+			}
+		}
+	}
+	return sl.Uniq(ret)
 }
+
 func (*apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
 	var it TIn
 	if len(data) > 0 && !bytes.Equal(data, yojson.JsonTokNull) {
@@ -178,6 +194,7 @@ func (*apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
 	}
 	return &it, err
 }
+
 func (me *apiMethod[TIn, TOut]) validatePayload(it any) (q.Query, Err) {
 	do_check := func(method ApiMethod, check *Fails) (q.Query, Err) {
 		method_name := method.methodNameUp0()
@@ -204,14 +221,16 @@ func (me *apiMethod[TIn, TOut]) validatePayload(it any) (q.Query, Err) {
 	}
 	return nil, ""
 }
+
 func (*apiMethod[TIn, TOut]) reflTypes() (reflect.Type, reflect.Type) {
 	var tmp_in TIn
 	var tmp_out TOut
 	return reflect.ValueOf(tmp_in).Type(), reflect.ValueOf(tmp_out).Type()
 }
+
 func (me *apiMethod[TIn, TOut]) CouldFailWith(knownErrs ...Err) ApiMethod {
 	errs_own := sl.Where(knownErrs, func(it Err) bool { return it[0] != ':' })
-	errs_deps := sl.To(sl.Where(knownErrs, func(it Err) bool { return it[0] == ':' }), func(it Err) string { return string(it)[1:] })
+	errs_deps := sl.As(sl.Where(knownErrs, func(it Err) bool { return it[0] == ':' }), func(it Err) string { return string(it)[1:] })
 	me.errsOwn, me.errsDeps = sl.With(me.errsOwn, errs_own...), sl.With(me.errsDeps, errs_deps...)
 	return me
 }

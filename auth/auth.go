@@ -8,6 +8,7 @@ import (
 	yodb "yo/db"
 	yomail "yo/mail"
 	. "yo/util"
+	sl "yo/util/sl"
 	"yo/util/str"
 
 	"github.com/golang-jwt/jwt"
@@ -22,11 +23,9 @@ var (
 const errGeneric = Err("InvalidCredentials")
 
 var LoginThrottling = struct {
-	NumFailedAttemptsBeforeLockout   int
-	WithinTimePeriod                 time.Duration
-	LockoutDuration                  time.Duration
-	InitiatePwdResetProcessOnLockout bool
-}{0, 0, 0, true}
+	NumFailedAttemptsBeforeLockout int
+	WithinTimePeriod               time.Duration
+}{0, 0}
 
 type JwtPayload struct {
 	jwt.StandardClaims
@@ -121,10 +120,13 @@ func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jw
 	err := bcrypt.CompareHashAndPassword(user_pwd_hashed, []byte(passwordPlain))
 	if err != nil {
 		if (LoginThrottling.NumFailedAttemptsBeforeLockout > 0) && (LoginThrottling.WithinTimePeriod > 0) {
-			if !user_auth.Lockout {
-				user_auth.FailedLoginAttempts = append(user_auth.FailedLoginAttempts, yodb.I64(time.Now().UnixNano()))
+			user_auth.FailedLoginAttempts = append(user_auth.FailedLoginAttempts, yodb.I64(time.Now().UnixNano()))
+			if idx_start := user_auth.FailedLoginAttempts.Len() - LoginThrottling.NumFailedAttemptsBeforeLockout; idx_start >= 0 {
+				last_n_attempts := user_auth.FailedLoginAttempts[idx_start:]
+				if Duration(sl.As(last_n_attempts, yodb.I64.Self)...) > LoginThrottling.WithinTimePeriod {
+					user_auth.Lockout = true
+				}
 			}
-
 			yodb.Update[UserAuth](ctx, user_auth, nil, false, UserAuthFields(UserAuthFailedLoginAttempts, UserAuthLockout)...)
 		}
 

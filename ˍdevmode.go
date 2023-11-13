@@ -73,7 +73,7 @@ FROM scratch
 COPY .env /.env
 COPY .env.prod /.env.prod
 COPY `+app_name+`.exec /`+app_name+`.exec
-`+str.Join(sl.To(AppSideBuildTimeContainerFileNames, func(s string) string { return "COPY " + s + " /" + s }), "\n")+`
+`+str.Join(sl.As(AppSideBuildTimeContainerFileNames, func(s string) string { return "COPY " + s + " /" + s }), "\n")+`
 COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT ["/`+app_name+`.exec"]
 	`)))

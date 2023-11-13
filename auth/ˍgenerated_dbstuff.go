@@ -5,7 +5,7 @@ import q "yo/db/query"
 
 import sl "yo/util/sl"
 
-func UserAuthFields(fields ...UserAuthField) []q.F { return sl.To(fields, UserAuthField.F) }
+func UserAuthFields(fields ...UserAuthField) []q.F { return sl.As(fields, UserAuthField.F) }
 
 type UserAuthField q.F
 
@@ -39,7 +39,7 @@ func (me UserAuthField) NotIn(a1 ...interface{}) q.Query       { return ((q.F)(m
 func (me UserAuthField) NotInArr(a1 interface{}) q.Query       { return ((q.F)(me)).NotInArr(a1) }
 func (me UserAuthField) StrLen(a1 ...interface{}) q.Operand    { return ((q.F)(me)).StrLen(a1...) }
 
-func UserPwdReqFields(fields ...UserPwdReqField) []q.F { return sl.To(fields, UserPwdReqField.F) }
+func UserPwdReqFields(fields ...UserPwdReqField) []q.F { return sl.As(fields, UserPwdReqField.F) }
 
 type UserPwdReqField q.F
 

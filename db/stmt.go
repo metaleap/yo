@@ -202,7 +202,7 @@ func (me *sqlStmt) selCols(desc *structDesc, colsPtr *[]q.C, ignoreAlwaysFetchFi
 	if len(cols) == 0 {
 		cols = desc.cols
 	} else if !ignoreAlwaysFetchFields {
-		cols = sl.With(cols, sl.To(desc.constraints.alwaysFetch,
+		cols = sl.With(cols, sl.As(desc.constraints.alwaysFetch,
 			func(it q.F) q.C { return desc.colNameOfField(it) })...)
 	}
 	for i, col := range cols {

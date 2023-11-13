@@ -176,11 +176,11 @@ type ReadOnly[T q.Field] []T
 type NoUpdTrigger[T q.Field] []T
 type AlwaysFetch[T q.Field] []T
 
-func (me Unique[TFld]) qFs() []q.F       { return sl.To(me, func(it TFld) q.F { return it.F() }) }
-func (me Index[TFld]) qFs() []q.F        { return sl.To(me, func(it TFld) q.F { return it.F() }) }
-func (me ReadOnly[TFld]) qFs() []q.F     { return sl.To(me, func(it TFld) q.F { return it.F() }) }
-func (me NoUpdTrigger[TFld]) qFs() []q.F { return sl.To(me, func(it TFld) q.F { return it.F() }) }
-func (me AlwaysFetch[TFld]) qFs() []q.F  { return sl.To(me, func(it TFld) q.F { return it.F() }) }
+func (me Unique[TFld]) qFs() []q.F       { return sl.As(me, func(it TFld) q.F { return it.F() }) }
+func (me Index[TFld]) qFs() []q.F        { return sl.As(me, func(it TFld) q.F { return it.F() }) }
+func (me ReadOnly[TFld]) qFs() []q.F     { return sl.As(me, func(it TFld) q.F { return it.F() }) }
+func (me NoUpdTrigger[TFld]) qFs() []q.F { return sl.As(me, func(it TFld) q.F { return it.F() }) }
+func (me AlwaysFetch[TFld]) qFs() []q.F  { return sl.As(me, func(it TFld) q.F { return it.F() }) }
 
 type structDesc struct {
 	ty          reflect.Type
@@ -556,6 +556,13 @@ func (me *DateTime) MarshalJSON() ([]byte, error) {
 func (me *Text) Set(f func(string) string)     { *me = (Text)(f((string)(*me))) }
 func (me Text) But(f func(string) string) Text { return (Text)(f((string)(me))) }
 func (me Text) String() string                 { return string(me) }
+func (me I8) Self() int8                       { return int8(me) }
+func (me I16) Self() int16                     { return int16(me) }
+func (me I32) Self() int32                     { return int32(me) }
+func (me I64) Self() int64                     { return int64(me) }
+func (me U8) Self() uint8                      { return uint8(me) }
+func (me U16) Self() uint16                    { return uint16(me) }
+func (me U32) Self() uint32                    { return uint32(me) }
 
 func DtFrom(t time.Time) *DateTime {
 	var ret DateTime

@@ -25,7 +25,7 @@ func init() {
 		Err("ExpectedOnlyEitherQueryOrQueryFromButNotBoth"),
 		Err("ExpectedSetOperandFor" + opIn),
 		Err("ExpectedOneOrNoneButNotMultipleOfFldOrStrOrBoolOrInt"),
-	}, sl.To([]string{opAnd, opOr, opNot, opIn, opEq, opNe, opGt, opGe, opLt, opLe}, func(it string) Err {
+	}, sl.As([]string{opAnd, opOr, opNot, opIn, opEq, opNe, opGt, opGe, opLt, opLe}, func(it string) Err {
 		return Err(errBinOpPrefix + it)
 	})...)
 
@@ -94,7 +94,7 @@ func (me *argQuery[TObj, TFld]) toDbQ() q.Query {
 	return me.Query.toDbQ()
 }
 func (me *argQuery[TObj, TFld]) toDbO() []q.OrderBy {
-	return sl.To(me.OrderBy, func(it *ApiOrderBy[TObj, TFld]) q.OrderBy {
+	return sl.As(me.OrderBy, func(it *ApiOrderBy[TObj, TFld]) q.OrderBy {
 		fld := q.F(it.Fld)
 		return If(it.Desc, fld.Desc(), fld.Asc())
 	})
@@ -147,7 +147,7 @@ func apiUpdateOne[TObj any, TFld q.Field](this *ApiCtx[ApiUpdateArgs[TObj, TFld]
 	if this.Args.Id <= 0 {
 		panic(Err(yoctx.ErrDbUpdExpectedIdGt0))
 	}
-	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, ColID.Equal(this.Args.Id), (len(this.Args.ChangedFields) == 0), sl.To(this.Args.ChangedFields, TFld.F)...)
+	this.Ret.Count = Update[TObj](this.Ctx, &this.Args.Changes, ColID.Equal(this.Args.Id), (len(this.Args.ChangedFields) == 0), sl.As(this.Args.ChangedFields, TFld.F)...)
 }
 
 func apiUpdateMany[TObj any, TFld q.Field](this *ApiCtx[struct {
@@ -232,13 +232,13 @@ func (me *ApiQueryExpr[TObj, TFld]) Validate() {
 func (me *ApiQueryExpr[TObj, TFld]) toDbQ() q.Query {
 	switch {
 	case len(me.AND) >= 2:
-		return q.AllTrue(sl.To(me.AND, func(it ApiQueryExpr[TObj, TFld]) q.Query { return it.toDbQ() })...)
+		return q.AllTrue(sl.As(me.AND, func(it ApiQueryExpr[TObj, TFld]) q.Query { return it.toDbQ() })...)
 	case len(me.OR) >= 2:
-		return q.EitherOr(sl.To(me.OR, func(it ApiQueryExpr[TObj, TFld]) q.Query { return it.toDbQ() })...)
+		return q.EitherOr(sl.As(me.OR, func(it ApiQueryExpr[TObj, TFld]) q.Query { return it.toDbQ() })...)
 	case me.NOT != nil:
 		return q.Not(me.NOT.toDbQ())
 	case len(me.IN) >= 2:
-		return q.In(me.IN[0].val(), sl.To(me.IN[1:], func(it ApiQueryVal[TObj, TFld]) any { return it.val() })...)
+		return q.In(me.IN[0].val(), sl.As(me.IN[1:], func(it ApiQueryVal[TObj, TFld]) any { return it.val() })...)
 	}
 	for bin_op, q_f := range map[*[]ApiQueryVal[TObj, TFld]]func(any, any) q.Query{&me.EQ: q.Equal, &me.NE: q.NotEqual, &me.LT: q.LessThan, &me.LE: q.LessOrEqual, &me.GT: q.GreaterThan, &me.GE: q.GreaterOrEqual} {
 		if bin_op := *bin_op; len(bin_op) == 2 {
