@@ -216,14 +216,17 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 		if is_app_api := !str.Begins(method.Path, yoAdminApisUrlPrefix); !is_app_api {
 			continue
 		}
+		api_method := api[method.Path]
+		ty_args, ty_ret := api_method.reflTypes()
+		// if ty_args.Name() == "" || ty_ret.Name() == "" {
+		// 	continue
+		// }
 		op, err := oarefl.NewOperationContext("POST", "/"+method.Path)
 		if err != nil {
 			panic(err)
 		}
-		api_method := api[method.Path]
-		ty_args, ty_ret := api_method.reflTypes()
-		op.AddReqStructure(reflect.New(ty_args).Interface(), openapi.WithContentType(apisContentType))
-		op.AddRespStructure(reflect.New(ty_ret).Interface(), openapi.WithHTTPStatus(200))
+		op.AddReqStructure(reflect.New(ty_args).Elem().Interface(), openapi.WithContentType(apisContentType))
+		op.AddRespStructure(reflect.New(ty_ret).Elem().Interface(), openapi.WithHTTPStatus(200))
 		if err = oarefl.AddOperation(op); err != nil {
 			panic(err)
 		}
