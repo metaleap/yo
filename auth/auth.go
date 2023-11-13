@@ -8,6 +8,7 @@ import (
 	yodb "yo/db"
 	yomail "yo/mail"
 	. "yo/util"
+	"yo/util/str"
 
 	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
@@ -15,15 +16,31 @@ import (
 
 var (
 	AutoLoginAfterSuccessfullyFinalizedSignUpOrPwdResetReq = false
-	EnforceGenericErrors                                   = true
+	EnforceGenericizedErrors                               = true
 )
 
 const errGeneric = Err("InvalidCredentials")
+
+var LoginThrottling = struct {
+	NumFailedAttemptsBeforeLockout int
+	WithinTimePeriod               time.Duration
+	LockoutDuration                time.Duration
+}{0, 0, 0}
 
 type JwtPayload struct {
 	jwt.StandardClaims
 	UserAuthId yodb.I64
 }
+
+// type UserTmp[T any] struct {
+// 	Id     yodb.I64
+// 	DtMade *yodb.DateTime
+// 	DtMod  *yodb.DateTime
+
+// 	EmailAddr yodb.Text
+// 	pwdHashed yodb.Bytes
+// 	User      T
+// }
 
 type UserAuth struct {
 	Id     yodb.I64
@@ -54,7 +71,7 @@ func init() {
 }
 
 func Init() {
-	if (!IsDevMode) && EnforceGenericErrors {
+	if (!IsDevMode) && EnforceGenericizedErrors {
 		ErrReplacements[errGeneric] = []Err{
 			Err___yo_authRegister_EmailAddrAlreadyExists,
 			Err___yo_authLoginOrFinalizePwdReset_PwdReqExpired, Err___yo_authLoginOrFinalizePwdReset_AccountDoesNotExist, Err___yo_authLoginOrFinalizePwdReset_NewPasswordExpectedToDiffer, Err___yo_authLoginOrFinalizePwdReset_OkButFailedToCreateSignedToken, Err___yo_authLoginOrFinalizePwdReset_WrongPassword,
@@ -74,6 +91,7 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I6
 		// the DB-side unique constraint will still fail the insert attempt (and genericized in prod, see below).
 		panic(Err___yo_authRegister_EmailAddrAlreadyExists)
 	}
+
 	pwd_hashed, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
 	if (err != nil) || (len(pwd_hashed) == 0) {
 		if err == bcrypt.ErrPasswordTooLong {
@@ -88,7 +106,7 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I6
 			pwdHashed: pwd_hashed,
 		}))
 	}, func(err any) {
-		panic(If[any](IsDevMode, err, errGeneric))
+		panic(If[any](IsDevMode && EnforceGenericizedErrors, err, errGeneric))
 	})
 	return
 }
@@ -99,7 +117,7 @@ func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (okUserAuth *Us
 		panic(Err___yo_authLoginOrFinalizePwdReset_AccountDoesNotExist)
 	}
 
-	user_email_addr, user_auth_id, user_pwd_hashed := "nosuchuser@never.com", yodb.I64(0), []byte(newRandomAsciiOneTimePwd(60)) // for the same reason, we do this in-any-case, even though:
+	user_email_addr, user_auth_id, user_pwd_hashed := "nosuchuser@never.com", yodb.I64(0), []byte(str.AsciiRand(60, 0)) // for the same reason, we do this in-any-case, even though:
 	if user_auth != nil {
 		user_email_addr, user_auth_id, user_pwd_hashed = user_auth.EmailAddr.String(), user_auth.Id, user_auth.pwdHashed
 	}

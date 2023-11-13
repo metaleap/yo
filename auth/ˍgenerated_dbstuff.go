@@ -47,7 +47,6 @@ const (
 	UserPwdReqDtMod                  UserPwdReqField = "DtMod"
 	UserPwdReqEmailAddr              UserPwdReqField = "EmailAddr"
 	UserPwdReqDoneMailReqId          UserPwdReqField = "DoneMailReqId"
-	UserPwdReqDtFinalized            UserPwdReqField = "DtFinalized"
 	userPwdReqTmpPwdHashed           UserPwdReqField = "tmpPwdHashed"
 	UserPwdReqDoneMailReqId_Id       UserPwdReqField = "DoneMailReqId.Id"
 	UserPwdReqDoneMailReqId_DtMade   UserPwdReqField = "DoneMailReqId.DtMade"

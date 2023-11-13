@@ -1,9 +1,6 @@
 package yoauth
 
 import (
-	"crypto/rand"
-	"math"
-	"math/big"
 	"time"
 
 	. "yo/cfg"
@@ -95,7 +92,7 @@ func (me userPwdReqJob) TaskResults(ctx *Ctx, task yojobs.TaskDetails) yojobs.Ta
 			var tmp_one_time_pwd_plain string
 			var tmp_one_time_pwd_hashed []byte
 			for len(tmp_one_time_pwd_hashed) == 0 {
-				tmp_one_time_pwd_plain = newRandomAsciiOneTimePwd(32)
+				tmp_one_time_pwd_plain = str.AsciiRand(32, 0)
 				tmp_one_time_pwd_hashed, _ = bcrypt.GenerateFromPassword([]byte(tmp_one_time_pwd_plain), bcrypt.DefaultCost)
 			}
 
@@ -116,16 +113,4 @@ func (me userPwdReqJob) TaskResults(ctx *Ctx, task yojobs.TaskDetails) yojobs.Ta
 	}
 
 	return ret
-}
-
-func newRandomAsciiOneTimePwd(minLen int) (ret string) {
-	max := big.NewInt(math.MaxInt64)
-	for len(ret) < minLen {
-		big, err := rand.Int(rand.Reader, max)
-		if err != nil {
-			panic(err)
-		}
-		ret += str.FromI64(big.Int64(), 64)
-	}
-	return
 }

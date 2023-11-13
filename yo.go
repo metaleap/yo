@@ -38,6 +38,7 @@ func Init(staticFileDirYo fs.FS, staticFileDirApp fs.FS) (listenAndServe func())
 		time.Sleep(4 * time.Second)
 	}
 	yodb.Ensure[ErrEntry, ErrEntryField]("", nil, false)
+
 	db_structs := yodb.InitAndConnectAndMigrateAndMaybeCodegen()
 
 	yoauth.Init()

@@ -45,6 +45,10 @@ type JsonArr[T any] sl.Of[T]
 
 type IsJsonOf[T any] struct{ self *T }
 
+type Embed[T any] struct {
+	It T
+}
+
 type Ref[T any, OnDel refOnDel] struct {
 	id   I64
 	self *T
@@ -449,18 +453,19 @@ func Ensure[TObj any, TFld q.Field](oldTableName string, renamesOldColToNewField
 		panic("db.Ensure called after db.Init")
 	}
 	desc := desc[TObj]()
+	desc.constraints.alwaysFetch = sl.With(desc.constraints.alwaysFetch, FieldID, FieldCreatedAt, FieldModifiedAt)
 	for _, constraints := range constraints {
 		switch constraints := constraints.(type) {
 		case Index[TFld]:
-			desc.constraints.indexed = constraints.qFs()
+			desc.constraints.indexed = sl.With(desc.constraints.indexed, constraints.qFs()...)
 		case Unique[TFld]:
-			desc.constraints.uniques = constraints.qFs()
+			desc.constraints.uniques = sl.With(desc.constraints.uniques, constraints.qFs()...)
 		case NoUpdTrigger[TFld]:
-			desc.constraints.noUpdTrigger = constraints.qFs()
+			desc.constraints.noUpdTrigger = sl.With(desc.constraints.noUpdTrigger, constraints.qFs()...)
 		case ReadOnly[TFld]:
-			desc.constraints.readOnly = constraints.qFs()
+			desc.constraints.readOnly = sl.With(desc.constraints.readOnly, constraints.qFs()...)
 		case AlwaysFetch[TFld]:
-			desc.constraints.alwaysFetch = constraints.qFs()
+			desc.constraints.alwaysFetch = sl.With(desc.constraints.alwaysFetch, constraints.qFs()...)
 		default:
 			panic(str.Fmt("%T %#v", constraints, constraints))
 		}

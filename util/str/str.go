@@ -1,7 +1,10 @@
 package str
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math"
+	"math/big"
 	"reflect"
 	"strconv"
 	"strings"
@@ -188,4 +191,19 @@ func Repl(str string, namedReplacements Dict) string {
 	}
 	_, _ = buf.WriteString(accum)
 	return buf.String()
+}
+
+func AsciiRand(minLen int, maxLen int) (ret string) {
+	max := big.NewInt(math.MaxInt64)
+	for len(ret) < minLen {
+		big, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			panic(err)
+		}
+		ret += FromI64(big.Int64(), 36)
+	}
+	if (maxLen > 0) && (len(ret) > maxLen) {
+		ret = ret[:maxLen]
+	}
+	return
 }

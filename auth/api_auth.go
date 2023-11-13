@@ -132,11 +132,9 @@ func httpUserFromJwtRaw(jwtRaw string) (userEmailAddr string, userAuthId yodb.I6
 
 func httpSetUser(ctx *Ctx, jwtRaw string) {
 	user_email_addr, user_auth_id := httpUserFromJwtRaw(jwtRaw)
-	if IsDevMode { // no need for that db hit in prod (so far)
-		if (user_auth_id > 0) && !yodb.Exists[UserAuth](ctx, UserAuthId.Equal(user_auth_id)) {
-			user_auth_id, user_email_addr = 0, ""
-			jwtRaw = ""
-		}
+	if user_email_addr = str.Trim(user_email_addr); (user_auth_id <= 0) || (user_email_addr == "") || !yodb.Exists[UserAuth](ctx, UserAuthId.Equal(user_auth_id).And(UserAuthEmailAddr.Equal(user_email_addr))) {
+		user_auth_id, user_email_addr = 0, ""
+		jwtRaw = ""
 	}
 	ctx.Set(CtxKeyAuthId, user_auth_id)
 	ctx.Set(CtxKeyEmailAddr, user_email_addr)
