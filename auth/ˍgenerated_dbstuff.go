@@ -10,11 +10,12 @@ func UserAuthFields(fields ...UserAuthField) []q.F { return sl.To(fields, UserAu
 type UserAuthField q.F
 
 const (
-	UserAuthId        UserAuthField = "Id"
-	UserAuthDtMade    UserAuthField = "DtMade"
-	UserAuthDtMod     UserAuthField = "DtMod"
-	UserAuthEmailAddr UserAuthField = "EmailAddr"
-	userAuthPwdHashed UserAuthField = "pwdHashed"
+	UserAuthId                  UserAuthField = "Id"
+	UserAuthDtMade              UserAuthField = "DtMade"
+	UserAuthDtMod               UserAuthField = "DtMod"
+	UserAuthEmailAddr           UserAuthField = "EmailAddr"
+	userAuthPwdHashed           UserAuthField = "pwdHashed"
+	UserAuthFailedLoginAttempts UserAuthField = "FailedLoginAttempts"
 )
 
 func (me UserAuthField) ArrLen(a1 ...interface{}) q.Operand { return ((q.F)(me)).ArrLen(a1...) }

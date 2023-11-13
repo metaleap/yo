@@ -22,33 +22,25 @@ var (
 const errGeneric = Err("InvalidCredentials")
 
 var LoginThrottling = struct {
-	NumFailedAttemptsBeforeLockout int
-	WithinTimePeriod               time.Duration
-	LockoutDuration                time.Duration
-}{0, 0, 0}
+	NumFailedAttemptsBeforeLockout   int
+	WithinTimePeriod                 time.Duration
+	LockoutDuration                  time.Duration
+	InitiatePwdResetProcessOnLockout bool
+}{0, 0, 0, true}
 
 type JwtPayload struct {
 	jwt.StandardClaims
 	UserAuthId yodb.I64
 }
 
-// type UserTmp[T any] struct {
-// 	Id     yodb.I64
-// 	DtMade *yodb.DateTime
-// 	DtMod  *yodb.DateTime
-
-// 	EmailAddr yodb.Text
-// 	pwdHashed yodb.Bytes
-// 	User      T
-// }
-
 type UserAuth struct {
 	Id     yodb.I64
 	DtMade *yodb.DateTime
 	DtMod  *yodb.DateTime
 
-	EmailAddr yodb.Text
-	pwdHashed yodb.Bytes
+	EmailAddr           yodb.Text
+	pwdHashed           yodb.Bytes
+	FailedLoginAttempts yodb.Arr[yodb.I64]
 }
 
 type UserPwdReq struct {
@@ -71,7 +63,7 @@ func init() {
 }
 
 func Init() {
-	if (!IsDevMode) && EnforceGenericizedErrors {
+	if EnforceGenericizedErrors {
 		ErrReplacements[errGeneric] = []Err{
 			Err___yo_authRegister_EmailAddrAlreadyExists,
 			Err___yo_authLoginOrFinalizePwdReset_PwdReqExpired, Err___yo_authLoginOrFinalizePwdReset_AccountDoesNotExist, Err___yo_authLoginOrFinalizePwdReset_NewPasswordExpectedToDiffer, Err___yo_authLoginOrFinalizePwdReset_OkButFailedToCreateSignedToken, Err___yo_authLoginOrFinalizePwdReset_WrongPassword,
@@ -106,7 +98,7 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I6
 			pwdHashed: pwd_hashed,
 		}))
 	}, func(err any) {
-		panic(If[any](IsDevMode && EnforceGenericizedErrors, err, errGeneric))
+		panic(If[any](EnforceGenericizedErrors, err, errGeneric))
 	})
 	return
 }
@@ -167,8 +159,8 @@ func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordP
 	ctx.DbTx(true)
 	user_auth := yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr))
 	if user_auth != nil { // existing user: pwd-reset
-		user_auth.pwdHashed = pwd_hash
-		_ = yodb.Update[UserAuth](ctx, user_auth, nil, true, userAuthPwdHashed.F())
+		user_auth.pwdHashed, user_auth.FailedLoginAttempts = pwd_hash, nil
+		_ = yodb.Update[UserAuth](ctx, user_auth, nil, true, UserAuthFields(userAuthPwdHashed, UserAuthFailedLoginAttempts)...)
 	} else { // new user: register
 		user_auth = &UserAuth{pwdHashed: pwd_hash, EmailAddr: yodb.Text(emailAddr)}
 		_ = yodb.CreateOne[UserAuth](ctx, user_auth)
@@ -208,8 +200,8 @@ func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, pas
 			panic(Err___yo_authLoginOrFinalizePwdReset_NewPasswordInvalid)
 		}
 	}
-	user_account.pwdHashed = hash
-	_ = yodb.Update[UserAuth](ctx, user_account, nil, true, userAuthPwdHashed.F())
+	user_account.pwdHashed, user_account.FailedLoginAttempts = hash, nil
+	_ = yodb.Update[UserAuth](ctx, user_account, nil, true, UserAuthFields(userAuthPwdHashed, UserAuthFailedLoginAttempts)...)
 }
 
 func ById(ctx *Ctx, id yodb.I64) *UserAuth {

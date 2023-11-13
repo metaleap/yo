@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"go/format"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"reflect"
 
@@ -47,6 +48,9 @@ func codegenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 	var src_dir_path, pkg_name string
 	for _, desc := range descs { // find src_dir_path in which to emit `ˍgenerated_dbstuff.go`
 		found, needle := str.Dict{}, []byte("\ntype "+desc.ty.Name()+" struct {\n\t")
+		if idx := str.Idx(desc.ty.Name(), '['); idx > 0 {
+			needle = []byte("\ntype " + desc.ty.Name()[:idx] + "[T")
+		}
 
 		is_yo_own := (str.Begins(desc.ty.PkgPath(), "yo/") || (desc.ty.PkgPath() == "yo"))
 		FsWalkCodeDirs(is_yo_own, !is_yo_own, func(path string, dirEntry fs.DirEntry) {
@@ -98,6 +102,7 @@ func codegenDBStructsFor(pkgPath string, descs []*structDesc) bool {
 
 	raw_src, err := format.Source([]byte(buf.String()))
 	if err != nil {
+		os.Stderr.WriteString(">>>" + buf.String() + "<<<")
 		panic(err)
 	}
 

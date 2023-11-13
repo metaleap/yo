@@ -45,10 +45,6 @@ type JsonArr[T any] sl.Of[T]
 
 type IsJsonOf[T any] struct{ self *T }
 
-type Embed[T any] struct {
-	It T
-}
-
 type Ref[T any, OnDel refOnDel] struct {
 	id   I64
 	self *T
@@ -253,7 +249,7 @@ func isWhatDbJsonType(ty reflect.Type) (isDbJsonDictType bool, isDbJsonArrType b
 func isDbRefType(ty reflect.Type) bool { return (dbRefType(ty) != "") }
 func dbRefType(ty reflect.Type) string {
 	type_name := ty.Name()
-	if idx := str.IdxSub(type_name, "Ref["); (idx == 0) && ty.PkgPath() == yodbPkg.PkgPath() && str.Ends(type_name, "]") {
+	if idx := str.IdxSub(type_name, "Ref["); (idx == 0) && (ty.PkgPath() == yodbPkg.PkgPath()) && str.Ends(type_name, "]") {
 		ret := type_name[idx+len("Ref[") : len(type_name)-1]
 		return ret[:str.IdxLast(ret, ',')]
 	}
@@ -282,11 +278,11 @@ func desc[T any]() (ret *structDesc) {
 		descs[ty] = ret
 		for i, l := 0, ty.NumField(); i < l; i++ {
 			field := ty.Field(i)
-			col_name := q.C(NameFrom(field.Name))
 			if field.Type == tyDateTime.Elem() {
 				panic("non-pointer DateTime field '" + field.Name + "' in '" + ty.Name() + "'")
 			}
 			if isColField(field.Type) {
+				col_name := q.C(NameFrom(field.Name))
 				if !str.IsPrtAscii(field.Name) {
 					panic("DB-column fields' names should be ASCII")
 				}
