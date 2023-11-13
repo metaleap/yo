@@ -41,6 +41,7 @@ type UserAuth struct {
 	EmailAddr           yodb.Text
 	pwdHashed           yodb.Bytes
 	FailedLoginAttempts yodb.Arr[yodb.I64]
+	Lockout             yodb.Bool
 }
 
 type UserPwdReq struct {
@@ -103,10 +104,13 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I6
 	return
 }
 
-func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (okUserAuth *UserAuth, okJwt *jwt.Token) {
+func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jwt.Token) {
 	user_auth := yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr))
 	if IsDevMode && user_auth == nil { // not in prod, to guard against time-based-attacks. so do the pwd-hash-check even with no-such-user
 		panic(Err___yo_authLoginOrFinalizePwdReset_AccountDoesNotExist)
+	}
+	if (user_auth != nil) && user_auth.Lockout { // at this point, no more obscuration needed (afaik=)
+		panic(Err___yo_authLoginOrFinalizePwdReset_PwdResetRequired)
 	}
 
 	user_email_addr, user_auth_id, user_pwd_hashed := "nosuchuser@never.com", yodb.I64(0), []byte(str.AsciiRand(60, 0)) // for the same reason, we do this in-any-case, even though:
@@ -115,17 +119,23 @@ func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (okUserAuth *Us
 	}
 
 	err := bcrypt.CompareHashAndPassword(user_pwd_hashed, []byte(passwordPlain))
-	okUserAuth, okJwt = user_auth, jwt.NewWithClaims(jwt.SigningMethodHS256, &JwtPayload{
+	if err != nil {
+		if (LoginThrottling.NumFailedAttemptsBeforeLockout > 0) && (LoginThrottling.WithinTimePeriod > 0) {
+			if !user_auth.Lockout {
+				user_auth.FailedLoginAttempts = append(user_auth.FailedLoginAttempts, yodb.I64(time.Now().UnixNano()))
+			}
+
+			yodb.Update[UserAuth](ctx, user_auth, nil, false, UserAuthFields(UserAuthFailedLoginAttempts, UserAuthLockout)...)
+		}
+
+		panic(Err___yo_authLoginOrFinalizePwdReset_WrongPassword)
+	}
+	return user_auth, jwt.NewWithClaims(jwt.SigningMethodHS256, &JwtPayload{
 		UserAuthId: user_auth_id,
 		StandardClaims: jwt.StandardClaims{
 			Subject: string(user_email_addr),
 		},
 	})
-	if err != nil {
-		okUserAuth, okJwt = nil, nil // looks pointless here, but... maybe it ain't  =)
-		panic(Err___yo_authLoginOrFinalizePwdReset_WrongPassword)
-	}
-	return
 }
 
 func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordPlain string, password2Plain string) (*UserAuth, *jwt.Token) {
@@ -159,22 +169,21 @@ func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordP
 	ctx.DbTx(true)
 	user_auth := yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr))
 	if user_auth != nil { // existing user: pwd-reset
-		user_auth.pwdHashed, user_auth.FailedLoginAttempts = pwd_hash, nil
-		_ = yodb.Update[UserAuth](ctx, user_auth, nil, true, UserAuthFields(userAuthPwdHashed, UserAuthFailedLoginAttempts)...)
+		user_auth.pwdHashed, user_auth.FailedLoginAttempts, user_auth.Lockout = pwd_hash, nil, false
+		_ = yodb.Update[UserAuth](ctx, user_auth, nil, true, UserAuthFields(userAuthPwdHashed, UserAuthFailedLoginAttempts, UserAuthLockout)...)
 	} else { // new user: register
 		user_auth = &UserAuth{pwdHashed: pwd_hash, EmailAddr: yodb.Text(emailAddr)}
-		_ = yodb.CreateOne[UserAuth](ctx, user_auth)
+		user_auth.Id = yodb.CreateOne[UserAuth](ctx, user_auth)
 	}
 	pwd_reset_req.tmpPwdHashed = nil
 	if yodb.Update(ctx, pwd_reset_req, nil, false, UserPwdReqFields(userPwdReqTmpPwdHashed)...) < 0 {
 		panic(ErrDbUpdate_ExpectedChangesForUpdate)
 	}
 	if AutoLoginAfterSuccessfullyFinalizedSignUpOrPwdResetReq {
-		login_user_auth, login_jwt_token := UserLogin(ctx, emailAddr, password2Plain)
-		return login_user_auth, login_jwt_token
+		return UserLogin(ctx, emailAddr, password2Plain)
 	}
 
-	return nil, nil
+	return user_auth, nil
 }
 
 func UserVerify(jwtRaw string) *JwtPayload {
@@ -200,8 +209,8 @@ func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, pas
 			panic(Err___yo_authLoginOrFinalizePwdReset_NewPasswordInvalid)
 		}
 	}
-	user_account.pwdHashed, user_account.FailedLoginAttempts = hash, nil
-	_ = yodb.Update[UserAuth](ctx, user_account, nil, true, UserAuthFields(userAuthPwdHashed, UserAuthFailedLoginAttempts)...)
+	user_account.pwdHashed, user_account.FailedLoginAttempts, user_account.Lockout = hash, nil, false
+	_ = yodb.Update[UserAuth](ctx, user_account, nil, true, UserAuthFields(userAuthPwdHashed, UserAuthFailedLoginAttempts, UserAuthLockout)...)
 }
 
 func ById(ctx *Ctx, id yodb.I64) *UserAuth {

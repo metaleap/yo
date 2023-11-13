@@ -51,7 +51,7 @@ func init() {
 				Fails{Err: "NewPasswordTooLong", If: ___yo_authLoginOrFinalizePwdResetPassword2Plain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
 				Fails{Err: "NewPasswordExpectedToDiffer", If: ___yo_authLoginOrFinalizePwdResetPassword2Plain.Equal(___yo_authLoginOrFinalizePwdResetPasswordPlain)},
 			).
-				CouldFailWith(":"+yodb.ErrSetDbUpdate, "PwdReqExpired", "OkButFailedToCreateSignedToken", "AccountDoesNotExist", "NewPasswordInvalid", ErrUnauthorized),
+				CouldFailWith(":"+yodb.ErrSetDbUpdate, "PwdReqExpired", "PwdResetRequired", "OkButFailedToCreateSignedToken", "AccountDoesNotExist", "NewPasswordInvalid", ErrUnauthorized),
 
 			MethodPathChangePassword: api(apiChangePassword,
 				Fails{Err: "NewPasswordExpectedToDiffer", If: ___yo_authChangePasswordPassword2Plain.Equal(___yo_authChangePasswordPasswordPlain)},
@@ -70,7 +70,7 @@ func init() {
 				return
 			}
 		}
-		httpSetUser(ctx, jwt_raw)
+		httpSetUser(ctx, jwt_raw, false)
 	}})
 }
 
@@ -87,7 +87,7 @@ type ApiTokenPayload struct {
 func ApiUserRegister(this *ApiCtx[ApiAccountPayload, struct {
 	Id yodb.I64
 }]) {
-	httpSetUser(this.Ctx, "")
+	httpSetUser(this.Ctx, "", true)
 	this.Ret.Id = UserRegister(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain)
 }
 
@@ -97,18 +97,19 @@ func ApiUserLoginOrFinalizePwdReset(this *ApiCtx[ApiAccountPayload, UserAuth]) {
 			panic(ErrUnauthorized)
 		}
 	}
-	httpSetUser(this.Ctx, "")
+	httpSetUser(this.Ctx, "", true)
 	user_auth, jwt_token := UserLoginOrFinalizeRegisterOrPwdReset(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.Password2Plain)
-	jwt_signed, err := jwt_token.SignedString([]byte(Cfg.YO_AUTH_JWT_SIGN_KEY))
-	if err != nil {
-		panic(Err___yo_authLoginOrFinalizePwdReset_OkButFailedToCreateSignedToken)
+	if this.Ret = user_auth; (user_auth != nil) && (jwt_token != nil) {
+		jwt_signed, err := jwt_token.SignedString([]byte(Cfg.YO_AUTH_JWT_SIGN_KEY))
+		if err != nil {
+			panic(Err___yo_authLoginOrFinalizePwdReset_OkButFailedToCreateSignedToken)
+		}
+		httpSetUser(this.Ctx, jwt_signed, true)
 	}
-	this.Ret = user_auth
-	httpSetUser(this.Ctx, jwt_signed)
 }
 
 func ApiUserLogout(ctx *ApiCtx[None, None]) {
-	httpSetUser(ctx.Ctx, "")
+	httpSetUser(ctx.Ctx, "", true)
 }
 
 func apiChangePassword(this *ApiCtx[ApiAccountPayload, None]) {
@@ -116,7 +117,7 @@ func apiChangePassword(this *ApiCtx[ApiAccountPayload, None]) {
 	if user_email_addr != this.Args.EmailAddr {
 		panic(ErrUnauthorized)
 	}
-	httpSetUser(this.Ctx, "")
+	httpSetUser(this.Ctx, "", true)
 	UserChangePassword(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.Password2Plain)
 }
 
@@ -130,9 +131,9 @@ func httpUserFromJwtRaw(jwtRaw string) (userEmailAddr string, userAuthId yodb.I6
 	return
 }
 
-func httpSetUser(ctx *Ctx, jwtRaw string) {
+func httpSetUser(ctx *Ctx, jwtRaw string, knownToExist bool) {
 	user_email_addr, user_auth_id := httpUserFromJwtRaw(jwtRaw)
-	if user_email_addr = str.Trim(user_email_addr); (user_auth_id <= 0) || (user_email_addr == "") || !yodb.Exists[UserAuth](ctx, UserAuthId.Equal(user_auth_id).And(UserAuthEmailAddr.Equal(user_email_addr))) {
+	if user_email_addr = str.Trim(user_email_addr); (user_auth_id <= 0) || (user_email_addr == "") || ((!knownToExist) && !yodb.Exists[UserAuth](ctx, UserAuthId.Equal(user_auth_id).And(UserAuthEmailAddr.Equal(user_email_addr)))) {
 		user_auth_id, user_email_addr = 0, ""
 		jwtRaw = ""
 	}

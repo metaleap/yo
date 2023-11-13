@@ -16,6 +16,7 @@ const (
 	UserAuthEmailAddr           UserAuthField = "EmailAddr"
 	userAuthPwdHashed           UserAuthField = "pwdHashed"
 	UserAuthFailedLoginAttempts UserAuthField = "FailedLoginAttempts"
+	UserAuthLockout             UserAuthField = "Lockout"
 )
 
 func (me UserAuthField) ArrLen(a1 ...interface{}) q.Operand { return ((q.F)(me)).ArrLen(a1...) }
