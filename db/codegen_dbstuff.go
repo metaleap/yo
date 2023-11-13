@@ -219,7 +219,7 @@ func codegenCloneMethod(buf *str.Buf, typeNameReceiver string, typeNameUnderlyin
 func codegenWriteEnumDecl(buf *str.Buf, desc *structDesc) {
 	type_name_suffix, type_name := "Field", desc.ty.Name()
 
-	buf.WriteString("\nfunc " + type_name + "Fields(fields..." + type_name + "Field)[]q.F{return sl.To(fields," + type_name + "Field.F)}\n\n")
+	buf.WriteString("\nfunc " + type_name + "Fields(fields..." + type_name + "Field)[]q.F{return sl.As(fields," + type_name + "Field.F)}\n\n")
 	buf.WriteString("type ")
 	buf.WriteString(type_name)
 	buf.WriteString(type_name_suffix)

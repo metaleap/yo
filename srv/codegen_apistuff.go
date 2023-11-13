@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 
 	. "yo/cfg"
 	yolog "yo/log"
@@ -16,6 +17,10 @@ import (
 	"yo/util/kv"
 	"yo/util/sl"
 	"yo/util/str"
+
+	"github.com/swaggest/jsonschema-go"
+	"github.com/swaggest/openapi-go"
+	"github.com/swaggest/openapi-go/openapi31"
 )
 
 const (
@@ -109,7 +114,8 @@ func init() {
 		api_refl := apiReflect{}
 		apiHandleReflReq(&ApiCtx[None, apiReflect]{Ret: &api_refl})
 		codegenGo(&api_refl)
-		codegenTsSdk(&api_refl)
+		_ = codegenTsSdk(&api_refl)
+		_ = codegenOpenApi(&api_refl)
 	}
 }
 
@@ -198,6 +204,40 @@ func codegenGo(apiRefl *apiReflect) {
 	if len(did_write_files) > 0 {
 		panic("apicodegen'd, please restart (" + str.Join(did_write_files, ", ") + ")")
 	}
+}
+
+func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
+	out_file_path := curMainStaticDirPathApp + "/openapi.json"
+	oarefl := openapi31.NewReflector()
+
+	oarefl.Spec.Info.WithTitle(Cfg.YO_APP_DOMAIN)
+	oarefl.JSONSchemaReflector().DefaultOptions = append(oarefl.JSONSchemaReflector().DefaultOptions, jsonschema.ProcessWithoutTags)
+	for _, method := range apiRefl.Methods {
+		if is_app_api := !str.Begins(method.Path, yoAdminApisUrlPrefix); !is_app_api {
+			continue
+		}
+		op, err := oarefl.NewOperationContext("POST", "/"+method.Path)
+		if err != nil {
+			panic(err)
+		}
+		api_method := api[method.Path]
+		ty_args, ty_ret := api_method.reflTypes()
+		op.AddReqStructure(reflect.New(ty_args).Interface(), openapi.WithContentType(apisContentType))
+		op.AddRespStructure(reflect.New(ty_ret).Interface(), openapi.WithHTTPStatus(200))
+		if err = oarefl.AddOperation(op); err != nil {
+			panic(err)
+		}
+	}
+
+	src_json, err := oarefl.Spec.MarshalJSON()
+	if err != nil {
+		panic(err)
+	}
+	if !bytes.Equal(FsRead(out_file_path), src_json) {
+		didFsWrites = append(didFsWrites, out_file_path)
+		FsWrite(out_file_path, src_json)
+	}
+	return
 }
 
 func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
