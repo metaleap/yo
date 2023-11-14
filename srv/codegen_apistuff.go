@@ -213,13 +213,14 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 		Paths:   map[string]yopenapi.Path{},
 		Info: yopenapi.Info{
 			Title: Cfg.YO_APP_DOMAIN, Version: time.Now().Format("06.__2"),
-			Summary: "This JSON HTTP API has RPC rather than REST semantics. All operations are ´POST´, regardless of what CRUDs they might run (or not).",
-			Descr: str.Replace(`
-Our convention-over-configuration designs yield a handful of request/response rules:
-- All request headers, URL query-string parameters and response headers are identical over the whole set of all operations. Only request and response bodies are operation-specific.
+			Summary: "This HTTP API has RPC rather than REST semantics. All operations are ´POST´, regardless of what CRUDs they might run (or not).",
+			Descr: str.Repl(str.Replace(`
+Our backend stack's convention-over-configuration designs yield a few request/response rules that remain always in effect across all listed operations:
+- Whereas request and response bodies are operation-specific, all operations share the exact-same set of request headers, URL query-string parameters and response headers (albeit being elaborated here identically and redundantly for each individual operation).
 - Request bodies **must never** be empty or the JSON ´null´: the empty request body is the JSON ´{}´.
 - Response bodies will never be empty, but may be the JSON ´null´.
-- All request fields are by default optional and ommittable / ´null´able, **any exceptions** to this are indicated by the operation's listed known-error responses.
+- Request and response bodies are always valid JSON values for _JSON objects_, ie. they're never immediately JSON arrays, ´string´s, ´number´s, or ´boolean´s.
+- All request-object fields are by default optional and ommittable / ´null´able, **any exceptions** to this are indicated by the operation's listed known-error responses.
 - The ´Content-Length´ request header is **required for all** operations.
 - The ´Content-Type´ request header is optional, but if present, must be correct with regards to both the operation's specification and the request body.
 - Any ´multipart/form-data´ operations:
@@ -241,7 +242,7 @@ More about error responses:
 - All the well-known (thrown rather than caught) errors listed here:
   - have their code-identifier-compatible (spaceless ASCII) enumerant-name as their entire text response. Any others preserve simply their original (usually human-language) error message fully. Hence, error responses are inherently ´switch/case´able
   - have been recursively determined by code-path walking. Among them are some that logically could not possibly ever occur for that operation, yet identifying those (to filter them out of the listing) is (so far) out of scope for our ´openapi.json´ generation
-		`, str.Dict{"´": "`"})},
+		`, str.Dict{"´": "`"}), str.Dict{})},
 	}
 	openapi.Info.Contact.Name, openapi.Info.Contact.Url = "Permalink", "https://"+Cfg.YO_APP_DOMAIN+"/"+StaticFilesDirName_App+"/"+filepath.Base(out_file_path)
 
