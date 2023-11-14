@@ -9,18 +9,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"reflect"
+	"time"
 
 	. "yo/cfg"
+	yojson "yo/json"
 	yolog "yo/log"
+	yopenapi "yo/srv/openapi"
 	. "yo/util"
 	"yo/util/kv"
 	"yo/util/sl"
 	"yo/util/str"
-
-	"github.com/swaggest/jsonschema-go"
-	"github.com/swaggest/openapi-go"
-	"github.com/swaggest/openapi-go/openapi31"
 )
 
 const (
@@ -208,34 +206,23 @@ func codegenGo(apiRefl *apiReflect) {
 
 func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 	out_file_path := curMainStaticDirPathApp + "/openapi.json"
-	oarefl := openapi31.NewReflector()
 
-	oarefl.Spec.Info.WithTitle(Cfg.YO_APP_DOMAIN)
-	oarefl.JSONSchemaReflector().DefaultOptions = append(oarefl.JSONSchemaReflector().DefaultOptions, jsonschema.ProcessWithoutTags)
+	openapi := yopenapi.OpenApi{
+		Info:    yopenapi.Info{Title: Cfg.YO_APP_DOMAIN, Version: time.Now().Format("06.1.2")},
+		OpenApi: yopenapi.Version,
+		Paths:   map[string]yopenapi.Path{},
+	}
+
 	for _, method := range apiRefl.Methods {
-		if is_app_api := !str.Begins(method.Path, yoAdminApisUrlPrefix); !is_app_api {
-			continue
-		}
 		api_method := api[method.Path]
-		ty_args, ty_ret := api_method.reflTypes()
-		// if ty_args.Name() == "" || ty_ret.Name() == "" {
-		// 	continue
-		// }
-		op, err := oarefl.NewOperationContext("POST", "/"+method.Path)
-		if err != nil {
-			panic(err)
-		}
-		op.AddReqStructure(reflect.New(ty_args).Elem().Interface(), openapi.WithContentType(apisContentType))
-		op.AddRespStructure(reflect.New(ty_ret).Elem().Interface(), openapi.WithHTTPStatus(200))
-		if err = oarefl.AddOperation(op); err != nil {
-			panic(err)
-		}
+		path := yopenapi.Path{Post: yopenapi.Op{
+			Id:      api_method.methodNameUp0(),
+			ReqBody: yopenapi.ReqBody{Required: true},
+		}}
+		openapi.Paths[method.Path] = path
 	}
 
-	src_json, err := oarefl.Spec.MarshalJSON()
-	if err != nil {
-		panic(err)
-	}
+	src_json := yojson.From(openapi, true)
 	if !bytes.Equal(FsRead(out_file_path), src_json) {
 		didFsWrites = append(didFsWrites, out_file_path)
 		FsWrite(out_file_path, src_json)

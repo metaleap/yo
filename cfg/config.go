@@ -91,7 +91,8 @@ func init() {
 		env_val := os.Getenv(env_name)
 		if env_val == "" {
 			if env_val = envFile[env_name]; env_val == "" {
-				panic("missing in env: " + env_name)
+				continue
+				// panic("missing in env: " + env_name)
 			}
 		}
 		var new_val any
