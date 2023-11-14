@@ -2,6 +2,8 @@
 
 package yopenapi
 
+import "reflect"
+
 // yoValiOnly yoFail
 
 const Version = "3.1.0"
@@ -65,4 +67,14 @@ type Header struct {
 
 type Media struct {
 	Example any `json:"example"`
+}
+
+func dummyOf(ty reflect.Type, typesDone map[reflect.Type]bool) (dummy any) {
+	dummy = reflect.New(ty).Elem().Interface()
+
+	return dummy
+}
+
+func DummyOf(ty reflect.Type) any {
+	return dummyOf(ty, map[reflect.Type]bool{})
 }

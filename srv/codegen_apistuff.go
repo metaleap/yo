@@ -216,7 +216,12 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 	openapi.Info.Contact.Name, openapi.Info.Contact.Url = "Permalink", "https://"+Cfg.YO_APP_DOMAIN+"/"+StaticFilesDirName_App+"/"+filepath.Base(out_file_path)
 
 	for _, method := range apiRefl.Methods {
+		if str.Begins(method.Path, yoAdminApisUrlPrefix) {
+			continue
+		}
 		api_method := api[method.Path]
+		ty_arg, ty_ret := api_method.reflTypes()
+		dummy_arg, dummy_ret := yopenapi.DummyOf(ty_arg), yopenapi.DummyOf(ty_ret)
 		path := yopenapi.Path{Post: yopenapi.Op{
 			Id: api_method.methodNameUp0(),
 			Params: []yopenapi.Param{
@@ -226,12 +231,12 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 			ReqBody: yopenapi.ReqBody{
 				Required: true,
 				Descr:    method.In,
-				Content:  map[string]yopenapi.Media{apisContentType: {Example: struct{}{}}},
+				Content:  map[string]yopenapi.Media{apisContentType: {Example: dummy_arg}},
 			},
 			Responses: map[string]yopenapi.Resp{
 				"200": {
 					Descr:   method.Out,
-					Content: map[string]yopenapi.Media{apisContentType: {Example: struct{}{}}},
+					Content: map[string]yopenapi.Media{apisContentType: {Example: dummy_ret}},
 					Headers: map[string]yopenapi.Header{
 						yoctx.HttpResponseHeaderName_UserId: {Descr: "0 if not authenticated, else current user's ID", Content: map[string]yopenapi.Media{"text/plain": {Example: "123"}}},
 					},
