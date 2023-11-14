@@ -266,8 +266,8 @@ More about error responses:
 		path := yopenapi.Path{Post: yopenapi.Op{
 			Id: api_method.methodNameUp0(),
 			Params: []yopenapi.Param{
+				{Name: QueryArgForceFail, In: "query", Descr: "optional: if not missing or empty, enforces an early error response (prior to any request parsing or handling) with the specified HTTP status code or 500 (eg. for client-side unit-test cases of error-handling)", Content: map[string]yopenapi.Media{"text/plain": {Example: ""}}},
 				{Name: QueryArgValidateOnly, In: "query", Descr: "optional: if not missing or empty, enforces request-validation-only, with no further actual work performed to produce results and/or effects", Content: map[string]yopenapi.Media{"text/plain": {Example: ""}}},
-				{Name: QueryArgForceFail, In: "query", Descr: "optional: if not missing or empty, enforces an early error response (prior to any request parsing or processing) with the specified HTTP status code (eg. for client-side unit-test cases of error-handling)", Content: map[string]yopenapi.Media{"text/plain": {Example: ""}}},
 			},
 			ReqBody: yopenapi.ReqBody{
 				Required: true,
