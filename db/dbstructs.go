@@ -1,6 +1,7 @@
 package yodb
 
 import (
+	"bytes"
 	"reflect"
 	"time"
 	"unsafe"
@@ -545,8 +546,14 @@ func doEnsureDbStructTables() {
 	}
 }
 
-func (me *DateTime) UnmarshalJSON(data []byte) error {
-	return ((*time.Time)(me)).UnmarshalJSON(data)
+func (me *DateTime) UnmarshalJSON(data []byte) (err error) {
+	if (bytes.Equal(data, yojson.TokNull)) || (bytes.Equal(data, yojson.TokNull)) {
+		return nil
+	}
+	if err = ((*time.Time)(me)).UnmarshalJSON(data); err == nil {
+		*me = DateTime(me.Time().In(time.UTC))
+	}
+	return
 }
 
 func (me *DateTime) MarshalJSON() ([]byte, error) {

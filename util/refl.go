@@ -3,10 +3,14 @@ package util
 import (
 	"cmp"
 	"reflect"
+	"time"
 	"unsafe"
 
 	"yo/util/str"
 )
+
+var ReflTypeTime = reflect.TypeOf(time.Time{})
+var ReflTypeTimePtr = reflect.TypeOf((*time.Time)(nil))
 
 func ReflType[T any]() reflect.Type {
 	var none T

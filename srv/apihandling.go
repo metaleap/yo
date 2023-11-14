@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"reflect"
+	"time"
 
 	. "yo/cfg"
 	. "yo/ctx"
@@ -324,6 +325,13 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 			s := ReflGet[string](it)
 			if t := str.Trim(s); len(t) < len(s) {
 				ReflSet(it, str.Trim(s))
+			}
+		} else if it.Type() == ReflTypeTime {
+			t := ReflGet[time.Time](it)
+			ReflSet[time.Time](it, t.In(time.UTC))
+		} else if it.Type() == ReflTypeTimePtr { // note, for `*yodb.DateTime`, the same logic is directly in UnmarshalJSON
+			if t := ReflGet[*time.Time](it); t != nil {
+				*t = t.In(time.UTC)
 			}
 		}
 	}, nil)

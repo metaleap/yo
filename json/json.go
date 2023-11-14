@@ -13,6 +13,7 @@ type Num = json.Number
 var (
 	Unmarshal   = json.Unmarshal
 	TokNull     = []byte("null")
+	TokEmpty    = []byte(`""`)
 	TokEmptyArr = []byte("[]")
 	TokEmptyObj = []byte("{}")
 )

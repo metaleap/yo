@@ -213,38 +213,48 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 		Paths:   map[string]yopenapi.Path{},
 		Info: yopenapi.Info{
 			Title: Cfg.YO_APP_DOMAIN, Version: time.Now().Format("06.__2"),
-			Summary: "This HTTP API has RPC rather than REST semantics. All operations are ´POST´, regardless of what CRUDs they might run (or not).",
 			Descr: str.Repl(str.Replace(`
-Our backend stack's convention-over-configuration designs yield a few request/response rules that remain always in effect across all listed operations:
+**tl;dr:** mostly API calls will just-work as expected without knowing all the below notes (which elaborate mostly to-be-expected software-dev-commonplaces) — but in case of unexpected results or errors, they'll likely help.
+___
+This HTTP API has RPC rather than REST semantics. All operations are ´POST´, regardless of what CRUDs they might run (or not).
+
+Our backend stack's convention-over-configuration designs yield a few request/response rules that remain **always in effect across all listed operations**:
 - Whereas request and response bodies are operation-specific, all operations share the exact-same set of request headers, URL query-string parameters and response headers (albeit being elaborated here identically and redundantly for each individual operation).
 - Request bodies **must never** be empty or the JSON ´null´: the empty request body is the JSON ´{}´.
 - Response bodies will never be empty, but may be the JSON ´null´.
 - Request and response bodies are always valid JSON values for _JSON objects_, ie. they're never immediately JSON arrays, ´string´s, ´number´s, or ´boolean´s.
-- All request-object fields are by default optional and ommittable / ´null´able, **any exceptions** to this are indicated by the operation's listed known-error responses.
+- All mentioned request-object (and sub-object) fields are **by default optional** and ommittable / ´null´able,
+  - **any exceptions** to this are indicated by the operation's listed known-error responses.
+- All mentioned response-object (and sub-object) fields will always be present in the response-body, indicating their default-ness / missing-ness via ´null´ or ´""´ or ´0´ or ´false´ as per _Golang_ type-system semantics.
+  - Caution for some client languages: this means ´null´ for many-if-not-most empty JSON arrays (although ´[]´ is principally always just-as-possible) and empty JSON dictionary/hash-map "object"s (with either ´null´ or ´{}´ principally equally possible).
+- All JSON object field names begin with an upper-case character,
+  - any example to the contrary indicates a "free-style" JSON dictionary/hash-map "object".
 - The ´Content-Length´ request header is **required for all** operations.
 - The ´Content-Type´ request header is optional, but if present, must be correct with regards to both the operation's specification and the request body.
 - Any ´multipart/form-data´ operations:
-  - **always require** the following two form-fields: ´files´ for any binary file uploads, and ´_´ for the actual JSON request payload
-  - only the latter is elaborated in this doc, and always in the exact same way as done for all the ´application/json´ operations, **without** specifically mentioning the ´_´ form-field containing the ´text/plain´ of the full ´application/json´ request payload actually being elaborated here
-- All JSON object field names begin with an upper-case character, any example to the contrary indicates a "free-style" dictionary/hash-map "object".
+  - **always require** the following two form-fields: ´files´ for any binary file uploads, and ´_´ for the actual JSON request payload;
+  - only the latter is elaborated in this doc, and always in the exact same way as done for all the ´application/json´ operations, **without** specifically mentioning the ´_´ form-field containing the ´text/plain´ of the full ´application/json´ request payload actually being elaborated here.
 
 How to read request/response example JSON values rendered in this doc:
-  - ´true´ indicates any ´boolean´ value, regardless of the actual real value in a call
-  - ´"someStr"´ indicates any ´string´ value
-  - date-time values are indicated by RFC3339-formatted ´string´ examples
-  - signed-integer ´number´s are indicated by a negative-number example indicating the minimum (type-wise, not operation-specific) permissible value, with the maximum being the corresponding positive-number counterpart
-  - unsigned-integer ´number´s are indicated by a positive-number example indicating the maximum (type-wise, not not operation-specific) permissible value, with the minimum being ´0´
-  - floating-point ´number´s are indicated by a positive-number example indicating the maximum (type-wise, not not operation-specific) permissible value, with the minimum being the corresponding negative-number counterpart
+  - ´true´ indicates any ´boolean´ value, regardless of the actual real value in a call;
+  - ´"someStr"´ indicates any ´string´ value;
+  - signed-integer ´number´s are indicated by a negative-number example indicating the minimum (type-wise, not operation-specific) permissible value, with the maximum being the corresponding positive-number counterpart;
+  - unsigned-integer ´number´s are indicated by a positive-number example indicating the maximum (type-wise, not not operation-specific) permissible value, with the minimum being ´0´;
+  - floating-point ´number´s are indicated by a positive-number example indicating the maximum (type-wise, not not operation-specific) permissible value, with the minimum being the corresponding negative-number counterpart.
+  - date-time values are indicated by RFC3339/ISO8601-formatted ´string´ examples:
+    - in responses, they're always UTC, whereas in requests, any timezone may be indicated;
+	- in requests, they may always be ´null´ (excepting any operation-specific known-errors indicating otherwise) but must never be ´""´ or otherwise non-RFC3339/ISO8601-parseable.
 
 More about error responses:
 - All are ´text/plain´.
 - In addition to those listed in this doc (thrown by the service under the indicated conditions), other error responses are at all times entirely technically-possible and not exhaustively documentable (feasibly), such as eg. DB / file-system / network disruptions. Those caught by the service will be ´500´s, others (ie. from load-balancers / gateways / reverse-proxies etc. _in front of_ the service) might have _any_ HTTP status code whatsoever.
 - All the well-known (thrown rather than caught) errors listed here:
-  - have their code-identifier-compatible (spaceless ASCII) enumerant-name as their entire text response. Any others preserve simply their original (usually human-language) error message fully. Hence, error responses are inherently ´switch/case´able
-  - have been recursively determined by code-path walking. Among them are some that logically could not possibly ever occur for that operation, yet identifying those (to filter them out of the listing) is (so far) out of scope for our ´openapi.json´ generation
+  - have their code-identifier-compatible (spaceless ASCII) enumerant-name as their entire text response, making all error responses inherently ´switch/case´able;
+  - have been recursively determined by code-path walking. Among them are some that logically could not possibly ever occur for that operation, yet identifying those (to filter them out of the listing) is (so far) out of scope for our ´openapi.json´ generation.
+- Any non-known (caught rather than thrown) errors (not listed here) contain their original (usually human-language) error message fully, corresponding to the ´default´ in an error-handling ´switch/case´.
 		`, str.Dict{"´": "`"}), str.Dict{})},
 	}
-	openapi.Info.Contact.Name, openapi.Info.Contact.Url = "Permalink", "https://"+Cfg.YO_APP_DOMAIN+"/"+StaticFilesDirName_App+"/"+filepath.Base(out_file_path)
+	openapi.Info.Contact.Name, openapi.Info.Contact.Url = "Permalink of "+filepath.Base(out_file_path), "https://"+Cfg.YO_APP_DOMAIN+"/"+StaticFilesDirName_App+"/"+filepath.Base(out_file_path)
 
 	for _, method := range apiRefl.Methods {
 		if str.Begins(method.Path, yoAdminApisUrlPrefix) {

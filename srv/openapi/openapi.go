@@ -86,8 +86,6 @@ type Example struct {
 	Value   any    `json:"value"`
 }
 
-var tyTime = reflect.TypeOf(time.Time{})
-
 // TODO: type-recursion-safety
 func dummyOf(ty reflect.Type, level int) reflect.Value {
 	dummy_ptr := func(dummy reflect.Value) reflect.Value {
@@ -99,7 +97,7 @@ func dummyOf(ty reflect.Type, level int) reflect.Value {
 	if ty.Kind() == reflect.Pointer {
 		return dummyOf(ty.Elem(), level)
 	}
-	if ty.ConvertibleTo(tyTime) || tyTime.ConvertibleTo(ty) || ty.AssignableTo(tyTime) || tyTime.AssignableTo(ty) {
+	if ty.ConvertibleTo(ReflTypeTime) || ReflTypeTime.ConvertibleTo(ty) || ty.AssignableTo(ReflTypeTime) || ReflTypeTime.AssignableTo(ty) {
 		return reflect.ValueOf(time.Now()).Convert(ty)
 	}
 	dummy := reflect.New(ty).Elem()
