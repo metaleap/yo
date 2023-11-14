@@ -115,6 +115,10 @@ func dummyOf(ty reflect.Type, level int, typesDone map[reflect.Type]bool) reflec
 		dummy.SetUint(9007199254740991)
 	case reflect.Uint:
 		dummy.SetUint(9007199254740991)
+	case reflect.Float32:
+		dummy.SetFloat(math.MaxFloat32)
+	case reflect.Float64:
+		dummy.SetFloat(math.MaxFloat64)
 	case reflect.String:
 		dummy.SetString("someStr")
 	case reflect.Slice:
@@ -124,7 +128,7 @@ func dummyOf(ty reflect.Type, level int, typesDone map[reflect.Type]bool) reflec
 		if ty_item.Kind() == reflect.Pointer {
 			append_item = dummy_ptr(append_item)
 		}
-		reflect.Append(dummy, append_item)
+		dummy = reflect.Append(dummy, append_item)
 	case reflect.Map:
 		dummy = reflect.MakeMap(ty)
 		ty_item := ty.Elem()
