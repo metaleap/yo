@@ -78,6 +78,12 @@ type Media struct {
 var tyTime = reflect.TypeOf(time.Time{})
 
 func dummyOf(ty reflect.Type, level int, typesDone map[reflect.Type]bool) reflect.Value {
+	dummy_ptr := func(dummy reflect.Value) reflect.Value {
+		alloc := reflect.New(dummy.Type())
+		alloc.Elem().Set(dummy)
+		return alloc
+	}
+
 	if ty.Kind() == reflect.Pointer {
 		return dummyOf(ty.Elem(), level, typesDone)
 	}
@@ -111,19 +117,22 @@ func dummyOf(ty reflect.Type, level int, typesDone map[reflect.Type]bool) reflec
 		dummy.SetUint(9007199254740991)
 	case reflect.String:
 		dummy.SetString("someStr")
-	// case reflect.Slice:
-	// 	if ty.Elem().Kind() == reflect.Pointer {
-	// 		return dummyOf(ty.Elem().Elem(), level, typesDone)
-	// 	}
-	// 	dummy = reflect.MakeSlice(ty, 1, 1)
-	// 	append_item := dummyOf(ty.Elem(), level+1, typesDone)
-	// 	reflect.Append(dummy, *append_item)
-	// case reflect.Map:
-	// if ty.Elem().Kind() == reflect.Pointer {
-	// 	return dummyOf(ty.Elem().Elem(), level, typesDone)
-	// }
-	// dummy = reflect.MakeMap(ty)
-	// dummy.SetMapIndex(reflect.ValueOf("someKey"), dummyOf(ty.Elem(), level+1, typesDone))
+	case reflect.Slice:
+		dummy = reflect.MakeSlice(ty, 0, 1)
+		ty_item := ty.Elem()
+		append_item := dummyOf(ty_item, level+1, typesDone)
+		if ty_item.Kind() == reflect.Pointer {
+			append_item = dummy_ptr(append_item)
+		}
+		reflect.Append(dummy, append_item)
+	case reflect.Map:
+		dummy = reflect.MakeMap(ty)
+		ty_item := ty.Elem()
+		append_item := dummyOf(ty_item, level+1, typesDone)
+		if ty_item.Kind() == reflect.Pointer {
+			append_item = dummy_ptr(append_item)
+		}
+		dummy.SetMapIndex(reflect.ValueOf("someKey"), append_item)
 	case reflect.Struct:
 		for i := 0; i < ty.NumField(); i++ {
 			field := ty.Field(i)
@@ -131,10 +140,8 @@ func dummyOf(ty reflect.Type, level int, typesDone map[reflect.Type]bool) reflec
 				continue
 			}
 			field_dummy := dummyOf(field.Type, level+1, typesDone)
-			if field.Type.Kind() == reflect.Pointer {
-				alloc := reflect.New(field.Type.Elem())
-				alloc.Elem().Set(field_dummy)
-				field_dummy = alloc
+			if field.Type.Kind() == reflect.Pointer && field_dummy.Kind() != reflect.Pointer {
+				field_dummy = dummy_ptr(field_dummy)
 			}
 			if !field_dummy.IsZero() {
 				dummy.Field(i).Set(field_dummy)
