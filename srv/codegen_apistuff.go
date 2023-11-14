@@ -230,7 +230,7 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 			},
 			ReqBody: yopenapi.ReqBody{
 				Required: true,
-				Descr:    method.In,
+				Descr:    "Type name auto-suggestion: `" + method.In + "`",
 				Content:  map[string]yopenapi.Media{apisContentType: {Example: dummy_arg}},
 			},
 			Responses: map[string]yopenapi.Resp{

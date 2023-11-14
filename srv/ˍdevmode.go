@@ -85,7 +85,7 @@ func viaHttp[TIn any, TOut any](methodPath string, ctx *Ctx, args *TIn, client *
 		panic(string(resp_raw))
 	}
 
-	if bytes.Equal(resp_raw, yojson.JsonTokNull) {
+	if bytes.Equal(resp_raw, yojson.TokNull) {
 		return nil
 	}
 	var ret TOut

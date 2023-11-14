@@ -55,7 +55,7 @@ type RefOnDelPrevent struct{}
 type RefOnDelSetNull struct{}
 type refOnDelNone struct{}
 
-func (refOnDelNone) onDelSql() string    { return Never[string](true) }
+func (refOnDelNone) onDelSql() string    { return Never[string](true, nil) }
 func (RefOnDelCascade) onDelSql() string { return "CASCADE" }
 func (RefOnDelPrevent) onDelSql() string { return "RESTRICT" }
 func (RefOnDelSetNull) onDelSql() string { return "SET NULL" }
@@ -550,6 +550,9 @@ func (me *DateTime) UnmarshalJSON(data []byte) error {
 }
 
 func (me *DateTime) MarshalJSON() ([]byte, error) {
+	if me == nil {
+		return yojson.TokNull, nil
+	}
 	return ((*time.Time)(me)).MarshalJSON()
 }
 

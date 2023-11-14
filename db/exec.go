@@ -188,7 +188,7 @@ func CreateOne[T any](ctx *Ctx, rec *T) (ret I64) {
 	if (len(result) > 0) && (result[0] != nil) {
 		ret = I64(*result[0])
 	}
-	Assert(ret > 0)
+	Assert(ret > 0, func() any { return rec })
 	return
 }
 
@@ -208,7 +208,7 @@ func upOrInsert[T any](ctx *Ctx, upsert bool, recs ...*T) {
 	if len(recs) == 0 {
 		return
 	}
-	Assert((!upsert) || (1 == len(recs)))
+	Assert((!upsert) || (1 == len(recs)), func() any { return recs })
 	desc := desc[T]()
 	args := make(dbArgs, len(desc.fields))
 	if _, is_self_versioning := any(recs[0]).(SelfVersioningObj); is_self_versioning {
@@ -358,7 +358,7 @@ func dbArgsCleanUpForPgx(args dbArgs) dbArgs {
 			panic(v)
 		} else if rvt := rv.Type(); isDbJsonType(rvt) {
 			jsonb := yojson.From(v, false)
-			if bytes.Equal(jsonb, yojson.JsonTokEmptyArr) || bytes.Equal(jsonb, yojson.JsonTokEmptyObj) || bytes.Equal(jsonb, yojson.JsonTokNull) {
+			if bytes.Equal(jsonb, yojson.TokEmptyArr) || bytes.Equal(jsonb, yojson.TokEmptyObj) || bytes.Equal(jsonb, yojson.TokNull) {
 				return nil
 			} else {
 				return jsonb

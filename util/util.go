@@ -3,6 +3,7 @@ package util
 import (
 	"cmp"
 	"strings"
+	"yo/util/str"
 )
 
 type (
@@ -14,16 +15,20 @@ type (
 	}
 )
 
-func Assert(alwaysTrue bool) {
+func Assert(alwaysTrue bool, show func() any) {
 	if IsDevMode {
 		if !alwaysTrue {
-			panic("unreachable")
+			var err any = "unreachable"
+			if show != nil {
+				err = show()
+			}
+			panic(str.FmtV(err))
 		}
 	}
 }
 
-func Never[T any](alwaysFalse bool) (ret T) {
-	Assert(!alwaysFalse)
+func Never[T any](alwaysFalse bool, show func() any) (ret T) {
+	Assert(!alwaysFalse, show)
 	return
 }
 

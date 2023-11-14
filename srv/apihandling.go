@@ -189,7 +189,7 @@ func (me *apiMethod[TIn, TOut]) KnownErrs() []Err {
 
 func (*apiMethod[TIn, TOut]) loadPayload(data []byte) (_ any, err error) {
 	var it TIn
-	if len(data) > 0 && !bytes.Equal(data, yojson.JsonTokNull) {
+	if len(data) > 0 && !bytes.Equal(data, yojson.TokNull) {
 		err = yojson.Unmarshal(data, &it)
 	}
 	return &it, err

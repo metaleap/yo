@@ -11,10 +11,10 @@ import (
 type Num = json.Number
 
 var (
-	Unmarshal       = json.Unmarshal
-	JsonTokNull     = []byte("null")
-	JsonTokEmptyArr = []byte("[]")
-	JsonTokEmptyObj = []byte("{}")
+	Unmarshal   = json.Unmarshal
+	TokNull     = []byte("null")
+	TokEmptyArr = []byte("[]")
+	TokEmptyObj = []byte("{}")
 )
 
 func Load(json_src []byte, dst any) {
