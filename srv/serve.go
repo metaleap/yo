@@ -37,13 +37,6 @@ type Middleware struct {
 var (
 	detectEnumsAndMaybeCodegen func() = nil // overwritten by codegen_apistuff.go in debug build mode
 
-	// requests to key+'/' will be served from the corresponding FS
-	apiStdRespHeaders = str.Dict{
-		"Content-Type":           apisContentType_Json,
-		"X-Content-Type-Options": "nosniff",
-		"Cache-Control":          "no-store",
-	}
-
 	// PreServes funcs are run at the start of the request handling, prior to any other request processing
 	PreServes = []Middleware{}
 
@@ -125,7 +118,7 @@ func handleHttpRequest(rw http.ResponseWriter, req *http.Request) {
 		resp_data := yojson.From(result, true)
 
 		ctx.Timings.Step("write resp")
-		for k, v := range apiStdRespHeaders {
+		for k, v := range apisStdRespHeaders {
 			rw.Header().Set(k, v)
 		}
 		rw.Header().Set("Content-Length", str.FromInt(len(resp_data)))

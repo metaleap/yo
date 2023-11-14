@@ -211,7 +211,10 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 	openapi := yopenapi.OpenApi{
 		OpenApi: yopenapi.Version,
 		Paths:   map[string]yopenapi.Path{},
-		Info: yopenapi.Info{Title: Cfg.YO_APP_DOMAIN, Version: time.Now().Format("06.__2"), Descr: str.Replace(`
+		Info: yopenapi.Info{
+			Title: Cfg.YO_APP_DOMAIN, Version: time.Now().Format("06.__2"),
+			Summary: "This JSON HTTP API has RPC rather than REST semantics. All operations are ´POST´, regardless of what CRUDs they might run (or not).",
+			Descr: str.Replace(`
 Our convention-over-configuration designs yield a handful of request/response rules:
 - All request headers, URL query-string parameters and response headers are identical over the whole set of all operations. Only request and response bodies are operation-specific.
 - Request bodies **must never** be empty or the JSON ´null´: the empty request body is the JSON ´{}´.
@@ -252,20 +255,20 @@ More about error responses:
 		path := yopenapi.Path{Post: yopenapi.Op{
 			Id: api_method.methodNameUp0(),
 			Params: []yopenapi.Param{
-				{Name: QueryArgValidateOnly, In: "query", Descr: "if not empty, enforces request-validation-only, with no further actual work performed to produce results and/or effects", Content: map[string]yopenapi.Media{"text/plain": {Example: ""}}},
-				{Name: QueryArgForceFail, In: "query", Descr: "if not empty, enforces an early error response (prior to any request parsing or processing) with the specified HTTP status code (eg. for tests of error-handling)", Content: map[string]yopenapi.Media{"text/plain": {Example: ""}}},
+				{Name: QueryArgValidateOnly, In: "query", Descr: "optional: if not missing or empty, enforces request-validation-only, with no further actual work performed to produce results and/or effects", Content: map[string]yopenapi.Media{"text/plain": {Example: ""}}},
+				{Name: QueryArgForceFail, In: "query", Descr: "optional: if not missing or empty, enforces an early error response (prior to any request parsing or processing) with the specified HTTP status code (eg. for client-side unit-test cases of error-handling)", Content: map[string]yopenapi.Media{"text/plain": {Example: ""}}},
 			},
 			ReqBody: yopenapi.ReqBody{
 				Required: true,
-				Descr:    "Internal type ident: `" + method.In + "`",
+				Descr:    "Type ident: `" + method.In + "`",
 				Content:  map[string]yopenapi.Media{apisContentType_Json: {Example: dummy_arg}},
 			},
 			Responses: map[string]yopenapi.Resp{
 				"200": {
-					Descr:   "Internal type ident: `" + method.Out + "`",
+					Descr:   "Type ident: `" + method.Out + "`",
 					Content: map[string]yopenapi.Media{apisContentType_Json: {Example: dummy_ret}},
 					Headers: map[string]yopenapi.Header{
-						yoctx.HttpResponseHeaderName_UserId: {Descr: "0 if not authenticated, else current user's ID", Content: map[string]yopenapi.Media{"text/plain": {Example: "123"}}},
+						yoctx.HttpResponseHeaderName_UserId: {Descr: "`0` if not authenticated, else current `User`'s `Id`", Content: map[string]yopenapi.Media{"text/plain": {Example: "123"}}},
 					},
 				},
 			},
@@ -280,8 +283,10 @@ More about error responses:
 		}
 		for http_status_code := range path.Post.Responses {
 			resp := path.Post.Responses[http_status_code]
-			for header_name, header_value := range apiStdRespHeaders {
-				resp.Headers[header_name] = yopenapi.Header{Descr: "always `" + header_value + "`", Content: map[string]yopenapi.Media{"text/plain": {Example: header_value}}}
+			for header_name, header_value := range apisStdRespHeaders {
+				resp.Headers[header_name] = yopenapi.Header{Descr: "always `" +
+					If((header_name == "Content-Type") && (http_status_code != "200"), "text/plain", header_value) +
+					"`", Content: map[string]yopenapi.Media{"text/plain": {Example: header_value}}}
 			}
 			path.Post.Responses[http_status_code] = resp
 		}
@@ -314,7 +319,7 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 	buf.WriteString("\n// " + yoSdkTsPreludeFileName + " ends, the rest below is fully generated code only:\n")
 
 	buf.WriteString("\nreqTimeoutMsForJsonApis = Cfg_YO_API_IMPL_TIMEOUT_MS\n")
-	buf.WriteString("\nerrMaxReqPayloadSizeExceeded = '" + string(ErrMissingOrExcessiveContentLength) + "'\n")
+	buf.WriteString("\nerrMaxReqPayloadSizeExceeded = '" + string(ErrUnacceptableContentLength) + "'\n")
 	if Cfg.YO_API_MAX_REQ_CONTENTLENGTH_MB > 0 {
 		buf.WriteString("\nreqMaxReqPayloadSizeMb = " + str.FromInt(Cfg.YO_API_MAX_REQ_CONTENTLENGTH_MB) + "\n")
 	}

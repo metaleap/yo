@@ -15,23 +15,29 @@ import (
 )
 
 const (
-	QueryArgValidateOnly                   = "yoValiOnly"
-	QueryArgNoCtxPrt                       = "yoNoCtxPrt"
-	ErrUnauthorized                    Err = "Unauthorized"
-	ErrMissingOrExcessiveContentLength Err = "MissingOrExcessiveContentLength"
-	ErrInvalidContentType              Err = "InvalidContentType"
-	yoAdminApisUrlPrefix                   = "__/yo/"
-	apisContentType_Json                   = "application/json"
-	apisContentType_Multipart              = "multipart/form-data"
+	QueryArgValidateOnly             = "yoValiOnly"
+	QueryArgNoCtxPrt                 = "yoNoCtxPrt"
+	ErrUnauthorized              Err = "Unauthorized"
+	ErrUnacceptableContentLength Err = "UnacceptableContentLength"
+	ErrUnacceptableContentType   Err = "UnacceptableContentType"
+	yoAdminApisUrlPrefix             = "__/yo/"
+	apisContentType_Json             = "application/json"
+	apisContentType_Multipart        = "multipart/form-data"
 )
 
 var (
 	api          = ApiMethods{}
 	KnownErrSets = map[string][]Err{
-		"": {ErrTimedOut, ErrMissingOrExcessiveContentLength, ErrInvalidContentType},
+		"": {ErrTimedOut, ErrUnacceptableContentLength, ErrUnacceptableContentType},
 	}
 	ErrsNoPrefix  = errsNoCodegen
-	errsNoCodegen = []Err{ErrTimedOut, ErrMissingOrExcessiveContentLength, ErrInvalidContentType, ErrUnauthorized, ErrDbUpdExpectedIdGt0, ErrMustBeAdmin}
+	errsNoCodegen = []Err{ErrTimedOut, ErrUnacceptableContentLength, ErrUnacceptableContentType, ErrUnauthorized, ErrDbUpdExpectedIdGt0, ErrMustBeAdmin}
+
+	// requests to key+'/' will be served from the corresponding FS
+	apisStdRespHeaders = str.Dict{
+		"Content-Type":  apisContentType_Json,
+		"Cache-Control": "no-store",
+	}
 )
 
 type ApiMethods map[string]ApiMethod
@@ -272,12 +278,12 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 
 	max_payload_size := (1024 * 1024 * int64(If(!api_method.isMultipartForm(), Cfg.YO_API_MAX_REQ_CONTENTLENGTH_MB, Cfg.YO_API_MAX_REQ_MULTIPART_LENGTH_MB)))
 	if (ctx.Http.Req.ContentLength < 0) || (ctx.Http.Req.ContentLength > max_payload_size) {
-		ctx.HttpErr(ErrMissingOrExcessiveContentLength.HttpStatusCodeOr(500), string(ErrMissingOrExcessiveContentLength))
+		ctx.HttpErr(ErrUnacceptableContentLength.HttpStatusCodeOr(500), string(ErrUnacceptableContentLength))
 		return
 	}
 	if req_content_type := ctx.Http.Req.Header.Get("Content-Type"); req_content_type != "" {
 		if req_content_type != If(api_method.isMultipartForm(), apisContentType_Multipart, apisContentType_Json) {
-			ctx.HttpErr(ErrInvalidContentType.HttpStatusCodeOr(500), string(ErrInvalidContentType))
+			ctx.HttpErr(ErrUnacceptableContentType.HttpStatusCodeOr(500), string(ErrUnacceptableContentType))
 			return
 		}
 	}

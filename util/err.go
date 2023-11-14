@@ -11,7 +11,7 @@ var errSubstrToHttpStatusCode = map[string]int{
 	"Unauthorized":  403,
 	"Forbidden":     403,
 	"NotFound":      404,
-	"ContentLength": 406,
+	"Unacceptable":  406,
 	"AlreadyExists": 409,
 	"Required":      422,
 	"Expected":      422,
