@@ -12,6 +12,7 @@ import (
 	"time"
 
 	. "yo/cfg"
+	yoctx "yo/ctx"
 	yojson "yo/json"
 	yolog "yo/log"
 	yopenapi "yo/srv/openapi"
@@ -26,7 +27,7 @@ const (
 	codegenForceFull          = true // for rare temporary local-dev toggling, usually false
 
 	yoDirPath              = "../yo/"
-	yoStaticDirPath        = yoDirPath + StaticFilesDirNameYo
+	yoStaticDirPath        = yoDirPath + StaticFilesDirName_Yo
 	yoSdkTsFileName        = "yo-sdk.ts"
 	yoSdkJsFileName        = "yo-sdk.js"
 	yoSdkTsPreludeFileName = "prelude-yo-sdk.ts"
@@ -39,8 +40,8 @@ var (
 	pkgsImportingSrv           = map[string]bool{}
 	curMainDir                 = FsDirPathCur()
 	curMainName                = filepath.Base(curMainDir)
-	curMainStaticDirPathYo     = filepath.Join(curMainDir, StaticFilesDirNameYo)
-	curMainStaticDirPathApp    = filepath.Join(curMainDir, StaticFilesDirNameApp)
+	curMainStaticDirPath_Yo    = filepath.Join(curMainDir, StaticFilesDirName_Yo)
+	curMainStaticDirPath_App   = filepath.Join(curMainDir, StaticFilesDirName_App)
 )
 
 func init() {
@@ -205,21 +206,37 @@ func codegenGo(apiRefl *apiReflect) {
 }
 
 func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
-	out_file_path := curMainStaticDirPathApp + "/openapi.json"
+	out_file_path := curMainStaticDirPath_App + "/openapi.json"
 
 	openapi := yopenapi.OpenApi{
-		Info:    yopenapi.Info{Title: Cfg.YO_APP_DOMAIN, Version: time.Now().Format("06.1.2")},
+		Info:    yopenapi.Info{Title: Cfg.YO_APP_DOMAIN, Version: time.Now().Format("06.__2")},
 		OpenApi: yopenapi.Version,
 		Paths:   map[string]yopenapi.Path{},
 	}
+	openapi.Info.Contact.Url = "https://" + Cfg.YO_APP_DOMAIN + "/" + StaticFilesDirName_App + "/" + filepath.Base(out_file_path)
 
 	for _, method := range apiRefl.Methods {
 		api_method := api[method.Path]
 		path := yopenapi.Path{Post: yopenapi.Op{
-			Id:      api_method.methodNameUp0(),
-			ReqBody: yopenapi.ReqBody{Required: true},
+			Id: api_method.methodNameUp0(),
+			Params: []yopenapi.Param{
+				{Name: QueryArgValidateOnly, In: "query", Descr: "if not empty, enforces request-validation-only, with no further actual work performed to produce results and/or effects", Content: map[string]yopenapi.Media{"text/plain": {Example: ""}}},
+				{Name: QueryArgForceFail, In: "query", Descr: "if not empty, enforces an early error response (prior to any request parsing or processing) with the specified HTTP status code (eg. for tests of error-handling)", Content: map[string]yopenapi.Media{"text/plain": {Example: ""}}},
+			},
+			ReqBody: yopenapi.ReqBody{
+				Required: true,
+				Descr:    method.In,
+			},
+			Responses: map[string]yopenapi.Resp{
+				"200": {
+					Descr: method.Out,
+					Headers: map[string]yopenapi.Header{
+						yoctx.HttpResponseHeaderName_UserEmailAddr: {Descr: "empty if not authenticated, else current user's account-identifying email address"},
+					},
+				},
+			},
 		}}
-		openapi.Paths[method.Path] = path
+		openapi.Paths["/"+method.Path] = path
 	}
 
 	src_json := yojson.From(openapi, true)
@@ -231,13 +248,13 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 }
 
 func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
-	if FsDirEnsure(StaticFilesDirNameYo) {
-		didFsWrites = append(didFsWrites, "MK:"+StaticFilesDirNameYo)
+	if FsDirEnsure(StaticFilesDirName_Yo) {
+		didFsWrites = append(didFsWrites, "MK:"+StaticFilesDirName_Yo)
 	}
 
-	const out_file_path_1 = StaticFilesDirNameYo + "/" + yoSdkTsFileName // app-side path since cur-dir is always app-side
-	out_file_path_2 := curMainStaticDirPathApp + "/" + yoSdkTsFileName   // app-side path since cur-dir is always app-side
-	buf := str.Buf{}                                                     // into this we emit the new source for out_file_path
+	const out_file_path_1 = StaticFilesDirName_Yo + "/" + yoSdkTsFileName // app-side path since cur-dir is always app-side
+	out_file_path_2 := curMainStaticDirPath_App + "/" + yoSdkTsFileName   // app-side path since cur-dir is always app-side
+	buf := str.Buf{}                                                      // into this we emit the new source for out_file_path
 	apiRefl.codeGen.typesUsed, apiRefl.codeGen.typesEmitted = map[string]bool{}, map[string]bool{}
 
 	buf.Write([]byte(codegenEmitTopCommentLine))
@@ -295,7 +312,7 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 	}
 
 	// post-generate: clean up app-side, by removing files no longer in yo side
-	FsDirWalk(StaticFilesDirNameYo, func(path string, dirEntry fs.DirEntry) {
+	FsDirWalk(StaticFilesDirName_Yo, func(path string, dirEntry fs.DirEntry) {
 		if filepath.Base(path) == yoSdkJsFileName {
 			return
 		}
@@ -327,8 +344,8 @@ func codegenTsSdk(apiRefl *apiReflect) (didFsWrites []string) {
 	})
 
 	if foundModifiedTsFilesYoSide || (len(didFsWrites) > 0) {
-		codegenTsToJs(curMainStaticDirPathYo, true, append(didFsWrites, If(foundModifiedTsFilesYoSide, "modTsYo", ""))...)
-		didFsWrites = append(didFsWrites, curMainStaticDirPathYo)
+		codegenTsToJs(curMainStaticDirPath_Yo, true, append(didFsWrites, If(foundModifiedTsFilesYoSide, "modTsYo", ""))...)
+		didFsWrites = append(didFsWrites, curMainStaticDirPath_Yo)
 	}
 	return
 }
@@ -449,7 +466,7 @@ func codegenTsToJs(inDirPath string, isAppSide bool, reasons ...string) {
 	// the much-faster "esbuild Transform API" way
 	FsDirWalk(inDirPath, func(path string, fsEntry fs.DirEntry) {
 		if (fsEntry.IsDir()) || str.Ends(path, ".d.ts") || (!str.Ends(path, ".ts")) ||
-			(isAppSide && !str.Ends(path, "/"+filepath.Join(StaticFilesDirNameYo, yoSdkTsFileName))) {
+			(isAppSide && !str.Ends(path, "/"+filepath.Join(StaticFilesDirName_Yo, yoSdkTsFileName))) {
 			return // nothing to do for this `path`
 		}
 		TsFile2JsFileViaEsbuild(path)

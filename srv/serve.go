@@ -22,11 +22,11 @@ import (
 
 const QueryArgForceFail = "yoFail"
 const QueryArgForceUser = "yoUser"
-const StaticFilesDirNameYo = "__yostatic"
-const StaticFilesDirNameApp = "__static"
+const StaticFilesDirName_Yo = "__yostatic"
+const StaticFilesDirName_App = "__static"
 
-var StaticFileDirYo fs.FS
-var StaticFileDirApp fs.FS
+var StaticFileDir_Yo fs.FS
+var StaticFileDir_App fs.FS
 var StaticFileDirs = map[string]fs.FS{}
 
 type Middleware struct {
@@ -161,10 +161,10 @@ func handleHttpStaticFileRequestMaybe(ctx *yoctx.Ctx) bool {
 		}
 	}
 	if fs_handler == nil {
-		if static_prefix := StaticFilesDirNameYo + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && (ctx.Http.UrlPath != static_prefix) {
-			fs_static, fs_handler = StaticFileDirYo, http.FileServer(http.FS(StaticFileDirYo))
-		} else if (StaticFileDirApp != nil) && (StaticFilesDirNameApp != "") && str.Begins(ctx.Http.UrlPath, StaticFilesDirNameApp+"/") {
-			fs_static, fs_handler = StaticFileDirApp, http.FileServer(http.FS(StaticFileDirApp))
+		if static_prefix := StaticFilesDirName_Yo + "/"; str.Begins(ctx.Http.UrlPath, static_prefix) && (ctx.Http.UrlPath != static_prefix) {
+			fs_static, fs_handler = StaticFileDir_Yo, http.FileServer(http.FS(StaticFileDir_Yo))
+		} else if (StaticFileDir_App != nil) && (StaticFilesDirName_App != "") && str.Begins(ctx.Http.UrlPath, StaticFilesDirName_App+"/") {
+			fs_static, fs_handler = StaticFileDir_App, http.FileServer(http.FS(StaticFileDir_App))
 		}
 	}
 	if fs_handler != nil {
@@ -200,7 +200,7 @@ func handleHttpStaticFileRequestMaybe(ctx *yoctx.Ctx) bool {
 }
 
 func authAdmin(ctx *yoctx.Ctx) {
-	if (!(str.Begins(ctx.Http.UrlPath, yoAdminApisUrlPrefix) || str.Begins(ctx.Http.UrlPath, StaticFilesDirNameYo+"/yo."))) || (ctx.Http.UrlPath == (yoAdminApisUrlPrefix + "refl")) {
+	if (!(str.Begins(ctx.Http.UrlPath, yoAdminApisUrlPrefix) || str.Begins(ctx.Http.UrlPath, StaticFilesDirName_Yo+"/yo."))) || (ctx.Http.UrlPath == (yoAdminApisUrlPrefix + "refl")) {
 		return
 	}
 	user, pwd, ok := ctx.Http.Req.BasicAuth()

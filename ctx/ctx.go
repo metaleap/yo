@@ -17,11 +17,12 @@ import (
 )
 
 const (
-	ErrMustBeAdmin        = Err("MustBeAdmin")
-	ErrTimedOut           = Err("TimedOut")
-	ErrDbUpdExpectedIdGt0 = Err("DbUpdExpectedIdGt0")
-	CtxKeyForcedTestUser  = "yoUserTest" // handled only with IsDevMode==true
-	CtxKeyDbNoLogging     = "yoCtxDbNoLogging"
+	ErrMustBeAdmin                       = Err("MustBeAdmin")
+	ErrTimedOut                          = Err("TimedOut")
+	ErrDbUpdExpectedIdGt0                = Err("DbUpdExpectedIdGt0")
+	CtxKeyForcedTestUser                 = "yoUserTest" // handled only with IsDevMode==true
+	CtxKeyDbNoLogging                    = "yoCtxDbNoLogging"
+	HttpResponseHeaderName_UserEmailAddr = "X-Yo-User"
 )
 
 var (

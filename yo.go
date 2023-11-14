@@ -30,7 +30,7 @@ func init() {
 func Init(staticFileDirYo fs.FS, staticFileDirApp fs.FS) (listenAndServe func()) {
 	time.Local = time.UTC // repeat of init() above because who knows what happened in between (well, so far, we do. but still =)
 	AppPkgPath = AppPkgPath[:str.Idx(AppPkgPath, '/')]
-	yosrv.StaticFileDirApp, yosrv.StaticFileDirYo =
+	yosrv.StaticFileDir_App, yosrv.StaticFileDir_Yo =
 		staticFileDirApp, staticFileDirYo
 
 	yolog.PrintLnLn("DB init...")

@@ -15,6 +15,9 @@ type OpenApi struct {
 type Info struct {
 	Title   string `json:"title"`
 	Version string `json:"version"`
+	Contact struct {
+		Url string `json:"url"`
+	} `json:"contact"`
 }
 
 type Path struct {
@@ -32,11 +35,12 @@ type Op struct {
 }
 
 type Param struct {
-	Name       string `json:"name"`
-	In         string `json:"in"` // query|header|cookie
-	Descr      string `json:"description,omitempty"`
-	Required   bool   `json:"required,omitempty"`
-	Deprecated bool   `json:"deprecated,omitempty"`
+	Name       string           `json:"name"`
+	In         string           `json:"in"` // query|header|cookie
+	Descr      string           `json:"description,omitempty"`
+	Required   bool             `json:"required,omitempty"`
+	Deprecated bool             `json:"deprecated,omitempty"`
+	Content    map[string]Media `json:"content"`
 }
 
 type ReqBody struct {
@@ -58,11 +62,5 @@ type Header struct {
 }
 
 type Media struct {
-	Examples map[string]Example `json:"examples"`
-}
-
-type Example struct {
-	Summary string `json:"summary,omitempty"`
-	Descr   string `json:"description,omitempty"`
-	Value   any    `json:"value"`
+	Example any `json:"example"`
 }

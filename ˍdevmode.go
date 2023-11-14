@@ -24,7 +24,7 @@ var AppSideBuildTimeContainerFileNames []string
 func init() {
 	buildDeployablyNow = doBuildAppDeployablyAndMaybePush
 	ts2jsAppSideStaticDir = func() {
-		FsDirWalk(yosrv.StaticFilesDirNameApp, func(fsPath string, fsEntry fs.DirEntry) {
+		FsDirWalk(yosrv.StaticFilesDirName_App, func(fsPath string, fsEntry fs.DirEntry) {
 			if fsEntry.IsDir() {
 				return
 			}
