@@ -230,12 +230,12 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 			},
 			ReqBody: yopenapi.ReqBody{
 				Required: true,
-				Descr:    "Type name auto-suggestion: `" + method.In + "`",
+				Descr:    "Internal type ident: `" + method.In + "`",
 				Content:  map[string]yopenapi.Media{apisContentType: {Example: dummy_arg}},
 			},
 			Responses: map[string]yopenapi.Resp{
 				"200": {
-					Descr:   method.Out,
+					Descr:   "Internal type ident: `" + method.Out + "`",
 					Content: map[string]yopenapi.Media{apisContentType: {Example: dummy_ret}},
 					Headers: map[string]yopenapi.Header{
 						yoctx.HttpResponseHeaderName_UserId: {Descr: "0 if not authenticated, else current user's ID", Content: map[string]yopenapi.Media{"text/plain": {Example: "123"}}},
@@ -243,6 +243,12 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 				},
 			},
 		}}
+		for http_status_code, errs := range sl.Grouped(api_method.KnownErrs(), func(it Err) string { return str.FromInt(it.HttpStatusCodeOr(500)) }) {
+			path.Post.Responses[http_status_code] = yopenapi.Resp{
+				Descr:   "foo",
+				Content: map[string]yopenapi.Media{"text/plain": {Examples: kv.FromKeys(errs, func(it Err) yopenapi.Example { return yopenapi.Example{Value: it} })}},
+			}
+		}
 		openapi.Paths["/"+method.Path] = path
 	}
 

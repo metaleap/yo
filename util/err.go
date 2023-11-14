@@ -28,6 +28,7 @@ var errSubstrToHttpStatusCode = map[string]int{
 
 func (me Err) Error() string  { return string(me) }
 func (me Err) String() string { return string(me) }
+func (me Err) AsAny() any     { return me }
 func (me Err) HttpStatusCodeOr(preferredDefault int) int {
 	for substr, code := range errSubstrToHttpStatusCode {
 		if str.Has(string(me), substr) {

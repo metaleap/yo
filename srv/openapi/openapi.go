@@ -60,7 +60,7 @@ type ReqBody struct {
 
 type Resp struct {
 	Descr   string            `json:"description"`
-	Headers map[string]Header `json:"headers"`
+	Headers map[string]Header `json:"headers,omitempty"`
 	Content map[string]Media  `json:"content"`
 }
 
@@ -72,7 +72,14 @@ type Header struct {
 }
 
 type Media struct {
-	Example any `json:"example"`
+	Example  any                `json:"example,omitempty"`
+	Examples map[string]Example `json:"examples,omitempty"`
+}
+
+type Example struct {
+	Summary string `json:"summary,omitempty"`
+	Descr   string `json:"description,omitempty"`
+	Value   any    `json:"value"`
 }
 
 var tyTime = reflect.TypeOf(time.Time{})

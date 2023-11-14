@@ -200,8 +200,8 @@ func FirstNonNil[T any](slice ...*T) *T {
 	return nil
 }
 
-func Grouped[TKey comparable, TItem any, TSlice ~[]TItem](slice TSlice, key func(TItem) TKey) (ret map[TKey]TSlice) {
-	ret = make(map[TKey]TSlice, len(slice)/2)
+func Grouped[TKey comparable, TItem any](slice Of[TItem], key func(TItem) TKey) (ret map[TKey]Of[TItem]) {
+	ret = make(map[TKey]Of[TItem], len(slice)/2)
 	for i := range slice {
 		key := key(slice[i])
 		ret[key] = append(ret[key], slice[i])
