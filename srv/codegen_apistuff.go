@@ -214,10 +214,11 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 		Info: yopenapi.Info{
 			Title: Cfg.YO_APP_DOMAIN, Version: time.Now().Format("06.__2"),
 			Descr: str.Repl(str.Replace(`
-**tl;dr:** mostly API calls will just-work as expected without knowing all the below notes (which elaborate mostly to-be-expected software-dev-commonplaces) — but in case of unexpected results or errors, they'll likely help.
-___
-This HTTP API has RPC rather than REST semantics. All operations are ´POST´, regardless of what CRUDs they might run (or not).
+This HTTP API has RPC rather than REST semantics: **all** operations are ´POST´, regardless of what CRUD writes or reads they might or might not effect.
 
+**tl;dr:** mostly **API calls will just-work as expected _without_ knowing all those intro notes** immediately below (which elaborate mostly to-be-expected software-dev-commonplaces),
+- but in any cases of unexpected results or errors, they'll likely help complete the mental picture.
+___
 Our backend stack's convention-over-configuration designs yield a few request/response rules that remain **always in effect across all listed operations**:
 - Whereas request and response bodies are operation-specific, all operations share the exact-same set of request headers, URL query-string parameters and response headers (albeit being elaborated here identically and redundantly for each individual operation).
 - Request bodies **must never** be empty or the JSON ´null´: the empty request body is the JSON ´{}´.
@@ -229,13 +230,13 @@ Our backend stack's convention-over-configuration designs yield a few request/re
   - Caution for some client languages: this means ´null´ for many-if-not-most empty JSON arrays (although ´[]´ is principally always just-as-possible) and empty JSON dictionary/hash-map "object"s (with either ´null´ or ´{}´ principally equally possible).
 - All JSON object field names begin with an upper-case character,
   - any example to the contrary indicates a "free-style" JSON dictionary/hash-map "object".
-- The ´Content-Length´ request header is **required for all** operations.
+- The ´Content-Length´ request header is **required for all** operations (with a correct value).
 - The ´Content-Type´ request header is optional, but if present, must be correct with regards to both the operation's specification and the request body.
 - Any ´multipart/form-data´ operations:
   - **always require** the following two form-fields: ´files´ for any binary file uploads, and ´_´ for the actual JSON request payload;
   - only the latter is elaborated in this doc, and always in the exact same way as done for all the ´application/json´ operations, **without** specifically mentioning the ´_´ form-field containing the ´text/plain´ of the full ´application/json´ request payload actually being elaborated here.
 
-How to read request/response example JSON values rendered in this doc:
+How to read request/response **example JSON values** rendered in this doc:
   - ´true´ indicates any ´boolean´ value, regardless of the actual real value in a call;
   - ´"someStr"´ indicates any ´string´ value;
   - signed-integer ´number´s are indicated by a negative-number example indicating the minimum (type-wise, not operation-specific) permissible value, with the maximum being the corresponding positive-number counterpart;
@@ -245,13 +246,17 @@ How to read request/response example JSON values rendered in this doc:
     - in responses, they're always UTC, whereas in requests, any timezone may be indicated;
 	- in requests, they may always be ´null´ (excepting any operation-specific known-errors indicating otherwise) but must never be ´""´ or otherwise non-RFC3339/ISO8601-parseable.
 
-More about error responses:
+About **error responses**:
 - All are ´text/plain´.
 - In addition to those listed in this doc (thrown by the service under the indicated conditions), other error responses are at all times entirely technically-possible and not exhaustively documentable (feasibly), such as eg. DB / file-system / network disruptions. Those caught by the service will be ´500´s, others (ie. from load-balancers / gateways / reverse-proxies etc. _in front of_ the service) might have _any_ HTTP status code whatsoever.
 - All the well-known (thrown rather than caught) errors listed here:
   - have their code-identifier-compatible (spaceless ASCII) enumerant-name as their entire text response, making all error responses inherently ´switch/case´able;
   - have been recursively determined by code-path walking. Among them are some that logically could not possibly ever occur for that operation, yet identifying those (to filter them out of the listing) is (so far) out of scope for our ´openapi.json´ generation.
 - Any non-known (caught rather than thrown) errors (not listed here) contain their original (usually human-language) error message fully, corresponding to the ´default´ in an error-handling ´switch/case´.
+- "Not Found" rules:
+  - ´404´ **only** for HTTP requests of non-existing API operations or non-existing static-file assets,
+  - ´400´ for operations where existence was definitely expected (such as some object's update identified by its ´Id´),
+  - ´200´ with response-body of JSON ´null´ for requests of the "fetch single/first object found for some specified criteria" kind (where the definite-existence expectation does not necessarily hold).
 		`, str.Dict{"´": "`"}), str.Dict{})},
 	}
 	openapi.Info.Contact.Name, openapi.Info.Contact.Url = "Permalink of "+filepath.Base(out_file_path), "https://"+Cfg.YO_APP_DOMAIN+"/"+StaticFilesDirName_App+"/"+filepath.Base(out_file_path)
