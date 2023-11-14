@@ -16,7 +16,8 @@ type Info struct {
 	Title   string `json:"title"`
 	Version string `json:"version"`
 	Contact struct {
-		Url string `json:"url"`
+		Name string `json:"name"`
+		Url  string `json:"url"`
 	} `json:"contact"`
 }
 
@@ -56,9 +57,10 @@ type Resp struct {
 }
 
 type Header struct {
-	Descr      string `json:"description,omitempty"`
-	Required   bool   `json:"required,omitempty"`
-	Deprecated bool   `json:"deprecated,omitempty"`
+	Descr      string           `json:"description,omitempty"`
+	Content    map[string]Media `json:"content"`
+	Required   bool             `json:"required,omitempty"`
+	Deprecated bool             `json:"deprecated,omitempty"`
 }
 
 type Media struct {

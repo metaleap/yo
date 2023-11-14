@@ -213,7 +213,7 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 		OpenApi: yopenapi.Version,
 		Paths:   map[string]yopenapi.Path{},
 	}
-	openapi.Info.Contact.Url = "https://" + Cfg.YO_APP_DOMAIN + "/" + StaticFilesDirName_App + "/" + filepath.Base(out_file_path)
+	openapi.Info.Contact.Name, openapi.Info.Contact.Url = "Permalink", "https://"+Cfg.YO_APP_DOMAIN+"/"+StaticFilesDirName_App+"/"+filepath.Base(out_file_path)
 
 	for _, method := range apiRefl.Methods {
 		api_method := api[method.Path]
@@ -226,12 +226,14 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 			ReqBody: yopenapi.ReqBody{
 				Required: true,
 				Descr:    method.In,
+				Content:  map[string]yopenapi.Media{apisContentType: {Example: struct{}{}}},
 			},
 			Responses: map[string]yopenapi.Resp{
 				"200": {
-					Descr: method.Out,
+					Descr:   method.Out,
+					Content: map[string]yopenapi.Media{apisContentType: {Example: struct{}{}}},
 					Headers: map[string]yopenapi.Header{
-						yoctx.HttpResponseHeaderName_UserEmailAddr: {Descr: "empty if not authenticated, else current user's account-identifying email address"},
+						yoctx.HttpResponseHeaderName_UserId: {Descr: "0 if not authenticated, else current user's ID", Content: map[string]yopenapi.Media{"text/plain": {Example: "123"}}},
 					},
 				},
 			},

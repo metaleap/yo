@@ -138,7 +138,7 @@ func httpSetUser(ctx *Ctx, jwtRaw string, knownToExist bool) {
 	}
 	ctx.Set(CtxKeyAuthId, user_auth_id)
 	ctx.Set(CtxKeyEmailAddr, user_email_addr)
-	ctx.Http.Resp.Header().Set(HttpResponseHeaderName_UserEmailAddr, user_email_addr)
+	ctx.Http.Resp.Header().Set(HttpResponseHeaderName_UserId, user_email_addr)
 	ctx.HttpSetCookie(Cfg.YO_AUTH_JWT_COOKIE_NAME, jwtRaw, Cfg.YO_AUTH_JWT_COOKIE_EXPIRY_DAYS)
 	if IsDevMode && (Cfg.YO_AUTH_JWT_COOKIE_EXPIRY_DAYS > 400) {
 		panic("illegal YO_AUTH_JWT_COOKIE_EXPIRY_DAYS for modern-browser cookie laws")
