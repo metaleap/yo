@@ -212,12 +212,19 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 		OpenApi: yopenapi.Version,
 		Paths:   map[string]yopenapi.Path{},
 		Info: yopenapi.Info{Title: Cfg.YO_APP_DOMAIN, Version: time.Now().Format("06.__2"), Descr: str.Replace(`
-Request/response rules and how to read their example renditions:
+Our convention-over-configuration designs yield a handful of request/response rules:
 - All request headers, URL query-string parameters and response headers are identical over the whole set of all operations. Only request and response bodies are operation-specific.
 - Request bodies **must never** be empty or the JSON ´null´: the empty request body is the JSON ´{}´.
 - Response bodies will never be empty, but may be the JSON ´null´.
 - All request fields are by default optional and ommittable / ´null´able, **any exceptions** to this are indicated by the operation's listed known-error responses.
-- Example values rendered in this doc:
+- The ´Content-Length´ request header is **required for all** operations.
+- The ´Content-Type´ request header is optional, but if present, must be correct with regards to both the operation's specification and the request body.
+- Any ´multipart/form-data´ operations:
+  - **always require** the following two form-fields: ´files´ for any binary file uploads, and ´_´ for the actual JSON request payload
+  - only the latter is elaborated in this doc, and always in the exact same way as done for all the ´application/json´ operations, **without** specifically mentioning the ´_´ form-field containing the ´text/plain´ of the full ´application/json´ request payload actually being elaborated here
+- All JSON object field names begin with an upper-case character, any example to the contrary indicates a "free-style" dictionary/hash-map "object".
+
+How to read request/response example JSON values rendered in this doc:
   - ´true´ indicates any ´boolean´ value, regardless of the actual real value in a call
   - ´"someStr"´ indicates any ´string´ value
   - date-time values are indicated by RFC3339-formatted ´string´ examples
@@ -227,9 +234,10 @@ Request/response rules and how to read their example renditions:
 
 More about error responses:
 - All are ´text/plain´.
-- In addition to those listed in this doc (thrown by the service under the indicated conditions), other error responses are always entirely possible and not exhaustively documentable feasibly (such as DB, file-system or network disruptions). Those caught by the service will be ´500´s, others (ie. from load-balancers / gateways / reverse-proxies etc. in front of the service) might have any HTTP status code.
-- The well-known error responses listed here have been recursively determined by code-path walking. Among them are some that logically could not possibly ever occur for that operation, yet identifying those (to filter them out of the listing) is (so far) out of scope for our ´openapi.json´ generation.
-- The well-known (thrown rather than caught) errors have their code-identifier-compatible (spaceless ASCII) enumerant-name as their entire text response, others preserve simply their original (usually human-language) error message fully. Hence, error responses are inherently ´switch/case´able.
+- In addition to those listed in this doc (thrown by the service under the indicated conditions), other error responses are at all times entirely technically-possible and not exhaustively documentable (feasibly), such as eg. DB / file-system / network disruptions. Those caught by the service will be ´500´s, others (ie. from load-balancers / gateways / reverse-proxies etc. _in front of_ the service) might have _any_ HTTP status code whatsoever.
+- All the well-known (thrown rather than caught) errors listed here:
+  - have their code-identifier-compatible (spaceless ASCII) enumerant-name as their entire text response. Any others preserve simply their original (usually human-language) error message fully. Hence, error responses are inherently ´switch/case´able
+  - have been recursively determined by code-path walking. Among them are some that logically could not possibly ever occur for that operation, yet identifying those (to filter them out of the listing) is (so far) out of scope for our ´openapi.json´ generation
 		`, str.Dict{"´": "`"})},
 	}
 	openapi.Info.Contact.Name, openapi.Info.Contact.Url = "Permalink", "https://"+Cfg.YO_APP_DOMAIN+"/"+StaticFilesDirName_App+"/"+filepath.Base(out_file_path)
@@ -250,12 +258,12 @@ More about error responses:
 			ReqBody: yopenapi.ReqBody{
 				Required: true,
 				Descr:    "Internal type ident: `" + method.In + "`",
-				Content:  map[string]yopenapi.Media{apisContentType: {Example: dummy_arg}},
+				Content:  map[string]yopenapi.Media{apisContentType_Json: {Example: dummy_arg}},
 			},
 			Responses: map[string]yopenapi.Resp{
 				"200": {
 					Descr:   "Internal type ident: `" + method.Out + "`",
-					Content: map[string]yopenapi.Media{apisContentType: {Example: dummy_ret}},
+					Content: map[string]yopenapi.Media{apisContentType_Json: {Example: dummy_ret}},
 					Headers: map[string]yopenapi.Header{
 						yoctx.HttpResponseHeaderName_UserId: {Descr: "0 if not authenticated, else current user's ID", Content: map[string]yopenapi.Media{"text/plain": {Example: "123"}}},
 					},
@@ -267,7 +275,15 @@ More about error responses:
 			path.Post.Responses[http_status_code] = yopenapi.Resp{
 				Descr:   "Possible `text/plain` responses:\n- `" + str.Join(str_errs, "`\n- `") + "`",
 				Content: map[string]yopenapi.Media{"text/plain": {Examples: kv.FromKeys(str_errs, func(it string) yopenapi.Example { return yopenapi.Example{Value: it} })}},
+				Headers: map[string]yopenapi.Header{},
 			}
+		}
+		for http_status_code := range path.Post.Responses {
+			resp := path.Post.Responses[http_status_code]
+			for header_name, header_value := range apiStdRespHeaders {
+				resp.Headers[header_name] = yopenapi.Header{Descr: "always `" + header_value + "`", Content: map[string]yopenapi.Media{"text/plain": {Example: header_value}}}
+			}
+			path.Post.Responses[http_status_code] = resp
 		}
 		openapi.Paths["/"+method.Path] = path
 	}

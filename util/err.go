@@ -6,12 +6,12 @@ type Err string
 
 var errSubstrToHttpStatusCode = map[string]int{
 	"DoesNotExist":  400, // no 404 wanted for those, there's NotFound below for that
-	"ContentLength": 400,
 	"WrongPassword": 401,
 	"MustBeAdmin":   401,
 	"Unauthorized":  403,
 	"Forbidden":     403,
 	"NotFound":      404,
+	"ContentLength": 406,
 	"AlreadyExists": 409,
 	"Required":      422,
 	"Expected":      422,

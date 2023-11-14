@@ -19,17 +19,19 @@ const (
 	QueryArgNoCtxPrt                       = "yoNoCtxPrt"
 	ErrUnauthorized                    Err = "Unauthorized"
 	ErrMissingOrExcessiveContentLength Err = "MissingOrExcessiveContentLength"
+	ErrInvalidContentType              Err = "InvalidContentType"
 	yoAdminApisUrlPrefix                   = "__/yo/"
-	apisContentType                        = "application/json"
+	apisContentType_Json                   = "application/json"
+	apisContentType_Multipart              = "multipart/form-data"
 )
 
 var (
 	api          = ApiMethods{}
 	KnownErrSets = map[string][]Err{
-		"": {ErrTimedOut, ErrMissingOrExcessiveContentLength},
+		"": {ErrTimedOut, ErrMissingOrExcessiveContentLength, ErrInvalidContentType},
 	}
 	ErrsNoPrefix  = errsNoCodegen
-	errsNoCodegen = []Err{ErrTimedOut, ErrMissingOrExcessiveContentLength, ErrUnauthorized, ErrDbUpdExpectedIdGt0, ErrMustBeAdmin}
+	errsNoCodegen = []Err{ErrTimedOut, ErrMissingOrExcessiveContentLength, ErrInvalidContentType, ErrUnauthorized, ErrDbUpdExpectedIdGt0, ErrMustBeAdmin}
 )
 
 type ApiMethods map[string]ApiMethod
@@ -270,8 +272,14 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 
 	max_payload_size := (1024 * 1024 * int64(If(!api_method.isMultipartForm(), Cfg.YO_API_MAX_REQ_CONTENTLENGTH_MB, Cfg.YO_API_MAX_REQ_MULTIPART_LENGTH_MB)))
 	if (ctx.Http.Req.ContentLength < 0) || (ctx.Http.Req.ContentLength > max_payload_size) {
-		ctx.HttpErr(406, string(ErrMissingOrExcessiveContentLength))
+		ctx.HttpErr(ErrMissingOrExcessiveContentLength.HttpStatusCodeOr(500), string(ErrMissingOrExcessiveContentLength))
 		return
+	}
+	if req_content_type := ctx.Http.Req.Header.Get("Content-Type"); req_content_type != "" {
+		if req_content_type != If(api_method.isMultipartForm(), apisContentType_Multipart, apisContentType_Json) {
+			ctx.HttpErr(ErrInvalidContentType.HttpStatusCodeOr(500), string(ErrInvalidContentType))
+			return
+		}
 	}
 
 	var payload_data []byte

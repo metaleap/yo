@@ -39,7 +39,7 @@ var (
 
 	// requests to key+'/' will be served from the corresponding FS
 	apiStdRespHeaders = str.Dict{
-		"Content-Type":           apisContentType,
+		"Content-Type":           apisContentType_Json,
 		"X-Content-Type-Options": "nosniff",
 		"Cache-Control":          "no-store",
 	}
