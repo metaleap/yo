@@ -280,12 +280,12 @@ About **error responses**:
 			},
 			ReqBody: yopenapi.ReqBody{
 				Required: true,
-				Descr:    "Type ident: `" + method.In + "`",
-				Content:  map[string]yopenapi.Media{apisContentType_Json: {Example: dummy_arg}},
+				Descr:    "type moniker suggestion: `" + method.In + "`",
+				Content:  map[string]yopenapi.Media{If(api_method.isMultipartForm(), apisContentType_Multipart, apisContentType_Json): {Example: dummy_arg}},
 			},
 			Responses: map[string]yopenapi.Resp{
 				"200": {
-					Descr:   "Type ident: `" + method.Out + "`",
+					Descr:   "type moniker suggestion: `" + method.Out + "`",
 					Content: map[string]yopenapi.Media{apisContentType_Json: {Example: dummy_ret}},
 					Headers: map[string]yopenapi.Header{
 						yoctx.HttpResponseHeaderName_UserId: {Descr: "`0` if not authenticated, else current `User`'s `Id`", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: "123"}}},
@@ -293,6 +293,18 @@ About **error responses**:
 				},
 			},
 		}}
+		if api_method.isMultipartForm() {
+			type_ident_hint := path.Post.ReqBody.Descr
+			path.Post.ReqBody.Descr = str.Repl(str.Replace(`´{ctype_multipart}´ form-fields:
+1. binary file uploads in form field ´files´, and
+2. ´{ctype_json}´ request payload as ´{ctype_text}´ in form field ´_´, as elaborated in this example ({type_ident_hint})
+			`, str.Dict{"´": "`"}), str.Dict{
+				"ctype_multipart": apisContentType_Multipart,
+				"ctype_json":      apisContentType_Json,
+				"ctype_text":      yoctx.MimeTypePlainText,
+				"type_ident_hint": type_ident_hint,
+			})
+		}
 		for http_status_code, errs := range sl.Grouped(api_method.KnownErrs(), func(it Err) string { return str.FromInt(it.HttpStatusCodeOr(500)) }) {
 			str_errs := sl.As(errs, Err.String)
 			path.Post.Responses[http_status_code] = yopenapi.Resp{
