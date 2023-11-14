@@ -216,29 +216,28 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 			Descr: str.Repl(str.Replace(`
 This HTTP API has RPC rather than REST semantics: **all** operations are ´POST´, regardless of what CRUD writes or reads they might or might not effect.
 
-**tl;dr:** mostly **API calls will just-work as expected _without_ knowing all those intro notes** immediately below (which elaborate mostly to-be-expected software-dev-commonplaces),
-- but in any cases of unexpected results or errors, they'll likely help complete the mental picture.
+**tl;dr:** **usually, API requests will just-work as expected _without_ knowing all those intro notes right below** (which elaborate mostly to-be-expected software-dev-commonplaces) — but in any cases of unexpected results or errors, they'll likely help complete the mental picture.
 ___
-Our backend stack's convention-over-configuration designs yield a few request/response rules that remain **always in effect across all listed operations**:
+Our backend stack's "opinionated convention-over-configuration" designs yield a few request/response rules that predictably remain **always in effect across all listed operations**:
 - Whereas request and response bodies are operation-specific, all operations share the exact-same set of request headers, URL query-string parameters and response headers (albeit being elaborated here identically and redundantly for each individual operation).
-- Request bodies **must never** be empty or the JSON ´null´: the empty request body is the JSON ´{}´.
+- The empty request body is principally the JSON ´{}´, but fully-empty or JSON ´null´ request bodies are interpreted equivalently.
 - Response bodies will never be empty, but may be the JSON ´null´.
 - Request and response bodies are always valid JSON values for _JSON objects_, ie. they're never immediately JSON arrays, ´string´s, ´number´s, or ´boolean´s.
-- All mentioned request-object (and sub-object) fields are **by default optional** and ommittable / ´null´able,
-  - **any exceptions** to this are indicated by the operation's listed known-error responses.
+- All mentioned request-object (and sub-object) fields are **by default optional** and ommittable or ´null´able (implying for atomic types semantic equivalence to ´""´ or ´0´ or ´false´ as per _Golang_ type-system semantics),
+  - **any exceptions** to this optionality-by-default are indicated by the operation's listed known-error responses.
 - All mentioned response-object (and sub-object) fields will always be present in the response-body, indicating their default-ness / missing-ness via ´null´ or ´""´ or ´0´ or ´false´ as per _Golang_ type-system semantics.
-  - Caution for some client languages: this means ´null´ for many-if-not-most empty JSON arrays (although ´[]´ is principally always just-as-possible) and empty JSON dictionary/hash-map "object"s (with either ´null´ or ´{}´ principally equally possible).
-- All JSON object field names begin with an upper-case character,
-  - any example to the contrary indicates a "free-style" JSON dictionary/hash-map "object".
+  - Caution for some client languages: this means ´null´ for some-but-not-all empty JSON arrays (with ´[]´ being principally always just-as-possible) and empty JSON dictionary/hash-map "object"s (with either ´null´ or ´{}´ being principally equally possible).
+- All JSON (non-dictionary/non-hash-map) object field names begin with an upper-case character,
+  - any operation-specific example rendered to the contrary indicates a "free-style" JSON dictionary/hash-map "object".
 - The ´Content-Length´ request header is **required for all** operations (with a correct value).
 - The ´Content-Type´ request header is optional, but if present, must be correct with regards to both the operation's specification and the request body.
-- Any ´multipart/form-data´ operations:
-  - **always require** the following two form-fields: ´files´ for any binary file uploads, and ´_´ for the actual JSON request payload;
-  - only the latter is elaborated in this doc, and always in the exact same way as done for all the ´application/json´ operations, **without** specifically mentioning the ´_´ form-field containing the ´text/plain´ of the full ´application/json´ request payload actually being elaborated here.
+- Any ´{ctype_multipart}´ operations:
+  - **always require** the following two form-fields, ignoring all others: ´files´ for any binary file uploads, and ´_´ for the actual JSON request payload;
+  - only the ´_´ field value is further elaborated for any such operation in this doc, and always in the exact same way as also done in this doc for all the ´{ctype_json}´ operations' request bodies (**without** specifically mentioning the ´_´ form-field containing the ´{ctype_text}´ of the full ´{ctype_json}´ request payload actually being elaborated there).
 
 How to read request/response **example JSON values** rendered in this doc:
-  - ´true´ indicates any ´boolean´ value, regardless of the actual real value in a call;
-  - ´"someStr"´ indicates any ´string´ value;
+  - ´true´ indicates _any_ ´boolean´ value, regardless of the actual real value in a call;
+  - ´"someStr"´ indicates _any_ ´string´ value;
   - signed-integer ´number´s are indicated by a negative-number example indicating the minimum (type-wise, not operation-specific) permissible value, with the maximum being the corresponding positive-number counterpart;
   - unsigned-integer ´number´s are indicated by a positive-number example indicating the maximum (type-wise, not not operation-specific) permissible value, with the minimum being ´0´;
   - floating-point ´number´s are indicated by a positive-number example indicating the maximum (type-wise, not not operation-specific) permissible value, with the minimum being the corresponding negative-number counterpart.
@@ -247,17 +246,22 @@ How to read request/response **example JSON values** rendered in this doc:
 	- in requests, they may always be ´null´ (excepting any operation-specific known-errors indicating otherwise) but must never be ´""´ or otherwise non-RFC3339/ISO8601-parseable.
 
 About **error responses**:
-- All are ´text/plain´.
-- In addition to those listed in this doc (thrown by the service under the indicated conditions), other error responses are at all times entirely technically-possible and not exhaustively documentable (feasibly), such as eg. DB / file-system / network disruptions. Those caught by the service will be ´500´s, others (ie. from load-balancers / gateways / reverse-proxies etc. _in front of_ the service) might have _any_ HTTP status code whatsoever.
+- All are ´{ctype_text}´.
+- In addition to those listed in this doc (thrown by the service under the indicated conditions), other error responses are at all times entirely technically-possible and not exhaustively documentable (feasibly), such as eg. DB / file-system / network disruptions. Those caught by the service will be ´500´s, others (ie. from load-balancers / gateways / reverse-proxies etc. _in front of_ the service) might use _any_ HTTP status code whatsoever.
 - All the well-known (thrown rather than caught) errors listed here:
   - have their code-identifier-compatible (spaceless ASCII) enumerant-name as their entire text response, making all error responses inherently ´switch/case´able;
-  - have been recursively determined by code-path walking. Among them are some that logically could not possibly ever occur for that operation, yet identifying those (to filter them out of the listing) is (so far) out of scope for our ´openapi.json´ generation.
+  - have been recursively determined by code-path walking. Among them are some that logically could not possibly ever occur for that operation, yet identifying those (to filter them out of the listing) is (so far) out of scope for our current ´{spec_file_name}´ spec generator. (In case of serious need, do let us know!)
 - Any non-known (caught rather than thrown) errors (not listed here) contain their original (usually human-language) error message fully, corresponding to the ´default´ in an error-handling ´switch/case´.
-- "Not Found" rules:
-  - ´404´ **only** for HTTP requests of non-existing API operations or non-existing static-file assets,
-  - ´400´ for operations where existence was definitely expected (such as some object's update identified by its ´Id´),
-  - ´200´ with response-body of JSON ´null´ for requests of the "fetch single/first object found for some specified criteria" kind (where the definite-existence expectation does not necessarily hold).
-		`, str.Dict{"´": "`"}), str.Dict{})},
+- **"Not Found" rules:**
+  - ´406´ with approx. ´FooDoesNotExist´ (see per-operation known-error-responses listings for exact monikers) — for operations where existence was definitely critically expected (such as modifying some object identified by its ´Id´),
+  - ´200´ with response-body of usually JSON ´null´ (exception: an operation-specific response object with a field name obviously indicating not-found-ness) — for operations where the definite-existence expectation does not hold as crucially (for example those of the "fetch single/first object found for some specified criteria" kind),
+  - ´404´ for HTTP requests with definitely-unroutable URL paths (ie. "no such API operation or static-file asset or sub-site or etc.") **only**.
+		`, str.Dict{"´": "`"}), str.Dict{
+				"spec_file_name":  filepath.Base(out_file_path),
+				"ctype_multipart": apisContentType_Multipart,
+				"ctype_json":      apisContentType_Json,
+				"ctype_text":      yoctx.MimeTypePlainText,
+			})},
 	}
 	openapi.Info.Contact.Name, openapi.Info.Contact.Url = "Permalink of "+filepath.Base(out_file_path), "https://"+Cfg.YO_APP_DOMAIN+"/"+StaticFilesDirName_App+"/"+filepath.Base(out_file_path)
 
@@ -271,8 +275,8 @@ About **error responses**:
 		path := yopenapi.Path{Post: yopenapi.Op{
 			Id: api_method.methodNameUp0(),
 			Params: []yopenapi.Param{
-				{Name: QueryArgForceFail, In: "query", Descr: "optional: if not missing or empty, enforces an early error response (prior to any request parsing or handling) with the specified HTTP status code or 500 (eg. for client-side unit-test cases of error-handling)", Content: map[string]yopenapi.Media{"text/plain": {Example: ""}}},
-				{Name: QueryArgValidateOnly, In: "query", Descr: "optional: if not missing or empty, enforces request-validation-only, with no further actual work performed to produce results and/or effects", Content: map[string]yopenapi.Media{"text/plain": {Example: ""}}},
+				{Name: QueryArgForceFail, In: "query", Descr: "optional: if not missing or empty, enforces an early error response (prior to any request parsing or handling) with the specified HTTP status code or 500 (eg. for client-side unit-test cases of error-handling)", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: ""}}},
+				{Name: QueryArgValidateOnly, In: "query", Descr: "optional: if not missing or empty, enforces request-validation-only, with no further actual work performed to produce results and/or effects", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: ""}}},
 			},
 			ReqBody: yopenapi.ReqBody{
 				Required: true,
@@ -284,7 +288,7 @@ About **error responses**:
 					Descr:   "Type ident: `" + method.Out + "`",
 					Content: map[string]yopenapi.Media{apisContentType_Json: {Example: dummy_ret}},
 					Headers: map[string]yopenapi.Header{
-						yoctx.HttpResponseHeaderName_UserId: {Descr: "`0` if not authenticated, else current `User`'s `Id`", Content: map[string]yopenapi.Media{"text/plain": {Example: "123"}}},
+						yoctx.HttpResponseHeaderName_UserId: {Descr: "`0` if not authenticated, else current `User`'s `Id`", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: "123"}}},
 					},
 				},
 			},
@@ -292,8 +296,8 @@ About **error responses**:
 		for http_status_code, errs := range sl.Grouped(api_method.KnownErrs(), func(it Err) string { return str.FromInt(it.HttpStatusCodeOr(500)) }) {
 			str_errs := sl.As(errs, Err.String)
 			path.Post.Responses[http_status_code] = yopenapi.Resp{
-				Descr:   "Possible `text/plain` responses:\n- `" + str.Join(str_errs, "`\n- `") + "`",
-				Content: map[string]yopenapi.Media{"text/plain": {Examples: kv.FromKeys(str_errs, func(it string) yopenapi.Example { return yopenapi.Example{Value: it} })}},
+				Descr:   "Possible `" + yoctx.MimeTypePlainText + "` responses:\n- `" + str.Join(str_errs, "`\n- `") + "`",
+				Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Examples: kv.FromKeys(str_errs, func(it string) yopenapi.Example { return yopenapi.Example{Value: it} })}},
 				Headers: map[string]yopenapi.Header{},
 			}
 		}
@@ -301,8 +305,8 @@ About **error responses**:
 			resp := path.Post.Responses[http_status_code]
 			for header_name, header_value := range apisStdRespHeaders {
 				resp.Headers[header_name] = yopenapi.Header{Descr: "always `" +
-					If((header_name == "Content-Type") && (http_status_code != "200"), "text/plain", header_value) +
-					"`", Content: map[string]yopenapi.Media{"text/plain": {Example: header_value}}}
+					If((header_name == "Content-Type") && (http_status_code != "200"), yoctx.MimeTypePlainText, header_value) +
+					"`", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: header_value}}}
 			}
 			path.Post.Responses[http_status_code] = resp
 		}

@@ -86,7 +86,7 @@ func composeMimeMail(subject string, body string) []byte {
 	for k, v := range (str.Dict{
 		"Subject":                   subject,
 		"MIME-Version":              "1.0",
-		"Content-Type":              "text/plain; charset=\"utf-8\"",
+		"Content-Type":              MimeTypePlainText + "; charset=\"utf-8\"",
 		"Content-Transfer-Encoding": "base64",
 	}) {
 		raw_msg += k + ": " + v + "\r\n"

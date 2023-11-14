@@ -23,6 +23,7 @@ const (
 	CtxKeyForcedTestUser          = "yoUserTest" // handled only with IsDevMode==true
 	CtxKeyDbNoLogging             = "yoCtxDbNoLogging"
 	HttpResponseHeaderName_UserId = "X-Yo-User"
+	MimeTypePlainText             = "text/plain"
 )
 
 var (
