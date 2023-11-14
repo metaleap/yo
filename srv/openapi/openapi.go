@@ -7,7 +7,9 @@ import (
 	"reflect"
 	"time"
 
+	. "yo/cfg"
 	. "yo/util"
+	"yo/util/str"
 )
 
 // yoValiOnly yoFail
@@ -22,6 +24,8 @@ type OpenApi struct {
 
 type Info struct {
 	Title   string `json:"title"`
+	Summary string `json:"summary,omitempty"`
+	Descr   string `json:"description,omitempty"`
 	Version string `json:"version"`
 	Contact struct {
 		Name string `json:"name"`
@@ -84,7 +88,8 @@ type Example struct {
 
 var tyTime = reflect.TypeOf(time.Time{})
 
-func dummyOf(ty reflect.Type, level int, typesDone map[reflect.Type]bool) reflect.Value {
+// TODO: type-recursion-safety
+func dummyOf(ty reflect.Type, level int) reflect.Value {
 	dummy_ptr := func(dummy reflect.Value) reflect.Value {
 		alloc := reflect.New(dummy.Type())
 		alloc.Elem().Set(dummy)
@@ -92,7 +97,7 @@ func dummyOf(ty reflect.Type, level int, typesDone map[reflect.Type]bool) reflec
 	}
 
 	if ty.Kind() == reflect.Pointer {
-		return dummyOf(ty.Elem(), level, typesDone)
+		return dummyOf(ty.Elem(), level)
 	}
 	if ty.ConvertibleTo(tyTime) || tyTime.ConvertibleTo(ty) || ty.AssignableTo(tyTime) || tyTime.AssignableTo(ty) {
 		return reflect.ValueOf(time.Now()).Convert(ty)
@@ -131,7 +136,7 @@ func dummyOf(ty reflect.Type, level int, typesDone map[reflect.Type]bool) reflec
 	case reflect.Slice:
 		dummy = reflect.MakeSlice(ty, 0, 1)
 		ty_item := ty.Elem()
-		append_item := dummyOf(ty_item, level+1, typesDone)
+		append_item := dummyOf(ty_item, level+1)
 		if ty_item.Kind() == reflect.Pointer {
 			append_item = dummy_ptr(append_item)
 		}
@@ -139,18 +144,23 @@ func dummyOf(ty reflect.Type, level int, typesDone map[reflect.Type]bool) reflec
 	case reflect.Map:
 		dummy = reflect.MakeMap(ty)
 		ty_item := ty.Elem()
-		append_item := dummyOf(ty_item, level+1, typesDone)
+		append_item := dummyOf(ty_item, level+1)
 		if ty_item.Kind() == reflect.Pointer {
 			append_item = dummy_ptr(append_item)
 		}
-		dummy.SetMapIndex(reflect.ValueOf("someKey"), append_item)
+		dummy.SetMapIndex(reflect.ValueOf("someMapKey1"), append_item)
+		dummy.SetMapIndex(reflect.ValueOf("some_map_key_2"), append_item)
 	case reflect.Struct:
 		for i := 0; i < ty.NumField(); i++ {
 			field := ty.Field(i)
 			if !field.IsExported() {
 				continue
 			}
-			field_dummy := dummyOf(field.Type, level+1, typesDone)
+			if str.Has(str.Lo(field.Name), "password") {
+				dummy.Field(i).Set(reflect.ValueOf("lenOfMin" + str.FromInt(Cfg.YO_AUTH_PWD_MIN_LEN) + "AndMax" + str.FromInt(Cfg.YO_AUTH_PWD_MAX_LEN)))
+				continue
+			}
+			field_dummy := dummyOf(field.Type, level+1)
 			if field.Type.Kind() == reflect.Pointer && field_dummy.Kind() != reflect.Pointer {
 				field_dummy = dummy_ptr(field_dummy)
 			}
@@ -159,10 +169,9 @@ func dummyOf(ty reflect.Type, level int, typesDone map[reflect.Type]bool) reflec
 			}
 		}
 	}
-
 	return dummy
 }
 
 func DummyOf(ty reflect.Type) any {
-	return dummyOf(ty, 0, map[reflect.Type]bool{}).Interface()
+	return dummyOf(ty, 0).Interface()
 }

@@ -18,16 +18,16 @@ func Fill[K comparable, V any](dst map[K]V, from map[K]V) map[K]V {
 	return dst
 }
 
-func FromKeys[K comparable, V any](keys []K, value func(K) V) map[K]V {
-	ret := make(map[K]V, len(keys))
+func FromKeys[TKey comparable, TVal any](keys []TKey, value func(TKey) TVal) map[TKey]TVal {
+	ret := make(map[TKey]TVal, len(keys))
 	for _, key := range keys {
 		ret[key] = value(key)
 	}
 	return ret
 }
 
-func FromValues[K comparable, V any](values []V, key func(V) K) map[K]V {
-	ret := make(map[K]V, len(values))
+func FromValues[TKey comparable, TVal any](values []TVal, key func(TVal) TKey) map[TKey]TVal {
+	ret := make(map[TKey]TVal, len(values))
 	for _, val := range values {
 		ret[key(val)] = val
 	}

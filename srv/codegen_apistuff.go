@@ -209,9 +209,28 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 	out_file_path := curMainStaticDirPath_App + "/openapi.json"
 
 	openapi := yopenapi.OpenApi{
-		Info:    yopenapi.Info{Title: Cfg.YO_APP_DOMAIN, Version: time.Now().Format("06.__2")},
 		OpenApi: yopenapi.Version,
 		Paths:   map[string]yopenapi.Path{},
+		Info: yopenapi.Info{Title: Cfg.YO_APP_DOMAIN, Version: time.Now().Format("06.__2"), Descr: str.Replace(`
+Request/response rules and how to read their example renditions:
+- All request headers, URL query-string parameters and response headers are identical over the whole set of all operations. Only request and response bodies are operation-specific.
+- Request bodies **must never** be empty or the JSON ´null´: the empty request body is the JSON ´{}´.
+- Response bodies will never be empty, but may be the JSON ´null´.
+- All request fields are by default optional and ommittable / ´null´able, **any exceptions** to this are indicated by the operation's listed known-error responses.
+- Example values rendered in this doc:
+  - ´true´ indicates any ´boolean´ value, regardless of the actual real value in a call
+  - ´"someStr"´ indicates any ´string´ value
+  - date-time values are indicated by RFC3339-formatted ´string´ examples
+  - signed-integer ´number´s are indicated by a negative-number example indicating the minimum (type-wise, not operation-specific) permissible value, with the maximum being the corresponding positive-number counterpart
+  - unsigned-integer ´number´s are indicated by a positive-number example indicating the maximum (type-wise, not not operation-specific) permissible value, with the minimum being ´0´
+  - floating-point ´number´s are indicated by a positive-number example indicating the maximum (type-wise, not not operation-specific) permissible value, with the minimum being the corresponding negative-number counterpart
+
+More about error responses:
+- All are ´text/plain´.
+- In addition to those listed in this doc (thrown by the service under the indicated conditions), other error responses are always entirely possible and not exhaustively documentable feasibly (such as DB, file-system or network disruptions). Those caught by the service will be ´500´s, others (ie. from load-balancers / gateways / reverse-proxies etc. in front of the service) might have any HTTP status code.
+- The well-known error responses listed here have been recursively determined by code-path walking. Among them are some that logically could not possibly ever occur for that operation, yet identifying those (to filter them out of the listing) is (so far) out of scope for our ´openapi.json´ generation.
+- The well-known (thrown rather than caught) errors have their code-identifier-compatible (spaceless ASCII) enumerant-name as their entire text response, others preserve simply their original (usually human-language) error message fully. Hence, error responses are inherently ´switch/case´able.
+		`, str.Dict{"´": "`"})},
 	}
 	openapi.Info.Contact.Name, openapi.Info.Contact.Url = "Permalink", "https://"+Cfg.YO_APP_DOMAIN+"/"+StaticFilesDirName_App+"/"+filepath.Base(out_file_path)
 
@@ -244,9 +263,10 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 			},
 		}}
 		for http_status_code, errs := range sl.Grouped(api_method.KnownErrs(), func(it Err) string { return str.FromInt(it.HttpStatusCodeOr(500)) }) {
+			str_errs := sl.As(errs, Err.String)
 			path.Post.Responses[http_status_code] = yopenapi.Resp{
-				Descr:   "foo",
-				Content: map[string]yopenapi.Media{"text/plain": {Examples: kv.FromKeys(errs, func(it Err) yopenapi.Example { return yopenapi.Example{Value: it} })}},
+				Descr:   "Possible `text/plain` responses:\n- `" + str.Join(str_errs, "`\n- `") + "`",
+				Content: map[string]yopenapi.Media{"text/plain": {Examples: kv.FromKeys(str_errs, func(it string) yopenapi.Example { return yopenapi.Example{Value: it} })}},
 			}
 		}
 		openapi.Paths["/"+method.Path] = path
