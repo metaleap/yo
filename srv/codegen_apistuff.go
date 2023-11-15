@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"time"
 
 	. "yo/cfg"
@@ -115,6 +116,12 @@ func init() {
 		codegenGo(&api_refl)
 		_ = codegenTsSdk(&api_refl)
 		_ = codegenOpenApi(&api_refl)
+		yopenapi.Enumerants = func(ty reflect.Type) (ret []string) {
+			if ret = apiReflAllEnums[ty.Name()]; len(ret) == 0 {
+				ret = apiReflAllEnums[ty.String()]
+			}
+			return
+		}
 	}
 }
 
@@ -248,9 +255,9 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 	}
 
 	for _, method := range apiRefl.Methods {
-		if str.Begins(method.Path, yoAdminApisUrlPrefix) {
-			continue
-		}
+		// if str.Begins(method.Path, yoAdminApisUrlPrefix) {
+		// 	continue
+		// }
 		api_method := api[method.Path]
 		ty_arg, ty_ret := api_method.reflTypes()
 		schema_key_arg, schema_key_ret := openapi.EnsureSchemaModel(ty_arg), openapi.EnsureSchemaModel(ty_ret)

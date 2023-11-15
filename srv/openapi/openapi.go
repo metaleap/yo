@@ -12,10 +12,10 @@ import (
 	"yo/util/str"
 )
 
-// yoValiOnly yoFail
-
-const JsMaxNum = 9007199254740991
 const Version = "3.1.0"
+const JsMaxNum = 9007199254740991
+
+var Enumerants func(ty reflect.Type) []string
 
 type OpenApi struct {
 	OpenApi    string          `json:"openapi"`
@@ -117,6 +117,7 @@ type SchemaField struct {
 	FMax   *float64               `json:"exclusiveMaximum,omitempty"`
 	SMin   int                    `json:"minLength,omitempty"`
 	SMax   int                    `json:"maxLength,omitempty"`
+	SPat   string                 `json:"regex,omitempty"`
 	ArrOf  *SchemaField           `json:"items,omitempty"`
 	Map    *SchemaField           `json:"additionalProperties,omitempty"`
 }
@@ -200,6 +201,10 @@ func (me *OpenApi) schemaField(ty reflect.Type) SchemaField {
 						schema_field.Format, schema_field.SMin, schema_field.SMax = "email", 5, 255
 					case str.Has(field_name_lo, "password"):
 						schema_field.Format, schema_field.SMin, schema_field.SMax = "password", Cfg.YO_AUTH_PWD_MIN_LEN, Cfg.YO_AUTH_PWD_MAX_LEN
+					case (Enumerants != nil):
+						if enumerants := Enumerants(ty_field); len(enumerants) > 0 {
+							schema_field.SPat = str.Join(enumerants, "|")
+						}
 					}
 				}
 			}

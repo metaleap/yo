@@ -130,7 +130,7 @@ func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string)
 		return type_ident
 	}
 	if rt_kind == reflect.String {
-		if enum_type_name := apiReflEnum(it, rt, type_ident); enum_type_name != "" {
+		if enum_type_name := apiReflEnum(it, type_ident); enum_type_name != "" {
 			return enum_type_name
 		}
 	}
@@ -176,7 +176,7 @@ func apiReflType(it *apiReflect, rt reflect.Type, fldName string, parent string)
 	return type_ident
 }
 
-func apiReflEnum(it *apiReflect, rt reflect.Type, typeIdent string) string {
+func apiReflEnum(it *apiReflect, typeIdent string) string {
 	if !str.IsPrtAscii(typeIdent) {
 		panic("not printable ASCII: '" + typeIdent + "'")
 	}
