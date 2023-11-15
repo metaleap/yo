@@ -17,9 +17,12 @@ import (
 const Version = "3.1.0"
 
 type OpenApi struct {
-	OpenApi string          `json:"openapi"`
-	Info    Info            `json:"info"`
-	Paths   map[string]Path `json:"paths"`
+	OpenApi    string          `json:"openapi"`
+	Info       Info            `json:"info"`
+	Paths      map[string]Path `json:"paths"`
+	Components struct {
+		Schemas map[string]SchemaModel `json:"schemas"`
+	} `json:"components"`
 }
 
 type Info struct {
@@ -84,6 +87,21 @@ type Example struct {
 	Summary string `json:"summary,omitempty"`
 	Descr   string `json:"description,omitempty"`
 	Value   any    `json:"value"`
+}
+
+type SchemaModel struct {
+	Descr   string                 `json:"description,omitempty"`
+	Type    string                 `json:"type"` // object
+	Fields  map[string]SchemaField `json:"properties"`
+	Example any                    `json:"example,omitempty"`
+}
+
+type SchemaField struct {
+	Type   []string     `json:"type,omitempty"`
+	Format string       `json:"format,omitempty"`
+	ArrOf  *SchemaField `json:"items,omitempty"`
+	Ref    string       `json:"$ref,omitempty"`
+	Map    *SchemaField `json:"additionalProperties,omitempty"`
 }
 
 // TODO: type-recursion-safety

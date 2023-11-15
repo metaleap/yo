@@ -220,7 +220,7 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 				"ctype_text":      yoctx.MimeTypePlainText,
 			})},
 	}
-	openapi.Info.Contact.Name, openapi.Info.Contact.Url = "Permalink of "+filepath.Base(out_file_path), "https://"+Cfg.YO_APP_DOMAIN+"/"+StaticFilesDirName_App+"/"+filepath.Base(out_file_path)
+	openapi.Info.Contact.Name, openapi.Info.Contact.Url, openapi.Components.Schemas = "Permalink of "+filepath.Base(out_file_path), "https://"+Cfg.YO_APP_DOMAIN+"/"+StaticFilesDirName_App+"/"+filepath.Base(out_file_path), map[string]yopenapi.SchemaModel{}
 
 	for _, method := range apiRefl.Methods {
 		if str.Begins(method.Path, yoAdminApisUrlPrefix) {
