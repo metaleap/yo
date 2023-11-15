@@ -236,7 +236,7 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 			}
 		} else {
 			openapi.Components.Headers[ctype] = yopenapi.Header{
-				Descr: "always `" + apisContentType_Json + "` if `200` OK response, else always `" + yoctx.MimeTypePlainText + "`",
+				Descr: "always `" + apisContentType_Json + "` if Code `200` response, else always `" + yoctx.MimeTypePlainText + "`",
 				Content: map[string]yopenapi.Media{
 					yoctx.MimeTypePlainText: {Examples: map[string]yopenapi.Example{
 						apisContentType_Json:    {Value: apisContentType_Json},
@@ -261,15 +261,16 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 			Params: []yopenapi.CanHaveRef{{Ref: yopenapi.RefParam(QueryArgForceFail)}, {Ref: yopenapi.RefParam(QueryArgValidateOnly)}},
 			ReqBody: yopenapi.ReqBody{
 				Required: true,
-				Descr:    "backend type ref: `" + method.In + "`",
+				Descr:    "`" + method.In + "`",
 				Content: map[string]yopenapi.Media{If(api_method.isMultipartForm(), apisContentType_Multipart, apisContentType_Json): {
 					Example: dummy_arg,
-					Schema:  &yopenapi.SchemaModel{Type: "object", CanHaveRef: yopenapi.CanHaveRef{Ref: yopenapi.RefSchema(schema_key_arg)}},
+					Schema: If(api_method.isMultipartForm(), nil, &yopenapi.SchemaModel{Type: "object",
+						CanHaveRef: yopenapi.CanHaveRef{Ref: yopenapi.RefSchema(schema_key_arg)}}),
 				}},
 			},
 			Responses: map[string]yopenapi.Resp{
 				"200": {
-					Descr: "backend type ref: `" + method.Out + "`",
+					Descr: "`" + method.Out + "`",
 					Content: map[string]yopenapi.Media{apisContentType_Json: {
 						Example: dummy_ret,
 						Schema:  &yopenapi.SchemaModel{Type: "object", CanHaveRef: yopenapi.CanHaveRef{Ref: yopenapi.RefSchema(schema_key_ret)}},

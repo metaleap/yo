@@ -54,6 +54,6 @@ About **error responses**:
 `), str.Dict{"´": "`"})
 
 var Description_MultipartNotes = str.Replace(str.Trim(`´{ctype_multipart}´ form-fields:
-1. binary file uploads in form field ´files´, and
-2. ´{ctype_json}´ request payload as ´{ctype_text}´ in form field ´_´, as elaborated in this example ({type_ident_hint})
+1. ´files´ for any binary file uploads, and
+2. ´_´ for the actual ´{ctype_json}´ request payload, as elaborated in this example ({type_ident_hint})
 `), str.Dict{"´": "`"})
