@@ -14,6 +14,7 @@ import (
 
 // yoValiOnly yoFail
 
+const JsMaxNum = 9007199254740991
 const Version = "3.1.0"
 
 type OpenApi struct {
@@ -21,7 +22,7 @@ type OpenApi struct {
 	Info       Info            `json:"info"`
 	Paths      map[string]Path `json:"paths"`
 	Components struct {
-		Schemas map[string]SchemaModel `json:"schemas"`
+		Schemas map[string]*SchemaModel `json:"schemas"`
 	} `json:"components"`
 }
 
@@ -90,6 +91,7 @@ type Example struct {
 }
 
 type SchemaModel struct {
+	ty      reflect.Type
 	Descr   string                 `json:"description,omitempty"`
 	Type    string                 `json:"type"` // object
 	Fields  map[string]SchemaField `json:"properties"`
@@ -97,11 +99,84 @@ type SchemaModel struct {
 }
 
 type SchemaField struct {
-	Type   []string     `json:"type,omitempty"`
-	Format string       `json:"format,omitempty"`
-	ArrOf  *SchemaField `json:"items,omitempty"`
-	Ref    string       `json:"$ref,omitempty"`
-	Map    *SchemaField `json:"additionalProperties,omitempty"`
+	Type   string                 `json:"type,omitempty"`
+	Fields map[string]SchemaField `json:"properties,omitempty"`
+	Format string                 `json:"format,omitempty"`
+	IMin   *int64                 `json:"minimum,omitempty"`
+	IMax   int64                  `json:"maximum,omitempty"`
+	FMin   *float64               `json:"exclusiveMinimum,omitempty"`
+	FMax   *float64               `json:"exclusiveMaximum,omitempty"`
+	ArrOf  *SchemaField           `json:"items,omitempty"`
+	Ref    string                 `json:"$ref,omitempty"`
+	Map    *SchemaField           `json:"additionalProperties,omitempty"`
+}
+
+func (me *OpenApi) EnsureSchemaModel(ty reflect.Type) string {
+	type_key := ToIdent(ty.String())
+	if _, got := me.Components.Schemas[type_key]; !got {
+		schema_model := SchemaModel{
+			ty:      ty,
+			Descr:   ty.String(),
+			Type:    "object",
+			Example: DummyOf(ty),
+			Fields:  map[string]SchemaField{},
+		}
+		me.Components.Schemas[type_key] = &schema_model
+		// populate fields only now, after, in case of circular/self-referencing `struct`s
+		schema_model.Fields = schemaField(ty).Fields
+	}
+	return type_key
+}
+
+func schemaField(ty reflect.Type) SchemaField {
+	if ty.Kind() == reflect.Pointer {
+		return schemaField(ty.Elem())
+	}
+	if ty.ConvertibleTo(ReflTypeTime) || ReflTypeTime.ConvertibleTo(ty) || ty.AssignableTo(ReflTypeTime) || ReflTypeTime.AssignableTo(ty) {
+		return SchemaField{Type: "string", Format: "date-time"}
+	}
+	switch ty.Kind() {
+	case reflect.Bool:
+		return SchemaField{Type: "boolean"}
+	case reflect.Int8:
+		return SchemaField{Type: "integer", Format: "int32", IMin: ToPtr(int64(math.MinInt8)), IMax: math.MaxInt8}
+	case reflect.Int16:
+		return SchemaField{Type: "integer", Format: "int32", IMin: ToPtr(int64(math.MinInt16)), IMax: math.MaxInt16}
+	case reflect.Int32:
+		return SchemaField{Type: "integer", Format: "int32", IMin: ToPtr(int64(math.MinInt32)), IMax: math.MaxInt32}
+	case reflect.Int64:
+		return SchemaField{Type: "integer", Format: "int64", IMin: ToPtr(int64(-JsMaxNum)), IMax: JsMaxNum}
+	case reflect.Int:
+		return SchemaField{Type: "integer", Format: "int64", IMin: ToPtr(int64(-JsMaxNum)), IMax: JsMaxNum}
+	case reflect.Uint8:
+		return SchemaField{Type: "integer", Format: "int32", IMin: ToPtr(int64(0)), IMax: math.MaxUint8}
+	case reflect.Uint16:
+		return SchemaField{Type: "integer", Format: "int32", IMin: ToPtr(int64(0)), IMax: math.MaxUint16}
+	case reflect.Uint32:
+		return SchemaField{Type: "integer", Format: "int32", IMin: ToPtr(int64(0)), IMax: math.MaxUint32}
+	case reflect.Uint64:
+		return SchemaField{Type: "integer", Format: "int64", IMin: ToPtr(int64(0)), IMax: JsMaxNum}
+	case reflect.Uint:
+		return SchemaField{Type: "integer", Format: "int64", IMin: ToPtr(int64(0)), IMax: JsMaxNum}
+	case reflect.Float32:
+		return SchemaField{Type: "number", Format: "float", FMin: ToPtr(float64(-JsMaxNum)), FMax: ToPtr(float64(JsMaxNum))}
+	case reflect.Float64:
+		return SchemaField{Type: "number", Format: "double", FMin: ToPtr(float64(-JsMaxNum)), FMax: ToPtr(float64(JsMaxNum))}
+	case reflect.String:
+		return SchemaField{Type: "string"}
+	case reflect.Slice:
+		return SchemaField{Type: "array", ArrOf: ToPtr(schemaField(ty.Elem()))}
+	case reflect.Map:
+		return SchemaField{Type: "object", Map: ToPtr(schemaField(ty.Elem()))}
+	case reflect.Struct:
+		for i := 0; i < ty.NumField(); i++ {
+			field := ty.Field(i)
+			if !field.IsExported() {
+				continue
+			}
+		}
+	}
+	panic(ty.Kind().String())
 }
 
 // TODO: type-recursion-safety
@@ -130,9 +205,9 @@ func dummyOf(ty reflect.Type, level int) reflect.Value {
 	case reflect.Int32:
 		dummy.SetInt(math.MinInt32)
 	case reflect.Int64:
-		dummy.SetInt(-9007199254740991)
+		dummy.SetInt(-JsMaxNum)
 	case reflect.Int:
-		dummy.SetInt(-9007199254740991)
+		dummy.SetInt(-JsMaxNum)
 	case reflect.Uint8:
 		dummy.SetUint(math.MaxUint8)
 	case reflect.Uint16:
@@ -140,9 +215,9 @@ func dummyOf(ty reflect.Type, level int) reflect.Value {
 	case reflect.Uint32:
 		dummy.SetUint(math.MaxUint32)
 	case reflect.Uint64:
-		dummy.SetUint(9007199254740991)
+		dummy.SetUint(JsMaxNum)
 	case reflect.Uint:
-		dummy.SetUint(9007199254740991)
+		dummy.SetUint(JsMaxNum)
 	case reflect.Float32:
 		dummy.SetFloat(math.MaxFloat32)
 	case reflect.Float64:
