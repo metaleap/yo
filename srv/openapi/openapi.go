@@ -100,6 +100,7 @@ type CanHaveRef struct {
 type SchemaModel struct {
 	CanHaveRef
 	ty       reflect.Type
+	done     bool
 	Descr    string                 `json:"description,omitempty"`
 	Type     string                 `json:"type"` // object
 	Fields   map[string]SchemaField `json:"properties,omitempty"`
@@ -119,22 +120,23 @@ type SchemaField struct {
 	SMax   int                    `json:"maxLength,omitempty"`
 	SPat   string                 `json:"regex,omitempty"`
 	ArrOf  *SchemaField           `json:"items,omitempty"`
-	Map    *SchemaField           `json:"additionalProperties,omitempty"`
+	MapOf  *SchemaField           `json:"additionalProperties,omitempty"`
 }
 
 func (me *OpenApi) EnsureSchemaModel(ty reflect.Type) string {
 	type_key := ToIdent(ty.String())
 	if _, got := me.Components.Schemas[type_key]; !got {
-		schema_model := SchemaModel{
+		schema_model := &SchemaModel{
 			ty:       ty,
 			Descr:    ty.String(),
 			Type:     "object",
 			Examples: []any{DummyOf(ty)},
 			Fields:   map[string]SchemaField{},
 		}
-		me.Components.Schemas[type_key] = &schema_model
+		me.Components.Schemas[type_key] = schema_model
 		// populate fields only now, after, in case of circular/self-referencing `struct`s
 		schema_model.Fields = me.schemaField(ty).Fields
+		schema_model.done = true
 	}
 	return type_key
 }
@@ -146,6 +148,11 @@ func (me *OpenApi) schemaField(ty reflect.Type) SchemaField {
 	if ty.ConvertibleTo(ReflTypeTime) || ReflTypeTime.ConvertibleTo(ty) || ty.AssignableTo(ReflTypeTime) || ReflTypeTime.AssignableTo(ty) {
 		return SchemaField{Type: "string", Format: "date-time"}
 	}
+	type_key := ToIdent(ty.String())
+	if schema_model := me.Components.Schemas[type_key]; (schema_model != nil) && schema_model.done {
+		return SchemaField{Type: "object", CanHaveRef: CanHaveRef{Ref: RefSchema(type_key)}}
+	}
+
 	switch ty.Kind() {
 	case reflect.Bool:
 		return SchemaField{Type: "boolean"}
@@ -178,7 +185,7 @@ func (me *OpenApi) schemaField(ty reflect.Type) SchemaField {
 	case reflect.Slice:
 		return SchemaField{Type: "array", ArrOf: ToPtr(me.schemaField(ty.Elem()))}
 	case reflect.Map:
-		return SchemaField{Type: "object", Map: ToPtr(me.schemaField(ty.Elem()))}
+		return SchemaField{Type: "object", MapOf: ToPtr(me.schemaField(ty.Elem()))}
 	case reflect.Struct:
 		schema_obj := SchemaField{Type: "object", Fields: map[string]SchemaField{}}
 		for i := 0; i < ty.NumField(); i++ {
@@ -220,7 +227,7 @@ func RefParam(id string) string  { return "#/components/parameters/" + id }
 func RefHeader(id string) string { return "#/components/headers/" + id }
 
 // TODO: type-recursion-safety
-func dummyOf(ty reflect.Type, level int) reflect.Value {
+func dummyOf(ty reflect.Type, level int, cached map[reflect.Type]reflect.Value, busy map[reflect.Type]bool) reflect.Value {
 	dummy_ptr := func(dummy reflect.Value) reflect.Value {
 		alloc := reflect.New(dummy.Type())
 		alloc.Elem().Set(dummy)
@@ -228,10 +235,18 @@ func dummyOf(ty reflect.Type, level int) reflect.Value {
 	}
 
 	if ty.Kind() == reflect.Pointer {
-		return dummyOf(ty.Elem(), level)
+		return dummyOf(ty.Elem(), level, cached, busy)
 	}
+	if dummy, got := cached[ty]; got {
+		return dummy
+	}
+	if busy[ty] {
+		return reflect.Value{}
+	}
+	busy[ty] = true
 	if ty.ConvertibleTo(ReflTypeTime) || ReflTypeTime.ConvertibleTo(ty) || ty.AssignableTo(ReflTypeTime) || ReflTypeTime.AssignableTo(ty) {
-		return reflect.ValueOf(time.Now()).Convert(ty)
+		cached[ty] = reflect.ValueOf(time.Now()).Convert(ty)
+		return cached[ty]
 	}
 	dummy := reflect.New(ty).Elem()
 	Assert(dummy.IsValid(), func() any { return ty.String() })
@@ -267,20 +282,22 @@ func dummyOf(ty reflect.Type, level int) reflect.Value {
 	case reflect.Slice:
 		dummy = reflect.MakeSlice(ty, 0, 1)
 		ty_item := ty.Elem()
-		append_item := dummyOf(ty_item, level+1)
-		if ty_item.Kind() == reflect.Pointer {
-			append_item = dummy_ptr(append_item)
+		if append_item := dummyOf(ty_item, level+1, cached, busy); append_item.IsValid() {
+			if ty_item.Kind() == reflect.Pointer {
+				append_item = dummy_ptr(append_item)
+			}
+			dummy = reflect.Append(dummy, append_item)
 		}
-		dummy = reflect.Append(dummy, append_item)
 	case reflect.Map:
 		dummy = reflect.MakeMap(ty)
 		ty_item := ty.Elem()
-		append_item := dummyOf(ty_item, level+1)
-		if ty_item.Kind() == reflect.Pointer {
-			append_item = dummy_ptr(append_item)
+		if append_item := dummyOf(ty_item, level+1, cached, busy); append_item.IsValid() {
+			if ty_item.Kind() == reflect.Pointer {
+				append_item = dummy_ptr(append_item)
+			}
+			dummy.SetMapIndex(reflect.ValueOf("someMapKey1"), append_item)
+			dummy.SetMapIndex(reflect.ValueOf("some_map_key_2"), append_item)
 		}
-		dummy.SetMapIndex(reflect.ValueOf("someMapKey1"), append_item)
-		dummy.SetMapIndex(reflect.ValueOf("some_map_key_2"), append_item)
 	case reflect.Struct:
 		for i := 0; i < ty.NumField(); i++ {
 			field := ty.Field(i)
@@ -291,18 +308,20 @@ func dummyOf(ty reflect.Type, level int) reflect.Value {
 				dummy.Field(i).Set(reflect.ValueOf("lenOfMin" + str.FromInt(Cfg.YO_AUTH_PWD_MIN_LEN) + "AndMax" + str.FromInt(Cfg.YO_AUTH_PWD_MAX_LEN)))
 				continue
 			}
-			field_dummy := dummyOf(field.Type, level+1)
-			if field.Type.Kind() == reflect.Pointer && field_dummy.Kind() != reflect.Pointer {
-				field_dummy = dummy_ptr(field_dummy)
-			}
-			if !field_dummy.IsZero() {
-				dummy.Field(i).Set(field_dummy)
+			if field_dummy := dummyOf(field.Type, level+1, cached, busy); field_dummy.IsValid() {
+				if field.Type.Kind() == reflect.Pointer && field_dummy.Kind() != reflect.Pointer {
+					field_dummy = dummy_ptr(field_dummy)
+				}
+				if !field_dummy.IsZero() {
+					dummy.Field(i).Set(field_dummy)
+				}
 			}
 		}
 	}
+	busy[ty], cached[ty] = false, dummy
 	return dummy
 }
 
 func DummyOf(ty reflect.Type) any {
-	return dummyOf(ty, 0).Interface()
+	return dummyOf(ty, 0, map[reflect.Type]reflect.Value{}, map[reflect.Type]bool{}).Interface()
 }
