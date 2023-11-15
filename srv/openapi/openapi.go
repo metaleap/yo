@@ -92,12 +92,12 @@ type Example struct {
 }
 
 type SchemaModel struct {
-	ty      reflect.Type
-	Descr   string                 `json:"description,omitempty"`
-	Type    string                 `json:"type"` // object
-	Ref     string                 `json:"$ref,omitempty"`
-	Fields  map[string]SchemaField `json:"properties"`
-	Example any                    `json:"example,omitempty"`
+	ty       reflect.Type
+	Descr    string                 `json:"description,omitempty"`
+	Type     string                 `json:"type"` // object
+	Ref      string                 `json:"$ref,omitempty"`
+	Fields   map[string]SchemaField `json:"properties,omitempty"`
+	Examples []any                  `json:"examples,omitempty"`
 }
 
 type SchemaField struct {
@@ -119,11 +119,11 @@ func (me *OpenApi) EnsureSchemaModel(ty reflect.Type) string {
 	type_key := ToIdent(ty.String())
 	if _, got := me.Components.Schemas[type_key]; !got {
 		schema_model := SchemaModel{
-			ty:      ty,
-			Descr:   ty.String(),
-			Type:    "object",
-			Example: DummyOf(ty),
-			Fields:  map[string]SchemaField{},
+			ty:       ty,
+			Descr:    ty.String(),
+			Type:     "object",
+			Examples: []any{DummyOf(ty)},
+			Fields:   map[string]SchemaField{},
 		}
 		me.Components.Schemas[type_key] = &schema_model
 		// populate fields only now, after, in case of circular/self-referencing `struct`s
@@ -180,6 +180,9 @@ func (me *OpenApi) schemaField(ty reflect.Type) SchemaField {
 				continue
 			}
 			ty_field := field.Type
+			if str.Has(ty_field.String(), "yodb.Ref[") {
+				ty_field = reflect.TypeOf(int64(0))
+			}
 			var schema_field SchemaField
 			if ty_field.Kind() == reflect.Struct {
 				schema_field.Type, schema_field.Ref = "object", SchemaRef(me.EnsureSchemaModel(ty_field))
@@ -187,7 +190,7 @@ func (me *OpenApi) schemaField(ty reflect.Type) SchemaField {
 				schema_field = me.schemaField(ty_field)
 				if ty_field.Kind() == reflect.String {
 					switch field_name_lo := str.Lo(field.Name); true {
-					case str.Has(field_name_lo, "emailaddr"):
+					case str.Has(field_name_lo, "emailaddr") && !(str.Has(field_name_lo, "oremailaddr") || str.Has(field_name_lo, "emailaddror")):
 						schema_field.Format, schema_field.SMin, schema_field.SMax = "email", 5, 255
 					case str.Has(field_name_lo, "password"):
 						schema_field.Format, schema_field.SMin, schema_field.SMax = "password", Cfg.YO_AUTH_PWD_MIN_LEN, Cfg.YO_AUTH_PWD_MAX_LEN

@@ -230,7 +230,7 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 		ty_arg, ty_ret := api_method.reflTypes()
 		schema_key_arg, schema_key_ret := openapi.EnsureSchemaModel(ty_arg), openapi.EnsureSchemaModel(ty_ret)
 		schema_arg, schema_ret := openapi.Components.Schemas[schema_key_arg], openapi.Components.Schemas[schema_key_ret]
-		dummy_arg, dummy_ret := schema_arg.Example, schema_ret.Example
+		dummy_arg, dummy_ret := schema_arg.Examples[0], schema_ret.Examples[0]
 		path := yopenapi.Path{Post: yopenapi.Op{
 			Id: api_method.methodNameUp0(),
 			Params: []yopenapi.Param{
@@ -239,7 +239,7 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 			},
 			ReqBody: yopenapi.ReqBody{
 				Required: true,
-				Descr:    "type moniker suggestion: `" + method.In + "`",
+				Descr:    "backend type ref: `" + method.In + "`",
 				Content: map[string]yopenapi.Media{If(api_method.isMultipartForm(), apisContentType_Multipart, apisContentType_Json): {
 					Example: dummy_arg,
 					Schema:  &yopenapi.SchemaModel{Type: "object", Ref: yopenapi.SchemaRef(schema_key_arg)},
@@ -247,7 +247,7 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 			},
 			Responses: map[string]yopenapi.Resp{
 				"200": {
-					Descr: "type moniker suggestion: `" + method.Out + "`",
+					Descr: "backend type ref: `" + method.Out + "`",
 					Content: map[string]yopenapi.Media{apisContentType_Json: {
 						Example: dummy_ret,
 						Schema:  &yopenapi.SchemaModel{Type: "object", Ref: yopenapi.SchemaRef(schema_key_ret)},
