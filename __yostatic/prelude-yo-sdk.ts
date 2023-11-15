@@ -59,7 +59,7 @@ export async function req<TIn, TOut, TErr extends string>(methodPath: string, pa
         try { body_text = await resp.text() } catch (err) { body_err = err }
         throw ({ 'status_code': resp?.status, 'status_text': resp?.statusText, 'body_text': body_text.trim(), 'body_err': body_err })
     }
-    userEmailAddr = resp?.headers?.get('X-Yo-User') ?? ''
+    userEmailAddr = resp?.headers?.get('X-YoUserEmailAddr') ?? ''
 
     const resp_str_raw = await resp.text()
     try {

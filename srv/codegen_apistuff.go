@@ -245,7 +245,7 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 					Descr:   "type moniker suggestion: `" + method.Out + "`",
 					Content: map[string]yopenapi.Media{apisContentType_Json: {Example: dummy_ret}},
 					Headers: map[string]yopenapi.Header{
-						yoctx.HttpResponseHeaderName_UserId: {Descr: "`0` if not authenticated, else current `User`'s `Id`", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: "123"}}},
+						yoctx.HttpResponseHeaderName_UserEmailAddr: {Descr: "empty if not authenticated, else current `User`'s `EmailAddr`", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: "user123@foo.bar"}}},
 					},
 				},
 			},

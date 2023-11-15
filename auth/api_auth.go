@@ -12,7 +12,7 @@ import (
 
 const (
 	CtxKeyEmailAddr = "yoUserEmailAddr"
-	CtxKeyAuthId    = "yoUserAuthId"
+	CtxKeyAccountId = "yoUserAccountId"
 
 	MethodPathLoginOrFinalizePwdReset = "__/yo/authLoginOrFinalizePwdReset"
 	MethodPathLogout                  = "__/yo/authLogout"
@@ -136,9 +136,9 @@ func httpSetUser(ctx *Ctx, jwtRaw string, knownToExist bool) {
 		user_auth_id, user_email_addr = 0, ""
 		jwtRaw = ""
 	}
-	ctx.Set(CtxKeyAuthId, user_auth_id)
+	ctx.Set(CtxKeyAccountId, user_auth_id)
 	ctx.Set(CtxKeyEmailAddr, user_email_addr)
-	ctx.Http.Resp.Header().Set(HttpResponseHeaderName_UserId, user_email_addr)
+	ctx.Http.Resp.Header().Set(HttpResponseHeaderName_UserEmailAddr, user_email_addr)
 	ctx.HttpSetCookie(Cfg.YO_AUTH_JWT_COOKIE_NAME, jwtRaw, Cfg.YO_AUTH_JWT_COOKIE_EXPIRY_DAYS)
 	if IsDevMode && (Cfg.YO_AUTH_JWT_COOKIE_EXPIRY_DAYS > 400) {
 		panic("illegal YO_AUTH_JWT_COOKIE_EXPIRY_DAYS for modern-browser cookie laws")
@@ -146,7 +146,7 @@ func httpSetUser(ctx *Ctx, jwtRaw string, knownToExist bool) {
 }
 
 func CurrentlyLoggedInUser(ctx *Ctx) (emailAddr string, authID yodb.I64) {
-	return ctx.GetStr(CtxKeyEmailAddr), ctx.Get(CtxKeyAuthId, yodb.I64(0)).(yodb.I64)
+	return ctx.GetStr(CtxKeyEmailAddr), ctx.Get(CtxKeyAccountId, yodb.I64(0)).(yodb.I64)
 }
 
 func IsCurrentlyLoggedIn(ctx *Ctx) bool {
