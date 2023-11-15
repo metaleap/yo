@@ -23,6 +23,8 @@ type OpenApi struct {
 	Paths      map[string]Path `json:"paths"`
 	Components struct {
 		Schemas map[string]*SchemaModel `json:"schemas"`
+		Params  map[string]Param        `json:"parameters,omitempty"`
+		Headers map[string]Header       `json:"headers,omitempty"`
 	} `json:"components"`
 }
 
@@ -46,7 +48,7 @@ type Op struct {
 	Summary    string          `json:"summary,omitempty"`
 	Descr      string          `json:"description,omitempty"`
 	Deprecated bool            `json:"deprecated,omitempty"`
-	Params     []Param         `json:"parameters"`
+	Params     []CanHaveRef    `json:"parameters"`
 	ReqBody    ReqBody         `json:"requestBody"`
 	Responses  map[string]Resp `json:"responses"`
 }
@@ -67,9 +69,9 @@ type ReqBody struct {
 }
 
 type Resp struct {
-	Descr   string            `json:"description"`
-	Headers map[string]Header `json:"headers,omitempty"`
-	Content map[string]Media  `json:"content"`
+	Descr   string                `json:"description"`
+	Headers map[string]CanHaveRef `json:"headers,omitempty"`
+	Content map[string]Media      `json:"content"`
 }
 
 type Header struct {
@@ -91,16 +93,21 @@ type Example struct {
 	Value   any    `json:"value"`
 }
 
+type CanHaveRef struct {
+	Ref string `json:"$ref,omitempty"`
+}
+
 type SchemaModel struct {
+	CanHaveRef
 	ty       reflect.Type
 	Descr    string                 `json:"description,omitempty"`
 	Type     string                 `json:"type"` // object
-	Ref      string                 `json:"$ref,omitempty"`
 	Fields   map[string]SchemaField `json:"properties,omitempty"`
 	Examples []any                  `json:"examples,omitempty"`
 }
 
 type SchemaField struct {
+	CanHaveRef
 	Type   string                 `json:"type,omitempty"`
 	Fields map[string]SchemaField `json:"properties,omitempty"`
 	Format string                 `json:"format,omitempty"`
@@ -111,7 +118,6 @@ type SchemaField struct {
 	SMin   int                    `json:"minLength,omitempty"`
 	SMax   int                    `json:"maxLength,omitempty"`
 	ArrOf  *SchemaField           `json:"items,omitempty"`
-	Ref    string                 `json:"$ref,omitempty"`
 	Map    *SchemaField           `json:"additionalProperties,omitempty"`
 }
 
@@ -185,7 +191,7 @@ func (me *OpenApi) schemaField(ty reflect.Type) SchemaField {
 			}
 			var schema_field SchemaField
 			if ty_field.Kind() == reflect.Struct {
-				schema_field.Type, schema_field.Ref = "object", SchemaRef(me.EnsureSchemaModel(ty_field))
+				schema_field.Type, schema_field.Ref = "object", RefSchema(me.EnsureSchemaModel(ty_field))
 			} else {
 				schema_field = me.schemaField(ty_field)
 				if ty_field.Kind() == reflect.String {
@@ -204,7 +210,9 @@ func (me *OpenApi) schemaField(ty reflect.Type) SchemaField {
 	panic(ty.Kind().String())
 }
 
-func SchemaRef(id string) string { return "#/components/schemas/" + id }
+func RefSchema(id string) string { return "#/components/schemas/" + id }
+func RefParam(id string) string  { return "#/components/parameters/" + id }
+func RefHeader(id string) string { return "#/components/headers/" + id }
 
 // TODO: type-recursion-safety
 func dummyOf(ty reflect.Type, level int) reflect.Value {

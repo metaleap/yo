@@ -221,6 +221,31 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 			})},
 	}
 	openapi.Info.Contact.Name, openapi.Info.Contact.Url, openapi.Components.Schemas = "Permalink of "+filepath.Base(out_file_path), "https://"+Cfg.YO_APP_DOMAIN+"/"+StaticFilesDirName_App+"/"+filepath.Base(out_file_path), map[string]*yopenapi.SchemaModel{}
+	openapi.Components.Params = map[string]yopenapi.Param{
+		QueryArgForceFail:    {Name: QueryArgForceFail, In: "query", Descr: "optional: if not missing or empty, enforces an early error response (prior to any request parsing or handling) with the specified HTTP status code or 500 (eg. for client-side unit-test cases of error-handling)", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: ""}}},
+		QueryArgValidateOnly: {Name: QueryArgValidateOnly, In: "query", Descr: "optional: if not missing or empty, enforces request-validation-only, with no further actual work performed to produce results and/or effects", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: ""}}},
+	}
+	openapi.Components.Headers = map[string]yopenapi.Header{
+		yoctx.HttpResponseHeaderName_UserEmailAddr: {Descr: "empty if not authenticated, else current `User`'s `Account`-identifying `EmailAddr`", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: "user123@foo.bar"}}},
+	}
+	for header_name, header_value := range apisStdRespHeaders {
+		if ctype := "Content-Type"; header_name != ctype {
+			openapi.Components.Headers[header_name] = yopenapi.Header{
+				Descr:   "always `" + header_value + "`",
+				Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: header_value}},
+			}
+		} else {
+			openapi.Components.Headers[ctype] = yopenapi.Header{
+				Descr: "always `" + apisContentType_Json + "` if `200` OK response, else always `" + yoctx.MimeTypePlainText + "`",
+				Content: map[string]yopenapi.Media{
+					yoctx.MimeTypePlainText: {Examples: map[string]yopenapi.Example{
+						apisContentType_Json:    {Value: apisContentType_Json},
+						yoctx.MimeTypePlainText: {Value: yoctx.MimeTypePlainText},
+					}},
+				},
+			}
+		}
+	}
 
 	for _, method := range apiRefl.Methods {
 		if str.Begins(method.Path, yoAdminApisUrlPrefix) {
@@ -232,17 +257,14 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 		schema_arg, schema_ret := openapi.Components.Schemas[schema_key_arg], openapi.Components.Schemas[schema_key_ret]
 		dummy_arg, dummy_ret := schema_arg.Examples[0], schema_ret.Examples[0]
 		path := yopenapi.Path{Post: yopenapi.Op{
-			Id: api_method.methodNameUp0(),
-			Params: []yopenapi.Param{
-				{Name: QueryArgForceFail, In: "query", Descr: "optional: if not missing or empty, enforces an early error response (prior to any request parsing or handling) with the specified HTTP status code or 500 (eg. for client-side unit-test cases of error-handling)", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: ""}}},
-				{Name: QueryArgValidateOnly, In: "query", Descr: "optional: if not missing or empty, enforces request-validation-only, with no further actual work performed to produce results and/or effects", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: ""}}},
-			},
+			Id:     api_method.methodNameUp0(),
+			Params: []yopenapi.CanHaveRef{{Ref: yopenapi.RefParam(QueryArgForceFail)}, {Ref: yopenapi.RefParam(QueryArgValidateOnly)}},
 			ReqBody: yopenapi.ReqBody{
 				Required: true,
 				Descr:    "backend type ref: `" + method.In + "`",
 				Content: map[string]yopenapi.Media{If(api_method.isMultipartForm(), apisContentType_Multipart, apisContentType_Json): {
 					Example: dummy_arg,
-					Schema:  &yopenapi.SchemaModel{Type: "object", Ref: yopenapi.SchemaRef(schema_key_arg)},
+					Schema:  &yopenapi.SchemaModel{Type: "object", CanHaveRef: yopenapi.CanHaveRef{Ref: yopenapi.RefSchema(schema_key_arg)}},
 				}},
 			},
 			Responses: map[string]yopenapi.Resp{
@@ -250,10 +272,10 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 					Descr: "backend type ref: `" + method.Out + "`",
 					Content: map[string]yopenapi.Media{apisContentType_Json: {
 						Example: dummy_ret,
-						Schema:  &yopenapi.SchemaModel{Type: "object", Ref: yopenapi.SchemaRef(schema_key_ret)},
+						Schema:  &yopenapi.SchemaModel{Type: "object", CanHaveRef: yopenapi.CanHaveRef{Ref: yopenapi.RefSchema(schema_key_ret)}},
 					}},
-					Headers: map[string]yopenapi.Header{
-						yoctx.HttpResponseHeaderName_UserEmailAddr: {Descr: "empty if not authenticated, else current `User`'s `Account`-identifying `EmailAddr`", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: "user123@foo.bar"}}},
+					Headers: map[string]yopenapi.CanHaveRef{
+						yoctx.HttpResponseHeaderName_UserEmailAddr: {Ref: yopenapi.RefHeader(yoctx.HttpResponseHeaderName_UserEmailAddr)},
 					},
 				},
 			},
@@ -272,15 +294,13 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 			path.Post.Responses[http_status_code] = yopenapi.Resp{
 				Descr:   "Possible `" + yoctx.MimeTypePlainText + "` responses:\n- `" + str.Join(str_errs, "`\n- `") + "`",
 				Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Examples: kv.FromKeys(str_errs, func(it string) yopenapi.Example { return yopenapi.Example{Value: it} })}},
-				Headers: map[string]yopenapi.Header{},
+				Headers: map[string]yopenapi.CanHaveRef{},
 			}
 		}
 		for http_status_code := range path.Post.Responses {
 			resp := path.Post.Responses[http_status_code]
-			for header_name, header_value := range apisStdRespHeaders {
-				resp.Headers[header_name] = yopenapi.Header{Descr: "always `" +
-					If((header_name == "Content-Type") && (http_status_code != "200"), yoctx.MimeTypePlainText, header_value) +
-					"`", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: header_value}}}
+			for header_name := range apisStdRespHeaders {
+				resp.Headers[header_name] = yopenapi.CanHaveRef{Ref: yopenapi.RefHeader(header_name)}
 			}
 			path.Post.Responses[http_status_code] = resp
 		}
