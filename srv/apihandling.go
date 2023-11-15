@@ -283,7 +283,7 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 		return
 	}
 	if req_content_type := ctx.Http.Req.Header.Get("Content-Type"); req_content_type != "" {
-		if req_content_type != If(api_method.isMultipartForm(), apisContentType_Multipart, apisContentType_Json) {
+		if need := If(api_method.isMultipartForm(), apisContentType_Multipart, apisContentType_Json); (req_content_type != need) && !str.Begins(req_content_type, need+";") {
 			ctx.HttpErr(ErrUnacceptableContentType.HttpStatusCodeOr(500), string(ErrUnacceptableContentType))
 			return
 		}
