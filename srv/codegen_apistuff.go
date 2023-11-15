@@ -228,7 +228,9 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 		}
 		api_method := api[method.Path]
 		ty_arg, ty_ret := api_method.reflTypes()
-		dummy_arg, dummy_ret := yopenapi.DummyOf(ty_arg), yopenapi.DummyOf(ty_ret)
+		schema_key_arg, schema_key_ret := openapi.EnsureSchemaModel(ty_arg), openapi.EnsureSchemaModel(ty_ret)
+		schema_arg, schema_ret := openapi.Components.Schemas[schema_key_arg], openapi.Components.Schemas[schema_key_ret]
+		dummy_arg, dummy_ret := schema_arg.Example, schema_ret.Example
 		path := yopenapi.Path{Post: yopenapi.Op{
 			Id: api_method.methodNameUp0(),
 			Params: []yopenapi.Param{
@@ -238,12 +240,18 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 			ReqBody: yopenapi.ReqBody{
 				Required: true,
 				Descr:    "type moniker suggestion: `" + method.In + "`",
-				Content:  map[string]yopenapi.Media{If(api_method.isMultipartForm(), apisContentType_Multipart, apisContentType_Json): {Example: dummy_arg}},
+				Content: map[string]yopenapi.Media{If(api_method.isMultipartForm(), apisContentType_Multipart, apisContentType_Json): {
+					Example: dummy_arg,
+					Schema:  &yopenapi.SchemaModel{Type: "object", Ref: yopenapi.SchemaRef(schema_key_arg)},
+				}},
 			},
 			Responses: map[string]yopenapi.Resp{
 				"200": {
-					Descr:   "type moniker suggestion: `" + method.Out + "`",
-					Content: map[string]yopenapi.Media{apisContentType_Json: {Example: dummy_ret}},
+					Descr: "type moniker suggestion: `" + method.Out + "`",
+					Content: map[string]yopenapi.Media{apisContentType_Json: {
+						Example: dummy_ret,
+						Schema:  &yopenapi.SchemaModel{Type: "object", Ref: yopenapi.SchemaRef(schema_key_ret)},
+					}},
 					Headers: map[string]yopenapi.Header{
 						yoctx.HttpResponseHeaderName_UserEmailAddr: {Descr: "empty if not authenticated, else current `User`'s `Account`-identifying `EmailAddr`", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: "user123@foo.bar"}}},
 					},

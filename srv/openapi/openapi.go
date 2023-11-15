@@ -80,6 +80,7 @@ type Header struct {
 }
 
 type Media struct {
+	Schema   *SchemaModel       `json:"schema,omitempty"`
 	Example  any                `json:"example,omitempty"`
 	Examples map[string]Example `json:"examples,omitempty"`
 }
@@ -94,6 +95,7 @@ type SchemaModel struct {
 	ty      reflect.Type
 	Descr   string                 `json:"description,omitempty"`
 	Type    string                 `json:"type"` // object
+	Ref     string                 `json:"$ref,omitempty"`
 	Fields  map[string]SchemaField `json:"properties"`
 	Example any                    `json:"example,omitempty"`
 }
@@ -106,6 +108,8 @@ type SchemaField struct {
 	IMax   int64                  `json:"maximum,omitempty"`
 	FMin   *float64               `json:"exclusiveMinimum,omitempty"`
 	FMax   *float64               `json:"exclusiveMaximum,omitempty"`
+	SMin   int                    `json:"minLength,omitempty"`
+	SMax   int                    `json:"maxLength,omitempty"`
 	ArrOf  *SchemaField           `json:"items,omitempty"`
 	Ref    string                 `json:"$ref,omitempty"`
 	Map    *SchemaField           `json:"additionalProperties,omitempty"`
@@ -123,14 +127,14 @@ func (me *OpenApi) EnsureSchemaModel(ty reflect.Type) string {
 		}
 		me.Components.Schemas[type_key] = &schema_model
 		// populate fields only now, after, in case of circular/self-referencing `struct`s
-		schema_model.Fields = schemaField(ty).Fields
+		schema_model.Fields = me.schemaField(ty).Fields
 	}
 	return type_key
 }
 
-func schemaField(ty reflect.Type) SchemaField {
+func (me *OpenApi) schemaField(ty reflect.Type) SchemaField {
 	if ty.Kind() == reflect.Pointer {
-		return schemaField(ty.Elem())
+		return me.schemaField(ty.Elem())
 	}
 	if ty.ConvertibleTo(ReflTypeTime) || ReflTypeTime.ConvertibleTo(ty) || ty.AssignableTo(ReflTypeTime) || ReflTypeTime.AssignableTo(ty) {
 		return SchemaField{Type: "string", Format: "date-time"}
@@ -165,19 +169,39 @@ func schemaField(ty reflect.Type) SchemaField {
 	case reflect.String:
 		return SchemaField{Type: "string"}
 	case reflect.Slice:
-		return SchemaField{Type: "array", ArrOf: ToPtr(schemaField(ty.Elem()))}
+		return SchemaField{Type: "array", ArrOf: ToPtr(me.schemaField(ty.Elem()))}
 	case reflect.Map:
-		return SchemaField{Type: "object", Map: ToPtr(schemaField(ty.Elem()))}
+		return SchemaField{Type: "object", Map: ToPtr(me.schemaField(ty.Elem()))}
 	case reflect.Struct:
+		schema_obj := SchemaField{Type: "object", Fields: map[string]SchemaField{}}
 		for i := 0; i < ty.NumField(); i++ {
 			field := ty.Field(i)
 			if !field.IsExported() {
 				continue
 			}
+			ty_field := field.Type
+			var schema_field SchemaField
+			if ty_field.Kind() == reflect.Struct {
+				schema_field.Type, schema_field.Ref = "object", SchemaRef(me.EnsureSchemaModel(ty_field))
+			} else {
+				schema_field = me.schemaField(ty_field)
+				if ty_field.Kind() == reflect.String {
+					switch field_name_lo := str.Lo(field.Name); true {
+					case str.Has(field_name_lo, "emailaddr"):
+						schema_field.Format, schema_field.SMin, schema_field.SMax = "email", 5, 255
+					case str.Has(field_name_lo, "password"):
+						schema_field.Format, schema_field.SMin, schema_field.SMax = "password", Cfg.YO_AUTH_PWD_MIN_LEN, Cfg.YO_AUTH_PWD_MAX_LEN
+					}
+				}
+			}
+			schema_obj.Fields[field.Name] = schema_field
 		}
+		return schema_obj
 	}
 	panic(ty.Kind().String())
 }
+
+func SchemaRef(id string) string { return "#/components/schemas/" + id }
 
 // TODO: type-recursion-safety
 func dummyOf(ty reflect.Type, level int) reflect.Value {
