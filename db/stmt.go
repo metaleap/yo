@@ -314,7 +314,7 @@ func (me *sqlStmt) fromAndJoinAndWhereAndOrderBy(desc *structDesc, isMut bool, w
 		w(" WHERE (")
 		where.Sql((*str.Buf)(me), func(fld q.F) q.C {
 			return f2c(desc, fld, false)
-		}, args)
+		}, args, false)
 		w(")")
 	}
 	if len(orderBy) > 0 {

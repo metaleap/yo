@@ -178,8 +178,7 @@ type Query interface {
 	And(...Query) Query
 	Or(...Query) Query
 	Not() Query
-	Sql(*str.Buf, func(F) C, pgx.NamedArgs)
-	String(func(F) C, pgx.NamedArgs) string
+	Sql(*str.Buf, func(F) C, pgx.NamedArgs, bool)
 	Eval(any, func(C) F) Query
 	AllDottedFs() map[F][]string
 }
@@ -316,13 +315,7 @@ func (me *query) And(conds ...Query) Query { return AllTrue(append([]Query{me}, 
 func (me *query) Or(conds ...Query) Query  { return EitherOr(append([]Query{me}, conds...)...) }
 func (me *query) Not() Query               { return Not(me) }
 
-func (me *query) String(fld2col func(F) C, args pgx.NamedArgs) string {
-	var buf str.Buf
-	me.Sql(&buf, fld2col, args)
-	return buf.String()
-}
-
-func (me *query) Sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
+func (me *query) Sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs, isForDbgPrintOnly bool) {
 	var do_arg func(operand Operand)
 	do_arg = func(operand Operand) {
 		if sub_stmt, _ := operand.(stmt); sub_stmt != nil {
@@ -368,7 +361,9 @@ func (me *query) Sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 	buf.WriteByte('(')
 	switch me.op {
 	case opDot:
-		panic("opDot '.' not supported for queries that turn into SQL WHEREs")
+		if !isForDbgPrintOnly {
+			panic("opDot '.' not supported for queries that turn into SQL WHEREs")
+		}
 	case OpAnd, OpOr, OpNot:
 		is_not := (me.op == OpNot)
 		if is_not && (len(me.conds) != 1) {
@@ -379,7 +374,7 @@ func (me *query) Sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 				buf.WriteString(string(me.op))
 			}
 			buf.WriteByte('(')
-			cond.(*query).Sql(buf, fld2col, args)
+			cond.(*query).Sql(buf, fld2col, args, isForDbgPrintOnly)
 			buf.WriteByte(')')
 		}
 	default:
@@ -436,7 +431,7 @@ func (me *query) Sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 func SqlReprForDebugging(q Query) string {
 	var buf str.Buf
 	args := pgx.NamedArgs{}
-	q.Sql(&buf, func(f F) C { return C(f) }, args)
+	q.Sql(&buf, func(f F) C { return C(f) }, args, true)
 	return buf.String() + "<<<<<<<<<" + str.GoLike(args)
 }
 
