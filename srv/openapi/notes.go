@@ -9,7 +9,7 @@ import (
 var Description_IntroNotes = str.Replace(str.Trim(`
 This HTTP API has RPC-ish rather than REST semantics: **all** operations are ´POST´, regardless of what CRUD writes or reads they might or might not effect.
 
-(For JS/TS clients, there's a better-than-generated-from-_openapi.json_ clienting package (fully self-contained and deps-free) at ´/__yostatic/yo-sdk.js´ and ´/__yostatic/yo-sdk.ts´. They're always in sync with this _openapi.json_.)
+<small>(For JS/TS clients, there's a better-than-generated-from-_openapi.json_ clienting package (fully deps-free) at ´/__yostatic/yo-sdk.js´ and ´/__yostatic/yo-sdk.ts´. They're always in sync with this _openapi.json_.)</small>
 
 **tl;dr:** **usually, API requests will just-work as expected _without_ knowing all those intro notes right below** (which elaborate mostly to-be-expected software-dev-commonplaces) — but in any cases of unexpected results or errors, they'll likely help complete the mental picture.
 ___

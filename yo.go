@@ -19,7 +19,7 @@ import (
 	"yo/util/str"
 )
 
-var ts2jsAppSideStaticDir func()
+var ts2jsInAppSideStaticDir func()
 var AppPkgPath = "yo/"
 var buildDeployablyNow = func() {}
 
@@ -44,8 +44,8 @@ func Init(staticFileDirYo fs.FS, staticFileDirApp fs.FS) (listenAndServe func())
 	yoauth.Init()
 	yolog.PrintLnLn("API init...")
 	listenAndServe = yosrv.InitAndMaybeCodegen(db_structs)
-	if ts2jsAppSideStaticDir != nil { // set only in dev-mode
-		ts2jsAppSideStaticDir()
+	if ts2jsInAppSideStaticDir != nil { // set only in dev-mode
+		ts2jsInAppSideStaticDir()
 	}
 
 	if os.Getenv("YO_BUILD") != "" {

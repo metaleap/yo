@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"time"
 
+	yolog "yo/log"
 	yosrv "yo/srv"
 	. "yo/util"
 	"yo/util/sl"
@@ -23,7 +24,7 @@ var AppSideBuildTimeContainerFileNames []string
 
 func init() {
 	buildDeployablyNow = doBuildAppDeployablyAndMaybePush
-	ts2jsAppSideStaticDir = func() {
+	ts2jsInAppSideStaticDir = func() {
 		FsDirWalk(yosrv.StaticFilesDirName_App, func(fsPath string, fsEntry fs.DirEntry) {
 			if fsEntry.IsDir() {
 				return
@@ -50,6 +51,9 @@ func doBuildAppDeployablyAndMaybePush() {
 	app_name := filepath.Base(FsDirPathCur())
 	dst_dir_path := filepath.Join(FsDirPathHome(), "rwa", "src-"+app_name)
 	deploy_dir_path := filepath.Join(FsDirPathHome(), "rwa", "deploy-"+app_name)
+
+	yolog.Println("BUILD: misc...")
+
 	FsDelDir(dst_dir_path)
 	FsDirEnsure(dst_dir_path)
 	FsDirEnsure(deploy_dir_path)
@@ -67,7 +71,7 @@ func doBuildAppDeployablyAndMaybePush() {
 		}
 	})
 
-	if true { // 2. touch own Dockerfile, preferred choice
+	if via_docker_file := true; via_docker_file { // 2. touch own Dockerfile, preferred choice
 		FsWrite(filepath.Join(deploy_dir_path, "Dockerfile"), []byte(str.Trim(`
 FROM scratch
 COPY .env /.env
@@ -77,7 +81,8 @@ COPY `+app_name+`.exec /`+app_name+`.exec
 COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT ["/`+app_name+`.exec"]
 	`)))
-	} else { // 2. touch railway.toml, the alternative way (implies Railway.app default Dockerfile)
+
+	} else { // 2. touch railway.toml, the alternative way (implies the Railway.app-default Dockerfile (a full distro))
 		FsWrite(filepath.Join(deploy_dir_path, "railway.toml"), []byte(str.Trim(`
 # note, unused if Dockerfile present too
 [build]
@@ -139,7 +144,7 @@ use ./`+app_name+`
 				if !str.Ends(fsPath, ".css") {
 					FsCopy(fsPath, dst_file_path)
 				} else {
-					FsWrite(dst_file_path, cssDownsize(FsRead(fsPath)))
+					FsWrite(dst_file_path, cssMinify(FsRead(fsPath)))
 				}
 			}
 		})
@@ -156,11 +161,11 @@ use ./`+app_name+`
 			EntryPoints: If(is_app,
 				[]string{"__static/" + app_name + ".js"},
 				[]string{"__yostatic/yo.js", "__yostatic/yo-sdk.js"}),
-			Bundle:            true,
-			MinifyWhitespace:  true,
-			MinifyIdentifiers: true,
-			MinifySyntax:      true,
-			TreeShaking:       esbuild.TreeShakingTrue,
+			Bundle:            is_app,
+			MinifyWhitespace:  is_app,
+			MinifyIdentifiers: is_app,
+			MinifySyntax:      is_app,
+			TreeShaking:       If(is_app, esbuild.TreeShakingTrue, esbuild.TreeShakingFalse),
 			Outdir:            filepath.Join(dst_dir_path, app_name, If(is_app, "__static", "__yostatic")),
 			Write:             true,
 		}
@@ -174,7 +179,7 @@ use ./`+app_name+`
 	}
 
 	// 6. go build
-	println("BUILD...")
+	yolog.Println("BUILD: go build...")
 	cmd_go := exec.Command("go", "build",
 		"-C", dst_dir_path,
 		"-o", filepath.Join(deploy_dir_path, app_name+".exec"),
@@ -192,7 +197,7 @@ use ./`+app_name+`
 
 	if os.Getenv("YO_PUSH") != "" {
 		// 7. git push
-		println("PUSH...")
+		yolog.Println("BUILD: push...")
 		msg_commit := time.Now().Format(time.DateTime)
 		cmd_git1, cmd_git2, cmd_git3 := exec.Command("git", "add", "-A"), exec.Command("git", "commit", "-m", msg_commit), exec.Command("git", "push", "--force")
 		cmd_git1.Dir, cmd_git2.Dir, cmd_git3.Dir = deploy_dir_path, deploy_dir_path, deploy_dir_path
@@ -205,10 +210,11 @@ use ./`+app_name+`
 	}
 }
 
-func cssDownsize(srcCss []byte) []byte {
+func cssMinify(srcCss []byte) []byte {
 	is_ascii_nonspace_whitespace, is_sep, is_brace_or_paren := func(c byte) bool { return (c == '\n') || (c == '\t') }, func(c byte) bool { return (c == ':') || (c == ';') || (c == ',') }, func(c byte) bool {
-		return (c == '{') || (c == '}') || (c == '[') || (c == ']') || (c == '(') // || (c == ')') // keep the closing-paren out, generates bugged css with in situations like `var(--foo) calc(...)`
+		return (c == '{') || (c == '}') || (c == '[') || (c == ']') || (c == '(') // || (c == ')') // keep the closing-paren out, generates buggy css in situations like `var(--foo) calc(...)`
 	}
+	// ditch comments
 	for again, start, end := true, []byte("/*"), []byte("*/"); again; {
 		again = false
 		if idx2 := bytes.Index(srcCss, end); idx2 > 1 {
@@ -218,6 +224,7 @@ func cssDownsize(srcCss []byte) []byte {
 			}
 		}
 	}
+	// ditch safe-to-ditch whitespace
 	for i := 0; i < len(srcCss); i++ {
 		if c := srcCss[i]; is_ascii_nonspace_whitespace(c) || ((c == ' ') &&
 			(((i > 0) && (srcCss[i-1] == ' ') || is_brace_or_paren(srcCss[i-1]) || is_sep(srcCss[i-1])) ||
