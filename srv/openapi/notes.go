@@ -7,7 +7,9 @@ import (
 )
 
 var Description_IntroNotes = str.Replace(str.Trim(`
-This HTTP API has RPC rather than REST semantics: **all** operations are ´POST´, regardless of what CRUD writes or reads they might or might not effect.
+This HTTP API has RPC-ish rather than REST semantics: **all** operations are ´POST´, regardless of what CRUD writes or reads they might or might not effect.
+
+(For JS/TS clients, there's a better-than-generated-from-_openapi.json_ clienting package (fully self-contained and deps-free) at ´/__yostatic/yo-sdk.js´ and ´/__yostatic/yo-sdk.ts´. They're always in sync with this _openapi.json_.)
 
 **tl;dr:** **usually, API requests will just-work as expected _without_ knowing all those intro notes right below** (which elaborate mostly to-be-expected software-dev-commonplaces) — but in any cases of unexpected results or errors, they'll likely help complete the mental picture.
 ___
@@ -28,15 +30,17 @@ Our backend stack's "opinionated convention-over-configuration" designs yield a 
 - Any ´{ctype_multipart}´ operations:
   - **always require** the following two form-fields, ignoring all others: ´files´ for any binary file uploads, and ´_´ for the actual JSON request payload;
   - only the ´_´ field value is further elaborated for any such operation in this doc, and always in the exact same way as also done in this doc for all the ´{ctype_json}´ operations' request bodies (**without** specifically mentioning the ´_´ form-field containing the ´{ctype_text}´ of the full ´{ctype_json}´ request payload actually being elaborated there).
+- Create operations of DB-stored objects (those with ´Id´ and ´DtMade´ and ´DtMod´ fields) ignore those very fields, they best be omitted in the client-side call site for clarity;
+  - Update operations of such objects likewise ignore those very fields, usually offering a separate field to clearly identify the object(s) requested to be modified.
 
 How to read request/response **example JSON values** rendered in this doc:
   - ´true´ indicates _any_ ´boolean´ value, regardless of the actual real value in a call;
   - ´"someStr"´ indicates _any_ ´string´ value;
-  - signed-integer ´number´s are indicated by a negative-number example indicating the minimum (type-wise, not operation-specific) permissible value, with the maximum being the corresponding positive-number counterpart;
-  - unsigned-integer ´number´s are indicated by a positive-number example indicating the maximum (type-wise, not not operation-specific) permissible value, with the minimum being ´0´;
-  - floating-point ´number´s are indicated by a positive-number example indicating the maximum (type-wise, not not operation-specific) permissible value, with the minimum being the corresponding negative-number counterpart.
-  - date-time values are indicated by RFC3339/ISO8601-formatted ´string´ examples:
-    - in responses, they're always UTC, whereas in requests, any timezone may be indicated;
+  - **signed-integer** ´number´s are indicated by a negative-number example indicating the minimum (type-wise, not operation-specific) permissible value, with the maximum being the corresponding positive-number counterpart;
+  - **unsigned-integer** ´number´s are indicated by a positive-number example indicating the maximum (type-wise, not operation-specific) permissible value, with the minimum being ´0´;
+  - **floating-point** ´number´s are indicated by a positive-number example indicating the maximum (type-wise, not operation-specific) permissible value, with the minimum being the corresponding negative-number counterpart.
+  - **date-time values** are indicated by RFC3339/ISO8601-formatted ´string´ examples:
+    - in responses, they're always in **UTC**, whereas in requests, any timezone may be indicated;
 	- in requests, they may always be ´null´ (excepting any operation-specific known-errors indicating otherwise) but must never be ´""´ or otherwise non-RFC3339/ISO8601-parseable.
 
 About **error responses**:

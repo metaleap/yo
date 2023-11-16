@@ -65,7 +65,6 @@ export async function req<TIn, TOut, TErr extends string>(methodPath: string, pa
     try {
         return JSON.parse(resp_str_raw) as TOut
     } catch (err) {
-        console.warn(resp_str_raw || "bug: empty non-JSON response despite 200 OK")
         throw err
     }
 }
