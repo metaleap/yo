@@ -77,7 +77,7 @@ func ReflSet[T any](dst reflect.Value, to T) {
 	setPtr(dst.UnsafeAddr(), to)
 }
 
-func ReflWalk(rv reflect.Value, path []any, skipArrTraversals bool, skipMapTraversals bool, onValue func(path []any, curVal reflect.Value), dontTraverseBut func(string, reflect.Value) any) {
+func ReflWalk(rv reflect.Value, path []any, skipArrTraversals bool, skipMapTraversals bool, skipUnexportedFields bool, onValue func(path []any, curVal reflect.Value), dontTraverseBut func(string, reflect.Value) any) {
 	rv_kind := rv.Kind()
 	if (rv_kind == reflect.Invalid) || !rv.IsValid() {
 		return
@@ -89,13 +89,13 @@ func ReflWalk(rv reflect.Value, path []any, skipArrTraversals bool, skipMapTrave
 		reflect.Int, reflect.Uint, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		onValue(path, rv)
 	case reflect.Pointer, reflect.Interface:
-		ReflWalk(rv.Elem(), append(path, "*"), skipArrTraversals, skipMapTraversals, onValue, dontTraverseBut)
+		ReflWalk(rv.Elem(), append(path, "*"), skipArrTraversals, skipMapTraversals, skipUnexportedFields, onValue, dontTraverseBut)
 	case reflect.Slice, reflect.Array:
 		if skipArrTraversals {
 			onValue(path, rv)
 		} else {
 			for l, i := rv.Len(), 0; i < l; i++ {
-				ReflWalk(rv.Index(i), append(path, i), skipArrTraversals, skipMapTraversals, onValue, dontTraverseBut)
+				ReflWalk(rv.Index(i), append(path, i), skipArrTraversals, skipMapTraversals, skipUnexportedFields, onValue, dontTraverseBut)
 			}
 		}
 	case reflect.Map:
@@ -103,19 +103,22 @@ func ReflWalk(rv reflect.Value, path []any, skipArrTraversals bool, skipMapTrave
 			onValue(path, rv)
 		} else {
 			for map_range := rv.MapRange(); map_range.Next(); {
-				ReflWalk(map_range.Value(), append(path, map_range.Key().Interface()), skipArrTraversals, skipMapTraversals, onValue, dontTraverseBut)
+				ReflWalk(map_range.Value(), append(path, map_range.Key().Interface()), skipArrTraversals, skipMapTraversals, skipUnexportedFields, onValue, dontTraverseBut)
 			}
 		}
 	case reflect.Struct:
 		for l, i := rv.NumField(), 0; i < l; i++ {
 			field := rv.Type().Field(i)
+			if skipUnexportedFields && !field.IsExported() {
+				continue
+			}
 			if dontTraverseBut != nil {
 				if alt_value := dontTraverseBut(field.Name, rv); alt_value != nil {
 					onValue(append(path, field.Name), reflect.ValueOf(alt_value))
 					continue
 				}
 			}
-			ReflWalk(rv.Field(i), append(path, field.Name), skipArrTraversals, skipMapTraversals, onValue, dontTraverseBut)
+			ReflWalk(rv.Field(i), append(path, field.Name), skipArrTraversals, skipMapTraversals, skipUnexportedFields, onValue, dontTraverseBut)
 		}
 	default:
 		panic("unhandled reflect.Kind at " + str.GoLike(path) + ": " + rv_kind.String())

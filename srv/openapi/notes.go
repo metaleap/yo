@@ -13,16 +13,16 @@ This HTTP API has RPC-ish rather than REST semantics: **all** operations are ´P
 
 **tl;dr:** **usually, API requests will just-work as expected _without_ knowing all those intro notes right below** (which elaborate mostly to-be-expected software-dev-commonplaces) — but in any cases of unexpected results or errors, they'll likely help complete the mental picture.
 ___
-Our backend stack's "opinionated convention-over-configuration" designs yield a few request/response rules that predictably remain **always in effect across all listed operations**:
+Our backend stack's (named "yo") "opinionated convention-over-configuration" designs yield a few request/response rules that predictably remain **always in effect across all listed operations**:
 - Whereas request and response bodies are operation-specific, all operations share the exact-same set of request headers, URL query-string parameters and response headers.
 - The empty request body is principally the JSON ´{}´, but fully-empty or JSON ´null´ request bodies are permissible and interpreted as ´{}´.
   - Response bodies are never empty and are never the JSON ´null´.
 - Request and response bodies are always valid JSON values for _JSON objects_, ie. they're never immediately JSON arrays, ´string´s, ´number´s, or ´boolean´s.
   - They're also never immediately "domain objects" (ie. a ´GetFoo´ op would yield not a ´Foo´ but a ´Result´ (or similar) field with the found ´Foo´; or a ´CreateFoo´ would expect not a ´Foo´ payload but a ´NewFoo´ (or similar) field with the new ´Foo´).
-- All mentioned request-object (and sub-object) fields are **by default optional** and omittable or ´null´able (implying for atomic types semantic equivalence to ´""´ or ´0´ or ´false´ as per _Golang_ type-system semantics),
+- All mentioned request-object/sub-object fields are **by default optional** and omittable or ´null´able (implying for atomic types semantic equivalence to ´""´ or ´0´ or ´false´ as per _Golang_ type-system semantics),
   - **any exceptions** to this optionality-by-default are indicated by the operation's listed known-error responses.
-- All mentioned response-object (and sub-object) fields will always be present in the response-body, indicating their default-ness / missing-ness / empty-ness via ´null´ or ´""´ or ´0´ or ´false´ as per _Golang_ type-system semantics;
-  - empty/unset JSON arrays are never ´null´ but ´[]´; empty JSON dictionary/hash-map objects are ´null´ always.
+- All mentioned response-object/sub-object fields will always be present in every response-body, indicating their default-ness / missing-ness / empty-ness via ´null´ or ´""´ or ´0´ or ´false´ as per _Golang_ type-system semantics;
+  - empty/unset JSON arrays are never ´null´ but ´[]´; empty JSON dictionary/hash-map objects are never ´{}´ but always ´null´.
 - All (non-dictionary/non-hash-map) JSON object field names known to the backend begin with an upper-case character,
   - any operation-specific examples of JSON objects with lower-case-beginning keys/fields indicate a JSON dictionary/hash-map object.
 - The ´Content-Length´ request header is **required for all** operations (with a correct value).

@@ -114,8 +114,21 @@ func handleHttpRequest(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	if result, handler_called := apiHandleRequest(ctx); handler_called { // if not, `apiHandleRequest` did `http.Error()` and nothing more to do here
+		ctx.Timings.Step("sani resp")
+		ReflWalk(reflect.ValueOf(result), nil, true, true, true, func(path []any, it reflect.Value) {
+			if (it.Kind() == reflect.Map) && (0 == it.Len()) {
+				// uphold the convention documented to clients in openapi.json that there are no empty dict/map objects, they're `null`
+				nil_map := reflect.New(it.Type()).Elem()
+				it.Set(nil_map)
+			} else if (it.Kind() == reflect.Slice) && it.IsNil() {
+				// uphold the convention documented to clients in openapi.json that there are no `null` array objects, they're `[]`
+				non_nil_slice := reflect.MakeSlice(it.Type(), 0, 0)
+				it.Set(non_nil_slice)
+			}
+		}, nil)
+
 		ctx.Timings.Step("jsonify resp")
-		resp_data := yojson.From(result, true)
+		resp_data := yojson.From(result, false)
 
 		ctx.Timings.Step("write resp")
 		for k, v := range apisStdRespHeaders {

@@ -138,7 +138,7 @@ use ./`+app_name+`
 		// copy static files other than .ts / .js or sub dirs (all non-script files sit in top level, never in sub dirs)
 		FsDirWalk(src_dir_path, func(fsPath string, fsEntry fs.DirEntry) {
 			path_equiv := fsPath[len(strip):]
-			if (!fsEntry.IsDir()) && (!str.Ends(fsPath, ".js")) && ((!str.Ends(fsPath, ".ts")) || ((!is_app) && (fsEntry.Name() == yosrv.YoSdkTsFileName))) {
+			if (!fsEntry.IsDir()) && (!str.Ends(fsPath, ".js")) && (!str.Ends(fsPath, ".ts")) {
 				dst_file_path := filepath.Join(dst_dir_path, app_name, path_equiv)
 				FsDirEnsure(filepath.Dir(dst_file_path))
 				if !str.Ends(fsPath, ".css") {
@@ -148,6 +148,8 @@ use ./`+app_name+`
 				}
 			}
 		})
+		// put the generated, un-minified `yo-sdk.ts` into the deployable at `/__yostatic/yo-sdk.ts` for importers' reference or imports
+		FsCopy(filepath.Join(yosrv.StaticFilesDirName_Yo, yosrv.YoSdkTsFileName), filepath.Join(dst_dir_path, app_name, yosrv.StaticFilesDirName_Yo, yosrv.YoSdkTsFileName))
 		// bundle+minify .js files
 		esbuild_options := esbuild.BuildOptions{
 			Color:         esbuild.ColorNever,

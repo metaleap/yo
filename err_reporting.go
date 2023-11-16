@@ -110,7 +110,7 @@ var errJobTypeId = yojobs.Register[errJob, None, errJobResults, None, None](func
 func init() {
 	var dummy ErrEntry
 	mail_tmpl_body := "App: {App}\r\n\r\n"
-	ReflWalk(reflect.ValueOf(dummy), nil, true, true, func(path []any, curVal reflect.Value) {
+	ReflWalk(reflect.ValueOf(dummy), nil, true, true, true, func(path []any, curVal reflect.Value) {
 		field_name := str.Fmt("%s", path[0])
 		mail_tmpl_body += field_name + ": {" + field_name + "}\r\n\r\n"
 	}, errJobReflWalkDontTraverseBut)
@@ -143,7 +143,7 @@ func (errJob) JobResults(ctx *Ctx) (func(func() *Ctx, *yojobs.JobTask, *bool), f
 		var err_ids_to_delete sl.Of[yodb.I64]
 		for _, err_entry := range errs_to_report {
 			tmpl_args := yodb.JsonMap[string]{"App": AppPkgPath}
-			ReflWalk(reflect.ValueOf(*err_entry), nil, true, true, func(path []any, curVal reflect.Value) {
+			ReflWalk(reflect.ValueOf(*err_entry), nil, true, true, true, func(path []any, curVal reflect.Value) {
 				field_name := str.Fmt("%s", path[0])
 				tmpl_args[field_name] = str.FmtV(curVal.Interface())
 			}, errJobReflWalkDontTraverseBut)

@@ -316,7 +316,7 @@ func apiHandleRequest(ctx *Ctx) (result any, handlerCalled bool) {
 	}
 
 	ctx.Timings.Step("sani payload")
-	ReflWalk(reflect.ValueOf(payload), nil, true, true, func(path []any, it reflect.Value) {
+	ReflWalk(reflect.ValueOf(payload), nil, true, true, true, func(path []any, it reflect.Value) {
 		if it.Kind() == reflect.String {
 			name, _ := path[len(path)-1].(string)
 			if name = str.Lo(name); str.Has(name, "password") {
