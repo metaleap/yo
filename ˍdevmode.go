@@ -107,10 +107,10 @@ use ./`+app_name+`
 
 	// 4. copy .go and .env files
 	for src_dir_path, is_app := range map[string]bool{
-		".":     true,
-		"../yo": false,
+		".":             true,
+		yosrv.YoDirPath: false,
 	} {
-		strip := If(is_app, "", "../yo/")
+		strip := If(is_app, "", yosrv.YoDirPath)
 		FsDirWalk(src_dir_path, func(fsPath string, fsEntry fs.DirEntry) {
 			if str.Ends(fsPath, ".go") || str.Ends(fsPath, "go.mod") {
 				path_equiv := fsPath[len(strip):]
@@ -131,14 +131,14 @@ use ./`+app_name+`
 
 	// 5. ensure static files
 	for src_dir_path, is_app := range map[string]bool{
-		"../yo/__yostatic": false,
-		"__static":         true,
+		yosrv.YoStaticDirPath:        false,
+		yosrv.StaticFilesDirName_App: true,
 	} {
-		strip := If(is_app, "", "../yo/")
+		strip := If(is_app, "", yosrv.YoDirPath)
 		// copy static files other than .ts / .js or sub dirs (all non-script files sit in top level, never in sub dirs)
 		FsDirWalk(src_dir_path, func(fsPath string, fsEntry fs.DirEntry) {
 			path_equiv := fsPath[len(strip):]
-			if (!fsEntry.IsDir()) && (!str.Ends(fsPath, ".js")) && !str.Ends(fsPath, ".ts") {
+			if (!fsEntry.IsDir()) && (!str.Ends(fsPath, ".js")) && ((!str.Ends(fsPath, ".ts")) || ((!is_app) && (fsEntry.Name() == yosrv.YoSdkTsFileName))) {
 				dst_file_path := filepath.Join(dst_dir_path, app_name, path_equiv)
 				FsDirEnsure(filepath.Dir(dst_file_path))
 				if !str.Ends(fsPath, ".css") {
@@ -159,14 +159,14 @@ use ./`+app_name+`
 			Format:        esbuild.FormatESModule,
 
 			EntryPoints: If(is_app,
-				[]string{"__static/" + app_name + ".js"},
-				[]string{"__yostatic/yo.js", "__yostatic/yo-sdk.js"}),
+				[]string{yosrv.StaticFilesDirName_App + "/" + app_name + ".js"},
+				[]string{yosrv.StaticFilesDirName_Yo + "/yo.js", yosrv.StaticFilesDirName_Yo + "/" + yosrv.YoSdkJsFileName}),
 			Bundle:            is_app,
 			MinifyWhitespace:  is_app,
 			MinifyIdentifiers: is_app,
 			MinifySyntax:      is_app,
 			TreeShaking:       If(is_app, esbuild.TreeShakingTrue, esbuild.TreeShakingFalse),
-			Outdir:            filepath.Join(dst_dir_path, app_name, If(is_app, "__static", "__yostatic")),
+			Outdir:            filepath.Join(dst_dir_path, app_name, If(is_app, yosrv.StaticFilesDirName_App, yosrv.StaticFilesDirName_Yo)),
 			Write:             true,
 		}
 		result := esbuild.Build(esbuild_options)
