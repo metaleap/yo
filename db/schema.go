@@ -28,7 +28,7 @@ func GetTable(ctx *Ctx, tableName string) []*TableColumn {
 
 	args := dbArgs{}
 	stmt := new(sqlStmt).selCols(desc, nil, true).
-		where(desc, false, q.C("table_name").Equal(tableName), args,
+		fromAndJoinAndWhereAndOrderBy(desc, false, q.C("table_name").Equal(tableName), args,
 			q.C("table_name").Asc(), q.C("ordinal_position").Asc())
 	return doSelect[TableColumn](ctx, stmt, args, 0)
 }

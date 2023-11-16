@@ -254,7 +254,7 @@ func (me *sqlStmt) limit(max int) *sqlStmt {
 	return me
 }
 
-func (me *sqlStmt) where(desc *structDesc, isMut bool, where q.Query, args pgx.NamedArgs, orderBy ...q.OrderBy) *sqlStmt {
+func (me *sqlStmt) fromAndJoinAndWhereAndOrderBy(desc *structDesc, isMut bool, where q.Query, args pgx.NamedArgs, orderBy ...q.OrderBy) *sqlStmt {
 	joins := map[q.F]Pair[string, *structDesc]{}
 	var f2c func(*structDesc, q.F, bool) q.C
 	f2c = func(d *structDesc, fieldName q.F, noTableName bool) q.C {
@@ -272,7 +272,7 @@ func (me *sqlStmt) where(desc *structDesc, isMut bool, where q.Query, args pgx.N
 	}
 	// add JOINs if any
 	var dotteds map[q.F][]string
-	if where, _ := where.(interface{ AllDottedFs() map[q.F][]string }); where != nil {
+	if where != nil {
 		dotteds = where.AllDottedFs()
 	}
 	var idx_join int

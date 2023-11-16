@@ -181,6 +181,7 @@ type Query interface {
 	Sql(*str.Buf, func(F) C, pgx.NamedArgs)
 	String(func(F) C, pgx.NamedArgs) string
 	Eval(any, func(C) F) Query
+	AllDottedFs() map[F][]string
 }
 
 func Equal(lhs any, rhs any) Query {
@@ -366,6 +367,8 @@ func (me *query) Sql(buf *str.Buf, fld2col func(F) C, args pgx.NamedArgs) {
 	}
 	buf.WriteByte('(')
 	switch me.op {
+	case opDot:
+		panic("opDot '.' not supported for queries that turn into SQL WHEREs")
 	case OpAnd, OpOr, OpNot:
 		is_not := (me.op == OpNot)
 		if is_not && (len(me.conds) != 1) {
@@ -445,6 +448,10 @@ func (me *query) Eval(obj any, c2f func(C) F) (falseDueTo Query) {
 			(ReflGe(reflect.ValueOf(lhs), reflect.ValueOf(rhs)) && ReflLe(reflect.ValueOf(lhs), reflect.ValueOf(rhs)))
 	}
 	switch me.op {
+	case opDot:
+		new_obj := me.operands[0].Eval(obj, c2f)
+		query := me.operands[1].(V).Value.(Query)
+		return query.Eval(new_obj, c2f)
 	case OpAnd:
 		_ = sl.All(me.conds, func(it Query) bool {
 			maybe_failed := it.Eval(obj, c2f)
@@ -504,4 +511,21 @@ func (me *query) Eval(obj any, c2f func(C) F) (falseDueTo Query) {
 		}
 		panic(me.op)
 	}
+}
+
+func (me *query) AllDottedFs() map[F][]string {
+	ret := map[F][]string{}
+	for _, operand := range me.operands {
+		if fld, is := operand.(field); is {
+			if lhs, rhs, ok := str.Cut(string(fld.F()), "."); ok && (len(lhs) > 0) {
+				ret[F(lhs)] = append(ret[F(lhs)], rhs)
+			}
+		}
+	}
+	for _, sub_query := range me.conds {
+		for k, v := range sub_query.(*query).AllDottedFs() {
+			ret[k] = append(ret[k], v...)
+		}
+	}
+	return ret
 }

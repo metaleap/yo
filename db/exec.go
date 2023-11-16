@@ -45,7 +45,12 @@ func Ids[T any](ctx *Ctx, query q.Query) (ret sl.Of[I64]) {
 
 func Exists[T any](ctx *Ctx, query q.Query) bool {
 	desc, args := desc[T](), dbArgs{}
-	result := doSelect[T](ctx, new(sqlStmt).selCols(desc, &[]q.C{ColID}, true).where(desc, false, query, args).limit(1), args, 1, ColID)
+	result := doSelect[T](ctx,
+		new(sqlStmt).
+			selCols(desc, &[]q.C{ColID}, true).
+			fromAndJoinAndWhereAndOrderBy(desc, false, query, args).
+			limit(1),
+		args, 1, ColID)
 	return (len(result) > 0)
 }
 
@@ -64,7 +69,11 @@ func FindMany[T any](ctx *Ctx, query q.Query, maxResults int, onlyFields []q.F, 
 		cols[i] = desc.colNameOfField(field_name)
 	}
 	return doSelect[T](ctx,
-		new(sqlStmt).selCols(desc, &cols, false).where(desc, false, query, args, orderBy...).limit(maxResults), args, maxResults, cols...)
+		new(sqlStmt).
+			selCols(desc, &cols, false).
+			fromAndJoinAndWhereAndOrderBy(desc, false, query, args, orderBy...).
+			limit(maxResults),
+		args, maxResults, cols...)
 }
 
 func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.OrderBy, onRecord func(rec *T, enough *bool), onlyFields ...q.F) {
@@ -73,7 +82,12 @@ func Each[T any](ctx *Ctx, query q.Query, maxResults int, orderBy []q.OrderBy, o
 	for i, field_name := range onlyFields {
 		cols[i] = desc.colNameOfField(field_name)
 	}
-	doStream[T](ctx, new(sqlStmt).selCols(desc, &cols, false).where(desc, false, query, args, orderBy...).limit(maxResults), onRecord, args, cols...)
+	doStream[T](ctx,
+		new(sqlStmt).
+			selCols(desc, &cols, false).
+			fromAndJoinAndWhereAndOrderBy(desc, false, query, args, orderBy...).
+			limit(maxResults),
+		onRecord, args, cols...)
 }
 
 func Page[T any](ctx *Ctx, query q.Query, limit int, orderBy q.OrderBy, pageTok any) (resultsPage []*T, nextPageTok any) {
@@ -96,7 +110,11 @@ func Count[T any](ctx *Ctx, query q.Query, nonNullColumn q.C, distinct *q.C) int
 	if distinct != nil {
 		col = *distinct
 	}
-	results := doSelect[int64](ctx, new(sqlStmt).selCount(desc, col, distinct != nil).where(desc, false, query, args), args, 1)
+	results := doSelect[int64](ctx,
+		new(sqlStmt).
+			selCount(desc, col, distinct != nil).
+			fromAndJoinAndWhereAndOrderBy(desc, false, query, args),
+		args, 1)
 	return *results[0]
 }
 
@@ -105,7 +123,11 @@ func Delete[T any](ctx *Ctx, where q.Query) int64 {
 		panic(ErrDbDelete_ExpectedQueryForDelete)
 	}
 	desc, args := desc[T](), dbArgs{}
-	result := doExec(ctx, new(sqlStmt).delete(desc.tableName).where(desc, true, where, args), args)
+	result := doExec(ctx,
+		new(sqlStmt).
+			delete(desc.tableName).
+			fromAndJoinAndWhereAndOrderBy(desc, true, where, args),
+		args)
 	num_rows_affected, err := result.RowsAffected()
 	if err != nil {
 		panic(err)
@@ -170,7 +192,11 @@ func Update[T any](ctx *Ctx, upd *T, where q.Query, skipNullsyFields bool, onlyF
 	for i, col_name := range col_names {
 		args[string(col_name)] = col_vals[i]
 	}
-	result := doExec(ctx, new(sqlStmt).update(desc, col_names...).where(desc, true, where.And(query_and), args), args)
+	result := doExec(ctx,
+		new(sqlStmt).
+			update(desc, col_names...).
+			fromAndJoinAndWhereAndOrderBy(desc, true, where.And(query_and), args),
+		args)
 	num_rows_affected, err := result.RowsAffected()
 	if err != nil {
 		panic(err)
