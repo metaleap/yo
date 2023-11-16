@@ -12,7 +12,7 @@ This HTTP API has RPC rather than REST semantics: **all** operations are ´POST�
 **tl;dr:** **usually, API requests will just-work as expected _without_ knowing all those intro notes right below** (which elaborate mostly to-be-expected software-dev-commonplaces) — but in any cases of unexpected results or errors, they'll likely help complete the mental picture.
 ___
 Our backend stack's "opinionated convention-over-configuration" designs yield a few request/response rules that predictably remain **always in effect across all listed operations**:
-- Whereas request and response bodies are operation-specific, all operations share the exact-same set of request headers, URL query-string parameters and response headers (albeit being elaborated here identically and redundantly for each individual operation).
+- Whereas request and response bodies are operation-specific, all operations share the exact-same set of request headers, URL query-string parameters and response headers.
 - The empty request body is principally the JSON ´{}´, but fully-empty or JSON ´null´ request bodies are permissible and interpreted as ´{}´.
   - Response bodies are never empty and are never the JSON ´null´.
 - Request and response bodies are always valid JSON values for _JSON objects_, ie. they're never immediately JSON arrays, ´string´s, ´number´s, or ´boolean´s.

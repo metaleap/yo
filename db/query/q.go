@@ -28,6 +28,7 @@ const (
 	OpNot      Operator = "NOT "
 	opArrAll   Operator = " ALL" // note: must be same strlen as opArrAny
 	opArrAny   Operator = " ANY" // note: must be same strlen as opArrAll
+	opDot      Operator = "."    // non-SQL, runtime-Eval only
 )
 
 var opFlips = map[Operator]Operator{
@@ -262,6 +263,9 @@ func Not(cond Query) Query {
 	}
 	return &query{op: OpNot, conds: []Query{cond}}
 }
+func Dot(obj Operand, q Query) Query {
+	return &query{op: opDot, operands: operandsFrom(obj, q)}
+}
 
 func operandsFrom(it ...any) []Operand {
 	return sl.As(it, operandFrom)
@@ -305,23 +309,6 @@ type query struct {
 	op       Operator
 	conds    []Query
 	operands []Operand
-}
-
-func (me *query) AllDottedFs() map[F][]string {
-	ret := map[F][]string{}
-	for _, operand := range me.operands {
-		if fld, is := operand.(field); is {
-			if lhs, rhs, ok := str.Cut(string(fld.F()), "."); ok && (len(lhs) > 0) {
-				ret[F(lhs)] = append(ret[F(lhs)], rhs)
-			}
-		}
-	}
-	for _, sub_query := range me.conds {
-		for k, v := range sub_query.(*query).AllDottedFs() {
-			ret[k] = append(ret[k], v...)
-		}
-	}
-	return ret
 }
 
 func (me *query) And(conds ...Query) Query { return AllTrue(append([]Query{me}, conds...)...) }
