@@ -29,10 +29,10 @@ var LoginThrottling = struct {
 
 type JwtPayload struct {
 	jwt.StandardClaims
-	UserAuthId yodb.I64
+	UserAccountId yodb.I64
 }
 
-type UserAuth struct {
+type UserAccount struct {
 	Id     yodb.I64
 	DtMade *yodb.DateTime
 	DtMod  *yodb.DateTime
@@ -54,9 +54,9 @@ type UserPwdReq struct {
 }
 
 func init() {
-	yodb.Ensure[UserAuth, UserAuthField]("", nil, false,
-		yodb.Index[UserAuthField]{UserAuthEmailAddr},
-		yodb.Unique[UserAuthField]{UserAuthEmailAddr})
+	yodb.Ensure[UserAccount, UserAccountField]("", nil, false,
+		yodb.Index[UserAccountField]{UserAccountEmailAddr},
+		yodb.Unique[UserAccountField]{UserAccountEmailAddr})
 	yodb.Ensure[UserPwdReq, UserPwdReqField]("", nil, false,
 		yodb.Index[UserPwdReqField]{UserPwdReqEmailAddr},
 		yodb.Unique[UserPwdReqField]{UserPwdReqEmailAddr})
@@ -78,7 +78,7 @@ func UserPregisterOrForgotPassword(ctx *Ctx, emailAddr string) {
 func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I64) {
 	ctx.DbTx(true)
 
-	if IsDevMode && yodb.Exists[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr)) {
+	if IsDevMode && yodb.Exists[UserAccount](ctx, UserAccountEmailAddr.Equal(emailAddr)) {
 		// this branch never taken in prod to help prevent time-based-attacks.
 		// the DB-side unique constraint will still fail the insert attempt (and genericized in prod, see below).
 		panic(Err___yo_authRegister_EmailAddrAlreadyExists)
@@ -93,7 +93,7 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I6
 		}
 	}
 	Try(func() {
-		ret = yodb.I64(yodb.CreateOne[UserAuth](ctx, &UserAuth{
+		ret = yodb.I64(yodb.CreateOne[UserAccount](ctx, &UserAccount{
 			EmailAddr: yodb.Text(emailAddr),
 			pwdHashed: pwd_hashed,
 		}))
@@ -103,44 +103,44 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I6
 	return
 }
 
-func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAuth, *jwt.Token) {
-	user_auth := yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr))
-	if IsDevMode && user_auth == nil { // not in prod, to guard against time-based-attacks. so do the pwd-hash-check even with no-such-user
+func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAccount, *jwt.Token) {
+	account := yodb.FindOne[UserAccount](ctx, UserAccountEmailAddr.Equal(emailAddr))
+	if IsDevMode && account == nil { // not in prod, to guard against time-based-attacks. so do the pwd-hash-check even with no-such-user
 		panic(Err___yo_authLoginOrFinalizePwdReset_AccountDoesNotExist)
 	}
-	if (user_auth != nil) && user_auth.Lockout { // at this point, no more obscuration needed (afaik=)
+	if (account != nil) && account.Lockout { // at this point, no more obscuration needed (afaik=)
 		panic(Err___yo_authLoginOrFinalizePwdReset_PwdResetRequired)
 	}
 
-	user_email_addr, user_auth_id, user_pwd_hashed := "nosuchuser@never.com", yodb.I64(0), []byte(str.AsciiRand(60, 0)) // for the same reason, we do this in-any-case, even though:
-	if user_auth != nil {
-		user_email_addr, user_auth_id, user_pwd_hashed = user_auth.EmailAddr.String(), user_auth.Id, user_auth.pwdHashed
+	user_email_addr, account_id, user_pwd_hashed := "nosuchuser@never.com", yodb.I64(0), []byte(str.AsciiRand(60, 0)) // for the same reason, we do this in-any-case, even though:
+	if account != nil {
+		user_email_addr, account_id, user_pwd_hashed = account.EmailAddr.String(), account.Id, account.pwdHashed
 	}
 
 	err := bcrypt.CompareHashAndPassword(user_pwd_hashed, []byte(passwordPlain))
 	if err != nil {
-		if (user_auth != nil) && (!user_auth.Lockout) && (LoginThrottling.NumFailedAttemptsBeforeLockout > 0) && (LoginThrottling.WithinTimePeriod > 0) {
-			user_auth.FailedLoginAttempts = append(user_auth.FailedLoginAttempts, yodb.I64(time.Now().UnixNano()))
-			if idx_start := user_auth.FailedLoginAttempts.Len() - LoginThrottling.NumFailedAttemptsBeforeLockout; idx_start >= 0 {
-				last_n_attempts := user_auth.FailedLoginAttempts[idx_start:]
+		if (account != nil) && (!account.Lockout) && (LoginThrottling.NumFailedAttemptsBeforeLockout > 0) && (LoginThrottling.WithinTimePeriod > 0) {
+			account.FailedLoginAttempts = append(account.FailedLoginAttempts, yodb.I64(time.Now().UnixNano()))
+			if idx_start := account.FailedLoginAttempts.Len() - LoginThrottling.NumFailedAttemptsBeforeLockout; idx_start >= 0 {
+				last_n_attempts := account.FailedLoginAttempts[idx_start:]
 				if Duration(sl.As(last_n_attempts, yodb.I64.Self)...) > LoginThrottling.WithinTimePeriod {
-					user_auth.Lockout = true
-					UserPregisterOrForgotPassword(ctx, user_auth.EmailAddr.String()) // (re)trigger pwd-reset-req mail
+					account.Lockout = true
+					UserPregisterOrForgotPassword(ctx, account.EmailAddr.String()) // (re)trigger pwd-reset-req mail
 				}
 			}
-			yodb.Update[UserAuth](ctx, user_auth, nil, false, UserAuthFields(UserAuthFailedLoginAttempts, UserAuthLockout)...)
+			yodb.Update[UserAccount](ctx, account, nil, false, UserAccountFields(UserAccountFailedLoginAttempts, UserAccountLockout)...)
 		}
 		panic(Err___yo_authLoginOrFinalizePwdReset_WrongPassword)
 	}
-	return user_auth, jwt.NewWithClaims(jwt.SigningMethodHS256, &JwtPayload{
-		UserAuthId: user_auth_id,
+	return account, jwt.NewWithClaims(jwt.SigningMethodHS256, &JwtPayload{
+		UserAccountId: account_id,
 		StandardClaims: jwt.StandardClaims{
 			Subject: string(user_email_addr),
 		},
 	})
 }
 
-func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordPlain string, password2Plain string) (*UserAuth, *jwt.Token) {
+func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordPlain string, password2Plain string) (*UserAccount, *jwt.Token) {
 	if password2Plain == "" {
 		return UserLogin(ctx, emailAddr, passwordPlain)
 	}
@@ -169,13 +169,13 @@ func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordP
 		}
 	}
 	ctx.DbTx(true)
-	user_auth := yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr))
-	if user_auth != nil { // existing user: pwd-reset
-		user_auth.pwdHashed, user_auth.FailedLoginAttempts, user_auth.Lockout = pwd_hash, nil, false
-		_ = yodb.Update[UserAuth](ctx, user_auth, nil, true, UserAuthFields(userAuthPwdHashed, UserAuthFailedLoginAttempts, UserAuthLockout)...)
+	account := yodb.FindOne[UserAccount](ctx, UserAccountEmailAddr.Equal(emailAddr))
+	if account != nil { // existing user: pwd-reset
+		account.pwdHashed, account.FailedLoginAttempts, account.Lockout = pwd_hash, nil, false
+		_ = yodb.Update[UserAccount](ctx, account, nil, true, UserAccountFields(userAccountPwdHashed, UserAccountFailedLoginAttempts, UserAccountLockout)...)
 	} else { // new user: register
-		user_auth = &UserAuth{pwdHashed: pwd_hash, EmailAddr: yodb.Text(emailAddr)}
-		user_auth.Id = yodb.CreateOne[UserAuth](ctx, user_auth)
+		account = &UserAccount{pwdHashed: pwd_hash, EmailAddr: yodb.Text(emailAddr)}
+		account.Id = yodb.CreateOne[UserAccount](ctx, account)
 	}
 	pwd_reset_req.tmpPwdHashed = nil
 	if yodb.Update(ctx, pwd_reset_req, nil, false, UserPwdReqFields(userPwdReqTmpPwdHashed)...) < 0 {
@@ -185,7 +185,7 @@ func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordP
 		return UserLogin(ctx, emailAddr, password2Plain)
 	}
 
-	return user_auth, nil
+	return account, nil
 }
 
 func UserVerify(jwtRaw string) *JwtPayload {
@@ -212,13 +212,13 @@ func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, pas
 		}
 	}
 	user_account.pwdHashed, user_account.FailedLoginAttempts, user_account.Lockout = hash, nil, false
-	_ = yodb.Update[UserAuth](ctx, user_account, nil, true, UserAuthFields(userAuthPwdHashed, UserAuthFailedLoginAttempts, UserAuthLockout)...)
+	_ = yodb.Update[UserAccount](ctx, user_account, nil, true, UserAccountFields(userAccountPwdHashed, UserAccountFailedLoginAttempts, UserAccountLockout)...)
 }
 
-func ById(ctx *Ctx, id yodb.I64) *UserAuth {
-	return yodb.ById[UserAuth](ctx, id)
+func ById(ctx *Ctx, id yodb.I64) *UserAccount {
+	return yodb.ById[UserAccount](ctx, id)
 }
 
-func ByEmailAddr(ctx *Ctx, emailAddr string) *UserAuth {
-	return yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(emailAddr))
+func ByEmailAddr(ctx *Ctx, emailAddr string) *UserAccount {
+	return yodb.FindOne[UserAccount](ctx, UserAccountEmailAddr.Equal(emailAddr))
 }

@@ -5,39 +5,41 @@ import q "yo/db/query"
 
 import sl "yo/util/sl"
 
-func UserAuthFields(fields ...UserAuthField) []q.F { return sl.As(fields, UserAuthField.F) }
+func UserAccountFields(fields ...UserAccountField) []q.F { return sl.As(fields, UserAccountField.F) }
 
-type UserAuthField q.F
+type UserAccountField q.F
 
 const (
-	UserAuthId                  UserAuthField = "Id"
-	UserAuthDtMade              UserAuthField = "DtMade"
-	UserAuthDtMod               UserAuthField = "DtMod"
-	UserAuthEmailAddr           UserAuthField = "EmailAddr"
-	userAuthPwdHashed           UserAuthField = "pwdHashed"
-	UserAuthFailedLoginAttempts UserAuthField = "FailedLoginAttempts"
-	UserAuthLockout             UserAuthField = "Lockout"
+	UserAccountId                  UserAccountField = "Id"
+	UserAccountDtMade              UserAccountField = "DtMade"
+	UserAccountDtMod               UserAccountField = "DtMod"
+	UserAccountEmailAddr           UserAccountField = "EmailAddr"
+	userAccountPwdHashed           UserAccountField = "pwdHashed"
+	UserAccountFailedLoginAttempts UserAccountField = "FailedLoginAttempts"
+	UserAccountLockout             UserAccountField = "Lockout"
 )
 
-func (me UserAuthField) ArrLen(a1 ...interface{}) q.Operand { return ((q.F)(me)).ArrLen(a1...) }
-func (me UserAuthField) Asc() q.OrderBy                     { return ((q.F)(me)).Asc() }
-func (me UserAuthField) Desc() q.OrderBy                    { return ((q.F)(me)).Desc() }
-func (me UserAuthField) Equal(a1 interface{}) q.Query       { return ((q.F)(me)).Equal(a1) }
-func (me UserAuthField) Eval(a1 interface{}, a2 func(q.C) q.F) interface{} {
+func (me UserAccountField) ArrLen(a1 ...interface{}) q.Operand { return ((q.F)(me)).ArrLen(a1...) }
+func (me UserAccountField) Asc() q.OrderBy                     { return ((q.F)(me)).Asc() }
+func (me UserAccountField) Desc() q.OrderBy                    { return ((q.F)(me)).Desc() }
+func (me UserAccountField) Equal(a1 interface{}) q.Query       { return ((q.F)(me)).Equal(a1) }
+func (me UserAccountField) Eval(a1 interface{}, a2 func(q.C) q.F) interface{} {
 	return ((q.F)(me)).Eval(a1, a2)
 }
-func (me UserAuthField) F() q.F                                { return ((q.F)(me)).F() }
-func (me UserAuthField) GreaterOrEqual(a1 interface{}) q.Query { return ((q.F)(me)).GreaterOrEqual(a1) }
-func (me UserAuthField) GreaterThan(a1 interface{}) q.Query    { return ((q.F)(me)).GreaterThan(a1) }
-func (me UserAuthField) In(a1 ...interface{}) q.Query          { return ((q.F)(me)).In(a1...) }
-func (me UserAuthField) InArr(a1 interface{}) q.Query          { return ((q.F)(me)).InArr(a1) }
-func (me UserAuthField) LessOrEqual(a1 interface{}) q.Query    { return ((q.F)(me)).LessOrEqual(a1) }
-func (me UserAuthField) LessThan(a1 interface{}) q.Query       { return ((q.F)(me)).LessThan(a1) }
-func (me UserAuthField) Not() q.Query                          { return ((q.F)(me)).Not() }
-func (me UserAuthField) NotEqual(a1 interface{}) q.Query       { return ((q.F)(me)).NotEqual(a1) }
-func (me UserAuthField) NotIn(a1 ...interface{}) q.Query       { return ((q.F)(me)).NotIn(a1...) }
-func (me UserAuthField) NotInArr(a1 interface{}) q.Query       { return ((q.F)(me)).NotInArr(a1) }
-func (me UserAuthField) StrLen(a1 ...interface{}) q.Operand    { return ((q.F)(me)).StrLen(a1...) }
+func (me UserAccountField) F() q.F { return ((q.F)(me)).F() }
+func (me UserAccountField) GreaterOrEqual(a1 interface{}) q.Query {
+	return ((q.F)(me)).GreaterOrEqual(a1)
+}
+func (me UserAccountField) GreaterThan(a1 interface{}) q.Query { return ((q.F)(me)).GreaterThan(a1) }
+func (me UserAccountField) In(a1 ...interface{}) q.Query       { return ((q.F)(me)).In(a1...) }
+func (me UserAccountField) InArr(a1 interface{}) q.Query       { return ((q.F)(me)).InArr(a1) }
+func (me UserAccountField) LessOrEqual(a1 interface{}) q.Query { return ((q.F)(me)).LessOrEqual(a1) }
+func (me UserAccountField) LessThan(a1 interface{}) q.Query    { return ((q.F)(me)).LessThan(a1) }
+func (me UserAccountField) Not() q.Query                       { return ((q.F)(me)).Not() }
+func (me UserAccountField) NotEqual(a1 interface{}) q.Query    { return ((q.F)(me)).NotEqual(a1) }
+func (me UserAccountField) NotIn(a1 ...interface{}) q.Query    { return ((q.F)(me)).NotIn(a1...) }
+func (me UserAccountField) NotInArr(a1 interface{}) q.Query    { return ((q.F)(me)).NotInArr(a1) }
+func (me UserAccountField) StrLen(a1 ...interface{}) q.Operand { return ((q.F)(me)).StrLen(a1...) }
 
 func UserPwdReqFields(fields ...UserPwdReqField) []q.F { return sl.As(fields, UserPwdReqField.F) }
 

@@ -63,7 +63,7 @@ func init() {
 	PreServes = append(PreServes, Middleware{Name: "authCheck", Do: func(ctx *Ctx) {
 		jwt_raw, forced_test_user := ctx.HttpGetCookie(Cfg.YO_AUTH_JWT_COOKIE_NAME), ctx.GetStr(CtxKeyForcedTestUser)
 		if IsDevMode && (forced_test_user != "") {
-			if cur_user_email_addr, cur_user_auth_id := httpUserFromJwtRaw(jwt_raw); (cur_user_auth_id == 0) ||
+			if cur_user_email_addr, cur_account_id := httpUserFromJwtRaw(jwt_raw); (cur_account_id == 0) ||
 				(cur_user_email_addr != forced_test_user) {
 				Do(ApiUserLoginOrFinalizePwdReset, ctx, &ApiAccountPayload{EmailAddr: forced_test_user, PasswordPlain: "foobar"})
 				return
@@ -90,15 +90,15 @@ func ApiUserRegister(this *ApiCtx[ApiAccountPayload, struct {
 	this.Ret.Id = UserRegister(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain)
 }
 
-func ApiUserLoginOrFinalizePwdReset(this *ApiCtx[ApiAccountPayload, UserAuth]) {
+func ApiUserLoginOrFinalizePwdReset(this *ApiCtx[ApiAccountPayload, UserAccount]) {
 	if this.Args.Password2Plain != "" {
 		if user_email_addr, _ := CurrentlyLoggedInUser(this.Ctx); (user_email_addr != "") && (user_email_addr != this.Args.EmailAddr) {
 			panic(ErrUnauthorized)
 		}
 	}
 	httpSetUser(this.Ctx, "", true)
-	user_auth, jwt_token := UserLoginOrFinalizeRegisterOrPwdReset(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.Password2Plain)
-	if this.Ret = user_auth; (user_auth != nil) && (jwt_token != nil) {
+	account, jwt_token := UserLoginOrFinalizeRegisterOrPwdReset(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.Password2Plain)
+	if this.Ret = account; (account != nil) && (jwt_token != nil) {
 		jwt_signed, err := jwt_token.SignedString([]byte(Cfg.YO_AUTH_JWT_SIGN_KEY))
 		if err != nil {
 			panic(Err___yo_authLoginOrFinalizePwdReset_OkButFailedToCreateSignedToken)
@@ -120,23 +120,23 @@ func apiChangePassword(this *ApiCtx[ApiAccountPayload, None]) {
 	UserChangePassword(this.Ctx, this.Args.EmailAddr, this.Args.PasswordPlain, this.Args.Password2Plain)
 }
 
-func httpUserFromJwtRaw(jwtRaw string) (userEmailAddr string, userAuthId yodb.I64) {
+func httpUserFromJwtRaw(jwtRaw string) (userEmailAddr string, UserAccountId yodb.I64) {
 	if jwtRaw != "" {
 		jwt_payload := UserVerify(jwtRaw)
 		if jwt_payload != nil {
-			userEmailAddr, userAuthId = jwt_payload.StandardClaims.Subject, jwt_payload.UserAuthId
+			userEmailAddr, UserAccountId = jwt_payload.StandardClaims.Subject, jwt_payload.UserAccountId
 		}
 	}
 	return
 }
 
 func httpSetUser(ctx *Ctx, jwtRaw string, knownToExist bool) {
-	user_email_addr, user_auth_id := httpUserFromJwtRaw(jwtRaw)
-	if user_email_addr = str.Trim(user_email_addr); (user_auth_id <= 0) || (user_email_addr == "") || ((!knownToExist) && !yodb.Exists[UserAuth](ctx, UserAuthId.Equal(user_auth_id).And(UserAuthEmailAddr.Equal(user_email_addr)))) {
-		user_auth_id, user_email_addr = 0, ""
+	user_email_addr, account_id := httpUserFromJwtRaw(jwtRaw)
+	if user_email_addr = str.Trim(user_email_addr); (account_id <= 0) || (user_email_addr == "") || ((!knownToExist) && !yodb.Exists[UserAccount](ctx, UserAccountId.Equal(account_id).And(UserAccountEmailAddr.Equal(user_email_addr)))) {
+		account_id, user_email_addr = 0, ""
 		jwtRaw = ""
 	}
-	ctx.Set(CtxKeyAccountId, user_auth_id)
+	ctx.Set(CtxKeyAccountId, account_id)
 	ctx.Set(CtxKeyEmailAddr, user_email_addr)
 	ctx.Http.Resp.Header().Set(HttpResponseHeaderName_UserEmailAddr, user_email_addr)
 	ctx.HttpSetCookie(Cfg.YO_AUTH_JWT_COOKIE_NAME, jwtRaw, Cfg.YO_AUTH_JWT_COOKIE_EXPIRY_DAYS)
@@ -150,8 +150,8 @@ func CurrentlyLoggedInUser(ctx *Ctx) (emailAddr string, authID yodb.I64) {
 }
 
 func IsCurrentlyLoggedIn(ctx *Ctx) bool {
-	user_email_addr, user_auth_id := CurrentlyLoggedInUser(ctx)
-	return (user_email_addr != "") && (user_auth_id > 0)
+	user_email_addr, account_id := CurrentlyLoggedInUser(ctx)
+	return (user_email_addr != "") && (account_id > 0)
 }
 
 func IsNotCurrentlyLoggedIn(ctx *Ctx) bool { return !IsCurrentlyLoggedIn(ctx) }

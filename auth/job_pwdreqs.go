@@ -23,7 +23,7 @@ const (
 	MailTmplVarTmpPwd    = "pwd_tmp"
 )
 
-var AppSideTmplPopulate func(ctx *Ctx, reqTime *yodb.DateTime, emailAddr yodb.Text, existingMaybe *UserAuth, tmplArgsToPopulate yodb.JsonMap[string])
+var AppSideTmplPopulate func(ctx *Ctx, reqTime *yodb.DateTime, emailAddr yodb.Text, existingMaybe *UserAccount, tmplArgsToPopulate yodb.JsonMap[string])
 
 var jobTypeId = yojobs.Register[userPwdReqJob, None, None, userPwdReqTaskDetails, userPwdReqTaskResults](func(string) userPwdReqJob {
 	return userPwdReqJob{}
@@ -81,7 +81,7 @@ func (me userPwdReqJob) TaskResults(ctx *Ctx, task yojobs.TaskDetails) yojobs.Ta
 
 	if task_details.ReqIdForNewMailReq > 0 {
 		if req := yodb.FindOne[UserPwdReq](ctx, UserPwdReqId.Equal(task_details.ReqIdForNewMailReq)); req != nil {
-			user := yodb.FindOne[UserAuth](ctx, UserAuthEmailAddr.Equal(req.EmailAddr))
+			user := yodb.FindOne[UserAccount](ctx, UserAccountEmailAddr.Equal(req.EmailAddr))
 			tmpl_id := If(user == nil, MailTmplIdSignUp, MailTmplIdPwdForgot)
 			if yomail.Templates[tmpl_id] == nil {
 				panic("no such mail template: '" + tmpl_id + "'")
