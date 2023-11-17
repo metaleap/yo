@@ -1,6 +1,7 @@
 package yoauth
 
 import (
+	"crypto/sha512"
 	"time"
 
 	. "yo/cfg"
@@ -84,18 +85,10 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I6
 		panic(Err___yo_authRegister_EmailAddrAlreadyExists)
 	}
 
-	pwd_hashed, err := bcrypt.GenerateFromPassword([]byte(passwordPlain), bcrypt.DefaultCost)
-	if (err != nil) || (len(pwd_hashed) == 0) {
-		if err == bcrypt.ErrPasswordTooLong {
-			panic(Err___yo_authRegister_PasswordTooLong)
-		} else {
-			panic(Err___yo_authRegister_PasswordInvalid)
-		}
-	}
 	Try(func() {
 		ret = yodb.I64(yodb.CreateOne[UserAccount](ctx, &UserAccount{
 			EmailAddr: yodb.Text(emailAddr),
-			pwdHashed: pwd_hashed,
+			pwdHashed: pwdHashStorable(passwordPlain),
 		}))
 	}, func(err any) {
 		panic(If[any](EnforceGenericizedErrors, err, errGeneric))
@@ -117,8 +110,7 @@ func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAccount, 
 		user_email_addr, account_id, user_pwd_hashed = account.EmailAddr.String(), account.Id, account.pwdHashed
 	}
 
-	err := bcrypt.CompareHashAndPassword(user_pwd_hashed, []byte(passwordPlain))
-	if err != nil {
+	if !pwdHashVerify(user_pwd_hashed, passwordPlain) {
 		if (account != nil) && (!account.Lockout) && (LoginThrottling.NumFailedAttemptsBeforeLockout > 0) && (LoginThrottling.WithinTimePeriod > 0) {
 			account.FailedLoginAttempts = append(account.FailedLoginAttempts, yodb.I64(time.Now().UnixNano()))
 			if idx_start := account.FailedLoginAttempts.Len() - LoginThrottling.NumFailedAttemptsBeforeLockout; idx_start >= 0 {
@@ -156,18 +148,10 @@ func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordP
 		panic(Err___yo_authLoginOrFinalizePwdReset_PwdReqExpired)
 	}
 	// check temp one-time pwd
-	err := bcrypt.CompareHashAndPassword(pwd_reset_req.tmpPwdHashed, []byte(passwordPlain))
-	if err != nil {
+	if !pwdHashVerify(pwd_reset_req.tmpPwdHashed, passwordPlain) {
 		panic(Err___yo_authLoginOrFinalizePwdReset_WrongPassword)
 	}
-	pwd_hash, err := bcrypt.GenerateFromPassword([]byte(password2Plain), bcrypt.DefaultCost)
-	if (err != nil) || (len(pwd_hash) == 0) {
-		if err == bcrypt.ErrPasswordTooLong {
-			panic(Err___yo_authLoginOrFinalizePwdReset_NewPasswordTooLong)
-		} else {
-			panic(Err___yo_authLoginOrFinalizePwdReset_NewPasswordInvalid)
-		}
-	}
+	pwd_hash := pwdHashStorable(password2Plain)
 	ctx.DbTx(true)
 	account := yodb.FindOne[UserAccount](ctx, UserAccountEmailAddr.Equal(emailAddr))
 	if account != nil { // existing user: pwd-reset
@@ -203,14 +187,7 @@ func UserVerify(jwtRaw string) *JwtPayload {
 func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, passwordNewPlain string) {
 	ctx.DbTx(true)
 	user_account, _ := UserLogin(ctx, emailAddr, passwordOldPlain)
-	hash, err := bcrypt.GenerateFromPassword([]byte(passwordNewPlain), bcrypt.DefaultCost)
-	if (err != nil) || (len(hash) == 0) {
-		if err == bcrypt.ErrPasswordTooLong {
-			panic(Err___yo_authLoginOrFinalizePwdReset_NewPasswordTooLong)
-		} else {
-			panic(Err___yo_authLoginOrFinalizePwdReset_NewPasswordInvalid)
-		}
-	}
+	hash := pwdHashStorable(passwordNewPlain)
 	user_account.pwdHashed, user_account.FailedLoginAttempts, user_account.Lockout = hash, nil, false
 	_ = yodb.Update[UserAccount](ctx, user_account, nil, true, UserAccountFields(userAccountPwdHashed, UserAccountFailedLoginAttempts, UserAccountLockout)...)
 }
@@ -221,4 +198,41 @@ func ById(ctx *Ctx, id yodb.I64) *UserAccount {
 
 func ByEmailAddr(ctx *Ctx, emailAddr string) *UserAccount {
 	return yodb.FindOne[UserAccount](ctx, UserAccountEmailAddr.Equal(emailAddr))
+}
+
+func pwdHashVerify(pwdHashStored []byte, passwordToCheckPlain string) bool {
+	sha512 := sha512.New()
+	_, err := sha512.Write([]byte(passwordToCheckPlain))
+	if err != nil {
+		panic(err)
+	}
+	return (err == bcrypt.CompareHashAndPassword(pwdHashStored, sha512.Sum(nil)))
+}
+
+func pwdHashStorable(passwordPlain string, salt string) []byte {
+	sha512 := sha512.New()
+	_, err := sha512.Write([]byte(passwordPlain))
+	if err != nil {
+		panic(err)
+	}
+	sha512hash := sha512.Sum(nil)
+	Assert(len(sha512hash) == 64, len(sha512hash))
+	Assert(len(salt) > 0)
+
+	if (len(salt) % 2) == 0 {
+
+	}
+	for len(salt) < 8 {
+		salt += salt
+	}
+	bytes8 := []byte(salt[:8])
+	if (len(salt) % 2) == 1 {
+		bytes8 = []byte(salt[len(salt)-8:])
+	}
+
+	ret, err := bcrypt.GenerateFromPassword(append(sha512hash, bytes8[:]...), bcrypt.DefaultCost)
+	if err != nil {
+		panic(err)
+	}
+	return ret
 }

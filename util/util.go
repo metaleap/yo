@@ -15,12 +15,16 @@ type (
 	}
 )
 
-func Assert(alwaysTrue bool, show func() any) {
+func Assert(alwaysTrue bool, show any) {
 	if IsDevMode {
 		if !alwaysTrue {
 			var err any = "unreachable"
 			if show != nil {
-				err = show()
+				if show_fn, _ := show.(func() any); show_fn != nil {
+					err = show_fn()
+				} else {
+					err = show
+				}
 			}
 			panic(str.FmtV(err))
 		}

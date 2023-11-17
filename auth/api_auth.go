@@ -35,7 +35,7 @@ func init() {
 				Fails{Err: "PasswordTooShort", If: ___yo_authRegisterPasswordPlain.StrLen().LessThan(Cfg.YO_AUTH_PWD_MIN_LEN)},
 				Fails{Err: "PasswordTooLong", If: ___yo_authRegisterPasswordPlain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
 			).
-				CouldFailWith("EmailAddrAlreadyExists", "PasswordInvalid"),
+				CouldFailWith("EmailAddrAlreadyExists"),
 
 			MethodPathLoginOrFinalizePwdReset: api(ApiUserLoginOrFinalizePwdReset,
 				Fails{Err: "EmailRequiredButMissing", If: ___yo_authLoginOrFinalizePwdResetEmailAddr.Equal("")},
@@ -50,7 +50,7 @@ func init() {
 				Fails{Err: "NewPasswordTooLong", If: ___yo_authLoginOrFinalizePwdResetPassword2Plain.StrLen().GreaterThan(Cfg.YO_AUTH_PWD_MAX_LEN)},
 				Fails{Err: "NewPasswordExpectedToDiffer", If: ___yo_authLoginOrFinalizePwdResetPassword2Plain.Equal(___yo_authLoginOrFinalizePwdResetPasswordPlain)},
 			).
-				CouldFailWith(":"+yodb.ErrSetDbUpdate, "PwdReqExpired", "PwdResetRequired", "OkButFailedToCreateSignedToken", "AccountDoesNotExist", "NewPasswordInvalid", ErrUnauthorized),
+				CouldFailWith(":"+yodb.ErrSetDbUpdate, "PwdReqExpired", "PwdResetRequired", "AccountDoesNotExist", ErrUnauthorized),
 
 			MethodPathChangePassword: api(apiChangePassword,
 				Fails{Err: "NewPasswordExpectedToDiffer", If: ___yo_authChangePasswordPassword2Plain.Equal(___yo_authChangePasswordPasswordPlain)},
@@ -101,7 +101,7 @@ func ApiUserLoginOrFinalizePwdReset(this *ApiCtx[ApiAccountPayload, UserAccount]
 	if this.Ret = account; (account != nil) && (jwt_token != nil) {
 		jwt_signed, err := jwt_token.SignedString([]byte(Cfg.YO_AUTH_JWT_SIGN_KEY))
 		if err != nil {
-			panic(Err___yo_authLoginOrFinalizePwdReset_OkButFailedToCreateSignedToken)
+			panic(err)
 		}
 		httpSetUser(this.Ctx, jwt_signed, true)
 	}

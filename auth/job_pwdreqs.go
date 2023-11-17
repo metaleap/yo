@@ -11,8 +11,6 @@ import (
 	. "yo/util"
 	sl "yo/util/sl"
 	"yo/util/str"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -93,7 +91,7 @@ func (me userPwdReqJob) TaskResults(ctx *Ctx, task yojobs.TaskDetails) yojobs.Ta
 			var tmp_one_time_pwd_hashed []byte
 			for len(tmp_one_time_pwd_hashed) == 0 {
 				tmp_one_time_pwd_plain = str.AsciiRand(32, 0)
-				tmp_one_time_pwd_hashed, _ = bcrypt.GenerateFromPassword([]byte(tmp_one_time_pwd_plain), bcrypt.DefaultCost)
+				tmp_one_time_pwd_hashed = pwdHashStorable(tmp_one_time_pwd_plain, req.EmailAddr.String())
 			}
 
 			tmpl_args := yodb.JsonMap[string]{MailTmplVarEmailAddr: string(req.EmailAddr), MailTmplVarName: string(req.EmailAddr)}
