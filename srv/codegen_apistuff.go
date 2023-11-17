@@ -114,13 +114,15 @@ func init() {
 		api_refl := apiReflect{}
 		apiHandleReflReq(&ApiCtx[None, apiReflect]{Ret: &api_refl})
 		codegenGo(&api_refl)
-		_ = codegenTsSdk(&api_refl)
-		_ = codegenOpenApi(&api_refl)
-		yopenapi.Enumerants = func(ty reflect.Type) (ret []string) {
-			if ret = apiReflAllEnums[ty.Name()]; len(ret) == 0 {
-				ret = apiReflAllEnums[ty.String()]
+
+		if len(codegenTsSdk(&api_refl)) > 0 {
+			yopenapi.Enumerants = func(ty reflect.Type) (ret []string) {
+				if ret = apiReflAllEnums[ty.Name()]; len(ret) == 0 {
+					ret = apiReflAllEnums[ty.String()]
+				}
+				return
 			}
-			return
+			_ = codegenOpenApi(&api_refl)
 		}
 	}
 }
