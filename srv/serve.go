@@ -128,7 +128,7 @@ func handleHttpRequest(rw http.ResponseWriter, req *http.Request) {
 		}, nil)
 
 		ctx.Timings.Step("jsonify resp")
-		resp_data := yojson.From(result, false)
+		resp_data := yojson.From(result, (ctx.GetStr(QueryArgJsonIndent) != ""))
 
 		ctx.Timings.Step("write resp")
 		for k, v := range apisStdRespHeaders {

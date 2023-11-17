@@ -18,6 +18,7 @@ import (
 const (
 	QueryArgValidateOnly             = "yoValiOnly"
 	QueryArgNoCtxPrt                 = "yoNoCtxPrt"
+	QueryArgJsonIndent               = "yoJsonIndent"
 	ErrUnauthorized              Err = "Unauthorized"
 	ErrUnacceptableContentLength Err = "UnacceptableContentLength"
 	ErrUnacceptableContentType   Err = "UnacceptableContentType"

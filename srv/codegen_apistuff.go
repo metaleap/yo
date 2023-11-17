@@ -231,6 +231,7 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 	openapi.Components.Params = map[string]yopenapi.Param{
 		QueryArgForceFail:    {Name: QueryArgForceFail, In: "query", Descr: "optional: if not missing or empty, enforces an early error response (prior to any request parsing or handling) with the specified HTTP status code or 500 (eg. for client-side unit-test cases of error-handling)", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: ""}}},
 		QueryArgValidateOnly: {Name: QueryArgValidateOnly, In: "query", Descr: "optional: if not missing or empty, enforces request-validation-only, with no further actual work performed to produce results and/or effects", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: ""}}},
+		QueryArgJsonIndent:   {Name: QueryArgJsonIndent, In: "query", Descr: "optional: if not missing or empty, enforces a more-readable JSON-response with 2-space indentation level", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: ""}}},
 	}
 	openapi.Components.Headers = map[string]yopenapi.Header{
 		yoctx.HttpResponseHeaderName_UserEmailAddr: {Descr: "empty if not authenticated, else current `User`'s `Account`-identifying `EmailAddr`", Content: map[string]yopenapi.Media{yoctx.MimeTypePlainText: {Example: "user123@foo.bar"}}},
@@ -265,7 +266,7 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 		dummy_arg, dummy_ret := schema_arg.Examples[0], schema_ret.Examples[0]
 		path := yopenapi.Path{Post: yopenapi.Op{
 			Id:     api_method.methodNameUp0(),
-			Params: []yopenapi.CanHaveRef{{Ref: yopenapi.RefParam(QueryArgForceFail)}, {Ref: yopenapi.RefParam(QueryArgValidateOnly)}},
+			Params: []yopenapi.CanHaveRef{{Ref: yopenapi.RefParam(QueryArgForceFail)}, {Ref: yopenapi.RefParam(QueryArgValidateOnly)}, {Ref: yopenapi.RefParam(QueryArgJsonIndent)}},
 			ReqBody: yopenapi.ReqBody{
 				Required: true,
 				Descr:    "`" + method.In + "`",
