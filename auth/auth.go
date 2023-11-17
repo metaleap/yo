@@ -2,6 +2,7 @@ package yoauth
 
 import (
 	"crypto/sha512"
+	"sort"
 	"time"
 
 	. "yo/cfg"
@@ -88,7 +89,7 @@ func UserRegister(ctx *Ctx, emailAddr string, passwordPlain string) (ret yodb.I6
 	Try(func() {
 		ret = yodb.I64(yodb.CreateOne[UserAccount](ctx, &UserAccount{
 			EmailAddr: yodb.Text(emailAddr),
-			pwdHashed: pwdHashStorable(passwordPlain),
+			pwdHashed: pwdHashStorable(passwordPlain, emailAddr),
 		}))
 	}, func(err any) {
 		panic(If[any](EnforceGenericizedErrors, err, errGeneric))
@@ -110,7 +111,7 @@ func UserLogin(ctx *Ctx, emailAddr string, passwordPlain string) (*UserAccount, 
 		user_email_addr, account_id, user_pwd_hashed = account.EmailAddr.String(), account.Id, account.pwdHashed
 	}
 
-	if !pwdHashVerify(user_pwd_hashed, passwordPlain) {
+	if !pwdHashVerify(user_pwd_hashed, passwordPlain, user_email_addr) {
 		if (account != nil) && (!account.Lockout) && (LoginThrottling.NumFailedAttemptsBeforeLockout > 0) && (LoginThrottling.WithinTimePeriod > 0) {
 			account.FailedLoginAttempts = append(account.FailedLoginAttempts, yodb.I64(time.Now().UnixNano()))
 			if idx_start := account.FailedLoginAttempts.Len() - LoginThrottling.NumFailedAttemptsBeforeLockout; idx_start >= 0 {
@@ -148,10 +149,10 @@ func UserLoginOrFinalizeRegisterOrPwdReset(ctx *Ctx, emailAddr string, passwordP
 		panic(Err___yo_authLoginOrFinalizePwdReset_PwdReqExpired)
 	}
 	// check temp one-time pwd
-	if !pwdHashVerify(pwd_reset_req.tmpPwdHashed, passwordPlain) {
+	if !pwdHashVerify(pwd_reset_req.tmpPwdHashed, passwordPlain, emailAddr) {
 		panic(Err___yo_authLoginOrFinalizePwdReset_WrongPassword)
 	}
-	pwd_hash := pwdHashStorable(password2Plain)
+	pwd_hash := pwdHashStorable(password2Plain, emailAddr)
 	ctx.DbTx(true)
 	account := yodb.FindOne[UserAccount](ctx, UserAccountEmailAddr.Equal(emailAddr))
 	if account != nil { // existing user: pwd-reset
@@ -187,7 +188,7 @@ func UserVerify(jwtRaw string) *JwtPayload {
 func UserChangePassword(ctx *Ctx, emailAddr string, passwordOldPlain string, passwordNewPlain string) {
 	ctx.DbTx(true)
 	user_account, _ := UserLogin(ctx, emailAddr, passwordOldPlain)
-	hash := pwdHashStorable(passwordNewPlain)
+	hash := pwdHashStorable(passwordNewPlain, emailAddr)
 	user_account.pwdHashed, user_account.FailedLoginAttempts, user_account.Lockout = hash, nil, false
 	_ = yodb.Update[UserAccount](ctx, user_account, nil, true, UserAccountFields(userAccountPwdHashed, UserAccountFailedLoginAttempts, UserAccountLockout)...)
 }
@@ -200,16 +201,11 @@ func ByEmailAddr(ctx *Ctx, emailAddr string) *UserAccount {
 	return yodb.FindOne[UserAccount](ctx, UserAccountEmailAddr.Equal(emailAddr))
 }
 
-func pwdHashVerify(pwdHashStored []byte, passwordToCheckPlain string) bool {
-	sha512 := sha512.New()
-	_, err := sha512.Write([]byte(passwordToCheckPlain))
-	if err != nil {
-		panic(err)
-	}
-	return (err == bcrypt.CompareHashAndPassword(pwdHashStored, sha512.Sum(nil)))
+func pwdHashVerify(pwdHashStored []byte, passwordToCheckPlain string, salt string) bool {
+	return (nil == bcrypt.CompareHashAndPassword(pwdHashStored, pwdPlainToBytes(passwordToCheckPlain, salt)))
 }
 
-func pwdHashStorable(passwordPlain string, salt string) []byte {
+func pwdPlainToBytes(passwordPlain string, salt string) []byte {
 	sha512 := sha512.New()
 	_, err := sha512.Write([]byte(passwordPlain))
 	if err != nil {
@@ -217,20 +213,24 @@ func pwdHashStorable(passwordPlain string, salt string) []byte {
 	}
 	sha512hash := sha512.Sum(nil)
 	Assert(len(sha512hash) == 64, len(sha512hash))
-	Assert(len(salt) > 0)
 
-	if (len(salt) % 2) == 0 {
-
+	Assert(len(salt) > 0, nil)
+	bytes_salt := []byte(If((len(salt)%2) == 1, str.Lo, str.Up)(salt))
+	for len(bytes_salt) < 8 {
+		bytes_salt = append(bytes_salt, bytes_salt...)
 	}
-	for len(salt) < 8 {
-		salt += salt
-	}
-	bytes8 := []byte(salt[:8])
+	sort.Slice(bytes_salt, func(i int, j int) bool {
+		return (bytes_salt[i] < bytes_salt[j]) == ((len(salt) % 2) == 0)
+	})
+	bytes8 := bytes_salt[:8]
 	if (len(salt) % 2) == 1 {
-		bytes8 = []byte(salt[len(salt)-8:])
+		bytes8 = bytes_salt[len(salt)-8:]
 	}
+	return append(sha512hash, bytes8[:]...)
+}
 
-	ret, err := bcrypt.GenerateFromPassword(append(sha512hash, bytes8[:]...), bcrypt.DefaultCost)
+func pwdHashStorable(passwordPlain string, salt string) []byte {
+	ret, err := bcrypt.GenerateFromPassword(pwdPlainToBytes(passwordPlain, salt), bcrypt.DefaultCost)
 	if err != nil {
 		panic(err)
 	}
