@@ -50,7 +50,7 @@ func (me *apiReflMethod) ident() string    { return ToIdent(me.Path) }
 func (me *apiReflMethod) identUp0() string { return str.Up0(me.ident()) }
 
 func apiHandleReflReq(this *ApiCtx[None, apiReflect]) {
-	// is_at_codegen_time := IsDevMode && (this.Ctx == nil) && (this.Args == nil)
+	is_at_codegen_time := IsDevMode && (this.Ctx == nil) && (this.Args == nil)
 	this.Ret.Types, this.Ret.Enums, this.Ret.KnownErrs, this.Ret.allInputTypes = map[string]str.Dict{}, map[string][]string{}, map[string]map[Err]int{}, map[string]bool{}
 	for _, method_path := range sl.Sorted(kv.Keys(api)) {
 		if !str.IsPrtAscii(method_path) {
@@ -64,7 +64,7 @@ func apiHandleReflReq(this *ApiCtx[None, apiReflect]) {
 			panic(method_path + ": invalid " + If(no_in, "In", "Out"))
 		}
 		this.Ret.Methods = append(this.Ret.Methods, method)
-		this.Ret.KnownErrs[method.Path] = apiReflErrs(api[method_path], method)
+		this.Ret.KnownErrs[method.Path] = apiReflErrs(api[method_path], method, is_at_codegen_time)
 	}
 	slices.SortFunc(this.Ret.Methods, func(a apiReflMethod, b apiReflMethod) int {
 		if str.Begins(a.Path, "__") != str.Begins(b.Path, "__") { // bring those `__/` internal APIs to the end of the this.Ret.Methods
@@ -85,9 +85,9 @@ func apiHandleReflReq(this *ApiCtx[None, apiReflect]) {
 	}
 }
 
-func apiReflErrs(method ApiMethod, methodRefl apiReflMethod) (ret map[Err]int) {
+func apiReflErrs(method ApiMethod, methodRefl apiReflMethod, isForCodegenGo bool) (ret map[Err]int) {
 	ret = map[Err]int{}
-	for _, err := range method.KnownErrs() {
+	for _, err := range method.KnownErrs(isForCodegenGo) {
 		ret[err] = err.HttpStatusCodeOr(500)
 	}
 	return

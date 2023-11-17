@@ -297,7 +297,7 @@ func codegenOpenApi(apiRefl *apiReflect) (didFsWrites []string) {
 				"type_ident_hint": type_ident_hint,
 			})
 		}
-		for http_status_code, errs := range sl.Grouped(api_method.KnownErrs(), func(it Err) string { return str.FromInt(it.HttpStatusCodeOr(500)) }) {
+		for http_status_code, errs := range sl.Grouped(api_method.KnownErrs(false), func(it Err) string { return str.FromInt(it.HttpStatusCodeOr(500)) }) {
 			str_errs := sl.As(errs, Err.String)
 			path.Post.Responses[http_status_code] = yopenapi.Resp{
 				Descr:   "Possible `" + yoctx.MimeTypePlainText + "` responses:\n- `" + str.Join(str_errs, "`\n- `") + "`",

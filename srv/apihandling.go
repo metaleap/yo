@@ -66,7 +66,7 @@ type ApiMethod interface {
 	isMultipartForm() bool
 	IsMultipartForm() ApiMethod
 	From(ApiPkgInfo) ApiMethod
-	KnownErrs() []Err
+	KnownErrs(isForCodegenGo bool) []Err
 	Checks(...Fails) ApiMethod
 	CouldFailWith(...Err) ApiMethod
 	FailIf(func(*Ctx) bool, Err) ApiMethod
@@ -172,19 +172,19 @@ func (me *apiMethod[TIn, TOut]) methodNameUp0() string {
 	return str.Up0(ToIdent(me.methodPath(true)))
 }
 
-func (me *apiMethod[TIn, TOut]) KnownErrs() []Err {
+func (me *apiMethod[TIn, TOut]) KnownErrs(isForCodegenGo bool) []Err {
 	method_name := me.methodNameUp0()
 	err_name_prefix := Err(str.Up0(method_name)) + "_"
 	ret := append(sl.As(me.errsOwn, func(it Err) Err { return If(sl.Has(ErrsNoPrefix, it), it, err_name_prefix+it) }),
 		KnownErrSets[""]...)
 	for _, err_dep := range me.errsDeps {
 		if method := api[err_dep]; method != nil {
-			ret = append(ret, api[err_dep].KnownErrs()...)
+			ret = append(ret, api[err_dep].KnownErrs(isForCodegenGo)...)
 		} else {
 			ret = append(ret, sl.As(KnownErrSets[err_dep], func(it Err) Err { return Err(err_dep+"_") + it })...)
 		}
 	}
-	if len(ErrReplacements) > 0 {
+	if (len(ErrReplacements) > 0) && !isForCodegenGo {
 		for replace_with, replace_those := range ErrReplacements {
 			for i := 0; i < len(ret); i++ {
 				if sl.Has(replace_those, ret[i]) {

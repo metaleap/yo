@@ -35,7 +35,7 @@ var (
 )
 
 type apiMethod interface {
-	KnownErrs() []Err
+	KnownErrs(bool) []Err
 	PkgName() string
 }
 
@@ -169,7 +169,7 @@ func (me *Ctx) OnDone(alsoDo func()) (fail any) {
 		if code := 500; fail != nil {
 			if err, is_app_err := fail.(Err); is_app_err {
 				if IsDevMode && me.Http.ApiMethod != nil {
-					if known_errs := me.Http.ApiMethod.KnownErrs(); (len(known_errs) > 0) && (err != ErrMustBeAdmin) && !sl.Has(known_errs, err) {
+					if known_errs := me.Http.ApiMethod.KnownErrs(false); (len(known_errs) > 0) && (err != ErrMustBeAdmin) && !sl.Has(known_errs, err) {
 						os.Stderr.WriteString("\n\nunexpected/undocumented Err thrown: " + string(err) + " not found in " + str.GoLike(known_errs) + ", add it to " + str.GoLike(me.Http.ApiMethod) + "\n\n")
 						os.Stderr.Sync()
 						os.Exit(1)
