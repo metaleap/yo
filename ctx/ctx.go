@@ -251,7 +251,7 @@ func (me *Ctx) DbTx(serious bool) {
 		return
 	}
 	var err error
-	if me.Db.Tx, err = DB.BeginTx(me, &sql.TxOptions{Isolation: sql.LevelRepeatableRead}); err != nil {
+	if me.Db.Tx, err = DB.BeginTx(me, &sql.TxOptions{Isolation: If(serious, sql.LevelSerializable, sql.LevelRepeatableRead)}); err != nil {
 		panic(err)
 	}
 }
