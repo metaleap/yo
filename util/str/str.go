@@ -36,6 +36,7 @@ var (
 	ToInt    = strconv.Atoi
 	ToI64    = strconv.ParseInt
 	ToU64    = strconv.ParseUint
+	ToF      = strconv.ParseFloat
 	Fmt      = fmt.Sprintf
 	Q        = strconv.Quote
 	FromQ    = strconv.Unquote
