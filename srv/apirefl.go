@@ -85,7 +85,7 @@ func apiHandleReflReq(this *ApiCtx[None, apiReflect]) {
 	}
 }
 
-func apiReflErrs(method ApiMethod, methodRefl apiReflMethod, isForCodegenGo bool) (ret map[Err]int) {
+func apiReflErrs(method ApiMethod, _ apiReflMethod, isForCodegenGo bool) (ret map[Err]int) {
 	ret = map[Err]int{}
 	for _, err := range method.KnownErrs(isForCodegenGo) {
 		ret[err] = err.HttpStatusCodeOr(500)
