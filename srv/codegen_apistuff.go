@@ -47,6 +47,7 @@ var (
 
 func init() {
 	detectEnumsAndMaybeCodegen = func() {
+
 		yolog.Println("codegen (api stuff)")
 
 		{ // initial dir-walk & enums-detection

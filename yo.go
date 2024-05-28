@@ -70,23 +70,32 @@ func Init(staticFileDirYo fs.FS, staticFileDirApp fs.FS) (listenAndServe func())
 	}
 
 	yolog.PrintLnLn("yo.Init done")
-	go runBrowser()
+	if IsDevMode && os.Getenv("NO_FE") == "" {
+		go runFrontend()
+	}
 	return
 }
 
-func runBrowser() {
-	if IsDevMode && (os.Getenv("NO_WB") == "") {
+func runFrontend() {
+	var cmd *exec.Cmd
+
+	if dir_client_app := "guis/wails"; FsIsDir(dir_client_app) {
+		cmd = exec.Command("wails", "dev")
+		cmd.Dir = dir_client_app
+	} else {
 		port := str.FromInt(Cfg.YO_API_HTTP_PORT)
-		cmd := exec.Command("wbd",
+		cmd = exec.Command("wbd",
 			// "about:"+port,
 			"http://localhost:"+port+"?"+str.FromI64(time.Now().UnixNano(), 36),
 			// "http://localhost:"+port+"/__yostatic/yo.html?"+str.FromI64(time.Now().UnixNano(), 36),
 		)
-		if err := cmd.Start(); err != nil {
-			panic(err)
-		}
-		if err := cmd.Wait(); err != nil {
-			panic(err)
-		}
 	}
+
+	if err := cmd.Start(); err != nil {
+		panic(err)
+	}
+	if err := cmd.Wait(); err != nil {
+		panic(err)
+	}
+	os.Exit(0)
 }

@@ -44,6 +44,17 @@ func init() {
 				}
 			}
 		})
+
+		// if desktop Wails app included, copy relevant __static asset files
+		if dst_dir := "guis/wails/frontend/src"; FsIsDir(dst_dir) && FsIsDir(yosrv.StaticFilesDirName_App) {
+			FsDirWalk(yosrv.StaticFilesDirName_App, func(fsPath string, fsEntry fs.DirEntry) {
+				dst_file := filepath.Join(dst_dir, filepath.Base(fsPath))
+				if (!(fsEntry.IsDir() || str.Ends(fsPath, ".ts") || str.Ends(fsPath, ".json"))) &&
+					FsIsNewerThan(fsPath, dst_file) {
+					FsCopy(fsPath, dst_file)
+				}
+			})
+		}
 	}
 }
 
