@@ -36,7 +36,7 @@ func init() {
 					println("rm " + fsPath)
 					FsDelFile(fsPath)
 				}
-			case str.Ends(fsPath, ".ts") && !str.Ends(fsPath, ".d.ts"):
+			case str.Ends(fsPath, ".ts") && !(str.Ends(fsPath, ".d.ts") || str.Ends(fsPath, ".config.ts")):
 				js_file_path := FsPathSwapExt(fsPath, ".ts", ".js")
 				if FsIsNewerThan(fsPath, js_file_path) {
 					println("ts2js " + fsPath)

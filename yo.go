@@ -78,8 +78,9 @@ func Init(staticFileDirYo fs.FS, staticFileDirApp fs.FS) (listenAndServe func())
 
 func runFrontend() {
 	var cmd *exec.Cmd
+	const prefer_client_app = false
 
-	if dir_client_app := "guis/wails"; FsIsDir(dir_client_app) {
+	if dir_client_app := "guis/wails"; prefer_client_app && FsIsDir(dir_client_app) {
 		cmd = exec.Command("wails", "dev")
 		cmd.Dir = dir_client_app
 	} else {
